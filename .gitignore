@@ -25,4 +25,7 @@
 /docs/openapi/*
 /internal/ent/migrate/schema/*
 
+/config/keys/*
+/config/keys/dev_jwt_private.pem
+/config/keys/dev_jwt_public.pem
 

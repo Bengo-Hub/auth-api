@@ -14,6 +14,15 @@
       "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
     },
     "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "example": "user@example.com" },
+          "password": { "type": "string", "example": "StrongPassw0rd!" },
+          "tenant_slug": { "type": "string", "example": "bengobox" }
+        },
+        "required": ["email","password","tenant_slug"]
+      },
       "LoginRequest": {
         "type": "object",
         "properties": {
@@ -22,25 +31,28 @@
           "tenant_slug": { "type": "string", "example": "bengobox" }
         },
         "required": ["email","password","tenant_slug"]
+      },
+      "PasswordResetRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "example": "user@example.com" },
+          "tenant_slug": { "type": "string", "example": "bengobox" }
+        },
+        "required": ["email","tenant_slug"]
+      },
+      "PasswordResetConfirm": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string", "example": "reset-token" },
+          "new_password": { "type": "string", "example": "NewStrongPassw0rd!" }
+        },
+        "required": ["token","new_password"]
       }
     }
   },
   "security": [ { "bearerAuth": [] } ],
   "paths": {
-    "/api/v1/auth/register": {
-      "post": {
-        "summary": "Register",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/LoginRequest" }
-            }
-          }
-        },
-        "responses": { "201": { "description": "Created" } }
-      }
-    },
+    "/api/v1/auth/register": { "post": { "summary": "Register", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegisterRequest" } } } }, "responses": { "201": { "description": "Created" } } } },
     "/api/v1/auth/login": {
       "post": {
         "summary": "Login",
@@ -63,23 +75,52 @@
         "responses": { "200": { "description": "OK" } }
       }
     },
+    "/api/v1/auth/password-reset/request": { "post": { "summary": "Request password reset", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PasswordResetRequest" } } } }, "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/password-reset/confirm": { "post": { "summary": "Confirm password reset", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PasswordResetConfirm" } } } }, "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/me": {
       "get": { "summary": "Current user", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } }
     },
+    "/api/v1/auth/logout": { "post": { "summary": "Logout", "security": [ { "bearerAuth": [] } ], "responses": { "204": { "description": "No Content" } } } },
+    "/api/v1/auth/mfa/totp/start": { "post": { "summary": "MFA TOTP start", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/mfa/totp/confirm": { "post": { "summary": "MFA TOTP confirm", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/mfa/backup-codes/regenerate": { "post": { "summary": "MFA backup codes regenerate", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/mfa/backup-codes/consume": { "post": { "summary": "MFA backup codes consume", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/oauth/google/start": { "post": { "summary": "Google OAuth start", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/oauth/google/callback": { "get": { "summary": "Google OAuth callback", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/oauth/github/start": { "post": { "summary": "GitHub OAuth start", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/oauth/github/callback": { "get": { "summary": "GitHub OAuth callback", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/oauth/microsoft/start": { "post": { "summary": "Microsoft OAuth start", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/oauth/microsoft/callback": { "get": { "summary": "Microsoft OAuth callback", "responses": { "200": { "description": "OK" } } } },
     "/api/v1/.well-known/openid-configuration": {
       "get": { "summary": "OIDC discovery", "responses": { "200": { "description": "OK" } } }
     },
     "/api/v1/.well-known/jwks.json": {
       "get": { "summary": "JWKS", "responses": { "200": { "description": "OK" } } }
     },
-    "/api/v1/authorize": {
-      "get": { "summary": "Authorization endpoint", "responses": { "302": { "description": "Redirect with code" } } }
-    },
+    "/api/v1/authorize": { "get": { "summary": "Authorization endpoint (requires auth)", "security": [ { "bearerAuth": [] } ], "responses": { "302": { "description": "Redirect with code" } } } },
     "/api/v1/token": {
       "post": { "summary": "Token endpoint", "responses": { "200": { "description": "OK" } } }
     },
     "/api/v1/userinfo": {
-      "get": { "summary": "Userinfo", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } }
+      "get": { "summary": "Userinfo (requires auth)", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/admin/tenants": {
+      "get": { "summary": "List tenants", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create tenant", "security": [ { "bearerAuth": [] } ], "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/v1/admin/clients": {
+      "get": { "summary": "List clients", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create client", "security": [ { "bearerAuth": [] } ], "responses": { "201": { "description": "Created" } } }
+    },
+    "/api/v1/admin/entitlements": {
+      "get": { "summary": "List entitlements", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Upsert entitlement", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/admin/usage/increment": {
+      "post": { "summary": "Increment usage metric", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/admin/keys/rotate": {
+      "post": { "summary": "Rotate signing keys", "security": [ { "bearerAuth": [] } ], "responses": { "204": { "description": "No Content" } } }
     }
   }
 }
