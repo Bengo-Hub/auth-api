@@ -6,9 +6,11 @@ import (
 
 	"github.com/bengobox/auth-service/internal/config"
 	"github.com/bengobox/auth-service/internal/database"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	_ = godotenv.Load()
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)

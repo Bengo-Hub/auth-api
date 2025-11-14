@@ -34,10 +34,11 @@ Endpoints:
 Claims highlights:
 - `sub` (UUID), `email`, `email_verified`, `tenant_id` (if present), `sid`
 
-### 3) Google OAuth
+### 3) Social OAuth (Google, GitHub, Microsoft)
 
-- Start: `POST /api/v1/auth/oauth/google/start`
-- Callback: `GET /api/v1/auth/oauth/google/callback?code=...&state=...`
+- Google: `POST /api/v1/auth/oauth/google/start` → `GET /api/v1/auth/oauth/google/callback`
+- GitHub: `POST /api/v1/auth/oauth/github/start` → `GET /api/v1/auth/oauth/github/callback`
+- Microsoft: `POST /api/v1/auth/oauth/microsoft/start` → `GET /api/v1/auth/oauth/microsoft/callback`
 
 When enabled, the service links/creates users by provider subject and email, assigns tenant membership, and issues a first‑party token pair.
 

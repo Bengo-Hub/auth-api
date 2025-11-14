@@ -1,0 +1,86 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Auth Service API",
+    "version": "1.0.0",
+    "description": "SSO/OIDC provider for BengoBox platform. Default admin: admin@codevertexitsolutions.com"
+  },
+  "servers": [
+    { "url": "http://localhost:4101" },
+    { "url": "https://auth.codevertexitsolutions.com" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "example": "admin@codevertexitsolutions.com" },
+          "password": { "type": "string", "example": "ChangeMe123!" },
+          "tenant_slug": { "type": "string", "example": "bengobox" }
+        },
+        "required": ["email","password","tenant_slug"]
+      }
+    }
+  },
+  "security": [ { "bearerAuth": [] } ],
+  "paths": {
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Register",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Login",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "summary": "Refresh token",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": {
+            "schema": { "type": "object", "properties": { "refresh_token": { "type": "string", "example": "..." } }, "required": ["refresh_token"] }
+          } }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": { "summary": "Current user", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/.well-known/openid-configuration": {
+      "get": { "summary": "OIDC discovery", "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/.well-known/jwks.json": {
+      "get": { "summary": "JWKS", "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/authorize": {
+      "get": { "summary": "Authorization endpoint", "responses": { "302": { "description": "Redirect with code" } } }
+    },
+    "/api/v1/token": {
+      "post": { "summary": "Token endpoint", "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/v1/userinfo": {
+      "get": { "summary": "Userinfo", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } }
+    }
+  }
+}
+

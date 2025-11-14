@@ -25,6 +25,10 @@ type AuthService interface {
 	GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error)
 	StartGoogleOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
 	CompleteGoogleOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
+	StartGitHubOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
+	CompleteGitHubOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
+	StartMicrosoftOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
+	CompleteMicrosoftOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
 }
 
 // Logout revokes the current session and token.
@@ -185,6 +189,90 @@ func (h *AuthHandler) GoogleOAuthCallback(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
+}
+
+// GitHub OAuth
+func (h *AuthHandler) GitHubOAuthStart(w http.ResponseWriter, r *http.Request) {
+	var req googleOAuthStartRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	authURL, err := h.service.StartGitHubOAuth(r.Context(), auth.OAuthStartInput{
+		TenantSlug:  req.TenantSlug,
+		ClientID:    req.ClientID,
+		Flow:        req.Flow,
+		RedirectURI: req.RedirectURI,
+		IPAddress:   clientIP(r),
+		UserAgent:   userAgent(r),
+	})
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"authorization_url": authURL})
+}
+
+func (h *AuthHandler) GitHubOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	stateParam := r.URL.Query().Get("state")
+	if code == "" || stateParam == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "missing code or state", nil)
+		return
+	}
+	result, err := h.service.CompleteGitHubOAuth(r.Context(), auth.OAuthCallbackInput{
+		Code:      code,
+		State:     stateParam,
+		IPAddress: clientIP(r),
+		UserAgent: userAgent(r),
+	})
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
+}
+
+// Microsoft OAuth
+func (h *AuthHandler) MicrosoftOAuthStart(w http.ResponseWriter, r *http.Request) {
+	var req googleOAuthStartRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	authURL, err := h.service.StartMicrosoftOAuth(r.Context(), auth.OAuthStartInput{
+		TenantSlug:  req.TenantSlug,
+		ClientID:    req.ClientID,
+		Flow:        req.Flow,
+		RedirectURI: req.RedirectURI,
+		IPAddress:   clientIP(r),
+		UserAgent:   userAgent(r),
+	})
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"authorization_url": authURL})
+}
+
+func (h *AuthHandler) MicrosoftOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	stateParam := r.URL.Query().Get("state")
+	if code == "" || stateParam == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "missing code or state", nil)
+		return
+	}
+	result, err := h.service.CompleteMicrosoftOAuth(r.Context(), auth.OAuthCallbackInput{
+		Code:      code,
+		State:     stateParam,
+		IPAddress: clientIP(r),
+		UserAgent: userAgent(r),
+	})
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
 }
 

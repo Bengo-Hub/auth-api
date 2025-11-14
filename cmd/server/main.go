@@ -11,9 +11,11 @@ import (
 	"github.com/bengobox/auth-service/internal/app"
 	"github.com/bengobox/auth-service/internal/config"
 	"github.com/bengobox/auth-service/internal/logger"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	_ = godotenv.Load() // load .env if present
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)

@@ -12,9 +12,11 @@ import (
 	"github.com/bengobox/auth-service/internal/ent/user"
 	"github.com/bengobox/auth-service/internal/password"
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	_ = godotenv.Load()
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)

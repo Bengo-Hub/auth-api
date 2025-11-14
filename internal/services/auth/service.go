@@ -22,7 +22,9 @@ import (
 	"github.com/bengobox/auth-service/internal/ent/useridentity"
 	"github.com/bengobox/auth-service/internal/oauth/state"
 	"github.com/bengobox/auth-service/internal/password"
+	githubprovider "github.com/bengobox/auth-service/internal/providers/github"
 	googleprovider "github.com/bengobox/auth-service/internal/providers/google"
+	microsoftprovider "github.com/bengobox/auth-service/internal/providers/microsoft"
 	"github.com/bengobox/auth-service/internal/token"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -51,8 +53,10 @@ var (
 )
 
 const (
-	oauthStateTTL      = 10 * time.Minute // 10 minutes
-	googleProviderName = "google"
+	oauthStateTTL         = 10 * time.Minute // 10 minutes
+	googleProviderName    = "google"
+	githubProviderName    = "github"
+	microsoftProviderName = "microsoft"
 )
 
 // Service encapsulates core authentication flows.
@@ -65,6 +69,8 @@ type Service struct {
 	logger    *zap.Logger
 	google    *googleprovider.Provider
 	revoker   JTIRevoker
+	github    *githubprovider.Provider
+	microsoft *microsoftprovider.Provider
 }
 
 // Dependencies aggregates constructor inputs.
@@ -77,6 +83,8 @@ type Dependencies struct {
 	Logger    *zap.Logger
 	Google    *googleprovider.Provider
 	Revoker   JTIRevoker
+	GitHub    *githubprovider.Provider
+	Microsoft *microsoftprovider.Provider
 }
 
 // New initialises the auth service.
@@ -90,6 +98,8 @@ func New(deps Dependencies) *Service {
 		logger:    deps.Logger,
 		google:    deps.Google,
 		revoker:   deps.Revoker,
+		github:    deps.GitHub,
+		microsoft: deps.Microsoft,
 	}
 }
 
@@ -457,6 +467,144 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 	return result, nil
 }
 
+// StartGitHubOAuth builds the GitHub authorization URL.
+func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (string, error) {
+	if s.github == nil {
+		return "", ErrProviderNotEnabled
+	}
+	tenantEntity, err := s.lookupTenant(ctx, in.TenantSlug)
+	if err != nil {
+		return "", err
+	}
+	payload := state.Payload{
+		TenantSlug:  tenantEntity.Slug,
+		ClientID:    in.ClientID,
+		Flow:        defaultFlow(in.Flow),
+		RedirectURI: in.RedirectURI,
+		Nonce:       randomNonce(),
+	}
+	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
+	if err != nil {
+		return "", fmt.Errorf("encode oauth state: %w", err)
+	}
+	return s.github.AuthCodeURL(stateToken), nil
+}
+
+// CompleteGitHubOAuth handles GitHub callback.
+func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput) (*AuthResult, error) {
+	if s.github == nil {
+		return nil, ErrProviderNotEnabled
+	}
+	if in.Code == "" || in.State == "" {
+		return nil, ErrOAuthStateInvalid
+	}
+	payload, err := state.Decode(s.cfg.Security.OAuthStateSecret, in.State)
+	if err != nil {
+		return nil, ErrOAuthStateInvalid
+	}
+	tenantEntity, err := s.lookupTenant(ctx, payload.TenantSlug)
+	if err != nil {
+		return nil, err
+	}
+	tokenResp, err := s.github.Exchange(ctx, in.Code)
+	if err != nil {
+		return nil, err
+	}
+	profile, err := s.github.FetchProfile(ctx, tokenResp)
+	if err != nil {
+		return nil, err
+	}
+	if profile.Email == "" {
+		return nil, ErrEmailNotVerified
+	}
+	if !s.isDomainAllowed(profile.Email) {
+		return nil, ErrEmailDomainNotAllowed
+	}
+	userEntity, err := s.resolveUserFromGitHubProfile(ctx, tenantEntity, profile, tokenResp)
+	if err != nil {
+		return nil, err
+	}
+	return s.issueSession(ctx, issueSessionInput{
+		User:      userEntity,
+		Tenant:    tenantEntity,
+		ClientID:  payload.ClientID,
+		IPAddress: in.IPAddress,
+		UserAgent: in.UserAgent,
+		Scopes:    s.cfg.Token.DefaultScopes,
+	})
+}
+
+// StartMicrosoftOAuth builds Microsoft authorization URL.
+func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (string, error) {
+	if s.microsoft == nil {
+		return "", ErrProviderNotEnabled
+	}
+	tenantEntity, err := s.lookupTenant(ctx, in.TenantSlug)
+	if err != nil {
+		return "", err
+	}
+	payload := state.Payload{
+		TenantSlug:  tenantEntity.Slug,
+		ClientID:    in.ClientID,
+		Flow:        defaultFlow(in.Flow),
+		RedirectURI: in.RedirectURI,
+		Nonce:       randomNonce(),
+	}
+	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
+	if err != nil {
+		return "", fmt.Errorf("encode oauth state: %w", err)
+	}
+	return s.microsoft.AuthCodeURL(stateToken), nil
+}
+
+// CompleteMicrosoftOAuth handles Microsoft callback.
+func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackInput) (*AuthResult, error) {
+	if s.microsoft == nil {
+		return nil, ErrProviderNotEnabled
+	}
+	if in.Code == "" || in.State == "" {
+		return nil, ErrOAuthStateInvalid
+	}
+	payload, err := state.Decode(s.cfg.Security.OAuthStateSecret, in.State)
+	if err != nil {
+		return nil, ErrOAuthStateInvalid
+	}
+	tenantEntity, err := s.lookupTenant(ctx, payload.TenantSlug)
+	if err != nil {
+		return nil, err
+	}
+	tokenResp, err := s.microsoft.Exchange(ctx, in.Code)
+	if err != nil {
+		return nil, err
+	}
+	profile, err := s.microsoft.FetchProfile(ctx, tokenResp)
+	if err != nil {
+		return nil, err
+	}
+	email := profile.Mail
+	if email == "" {
+		email = profile.UserPrincipalName
+	}
+	if email == "" {
+		return nil, ErrEmailNotVerified
+	}
+	if !s.isDomainAllowed(email) {
+		return nil, ErrEmailDomainNotAllowed
+	}
+	userEntity, err := s.resolveUserFromMicrosoftProfile(ctx, tenantEntity, profile, tokenResp)
+	if err != nil {
+		return nil, err
+	}
+	return s.issueSession(ctx, issueSessionInput{
+		User:      userEntity,
+		Tenant:    tenantEntity,
+		ClientID:  payload.ClientID,
+		IPAddress: in.IPAddress,
+		UserAgent: in.UserAgent,
+		Scopes:    s.cfg.Token.DefaultScopes,
+	})
+}
+
 // RequestPasswordReset creates a reset token (would be emailed in production).
 func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequestInput) (string, error) {
 	tenantEntity, err := s.lookupTenant(ctx, in.TenantSlug)
@@ -751,6 +899,113 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 	return userEntity, nil
 }
 
+func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity *ent.Tenant, profile *githubprovider.Profile, token *oauth2.Token) (*ent.User, error) {
+	sub := fmt.Sprintf("%d", profile.ID)
+	email := normalizeEmail(profile.Email)
+	if email == "" {
+		return nil, fmt.Errorf("github email not available")
+	}
+	identity, err := s.entClient.UserIdentity.Query().
+		Where(
+			useridentity.ProviderEQ(githubProviderName),
+			useridentity.ProviderSubjectEQ(sub),
+		).
+		WithUser().
+		Only(ctx)
+	if err == nil {
+		userEntity := identity.Edges.User
+		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+			return nil, err
+		}
+		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.Name}, token); err != nil {
+			return nil, err
+		}
+		return userEntity, nil
+	}
+	if err != nil && !ent.IsNotFound(err) {
+		return nil, fmt.Errorf("query user identity: %w", err)
+	}
+	userEntity, err := s.entClient.User.Query().
+		Where(user.EmailEQ(email)).
+		Only(ctx)
+	if err != nil && !ent.IsNotFound(err) {
+		return nil, fmt.Errorf("lookup user: %w", err)
+	}
+	if err != nil && ent.IsNotFound(err) {
+		userEntity, err = s.entClient.User.Create().
+			SetEmail(email).
+			SetStatus("active").
+			SetPrimaryTenantID(tenantEntity.ID.String()).
+			SetProfile(map[string]any{"name": profile.Name}).
+			Save(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("create user: %w", err)
+		}
+	}
+	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+		return nil, err
+	}
+	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.Name}, token); err != nil {
+		return nil, err
+	}
+	return userEntity, nil
+}
+
+func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEntity *ent.Tenant, profile *microsoftprovider.Profile, token *oauth2.Token) (*ent.User, error) {
+	email := profile.Mail
+	if email == "" {
+		email = profile.UserPrincipalName
+	}
+	email = normalizeEmail(email)
+	if email == "" {
+		return nil, fmt.Errorf("microsoft email not available")
+	}
+	sub := profile.ID
+	identity, err := s.entClient.UserIdentity.Query().
+		Where(
+			useridentity.ProviderEQ(microsoftProviderName),
+			useridentity.ProviderSubjectEQ(sub),
+		).
+		WithUser().
+		Only(ctx)
+	if err == nil {
+		userEntity := identity.Edges.User
+		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+			return nil, err
+		}
+		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.DisplayName}, token); err != nil {
+			return nil, err
+		}
+		return userEntity, nil
+	}
+	if err != nil && !ent.IsNotFound(err) {
+		return nil, fmt.Errorf("query user identity: %w", err)
+	}
+	userEntity, err := s.entClient.User.Query().
+		Where(user.EmailEQ(email)).
+		Only(ctx)
+	if err != nil && !ent.IsNotFound(err) {
+		return nil, fmt.Errorf("lookup user: %w", err)
+	}
+	if err != nil && ent.IsNotFound(err) {
+		userEntity, err = s.entClient.User.Create().
+			SetEmail(email).
+			SetStatus("active").
+			SetPrimaryTenantID(tenantEntity.ID.String()).
+			SetProfile(map[string]any{"name": profile.DisplayName}).
+			Save(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("create user: %w", err)
+		}
+	}
+	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+		return nil, err
+	}
+	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.DisplayName}, token); err != nil {
+		return nil, err
+	}
+	return userEntity, nil
+}
 func (s *Service) updateIdentityTokens(ctx context.Context, identityID uuid.UUID, profile *googleprovider.Profile, token *oauth2.Token) error {
 	update := s.entClient.UserIdentity.UpdateOneID(identityID).
 		SetProviderEmail(normalizeEmail(profile.Email)).

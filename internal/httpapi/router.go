@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bengobox/auth-service/internal/httpapi/handlers"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -30,6 +31,10 @@ type AuthHandlers struct {
 	Logout                   http.HandlerFunc
 	GoogleOAuthStart         http.HandlerFunc
 	GoogleOAuthCallback      http.HandlerFunc
+	GitHubOAuthStart         http.HandlerFunc
+	GitHubOAuthCallback      http.HandlerFunc
+	MicrosoftOAuthStart      http.HandlerFunc
+	MicrosoftOAuthCallback   http.HandlerFunc
 	WellKnownConfig          http.HandlerFunc
 	JWKS                     http.HandlerFunc
 	Authorize                http.HandlerFunc
@@ -76,6 +81,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Get("/.well-known/openid-configuration", deps.AuthHandlers.WellKnownConfig)
 			r.Get("/.well-known/jwks.json", deps.AuthHandlers.JWKS)
+			r.Get("/openapi.json", handlers.OpenAPIJSON)
+			r.Get("/docs", handlers.SwaggerUI)
 			r.With(deps.RequireAuthHandler).Get("/authorize", deps.AuthHandlers.Authorize)
 			r.Post("/token", deps.AuthHandlers.Token)
 			r.With(deps.RequireAuthHandler).Get("/userinfo", deps.AuthHandlers.UserInfo)
@@ -96,6 +103,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Post("/password-reset/confirm", deps.AuthHandlers.ConfirmPasswordReset)
 			r.Post("/oauth/google/start", deps.AuthHandlers.GoogleOAuthStart)
 			r.Get("/oauth/google/callback", deps.AuthHandlers.GoogleOAuthCallback)
+			r.Post("/oauth/github/start", deps.AuthHandlers.GitHubOAuthStart)
+			r.Get("/oauth/github/callback", deps.AuthHandlers.GitHubOAuthCallback)
+			r.Post("/oauth/microsoft/start", deps.AuthHandlers.MicrosoftOAuthStart)
+			r.Get("/oauth/microsoft/callback", deps.AuthHandlers.MicrosoftOAuthCallback)
 
 			r.Group(func(r chi.Router) {
 				if deps.RequireAuthHandler != nil {

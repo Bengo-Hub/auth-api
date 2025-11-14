@@ -70,10 +70,37 @@ type SecurityConfig struct {
 }
 
 type ProvidersConfig struct {
-	Google GoogleProviderConfig `envPrefix:"GOOGLE_"`
+	Google    GoogleProviderConfig    `envPrefix:"GOOGLE_"`
+	GitHub    GitHubProviderConfig    `envPrefix:"GITHUB_"`
+	Microsoft MicrosoftProviderConfig `envPrefix:"MICROSOFT_"`
+	Apple     AppleProviderConfig     `envPrefix:"APPLE_"`
 }
 
 type GoogleProviderConfig struct {
+	Enabled        bool     `env:"ENABLED" envDefault:"false"`
+	ClientID       string   `env:"CLIENT_ID"`
+	ClientSecret   string   `env:"CLIENT_SECRET"`
+	RedirectURL    string   `env:"REDIRECT_URL"`
+	AllowedDomains []string `env:"ALLOWED_DOMAINS" envSeparator:","`
+}
+
+type GitHubProviderConfig struct {
+	Enabled        bool     `env:"ENABLED" envDefault:"false"`
+	ClientID       string   `env:"CLIENT_ID"`
+	ClientSecret   string   `env:"CLIENT_SECRET"`
+	RedirectURL    string   `env:"REDIRECT_URL"`
+	AllowedDomains []string `env:"ALLOWED_DOMAINS" envSeparator:","`
+}
+
+type MicrosoftProviderConfig struct {
+	Enabled        bool     `env:"ENABLED" envDefault:"false"`
+	ClientID       string   `env:"CLIENT_ID"`
+	ClientSecret   string   `env:"CLIENT_SECRET"`
+	RedirectURL    string   `env:"REDIRECT_URL"`
+	AllowedDomains []string `env:"ALLOWED_DOMAINS" envSeparator:","`
+}
+
+type AppleProviderConfig struct {
 	Enabled        bool     `env:"ENABLED" envDefault:"false"`
 	ClientID       string   `env:"CLIENT_ID"`
 	ClientSecret   string   `env:"CLIENT_SECRET"`
@@ -103,6 +130,29 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when Google OAuth is enabled")
 		}
 	}
-
+	if cfg.Providers.GitHub.Enabled {
+		if cfg.Providers.GitHub.ClientID == "" || cfg.Providers.GitHub.ClientSecret == "" || cfg.Providers.GitHub.RedirectURL == "" {
+			return nil, fmt.Errorf("github oauth requires CLIENT_ID, CLIENT_SECRET, and REDIRECT_URL")
+		}
+		if cfg.Security.OAuthStateSecret == "" {
+			return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when GitHub OAuth is enabled")
+		}
+	}
+	if cfg.Providers.Microsoft.Enabled {
+		if cfg.Providers.Microsoft.ClientID == "" || cfg.Providers.Microsoft.ClientSecret == "" || cfg.Providers.Microsoft.RedirectURL == "" {
+			return nil, fmt.Errorf("microsoft oauth requires CLIENT_ID, CLIENT_SECRET, and REDIRECT_URL")
+		}
+		if cfg.Security.OAuthStateSecret == "" {
+			return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when Microsoft OAuth is enabled")
+		}
+	}
+	if cfg.Providers.Apple.Enabled {
+		if cfg.Providers.Apple.ClientID == "" || cfg.Providers.Apple.ClientSecret == "" || cfg.Providers.Apple.RedirectURL == "" {
+			return nil, fmt.Errorf("apple oauth requires CLIENT_ID, CLIENT_SECRET, and REDIRECT_URL")
+		}
+		if cfg.Security.OAuthStateSecret == "" {
+			return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when Apple OAuth is enabled")
+		}
+	}
 	return cfg, nil
 }

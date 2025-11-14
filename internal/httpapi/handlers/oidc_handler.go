@@ -42,10 +42,10 @@ func (h *OIDCHandler) WellKnownConfig(w http.ResponseWriter, r *http.Request) {
 	issuer := h.cfg.Token.Issuer
 	j := map[string]any{
 		"issuer":                                issuer,
-		"authorization_endpoint":                issuer + "/authorize",
-		"token_endpoint":                        issuer + "/token",
-		"jwks_uri":                              issuer + "/.well-known/jwks.json",
-		"userinfo_endpoint":                     issuer + "/userinfo",
+		"authorization_endpoint":                issuer + "/api/v1/authorize",
+		"token_endpoint":                        issuer + "/api/v1/token",
+		"jwks_uri":                              issuer + "/api/v1/.well-known/jwks.json",
+		"userinfo_endpoint":                     issuer + "/api/v1/userinfo",
 		"id_token_signing_alg_values_supported": []string{"RS256"},
 		"scopes_supported":                      []string{"openid", "profile", "email", "offline_access"},
 		"response_types_supported":              []string{"code"},

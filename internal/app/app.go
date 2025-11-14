@@ -15,7 +15,9 @@ import (
 	"github.com/bengobox/auth-service/internal/httpapi/handlers"
 	httpmiddleware "github.com/bengobox/auth-service/internal/httpapi/middleware"
 	"github.com/bengobox/auth-service/internal/password"
+	githubprovider "github.com/bengobox/auth-service/internal/providers/github"
 	googleprovider "github.com/bengobox/auth-service/internal/providers/google"
+	microsoftprovider "github.com/bengobox/auth-service/internal/providers/microsoft"
 	"github.com/bengobox/auth-service/internal/revocation"
 	"github.com/bengobox/auth-service/internal/services/auth"
 	"github.com/bengobox/auth-service/internal/services/mfa"
@@ -61,6 +63,14 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	if err != nil {
 		return nil, err
 	}
+	githubProvider, err := githubprovider.New(cfg.Providers.GitHub)
+	if err != nil {
+		return nil, err
+	}
+	microsoftProvider, err := microsoftprovider.New(cfg.Providers.Microsoft)
+	if err != nil {
+		return nil, err
+	}
 
 	hasher := password.NewHasher(cfg.Security)
 	auditor := audit.New(entClient, logger)
@@ -74,6 +84,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		Logger:    logger,
 		Google:    googleProvider,
 		Revoker:   revocation.New(redisClient, cfg.Redis.Namespace),
+		GitHub:    githubProvider,
+		Microsoft: microsoftProvider,
 	})
 
 	authHandler := handlers.NewAuthHandler(authService, logger)
@@ -99,6 +111,10 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			Logout:                   authHandler.Logout,
 			GoogleOAuthStart:         authHandler.GoogleOAuthStart,
 			GoogleOAuthCallback:      authHandler.GoogleOAuthCallback,
+			GitHubOAuthStart:         authHandler.GitHubOAuthStart,
+			GitHubOAuthCallback:      authHandler.GitHubOAuthCallback,
+			MicrosoftOAuthStart:      authHandler.MicrosoftOAuthStart,
+			MicrosoftOAuthCallback:   authHandler.MicrosoftOAuthCallback,	
 			WellKnownConfig:          oidcHandler.WellKnownConfig,
 			JWKS:                     oidcHandler.JWKS,
 			Authorize:                oidcHandler.Authorize,

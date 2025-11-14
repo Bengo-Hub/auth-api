@@ -30,13 +30,20 @@ go generate ./internal/ent
 docker compose up -d postgres redis
 
 # run the API
-AUTH_ENV=development AUTH_DB_URL=postgres://... \
+AUTH_ENV=development AUTH_DB_URL=postgres://postgres:postgres@localhost:5432/auth%20service?sslmode=disable \
 AUTH_TOKEN_PRIVATE_KEY_PATH=./config/keys/dev_jwt_private.pem \
 AUTH_TOKEN_PUBLIC_KEY_PATH=./config/keys/dev_jwt_public.pem \
 go run ./cmd/server
 ```
 
-Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`.
+Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In production, the canonical issuer and domain are:
+
+- Issuer: `https://auth.codevertexitsolutions.com`
+- OIDC discovery: `https://auth.codevertexitsolutions.com/api/v1/.well-known/openid-configuration`
+- Authorization: `https://auth.codevertexitsolutions.com/api/v1/authorize`
+- Token: `https://auth.codevertexitsolutions.com/api/v1/token`
+- JWKS: `https://auth.codevertexitsolutions.com/api/v1/.well-known/jwks.json`
+- UserInfo: `https://auth.codevertexitsolutions.com/api/v1/userinfo`
 
 ### Configuration & Secrets
 
@@ -54,6 +61,11 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`.
 
 - Developer API guide: [docs/developer-api.md](docs/developer-api.md)
 - Local testing with Docker (Redis): [docs/local-testing.md](docs/local-testing.md)
+- Interactive Swagger UI: `GET /api/v1/docs` (loads `openapi.json`)
+  - Default admin for quick testing:
+    - Email: `admin@codevertexitsolutions.com`
+    - Password: `ChangeMe123!`
+    - Tenant: `bengobox`
 
 ### HTTP Surface (Sprint 4)
 
