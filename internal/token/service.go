@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"os"
 	"time"
 
@@ -42,6 +43,7 @@ type Service struct {
 	privateKey *rsa.PrivateKey
 	publicKey  *rsa.PublicKey
 	parser     *jwt.Parser
+	keyID      string
 }
 
 // NewService loads signing material and returns a token service.
@@ -61,13 +63,31 @@ func NewService(cfg config.TokenConfig) (*Service, error) {
 		parser: jwt.NewParser(
 			jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
 		),
+		keyID: computeKeyID(pub),
 	}, nil
+}
+
+// ReloadFromFiles reloads key material from disk and updates key id.
+func (s *Service) ReloadFromFiles() error {
+	priv, err := loadPrivateKey(s.cfg.PrivateKeyPath)
+	if err != nil {
+		return err
+	}
+	pub, err := loadPublicKey(s.cfg.PublicKeyPath)
+	if err != nil {
+		return err
+	}
+	s.privateKey = priv
+	s.publicKey = pub
+	s.keyID = computeKeyID(pub)
+	return nil
 }
 
 // MintAccessToken generates a signed JWT representing the authenticated user.
 func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, error) {
 	now := time.Now().UTC()
 	exp := now.Add(s.cfg.AccessTokenTTL)
+	jti := uuid.NewString()
 
 	claims := &Claims{
 		SessionID: input.SessionID.String(),
@@ -78,6 +98,7 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(exp),
 			Subject:   input.UserID.String(),
+			ID:        jti,
 			Audience:  jwt.ClaimStrings{s.cfg.Audience},
 		},
 	}
@@ -89,6 +110,7 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token.Header["kid"] = s.keyID
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("sign jwt: %w", err)
@@ -168,4 +190,41 @@ func loadPublicKey(path string) (*rsa.PublicKey, error) {
 		return nil, fmt.Errorf("public key is not RSA")
 	}
 	return rsaPub, nil
+}
+
+// JWKS returns a minimal JWKS set for the active RSA public key.
+func (s *Service) JWKS() map[string]any {
+	n := base64.RawURLEncoding.EncodeToString(s.publicKey.N.Bytes())
+	e := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(s.publicKey.E)).Bytes())
+	jwk := map[string]any{
+		"kty": "RSA",
+		"kid": s.keyID,
+		"use": "sig",
+		"alg": "RS256",
+		"n":   n,
+		"e":   e,
+	}
+	return map[string]any{
+		"keys": []any{jwk},
+	}
+}
+
+func computeKeyID(pub *rsa.PublicKey) string {
+	sum := sha256.Sum256(pub.N.Bytes())
+	return hex.EncodeToString(sum[:8])
+}
+
+// KeyID exposes the current key ID.
+func (s *Service) KeyID() string { return s.keyID }
+
+// SignJWT signs arbitrary JWT claims using the active private key.
+func (s *Service) SignJWT(claims map[string]any) (string, error) {
+	token := jwt.New(jwt.SigningMethodRS256)
+	token.Header["kid"] = s.keyID
+	mc := jwt.MapClaims{}
+	for k, v := range claims {
+		mc[k] = v
+	}
+	token.Claims = mc
+	return token.SignedString(s.privateKey)
 }

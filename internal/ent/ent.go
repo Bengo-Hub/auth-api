@@ -13,12 +13,19 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/bengobox/auth-service/internal/ent/auditlog"
+	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
+	"github.com/bengobox/auth-service/internal/ent/consentsession"
+	"github.com/bengobox/auth-service/internal/ent/featureentitlement"
 	"github.com/bengobox/auth-service/internal/ent/loginattempt"
+	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
+	"github.com/bengobox/auth-service/internal/ent/mfasettings"
+	"github.com/bengobox/auth-service/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-service/internal/ent/oauthclient"
 	"github.com/bengobox/auth-service/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-service/internal/ent/session"
 	"github.com/bengobox/auth-service/internal/ent/tenant"
 	"github.com/bengobox/auth-service/internal/ent/tenantmembership"
+	"github.com/bengobox/auth-service/internal/ent/usagemetric"
 	"github.com/bengobox/auth-service/internal/ent/user"
 	"github.com/bengobox/auth-service/internal/ent/useridentity"
 )
@@ -82,12 +89,19 @@ func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			auditlog.Table:           auditlog.ValidColumn,
+			authorizationcode.Table:  authorizationcode.ValidColumn,
+			consentsession.Table:     consentsession.ValidColumn,
+			featureentitlement.Table: featureentitlement.ValidColumn,
 			loginattempt.Table:       loginattempt.ValidColumn,
+			mfabackupcode.Table:      mfabackupcode.ValidColumn,
+			mfasettings.Table:        mfasettings.ValidColumn,
+			mfatotpsecret.Table:      mfatotpsecret.ValidColumn,
 			oauthclient.Table:        oauthclient.ValidColumn,
 			passwordresettoken.Table: passwordresettoken.ValidColumn,
 			session.Table:            session.ValidColumn,
 			tenant.Table:             tenant.ValidColumn,
 			tenantmembership.Table:   tenantmembership.ValidColumn,
+			usagemetric.Table:        usagemetric.ValidColumn,
 			user.Table:               user.ValidColumn,
 			useridentity.Table:       useridentity.ValidColumn,
 		})

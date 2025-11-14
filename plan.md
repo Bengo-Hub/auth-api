@@ -87,13 +87,13 @@
 - [x] **Sprint 1 – Local Auth Basics:** Argon2id hashing, registration/login flows with tenant membership enforcement, password reset issuance & confirmation, audit logging, login attempt tracking, validation + error handling.
 - [x] **Sprint 2 – Token Service:** RSA-backed JWT minting/verification, refresh token rotation with session persistence, `/auth/refresh` + `/auth/me` endpoints, auth middleware, session telemetry updates.
 - [x] **Sprint 3 – External Providers:** Google OAuth login/linking, user identity store, signed OAuth state helper, provider configuration & domain gating, `/auth/oauth/google/*` endpoints that mint first-party tokens.
-- [ ] **Sprint 4 – OIDC Compliance:** Authorization Code + PKCE, discovery docs, JWKS, userinfo, consent flows.
-- [ ] **Sprint 5 – Sessions & Logout:** multi-device session management, revocation, global logout propagation, security events.
-- [ ] **Sprint 6 – MFA & Risk Controls:** TOTP, backup codes, policies, integration with notifications for SMS/email OTP.
-- [ ] **Sprint 7 – Tenant & Client Admin:** tenant management APIs, client registry UI, scope management, service accounts.
-- [ ] **Sprint 8 – Subscription & Usage:** entitlement checks (treasury), usage metering, plan gating, billing events.
+- [x] **Sprint 4 – OIDC Compliance:** Authorization Code + PKCE, discovery docs, JWKS, userinfo, consent flows.
+- [x] **Sprint 5 – Sessions & Logout:** multi-device session management, revocation, global logout propagation, security events.
+- [x] **Sprint 6 – MFA & Risk Controls:** TOTP, backup codes, policies, integration with notifications for SMS/email OTP.
+- [x] **Sprint 7 – Tenant & Client Admin:** tenant management APIs, client registry UI, scope management, service accounts.
+- [x] **Sprint 8 – Subscription & Usage:** entitlement checks (treasury), usage metering, plan gating, billing events.
 - [ ] **Sprint 9 – Integrations:** SDKs, service integration guides, migration of existing services, SSO across BengoBox apps.
-- [ ] **Sprint 10 – Hardening & Launch:** key rotation workflows, rate limiting, analytics, monitoring dashboards, chaos testing, production rollout.
+- [x] **Sprint 10 – Hardening & Launch:** key rotation workflows, rate limiting, analytics, monitoring dashboards, chaos testing, production rollout.
 
 ### Backlog & Future Enhancements
 - FIDO2/WebAuthn, push-based MFA.

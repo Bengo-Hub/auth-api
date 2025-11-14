@@ -17,12 +17,19 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/bengobox/auth-service/internal/ent/auditlog"
+	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
+	"github.com/bengobox/auth-service/internal/ent/consentsession"
+	"github.com/bengobox/auth-service/internal/ent/featureentitlement"
 	"github.com/bengobox/auth-service/internal/ent/loginattempt"
+	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
+	"github.com/bengobox/auth-service/internal/ent/mfasettings"
+	"github.com/bengobox/auth-service/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-service/internal/ent/oauthclient"
 	"github.com/bengobox/auth-service/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-service/internal/ent/session"
 	"github.com/bengobox/auth-service/internal/ent/tenant"
 	"github.com/bengobox/auth-service/internal/ent/tenantmembership"
+	"github.com/bengobox/auth-service/internal/ent/usagemetric"
 	"github.com/bengobox/auth-service/internal/ent/user"
 	"github.com/bengobox/auth-service/internal/ent/useridentity"
 )
@@ -34,8 +41,20 @@ type Client struct {
 	Schema *migrate.Schema
 	// AuditLog is the client for interacting with the AuditLog builders.
 	AuditLog *AuditLogClient
+	// AuthorizationCode is the client for interacting with the AuthorizationCode builders.
+	AuthorizationCode *AuthorizationCodeClient
+	// ConsentSession is the client for interacting with the ConsentSession builders.
+	ConsentSession *ConsentSessionClient
+	// FeatureEntitlement is the client for interacting with the FeatureEntitlement builders.
+	FeatureEntitlement *FeatureEntitlementClient
 	// LoginAttempt is the client for interacting with the LoginAttempt builders.
 	LoginAttempt *LoginAttemptClient
+	// MFABackupCode is the client for interacting with the MFABackupCode builders.
+	MFABackupCode *MFABackupCodeClient
+	// MFASettings is the client for interacting with the MFASettings builders.
+	MFASettings *MFASettingsClient
+	// MFATOTPSecret is the client for interacting with the MFATOTPSecret builders.
+	MFATOTPSecret *MFATOTPSecretClient
 	// OAuthClient is the client for interacting with the OAuthClient builders.
 	OAuthClient *OAuthClientClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
@@ -46,6 +65,8 @@ type Client struct {
 	Tenant *TenantClient
 	// TenantMembership is the client for interacting with the TenantMembership builders.
 	TenantMembership *TenantMembershipClient
+	// UsageMetric is the client for interacting with the UsageMetric builders.
+	UsageMetric *UsageMetricClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
 	// UserIdentity is the client for interacting with the UserIdentity builders.
@@ -62,12 +83,19 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.AuditLog = NewAuditLogClient(c.config)
+	c.AuthorizationCode = NewAuthorizationCodeClient(c.config)
+	c.ConsentSession = NewConsentSessionClient(c.config)
+	c.FeatureEntitlement = NewFeatureEntitlementClient(c.config)
 	c.LoginAttempt = NewLoginAttemptClient(c.config)
+	c.MFABackupCode = NewMFABackupCodeClient(c.config)
+	c.MFASettings = NewMFASettingsClient(c.config)
+	c.MFATOTPSecret = NewMFATOTPSecretClient(c.config)
 	c.OAuthClient = NewOAuthClientClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.Tenant = NewTenantClient(c.config)
 	c.TenantMembership = NewTenantMembershipClient(c.config)
+	c.UsageMetric = NewUsageMetricClient(c.config)
 	c.User = NewUserClient(c.config)
 	c.UserIdentity = NewUserIdentityClient(c.config)
 }
@@ -163,12 +191,19 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:                ctx,
 		config:             cfg,
 		AuditLog:           NewAuditLogClient(cfg),
+		AuthorizationCode:  NewAuthorizationCodeClient(cfg),
+		ConsentSession:     NewConsentSessionClient(cfg),
+		FeatureEntitlement: NewFeatureEntitlementClient(cfg),
 		LoginAttempt:       NewLoginAttemptClient(cfg),
+		MFABackupCode:      NewMFABackupCodeClient(cfg),
+		MFASettings:        NewMFASettingsClient(cfg),
+		MFATOTPSecret:      NewMFATOTPSecretClient(cfg),
 		OAuthClient:        NewOAuthClientClient(cfg),
 		PasswordResetToken: NewPasswordResetTokenClient(cfg),
 		Session:            NewSessionClient(cfg),
 		Tenant:             NewTenantClient(cfg),
 		TenantMembership:   NewTenantMembershipClient(cfg),
+		UsageMetric:        NewUsageMetricClient(cfg),
 		User:               NewUserClient(cfg),
 		UserIdentity:       NewUserIdentityClient(cfg),
 	}, nil
@@ -191,12 +226,19 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:                ctx,
 		config:             cfg,
 		AuditLog:           NewAuditLogClient(cfg),
+		AuthorizationCode:  NewAuthorizationCodeClient(cfg),
+		ConsentSession:     NewConsentSessionClient(cfg),
+		FeatureEntitlement: NewFeatureEntitlementClient(cfg),
 		LoginAttempt:       NewLoginAttemptClient(cfg),
+		MFABackupCode:      NewMFABackupCodeClient(cfg),
+		MFASettings:        NewMFASettingsClient(cfg),
+		MFATOTPSecret:      NewMFATOTPSecretClient(cfg),
 		OAuthClient:        NewOAuthClientClient(cfg),
 		PasswordResetToken: NewPasswordResetTokenClient(cfg),
 		Session:            NewSessionClient(cfg),
 		Tenant:             NewTenantClient(cfg),
 		TenantMembership:   NewTenantMembershipClient(cfg),
+		UsageMetric:        NewUsageMetricClient(cfg),
 		User:               NewUserClient(cfg),
 		UserIdentity:       NewUserIdentityClient(cfg),
 	}, nil
@@ -228,8 +270,10 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.AuditLog, c.LoginAttempt, c.OAuthClient, c.PasswordResetToken, c.Session,
-		c.Tenant, c.TenantMembership, c.User, c.UserIdentity,
+		c.AuditLog, c.AuthorizationCode, c.ConsentSession, c.FeatureEntitlement,
+		c.LoginAttempt, c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient,
+		c.PasswordResetToken, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserIdentity,
 	} {
 		n.Use(hooks...)
 	}
@@ -239,8 +283,10 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.AuditLog, c.LoginAttempt, c.OAuthClient, c.PasswordResetToken, c.Session,
-		c.Tenant, c.TenantMembership, c.User, c.UserIdentity,
+		c.AuditLog, c.AuthorizationCode, c.ConsentSession, c.FeatureEntitlement,
+		c.LoginAttempt, c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient,
+		c.PasswordResetToken, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserIdentity,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -251,8 +297,20 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *AuditLogMutation:
 		return c.AuditLog.mutate(ctx, m)
+	case *AuthorizationCodeMutation:
+		return c.AuthorizationCode.mutate(ctx, m)
+	case *ConsentSessionMutation:
+		return c.ConsentSession.mutate(ctx, m)
+	case *FeatureEntitlementMutation:
+		return c.FeatureEntitlement.mutate(ctx, m)
 	case *LoginAttemptMutation:
 		return c.LoginAttempt.mutate(ctx, m)
+	case *MFABackupCodeMutation:
+		return c.MFABackupCode.mutate(ctx, m)
+	case *MFASettingsMutation:
+		return c.MFASettings.mutate(ctx, m)
+	case *MFATOTPSecretMutation:
+		return c.MFATOTPSecret.mutate(ctx, m)
 	case *OAuthClientMutation:
 		return c.OAuthClient.mutate(ctx, m)
 	case *PasswordResetTokenMutation:
@@ -263,6 +321,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Tenant.mutate(ctx, m)
 	case *TenantMembershipMutation:
 		return c.TenantMembership.mutate(ctx, m)
+	case *UsageMetricMutation:
+		return c.UsageMetric.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
 	case *UserIdentityMutation:
@@ -405,6 +465,421 @@ func (c *AuditLogClient) mutate(ctx context.Context, m *AuditLogMutation) (Value
 	}
 }
 
+// AuthorizationCodeClient is a client for the AuthorizationCode schema.
+type AuthorizationCodeClient struct {
+	config
+}
+
+// NewAuthorizationCodeClient returns a client for the AuthorizationCode from the given config.
+func NewAuthorizationCodeClient(c config) *AuthorizationCodeClient {
+	return &AuthorizationCodeClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `authorizationcode.Hooks(f(g(h())))`.
+func (c *AuthorizationCodeClient) Use(hooks ...Hook) {
+	c.hooks.AuthorizationCode = append(c.hooks.AuthorizationCode, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `authorizationcode.Intercept(f(g(h())))`.
+func (c *AuthorizationCodeClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AuthorizationCode = append(c.inters.AuthorizationCode, interceptors...)
+}
+
+// Create returns a builder for creating a AuthorizationCode entity.
+func (c *AuthorizationCodeClient) Create() *AuthorizationCodeCreate {
+	mutation := newAuthorizationCodeMutation(c.config, OpCreate)
+	return &AuthorizationCodeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AuthorizationCode entities.
+func (c *AuthorizationCodeClient) CreateBulk(builders ...*AuthorizationCodeCreate) *AuthorizationCodeCreateBulk {
+	return &AuthorizationCodeCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AuthorizationCodeClient) MapCreateBulk(slice any, setFunc func(*AuthorizationCodeCreate, int)) *AuthorizationCodeCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AuthorizationCodeCreateBulk{err: fmt.Errorf("calling to AuthorizationCodeClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AuthorizationCodeCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AuthorizationCodeCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AuthorizationCode.
+func (c *AuthorizationCodeClient) Update() *AuthorizationCodeUpdate {
+	mutation := newAuthorizationCodeMutation(c.config, OpUpdate)
+	return &AuthorizationCodeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AuthorizationCodeClient) UpdateOne(_m *AuthorizationCode) *AuthorizationCodeUpdateOne {
+	mutation := newAuthorizationCodeMutation(c.config, OpUpdateOne, withAuthorizationCode(_m))
+	return &AuthorizationCodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AuthorizationCodeClient) UpdateOneID(id uuid.UUID) *AuthorizationCodeUpdateOne {
+	mutation := newAuthorizationCodeMutation(c.config, OpUpdateOne, withAuthorizationCodeID(id))
+	return &AuthorizationCodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AuthorizationCode.
+func (c *AuthorizationCodeClient) Delete() *AuthorizationCodeDelete {
+	mutation := newAuthorizationCodeMutation(c.config, OpDelete)
+	return &AuthorizationCodeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AuthorizationCodeClient) DeleteOne(_m *AuthorizationCode) *AuthorizationCodeDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AuthorizationCodeClient) DeleteOneID(id uuid.UUID) *AuthorizationCodeDeleteOne {
+	builder := c.Delete().Where(authorizationcode.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AuthorizationCodeDeleteOne{builder}
+}
+
+// Query returns a query builder for AuthorizationCode.
+func (c *AuthorizationCodeClient) Query() *AuthorizationCodeQuery {
+	return &AuthorizationCodeQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAuthorizationCode},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AuthorizationCode entity by its id.
+func (c *AuthorizationCodeClient) Get(ctx context.Context, id uuid.UUID) (*AuthorizationCode, error) {
+	return c.Query().Where(authorizationcode.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AuthorizationCodeClient) GetX(ctx context.Context, id uuid.UUID) *AuthorizationCode {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a AuthorizationCode.
+func (c *AuthorizationCodeClient) QueryUser(_m *AuthorizationCode) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(authorizationcode.Table, authorizationcode.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, authorizationcode.UserTable, authorizationcode.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *AuthorizationCodeClient) Hooks() []Hook {
+	return c.hooks.AuthorizationCode
+}
+
+// Interceptors returns the client interceptors.
+func (c *AuthorizationCodeClient) Interceptors() []Interceptor {
+	return c.inters.AuthorizationCode
+}
+
+func (c *AuthorizationCodeClient) mutate(ctx context.Context, m *AuthorizationCodeMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AuthorizationCodeCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AuthorizationCodeUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AuthorizationCodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AuthorizationCodeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AuthorizationCode mutation op: %q", m.Op())
+	}
+}
+
+// ConsentSessionClient is a client for the ConsentSession schema.
+type ConsentSessionClient struct {
+	config
+}
+
+// NewConsentSessionClient returns a client for the ConsentSession from the given config.
+func NewConsentSessionClient(c config) *ConsentSessionClient {
+	return &ConsentSessionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `consentsession.Hooks(f(g(h())))`.
+func (c *ConsentSessionClient) Use(hooks ...Hook) {
+	c.hooks.ConsentSession = append(c.hooks.ConsentSession, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `consentsession.Intercept(f(g(h())))`.
+func (c *ConsentSessionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ConsentSession = append(c.inters.ConsentSession, interceptors...)
+}
+
+// Create returns a builder for creating a ConsentSession entity.
+func (c *ConsentSessionClient) Create() *ConsentSessionCreate {
+	mutation := newConsentSessionMutation(c.config, OpCreate)
+	return &ConsentSessionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ConsentSession entities.
+func (c *ConsentSessionClient) CreateBulk(builders ...*ConsentSessionCreate) *ConsentSessionCreateBulk {
+	return &ConsentSessionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ConsentSessionClient) MapCreateBulk(slice any, setFunc func(*ConsentSessionCreate, int)) *ConsentSessionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ConsentSessionCreateBulk{err: fmt.Errorf("calling to ConsentSessionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ConsentSessionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ConsentSessionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ConsentSession.
+func (c *ConsentSessionClient) Update() *ConsentSessionUpdate {
+	mutation := newConsentSessionMutation(c.config, OpUpdate)
+	return &ConsentSessionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ConsentSessionClient) UpdateOne(_m *ConsentSession) *ConsentSessionUpdateOne {
+	mutation := newConsentSessionMutation(c.config, OpUpdateOne, withConsentSession(_m))
+	return &ConsentSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ConsentSessionClient) UpdateOneID(id uuid.UUID) *ConsentSessionUpdateOne {
+	mutation := newConsentSessionMutation(c.config, OpUpdateOne, withConsentSessionID(id))
+	return &ConsentSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ConsentSession.
+func (c *ConsentSessionClient) Delete() *ConsentSessionDelete {
+	mutation := newConsentSessionMutation(c.config, OpDelete)
+	return &ConsentSessionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ConsentSessionClient) DeleteOne(_m *ConsentSession) *ConsentSessionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ConsentSessionClient) DeleteOneID(id uuid.UUID) *ConsentSessionDeleteOne {
+	builder := c.Delete().Where(consentsession.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ConsentSessionDeleteOne{builder}
+}
+
+// Query returns a query builder for ConsentSession.
+func (c *ConsentSessionClient) Query() *ConsentSessionQuery {
+	return &ConsentSessionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeConsentSession},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ConsentSession entity by its id.
+func (c *ConsentSessionClient) Get(ctx context.Context, id uuid.UUID) (*ConsentSession, error) {
+	return c.Query().Where(consentsession.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ConsentSessionClient) GetX(ctx context.Context, id uuid.UUID) *ConsentSession {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ConsentSessionClient) Hooks() []Hook {
+	return c.hooks.ConsentSession
+}
+
+// Interceptors returns the client interceptors.
+func (c *ConsentSessionClient) Interceptors() []Interceptor {
+	return c.inters.ConsentSession
+}
+
+func (c *ConsentSessionClient) mutate(ctx context.Context, m *ConsentSessionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ConsentSessionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ConsentSessionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ConsentSessionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ConsentSessionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ConsentSession mutation op: %q", m.Op())
+	}
+}
+
+// FeatureEntitlementClient is a client for the FeatureEntitlement schema.
+type FeatureEntitlementClient struct {
+	config
+}
+
+// NewFeatureEntitlementClient returns a client for the FeatureEntitlement from the given config.
+func NewFeatureEntitlementClient(c config) *FeatureEntitlementClient {
+	return &FeatureEntitlementClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `featureentitlement.Hooks(f(g(h())))`.
+func (c *FeatureEntitlementClient) Use(hooks ...Hook) {
+	c.hooks.FeatureEntitlement = append(c.hooks.FeatureEntitlement, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `featureentitlement.Intercept(f(g(h())))`.
+func (c *FeatureEntitlementClient) Intercept(interceptors ...Interceptor) {
+	c.inters.FeatureEntitlement = append(c.inters.FeatureEntitlement, interceptors...)
+}
+
+// Create returns a builder for creating a FeatureEntitlement entity.
+func (c *FeatureEntitlementClient) Create() *FeatureEntitlementCreate {
+	mutation := newFeatureEntitlementMutation(c.config, OpCreate)
+	return &FeatureEntitlementCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of FeatureEntitlement entities.
+func (c *FeatureEntitlementClient) CreateBulk(builders ...*FeatureEntitlementCreate) *FeatureEntitlementCreateBulk {
+	return &FeatureEntitlementCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *FeatureEntitlementClient) MapCreateBulk(slice any, setFunc func(*FeatureEntitlementCreate, int)) *FeatureEntitlementCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &FeatureEntitlementCreateBulk{err: fmt.Errorf("calling to FeatureEntitlementClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*FeatureEntitlementCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &FeatureEntitlementCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for FeatureEntitlement.
+func (c *FeatureEntitlementClient) Update() *FeatureEntitlementUpdate {
+	mutation := newFeatureEntitlementMutation(c.config, OpUpdate)
+	return &FeatureEntitlementUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *FeatureEntitlementClient) UpdateOne(_m *FeatureEntitlement) *FeatureEntitlementUpdateOne {
+	mutation := newFeatureEntitlementMutation(c.config, OpUpdateOne, withFeatureEntitlement(_m))
+	return &FeatureEntitlementUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *FeatureEntitlementClient) UpdateOneID(id uuid.UUID) *FeatureEntitlementUpdateOne {
+	mutation := newFeatureEntitlementMutation(c.config, OpUpdateOne, withFeatureEntitlementID(id))
+	return &FeatureEntitlementUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for FeatureEntitlement.
+func (c *FeatureEntitlementClient) Delete() *FeatureEntitlementDelete {
+	mutation := newFeatureEntitlementMutation(c.config, OpDelete)
+	return &FeatureEntitlementDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *FeatureEntitlementClient) DeleteOne(_m *FeatureEntitlement) *FeatureEntitlementDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *FeatureEntitlementClient) DeleteOneID(id uuid.UUID) *FeatureEntitlementDeleteOne {
+	builder := c.Delete().Where(featureentitlement.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &FeatureEntitlementDeleteOne{builder}
+}
+
+// Query returns a query builder for FeatureEntitlement.
+func (c *FeatureEntitlementClient) Query() *FeatureEntitlementQuery {
+	return &FeatureEntitlementQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeFeatureEntitlement},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a FeatureEntitlement entity by its id.
+func (c *FeatureEntitlementClient) Get(ctx context.Context, id uuid.UUID) (*FeatureEntitlement, error) {
+	return c.Query().Where(featureentitlement.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *FeatureEntitlementClient) GetX(ctx context.Context, id uuid.UUID) *FeatureEntitlement {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *FeatureEntitlementClient) Hooks() []Hook {
+	return c.hooks.FeatureEntitlement
+}
+
+// Interceptors returns the client interceptors.
+func (c *FeatureEntitlementClient) Interceptors() []Interceptor {
+	return c.inters.FeatureEntitlement
+}
+
+func (c *FeatureEntitlementClient) mutate(ctx context.Context, m *FeatureEntitlementMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&FeatureEntitlementCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&FeatureEntitlementUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&FeatureEntitlementUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&FeatureEntitlementDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown FeatureEntitlement mutation op: %q", m.Op())
+	}
+}
+
 // LoginAttemptClient is a client for the LoginAttempt schema.
 type LoginAttemptClient struct {
 	config
@@ -535,6 +1010,437 @@ func (c *LoginAttemptClient) mutate(ctx context.Context, m *LoginAttemptMutation
 		return (&LoginAttemptDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown LoginAttempt mutation op: %q", m.Op())
+	}
+}
+
+// MFABackupCodeClient is a client for the MFABackupCode schema.
+type MFABackupCodeClient struct {
+	config
+}
+
+// NewMFABackupCodeClient returns a client for the MFABackupCode from the given config.
+func NewMFABackupCodeClient(c config) *MFABackupCodeClient {
+	return &MFABackupCodeClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `mfabackupcode.Hooks(f(g(h())))`.
+func (c *MFABackupCodeClient) Use(hooks ...Hook) {
+	c.hooks.MFABackupCode = append(c.hooks.MFABackupCode, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `mfabackupcode.Intercept(f(g(h())))`.
+func (c *MFABackupCodeClient) Intercept(interceptors ...Interceptor) {
+	c.inters.MFABackupCode = append(c.inters.MFABackupCode, interceptors...)
+}
+
+// Create returns a builder for creating a MFABackupCode entity.
+func (c *MFABackupCodeClient) Create() *MFABackupCodeCreate {
+	mutation := newMFABackupCodeMutation(c.config, OpCreate)
+	return &MFABackupCodeCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of MFABackupCode entities.
+func (c *MFABackupCodeClient) CreateBulk(builders ...*MFABackupCodeCreate) *MFABackupCodeCreateBulk {
+	return &MFABackupCodeCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MFABackupCodeClient) MapCreateBulk(slice any, setFunc func(*MFABackupCodeCreate, int)) *MFABackupCodeCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MFABackupCodeCreateBulk{err: fmt.Errorf("calling to MFABackupCodeClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MFABackupCodeCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MFABackupCodeCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for MFABackupCode.
+func (c *MFABackupCodeClient) Update() *MFABackupCodeUpdate {
+	mutation := newMFABackupCodeMutation(c.config, OpUpdate)
+	return &MFABackupCodeUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MFABackupCodeClient) UpdateOne(_m *MFABackupCode) *MFABackupCodeUpdateOne {
+	mutation := newMFABackupCodeMutation(c.config, OpUpdateOne, withMFABackupCode(_m))
+	return &MFABackupCodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MFABackupCodeClient) UpdateOneID(id uuid.UUID) *MFABackupCodeUpdateOne {
+	mutation := newMFABackupCodeMutation(c.config, OpUpdateOne, withMFABackupCodeID(id))
+	return &MFABackupCodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for MFABackupCode.
+func (c *MFABackupCodeClient) Delete() *MFABackupCodeDelete {
+	mutation := newMFABackupCodeMutation(c.config, OpDelete)
+	return &MFABackupCodeDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MFABackupCodeClient) DeleteOne(_m *MFABackupCode) *MFABackupCodeDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MFABackupCodeClient) DeleteOneID(id uuid.UUID) *MFABackupCodeDeleteOne {
+	builder := c.Delete().Where(mfabackupcode.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MFABackupCodeDeleteOne{builder}
+}
+
+// Query returns a query builder for MFABackupCode.
+func (c *MFABackupCodeClient) Query() *MFABackupCodeQuery {
+	return &MFABackupCodeQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMFABackupCode},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a MFABackupCode entity by its id.
+func (c *MFABackupCodeClient) Get(ctx context.Context, id uuid.UUID) (*MFABackupCode, error) {
+	return c.Query().Where(mfabackupcode.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MFABackupCodeClient) GetX(ctx context.Context, id uuid.UUID) *MFABackupCode {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a MFABackupCode.
+func (c *MFABackupCodeClient) QueryUser(_m *MFABackupCode) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(mfabackupcode.Table, mfabackupcode.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, mfabackupcode.UserTable, mfabackupcode.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MFABackupCodeClient) Hooks() []Hook {
+	return c.hooks.MFABackupCode
+}
+
+// Interceptors returns the client interceptors.
+func (c *MFABackupCodeClient) Interceptors() []Interceptor {
+	return c.inters.MFABackupCode
+}
+
+func (c *MFABackupCodeClient) mutate(ctx context.Context, m *MFABackupCodeMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MFABackupCodeCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MFABackupCodeUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MFABackupCodeUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MFABackupCodeDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown MFABackupCode mutation op: %q", m.Op())
+	}
+}
+
+// MFASettingsClient is a client for the MFASettings schema.
+type MFASettingsClient struct {
+	config
+}
+
+// NewMFASettingsClient returns a client for the MFASettings from the given config.
+func NewMFASettingsClient(c config) *MFASettingsClient {
+	return &MFASettingsClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `mfasettings.Hooks(f(g(h())))`.
+func (c *MFASettingsClient) Use(hooks ...Hook) {
+	c.hooks.MFASettings = append(c.hooks.MFASettings, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `mfasettings.Intercept(f(g(h())))`.
+func (c *MFASettingsClient) Intercept(interceptors ...Interceptor) {
+	c.inters.MFASettings = append(c.inters.MFASettings, interceptors...)
+}
+
+// Create returns a builder for creating a MFASettings entity.
+func (c *MFASettingsClient) Create() *MFASettingsCreate {
+	mutation := newMFASettingsMutation(c.config, OpCreate)
+	return &MFASettingsCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of MFASettings entities.
+func (c *MFASettingsClient) CreateBulk(builders ...*MFASettingsCreate) *MFASettingsCreateBulk {
+	return &MFASettingsCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MFASettingsClient) MapCreateBulk(slice any, setFunc func(*MFASettingsCreate, int)) *MFASettingsCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MFASettingsCreateBulk{err: fmt.Errorf("calling to MFASettingsClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MFASettingsCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MFASettingsCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for MFASettings.
+func (c *MFASettingsClient) Update() *MFASettingsUpdate {
+	mutation := newMFASettingsMutation(c.config, OpUpdate)
+	return &MFASettingsUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MFASettingsClient) UpdateOne(_m *MFASettings) *MFASettingsUpdateOne {
+	mutation := newMFASettingsMutation(c.config, OpUpdateOne, withMFASettings(_m))
+	return &MFASettingsUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MFASettingsClient) UpdateOneID(id int) *MFASettingsUpdateOne {
+	mutation := newMFASettingsMutation(c.config, OpUpdateOne, withMFASettingsID(id))
+	return &MFASettingsUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for MFASettings.
+func (c *MFASettingsClient) Delete() *MFASettingsDelete {
+	mutation := newMFASettingsMutation(c.config, OpDelete)
+	return &MFASettingsDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MFASettingsClient) DeleteOne(_m *MFASettings) *MFASettingsDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MFASettingsClient) DeleteOneID(id int) *MFASettingsDeleteOne {
+	builder := c.Delete().Where(mfasettings.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MFASettingsDeleteOne{builder}
+}
+
+// Query returns a query builder for MFASettings.
+func (c *MFASettingsClient) Query() *MFASettingsQuery {
+	return &MFASettingsQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMFASettings},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a MFASettings entity by its id.
+func (c *MFASettingsClient) Get(ctx context.Context, id int) (*MFASettings, error) {
+	return c.Query().Where(mfasettings.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MFASettingsClient) GetX(ctx context.Context, id int) *MFASettings {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *MFASettingsClient) Hooks() []Hook {
+	return c.hooks.MFASettings
+}
+
+// Interceptors returns the client interceptors.
+func (c *MFASettingsClient) Interceptors() []Interceptor {
+	return c.inters.MFASettings
+}
+
+func (c *MFASettingsClient) mutate(ctx context.Context, m *MFASettingsMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MFASettingsCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MFASettingsUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MFASettingsUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MFASettingsDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown MFASettings mutation op: %q", m.Op())
+	}
+}
+
+// MFATOTPSecretClient is a client for the MFATOTPSecret schema.
+type MFATOTPSecretClient struct {
+	config
+}
+
+// NewMFATOTPSecretClient returns a client for the MFATOTPSecret from the given config.
+func NewMFATOTPSecretClient(c config) *MFATOTPSecretClient {
+	return &MFATOTPSecretClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `mfatotpsecret.Hooks(f(g(h())))`.
+func (c *MFATOTPSecretClient) Use(hooks ...Hook) {
+	c.hooks.MFATOTPSecret = append(c.hooks.MFATOTPSecret, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `mfatotpsecret.Intercept(f(g(h())))`.
+func (c *MFATOTPSecretClient) Intercept(interceptors ...Interceptor) {
+	c.inters.MFATOTPSecret = append(c.inters.MFATOTPSecret, interceptors...)
+}
+
+// Create returns a builder for creating a MFATOTPSecret entity.
+func (c *MFATOTPSecretClient) Create() *MFATOTPSecretCreate {
+	mutation := newMFATOTPSecretMutation(c.config, OpCreate)
+	return &MFATOTPSecretCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of MFATOTPSecret entities.
+func (c *MFATOTPSecretClient) CreateBulk(builders ...*MFATOTPSecretCreate) *MFATOTPSecretCreateBulk {
+	return &MFATOTPSecretCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MFATOTPSecretClient) MapCreateBulk(slice any, setFunc func(*MFATOTPSecretCreate, int)) *MFATOTPSecretCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MFATOTPSecretCreateBulk{err: fmt.Errorf("calling to MFATOTPSecretClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MFATOTPSecretCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MFATOTPSecretCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for MFATOTPSecret.
+func (c *MFATOTPSecretClient) Update() *MFATOTPSecretUpdate {
+	mutation := newMFATOTPSecretMutation(c.config, OpUpdate)
+	return &MFATOTPSecretUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MFATOTPSecretClient) UpdateOne(_m *MFATOTPSecret) *MFATOTPSecretUpdateOne {
+	mutation := newMFATOTPSecretMutation(c.config, OpUpdateOne, withMFATOTPSecret(_m))
+	return &MFATOTPSecretUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MFATOTPSecretClient) UpdateOneID(id uuid.UUID) *MFATOTPSecretUpdateOne {
+	mutation := newMFATOTPSecretMutation(c.config, OpUpdateOne, withMFATOTPSecretID(id))
+	return &MFATOTPSecretUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for MFATOTPSecret.
+func (c *MFATOTPSecretClient) Delete() *MFATOTPSecretDelete {
+	mutation := newMFATOTPSecretMutation(c.config, OpDelete)
+	return &MFATOTPSecretDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MFATOTPSecretClient) DeleteOne(_m *MFATOTPSecret) *MFATOTPSecretDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MFATOTPSecretClient) DeleteOneID(id uuid.UUID) *MFATOTPSecretDeleteOne {
+	builder := c.Delete().Where(mfatotpsecret.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MFATOTPSecretDeleteOne{builder}
+}
+
+// Query returns a query builder for MFATOTPSecret.
+func (c *MFATOTPSecretClient) Query() *MFATOTPSecretQuery {
+	return &MFATOTPSecretQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMFATOTPSecret},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a MFATOTPSecret entity by its id.
+func (c *MFATOTPSecretClient) Get(ctx context.Context, id uuid.UUID) (*MFATOTPSecret, error) {
+	return c.Query().Where(mfatotpsecret.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MFATOTPSecretClient) GetX(ctx context.Context, id uuid.UUID) *MFATOTPSecret {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a MFATOTPSecret.
+func (c *MFATOTPSecretClient) QueryUser(_m *MFATOTPSecret) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(mfatotpsecret.Table, mfatotpsecret.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, mfatotpsecret.UserTable, mfatotpsecret.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MFATOTPSecretClient) Hooks() []Hook {
+	return c.hooks.MFATOTPSecret
+}
+
+// Interceptors returns the client interceptors.
+func (c *MFATOTPSecretClient) Interceptors() []Interceptor {
+	return c.inters.MFATOTPSecret
+}
+
+func (c *MFATOTPSecretClient) mutate(ctx context.Context, m *MFATOTPSecretMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MFATOTPSecretCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MFATOTPSecretUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MFATOTPSecretUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MFATOTPSecretDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown MFATOTPSecret mutation op: %q", m.Op())
 	}
 }
 
@@ -1283,6 +2189,139 @@ func (c *TenantMembershipClient) mutate(ctx context.Context, m *TenantMembership
 	}
 }
 
+// UsageMetricClient is a client for the UsageMetric schema.
+type UsageMetricClient struct {
+	config
+}
+
+// NewUsageMetricClient returns a client for the UsageMetric from the given config.
+func NewUsageMetricClient(c config) *UsageMetricClient {
+	return &UsageMetricClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `usagemetric.Hooks(f(g(h())))`.
+func (c *UsageMetricClient) Use(hooks ...Hook) {
+	c.hooks.UsageMetric = append(c.hooks.UsageMetric, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `usagemetric.Intercept(f(g(h())))`.
+func (c *UsageMetricClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UsageMetric = append(c.inters.UsageMetric, interceptors...)
+}
+
+// Create returns a builder for creating a UsageMetric entity.
+func (c *UsageMetricClient) Create() *UsageMetricCreate {
+	mutation := newUsageMetricMutation(c.config, OpCreate)
+	return &UsageMetricCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UsageMetric entities.
+func (c *UsageMetricClient) CreateBulk(builders ...*UsageMetricCreate) *UsageMetricCreateBulk {
+	return &UsageMetricCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UsageMetricClient) MapCreateBulk(slice any, setFunc func(*UsageMetricCreate, int)) *UsageMetricCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UsageMetricCreateBulk{err: fmt.Errorf("calling to UsageMetricClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UsageMetricCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UsageMetricCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UsageMetric.
+func (c *UsageMetricClient) Update() *UsageMetricUpdate {
+	mutation := newUsageMetricMutation(c.config, OpUpdate)
+	return &UsageMetricUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UsageMetricClient) UpdateOne(_m *UsageMetric) *UsageMetricUpdateOne {
+	mutation := newUsageMetricMutation(c.config, OpUpdateOne, withUsageMetric(_m))
+	return &UsageMetricUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UsageMetricClient) UpdateOneID(id uuid.UUID) *UsageMetricUpdateOne {
+	mutation := newUsageMetricMutation(c.config, OpUpdateOne, withUsageMetricID(id))
+	return &UsageMetricUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UsageMetric.
+func (c *UsageMetricClient) Delete() *UsageMetricDelete {
+	mutation := newUsageMetricMutation(c.config, OpDelete)
+	return &UsageMetricDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UsageMetricClient) DeleteOne(_m *UsageMetric) *UsageMetricDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UsageMetricClient) DeleteOneID(id uuid.UUID) *UsageMetricDeleteOne {
+	builder := c.Delete().Where(usagemetric.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UsageMetricDeleteOne{builder}
+}
+
+// Query returns a query builder for UsageMetric.
+func (c *UsageMetricClient) Query() *UsageMetricQuery {
+	return &UsageMetricQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUsageMetric},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UsageMetric entity by its id.
+func (c *UsageMetricClient) Get(ctx context.Context, id uuid.UUID) (*UsageMetric, error) {
+	return c.Query().Where(usagemetric.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UsageMetricClient) GetX(ctx context.Context, id uuid.UUID) *UsageMetric {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *UsageMetricClient) Hooks() []Hook {
+	return c.hooks.UsageMetric
+}
+
+// Interceptors returns the client interceptors.
+func (c *UsageMetricClient) Interceptors() []Interceptor {
+	return c.inters.UsageMetric
+}
+
+func (c *UsageMetricClient) mutate(ctx context.Context, m *UsageMetricMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UsageMetricCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UsageMetricUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UsageMetricUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UsageMetricDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UsageMetric mutation op: %q", m.Op())
+	}
+}
+
 // UserClient is a client for the User schema.
 type UserClient struct {
 	config
@@ -1448,6 +2487,54 @@ func (c *UserClient) QueryIdentities(_m *User) *UserIdentityQuery {
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(useridentity.Table, useridentity.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.IdentitiesTable, user.IdentitiesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAuthorizationCodes queries the authorization_codes edge of a User.
+func (c *UserClient) QueryAuthorizationCodes(_m *User) *AuthorizationCodeQuery {
+	query := (&AuthorizationCodeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(authorizationcode.Table, authorizationcode.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.AuthorizationCodesTable, user.AuthorizationCodesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMfaTotp queries the mfa_totp edge of a User.
+func (c *UserClient) QueryMfaTotp(_m *User) *MFATOTPSecretQuery {
+	query := (&MFATOTPSecretClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(mfatotpsecret.Table, mfatotpsecret.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.MfaTotpTable, user.MfaTotpColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMfaBackupCodes queries the mfa_backup_codes edge of a User.
+func (c *UserClient) QueryMfaBackupCodes(_m *User) *MFABackupCodeQuery {
+	query := (&MFABackupCodeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(mfabackupcode.Table, mfabackupcode.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.MfaBackupCodesTable, user.MfaBackupCodesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -1632,11 +2719,14 @@ func (c *UserIdentityClient) mutate(ctx context.Context, m *UserIdentityMutation
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		AuditLog, LoginAttempt, OAuthClient, PasswordResetToken, Session, Tenant,
-		TenantMembership, User, UserIdentity []ent.Hook
+		AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement, LoginAttempt,
+		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, PasswordResetToken,
+		Session, Tenant, TenantMembership, UsageMetric, User, UserIdentity []ent.Hook
 	}
 	inters struct {
-		AuditLog, LoginAttempt, OAuthClient, PasswordResetToken, Session, Tenant,
-		TenantMembership, User, UserIdentity []ent.Interceptor
+		AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement, LoginAttempt,
+		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, PasswordResetToken,
+		Session, Tenant, TenantMembership, UsageMetric, User,
+		UserIdentity []ent.Interceptor
 	}
 )

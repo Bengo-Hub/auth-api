@@ -6,13 +6,20 @@ import (
 	"time"
 
 	"github.com/bengobox/auth-service/internal/ent/auditlog"
+	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
+	"github.com/bengobox/auth-service/internal/ent/consentsession"
+	"github.com/bengobox/auth-service/internal/ent/featureentitlement"
 	"github.com/bengobox/auth-service/internal/ent/loginattempt"
+	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
+	"github.com/bengobox/auth-service/internal/ent/mfasettings"
+	"github.com/bengobox/auth-service/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-service/internal/ent/oauthclient"
 	"github.com/bengobox/auth-service/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-service/internal/ent/schema"
 	"github.com/bengobox/auth-service/internal/ent/session"
 	"github.com/bengobox/auth-service/internal/ent/tenant"
 	"github.com/bengobox/auth-service/internal/ent/tenantmembership"
+	"github.com/bengobox/auth-service/internal/ent/usagemetric"
 	"github.com/bengobox/auth-service/internal/ent/user"
 	"github.com/bengobox/auth-service/internal/ent/useridentity"
 	"github.com/google/uuid"
@@ -36,6 +43,92 @@ func init() {
 	auditlogDescID := auditlogFields[0].Descriptor()
 	// auditlog.DefaultID holds the default value on creation for the id field.
 	auditlog.DefaultID = auditlogDescID.Default.(func() uuid.UUID)
+	authorizationcodeFields := schema.AuthorizationCode{}.Fields()
+	_ = authorizationcodeFields
+	// authorizationcodeDescClientID is the schema descriptor for client_id field.
+	authorizationcodeDescClientID := authorizationcodeFields[2].Descriptor()
+	// authorizationcode.ClientIDValidator is a validator for the "client_id" field. It is called by the builders before save.
+	authorizationcode.ClientIDValidator = authorizationcodeDescClientID.Validators[0].(func(string) error)
+	// authorizationcodeDescRedirectURI is the schema descriptor for redirect_uri field.
+	authorizationcodeDescRedirectURI := authorizationcodeFields[3].Descriptor()
+	// authorizationcode.RedirectURIValidator is a validator for the "redirect_uri" field. It is called by the builders before save.
+	authorizationcode.RedirectURIValidator = authorizationcodeDescRedirectURI.Validators[0].(func(string) error)
+	// authorizationcodeDescScope is the schema descriptor for scope field.
+	authorizationcodeDescScope := authorizationcodeFields[4].Descriptor()
+	// authorizationcode.DefaultScope holds the default value on creation for the scope field.
+	authorizationcode.DefaultScope = authorizationcodeDescScope.Default.(string)
+	// authorizationcodeDescCodeHash is the schema descriptor for code_hash field.
+	authorizationcodeDescCodeHash := authorizationcodeFields[5].Descriptor()
+	// authorizationcode.CodeHashValidator is a validator for the "code_hash" field. It is called by the builders before save.
+	authorizationcode.CodeHashValidator = authorizationcodeDescCodeHash.Validators[0].(func(string) error)
+	// authorizationcodeDescCodeChallenge is the schema descriptor for code_challenge field.
+	authorizationcodeDescCodeChallenge := authorizationcodeFields[6].Descriptor()
+	// authorizationcode.DefaultCodeChallenge holds the default value on creation for the code_challenge field.
+	authorizationcode.DefaultCodeChallenge = authorizationcodeDescCodeChallenge.Default.(string)
+	// authorizationcodeDescCodeChallengeMethod is the schema descriptor for code_challenge_method field.
+	authorizationcodeDescCodeChallengeMethod := authorizationcodeFields[7].Descriptor()
+	// authorizationcode.DefaultCodeChallengeMethod holds the default value on creation for the code_challenge_method field.
+	authorizationcode.DefaultCodeChallengeMethod = authorizationcodeDescCodeChallengeMethod.Default.(string)
+	// authorizationcodeDescNonce is the schema descriptor for nonce field.
+	authorizationcodeDescNonce := authorizationcodeFields[8].Descriptor()
+	// authorizationcode.DefaultNonce holds the default value on creation for the nonce field.
+	authorizationcode.DefaultNonce = authorizationcodeDescNonce.Default.(string)
+	// authorizationcodeDescCreatedAt is the schema descriptor for created_at field.
+	authorizationcodeDescCreatedAt := authorizationcodeFields[12].Descriptor()
+	// authorizationcode.DefaultCreatedAt holds the default value on creation for the created_at field.
+	authorizationcode.DefaultCreatedAt = authorizationcodeDescCreatedAt.Default.(func() time.Time)
+	// authorizationcodeDescID is the schema descriptor for id field.
+	authorizationcodeDescID := authorizationcodeFields[0].Descriptor()
+	// authorizationcode.DefaultID holds the default value on creation for the id field.
+	authorizationcode.DefaultID = authorizationcodeDescID.Default.(func() uuid.UUID)
+	consentsessionFields := schema.ConsentSession{}.Fields()
+	_ = consentsessionFields
+	// consentsessionDescClientID is the schema descriptor for client_id field.
+	consentsessionDescClientID := consentsessionFields[2].Descriptor()
+	// consentsession.ClientIDValidator is a validator for the "client_id" field. It is called by the builders before save.
+	consentsession.ClientIDValidator = consentsessionDescClientID.Validators[0].(func(string) error)
+	// consentsessionDescGrantedScopes is the schema descriptor for granted_scopes field.
+	consentsessionDescGrantedScopes := consentsessionFields[3].Descriptor()
+	// consentsession.DefaultGrantedScopes holds the default value on creation for the granted_scopes field.
+	consentsession.DefaultGrantedScopes = consentsessionDescGrantedScopes.Default.(string)
+	// consentsessionDescCreatedAt is the schema descriptor for created_at field.
+	consentsessionDescCreatedAt := consentsessionFields[8].Descriptor()
+	// consentsession.DefaultCreatedAt holds the default value on creation for the created_at field.
+	consentsession.DefaultCreatedAt = consentsessionDescCreatedAt.Default.(func() time.Time)
+	// consentsessionDescUpdatedAt is the schema descriptor for updated_at field.
+	consentsessionDescUpdatedAt := consentsessionFields[9].Descriptor()
+	// consentsession.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	consentsession.DefaultUpdatedAt = consentsessionDescUpdatedAt.Default.(func() time.Time)
+	// consentsession.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	consentsession.UpdateDefaultUpdatedAt = consentsessionDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// consentsessionDescID is the schema descriptor for id field.
+	consentsessionDescID := consentsessionFields[0].Descriptor()
+	// consentsession.DefaultID holds the default value on creation for the id field.
+	consentsession.DefaultID = consentsessionDescID.Default.(func() uuid.UUID)
+	featureentitlementFields := schema.FeatureEntitlement{}.Fields()
+	_ = featureentitlementFields
+	// featureentitlementDescFeatureCode is the schema descriptor for feature_code field.
+	featureentitlementDescFeatureCode := featureentitlementFields[2].Descriptor()
+	// featureentitlement.FeatureCodeValidator is a validator for the "feature_code" field. It is called by the builders before save.
+	featureentitlement.FeatureCodeValidator = featureentitlementDescFeatureCode.Validators[0].(func(string) error)
+	// featureentitlementDescPlanSource is the schema descriptor for plan_source field.
+	featureentitlementDescPlanSource := featureentitlementFields[4].Descriptor()
+	// featureentitlement.DefaultPlanSource holds the default value on creation for the plan_source field.
+	featureentitlement.DefaultPlanSource = featureentitlementDescPlanSource.Default.(string)
+	// featureentitlementDescCreatedAt is the schema descriptor for created_at field.
+	featureentitlementDescCreatedAt := featureentitlementFields[6].Descriptor()
+	// featureentitlement.DefaultCreatedAt holds the default value on creation for the created_at field.
+	featureentitlement.DefaultCreatedAt = featureentitlementDescCreatedAt.Default.(func() time.Time)
+	// featureentitlementDescUpdatedAt is the schema descriptor for updated_at field.
+	featureentitlementDescUpdatedAt := featureentitlementFields[7].Descriptor()
+	// featureentitlement.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	featureentitlement.DefaultUpdatedAt = featureentitlementDescUpdatedAt.Default.(func() time.Time)
+	// featureentitlement.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	featureentitlement.UpdateDefaultUpdatedAt = featureentitlementDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// featureentitlementDescID is the schema descriptor for id field.
+	featureentitlementDescID := featureentitlementFields[0].Descriptor()
+	// featureentitlement.DefaultID holds the default value on creation for the id field.
+	featureentitlement.DefaultID = featureentitlementDescID.Default.(func() uuid.UUID)
 	loginattemptFields := schema.LoginAttempt{}.Fields()
 	_ = loginattemptFields
 	// loginattemptDescEmail is the schema descriptor for email field.
@@ -54,6 +147,62 @@ func init() {
 	loginattemptDescID := loginattemptFields[0].Descriptor()
 	// loginattempt.DefaultID holds the default value on creation for the id field.
 	loginattempt.DefaultID = loginattemptDescID.Default.(func() uuid.UUID)
+	mfabackupcodeFields := schema.MFABackupCode{}.Fields()
+	_ = mfabackupcodeFields
+	// mfabackupcodeDescCodeHash is the schema descriptor for code_hash field.
+	mfabackupcodeDescCodeHash := mfabackupcodeFields[2].Descriptor()
+	// mfabackupcode.CodeHashValidator is a validator for the "code_hash" field. It is called by the builders before save.
+	mfabackupcode.CodeHashValidator = mfabackupcodeDescCodeHash.Validators[0].(func(string) error)
+	// mfabackupcodeDescCreatedAt is the schema descriptor for created_at field.
+	mfabackupcodeDescCreatedAt := mfabackupcodeFields[4].Descriptor()
+	// mfabackupcode.DefaultCreatedAt holds the default value on creation for the created_at field.
+	mfabackupcode.DefaultCreatedAt = mfabackupcodeDescCreatedAt.Default.(func() time.Time)
+	// mfabackupcodeDescID is the schema descriptor for id field.
+	mfabackupcodeDescID := mfabackupcodeFields[0].Descriptor()
+	// mfabackupcode.DefaultID holds the default value on creation for the id field.
+	mfabackupcode.DefaultID = mfabackupcodeDescID.Default.(func() uuid.UUID)
+	mfasettingsFields := schema.MFASettings{}.Fields()
+	_ = mfasettingsFields
+	// mfasettingsDescPrimaryMethod is the schema descriptor for primary_method field.
+	mfasettingsDescPrimaryMethod := mfasettingsFields[1].Descriptor()
+	// mfasettings.DefaultPrimaryMethod holds the default value on creation for the primary_method field.
+	mfasettings.DefaultPrimaryMethod = mfasettingsDescPrimaryMethod.Default.(string)
+	// mfasettingsDescRecoveryChannel is the schema descriptor for recovery_channel field.
+	mfasettingsDescRecoveryChannel := mfasettingsFields[3].Descriptor()
+	// mfasettings.DefaultRecoveryChannel holds the default value on creation for the recovery_channel field.
+	mfasettings.DefaultRecoveryChannel = mfasettingsDescRecoveryChannel.Default.(string)
+	// mfasettingsDescCreatedAt is the schema descriptor for created_at field.
+	mfasettingsDescCreatedAt := mfasettingsFields[4].Descriptor()
+	// mfasettings.DefaultCreatedAt holds the default value on creation for the created_at field.
+	mfasettings.DefaultCreatedAt = mfasettingsDescCreatedAt.Default.(func() time.Time)
+	// mfasettingsDescUpdatedAt is the schema descriptor for updated_at field.
+	mfasettingsDescUpdatedAt := mfasettingsFields[5].Descriptor()
+	// mfasettings.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	mfasettings.DefaultUpdatedAt = mfasettingsDescUpdatedAt.Default.(func() time.Time)
+	// mfasettings.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	mfasettings.UpdateDefaultUpdatedAt = mfasettingsDescUpdatedAt.UpdateDefault.(func() time.Time)
+	mfatotpsecretFields := schema.MFATOTPSecret{}.Fields()
+	_ = mfatotpsecretFields
+	// mfatotpsecretDescSecret is the schema descriptor for secret field.
+	mfatotpsecretDescSecret := mfatotpsecretFields[2].Descriptor()
+	// mfatotpsecret.SecretValidator is a validator for the "secret" field. It is called by the builders before save.
+	mfatotpsecret.SecretValidator = mfatotpsecretDescSecret.Validators[0].(func(string) error)
+	// mfatotpsecretDescDigits is the schema descriptor for digits field.
+	mfatotpsecretDescDigits := mfatotpsecretFields[3].Descriptor()
+	// mfatotpsecret.DefaultDigits holds the default value on creation for the digits field.
+	mfatotpsecret.DefaultDigits = mfatotpsecretDescDigits.Default.(int)
+	// mfatotpsecretDescPeriod is the schema descriptor for period field.
+	mfatotpsecretDescPeriod := mfatotpsecretFields[4].Descriptor()
+	// mfatotpsecret.DefaultPeriod holds the default value on creation for the period field.
+	mfatotpsecret.DefaultPeriod = mfatotpsecretDescPeriod.Default.(int)
+	// mfatotpsecretDescCreatedAt is the schema descriptor for created_at field.
+	mfatotpsecretDescCreatedAt := mfatotpsecretFields[7].Descriptor()
+	// mfatotpsecret.DefaultCreatedAt holds the default value on creation for the created_at field.
+	mfatotpsecret.DefaultCreatedAt = mfatotpsecretDescCreatedAt.Default.(func() time.Time)
+	// mfatotpsecretDescID is the schema descriptor for id field.
+	mfatotpsecretDescID := mfatotpsecretFields[0].Descriptor()
+	// mfatotpsecret.DefaultID holds the default value on creation for the id field.
+	mfatotpsecret.DefaultID = mfatotpsecretDescID.Default.(func() uuid.UUID)
 	oauthclientFields := schema.OAuthClient{}.Fields()
 	_ = oauthclientFields
 	// oauthclientDescClientID is the schema descriptor for client_id field.
@@ -176,6 +325,38 @@ func init() {
 	tenantmembershipDescID := tenantmembershipFields[0].Descriptor()
 	// tenantmembership.DefaultID holds the default value on creation for the id field.
 	tenantmembership.DefaultID = tenantmembershipDescID.Default.(func() uuid.UUID)
+	usagemetricFields := schema.UsageMetric{}.Fields()
+	_ = usagemetricFields
+	// usagemetricDescActiveUsers is the schema descriptor for active_users field.
+	usagemetricDescActiveUsers := usagemetricFields[3].Descriptor()
+	// usagemetric.DefaultActiveUsers holds the default value on creation for the active_users field.
+	usagemetric.DefaultActiveUsers = usagemetricDescActiveUsers.Default.(int)
+	// usagemetricDescAuthTransactions is the schema descriptor for auth_transactions field.
+	usagemetricDescAuthTransactions := usagemetricFields[4].Descriptor()
+	// usagemetric.DefaultAuthTransactions holds the default value on creation for the auth_transactions field.
+	usagemetric.DefaultAuthTransactions = usagemetricDescAuthTransactions.Default.(int)
+	// usagemetricDescMfaPrompts is the schema descriptor for mfa_prompts field.
+	usagemetricDescMfaPrompts := usagemetricFields[5].Descriptor()
+	// usagemetric.DefaultMfaPrompts holds the default value on creation for the mfa_prompts field.
+	usagemetric.DefaultMfaPrompts = usagemetricDescMfaPrompts.Default.(int)
+	// usagemetricDescMachineTokens is the schema descriptor for machine_tokens field.
+	usagemetricDescMachineTokens := usagemetricFields[6].Descriptor()
+	// usagemetric.DefaultMachineTokens holds the default value on creation for the machine_tokens field.
+	usagemetric.DefaultMachineTokens = usagemetricDescMachineTokens.Default.(int)
+	// usagemetricDescCreatedAt is the schema descriptor for created_at field.
+	usagemetricDescCreatedAt := usagemetricFields[7].Descriptor()
+	// usagemetric.DefaultCreatedAt holds the default value on creation for the created_at field.
+	usagemetric.DefaultCreatedAt = usagemetricDescCreatedAt.Default.(func() time.Time)
+	// usagemetricDescUpdatedAt is the schema descriptor for updated_at field.
+	usagemetricDescUpdatedAt := usagemetricFields[8].Descriptor()
+	// usagemetric.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	usagemetric.DefaultUpdatedAt = usagemetricDescUpdatedAt.Default.(func() time.Time)
+	// usagemetric.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	usagemetric.UpdateDefaultUpdatedAt = usagemetricDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// usagemetricDescID is the schema descriptor for id field.
+	usagemetricDescID := usagemetricFields[0].Descriptor()
+	// usagemetric.DefaultID holds the default value on creation for the id field.
+	usagemetric.DefaultID = usagemetricDescID.Default.(func() uuid.UUID)
 	userFields := schema.User{}.Fields()
 	_ = userFields
 	// userDescEmail is the schema descriptor for email field.

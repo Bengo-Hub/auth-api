@@ -14,14 +14,20 @@ type TokenValidator interface {
 	ValidateAccessToken(tokenStr string) (*token.Claims, error)
 }
 
+// RevocationChecker checks if a jti is revoked.
+type RevocationChecker interface {
+	IsRevoked(ctx context.Context, jti string) (bool, error)
+}
+
 // Auth provides JWT-backed authentication middleware.
 type Auth struct {
 	validator TokenValidator
+	revoked   RevocationChecker
 }
 
 // NewAuth creates a new instance.
-func NewAuth(validator TokenValidator) *Auth {
-	return &Auth{validator: validator}
+func NewAuth(validator TokenValidator, revoked RevocationChecker) *Auth {
+	return &Auth{validator: validator, revoked: revoked}
 }
 
 // RequireAuth ensures incoming requests possess a valid bearer token.
@@ -38,6 +44,13 @@ func (a *Auth) RequireAuth(next http.Handler) http.Handler {
 		if err != nil {
 			writeAuthError(w, http.StatusUnauthorized, "invalid token")
 			return
+		}
+		// Check revocation by JTI if available
+		if a.revoked != nil && claims != nil && claims.ID != "" {
+			if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && revoked {
+				writeAuthError(w, http.StatusUnauthorized, "token revoked")
+				return
+			}
 		}
 
 		ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)

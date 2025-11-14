@@ -50,7 +50,7 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`.
 - To enable Google OAuth, set `AUTH_PROVIDERS_GOOGLE_ENABLED=true` together with `CLIENT_ID`, `CLIENT_SECRET`, and `REDIRECT_URL` (normally `https://auth.bengobox.com/api/v1/auth/oauth/google/callback`).  
   Use `AUTH_SECURITY_OAUTH_STATE_SECRET` (32+ random bytes) to sign OAuth state tokens and optionally restrict tenants by domain via `AUTH_PROVIDERS_GOOGLE_ALLOWED_DOMAINS=example.com,contoso.com`.
 
-### HTTP Surface (Sprint 3)
+### HTTP Surface (Sprint 4)
 
 | Method | Path                              | Description                     |
 |--------|-----------------------------------|---------------------------------|
@@ -60,8 +60,30 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`.
 | POST   | `/api/v1/auth/password-reset/*`   | Request/confirm reset tokens    |
 | POST   | `/api/v1/auth/oauth/google/start` | Generate Google OAuth URL       |
 | GET    | `/api/v1/auth/oauth/google/callback` | Finish Google OAuth login    |
+| GET    | `/api/v1/.well-known/openid-configuration` | OIDC discovery           |
+| GET    | `/api/v1/.well-known/jwks.json`  | JWKS public keys                |
+| GET    | `/api/v1/authorize`               | OIDC authorize (requires auth)  |
+| POST   | `/api/v1/token`                    | OIDC token exchange             |
+| GET    | `/api/v1/userinfo`                 | OIDC userinfo (requires auth)   |
 | GET    | `/api/v1/auth/me`                 | Returns authenticated profile   |
 | GET    | `/healthz`                        | Liveness probe                  |
+| GET    | `/metrics`                        | Prometheus metrics              |
+
+### Admin APIs (secured by admin scopes)
+
+| Method | Path                              | Description                     |
+|--------|-----------------------------------|---------------------------------|
+| GET    | `/api/v1/admin/tenants`          | List tenants                    |
+| POST   | `/api/v1/admin/tenants`          | Create tenant                   |
+| GET    | `/api/v1/admin/clients`          | List OAuth clients              |
+| POST   | `/api/v1/admin/clients`          | Create OAuth client             |
+| GET    | `/api/v1/admin/entitlements`     | List tenant entitlements        |
+| POST   | `/api/v1/admin/entitlements`     | Upsert tenant entitlement       |
+| POST   | `/api/v1/admin/usage/increment`  | Increment usage counter         |
+| POST   | `/api/v1/admin/keys/rotate`      | Reload signing keys             |
+
+### MFA
+- TOTP enrollment/confirmation and backup codes under `/api/v1/auth/mfa/*` (requires auth).
 
 ## Project Structure
 

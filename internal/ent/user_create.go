@@ -10,6 +10,9 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
+	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
+	"github.com/bengobox/auth-service/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-service/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-service/internal/ent/session"
 	"github.com/bengobox/auth-service/internal/ent/tenantmembership"
@@ -193,6 +196,51 @@ func (_c *UserCreate) AddIdentities(v ...*UserIdentity) *UserCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddIdentityIDs(ids...)
+}
+
+// AddAuthorizationCodeIDs adds the "authorization_codes" edge to the AuthorizationCode entity by IDs.
+func (_c *UserCreate) AddAuthorizationCodeIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddAuthorizationCodeIDs(ids...)
+	return _c
+}
+
+// AddAuthorizationCodes adds the "authorization_codes" edges to the AuthorizationCode entity.
+func (_c *UserCreate) AddAuthorizationCodes(v ...*AuthorizationCode) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAuthorizationCodeIDs(ids...)
+}
+
+// AddMfaTotpIDs adds the "mfa_totp" edge to the MFATOTPSecret entity by IDs.
+func (_c *UserCreate) AddMfaTotpIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddMfaTotpIDs(ids...)
+	return _c
+}
+
+// AddMfaTotp adds the "mfa_totp" edges to the MFATOTPSecret entity.
+func (_c *UserCreate) AddMfaTotp(v ...*MFATOTPSecret) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddMfaTotpIDs(ids...)
+}
+
+// AddMfaBackupCodeIDs adds the "mfa_backup_codes" edge to the MFABackupCode entity by IDs.
+func (_c *UserCreate) AddMfaBackupCodeIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddMfaBackupCodeIDs(ids...)
+	return _c
+}
+
+// AddMfaBackupCodes adds the "mfa_backup_codes" edges to the MFABackupCode entity.
+func (_c *UserCreate) AddMfaBackupCodes(v ...*MFABackupCode) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddMfaBackupCodeIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -396,6 +444,54 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(useridentity.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AuthorizationCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuthorizationCodesTable,
+			Columns: []string{user.AuthorizationCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(authorizationcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.MfaTotpIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaTotpTable,
+			Columns: []string{user.MfaTotpColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfatotpsecret.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.MfaBackupCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaBackupCodesTable,
+			Columns: []string{user.MfaBackupCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

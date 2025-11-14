@@ -19,11 +19,41 @@ type AuthService interface {
 	Register(ctx context.Context, in auth.RegisterInput) (*auth.AuthResult, error)
 	Login(ctx context.Context, in auth.LoginInput) (*auth.AuthResult, error)
 	Refresh(ctx context.Context, in auth.RefreshInput) (*auth.AuthResult, error)
+	Logout(ctx context.Context, sessionID uuid.UUID, jti string, ttl time.Duration) error
 	RequestPasswordReset(ctx context.Context, in auth.PasswordResetRequestInput) (string, error)
 	ConfirmPasswordReset(ctx context.Context, in auth.PasswordResetConfirmInput) error
 	GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error)
 	StartGoogleOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
 	CompleteGoogleOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
+}
+
+// Logout revokes the current session and token.
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	jti := claims.ID
+	if jti == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "missing jti", nil)
+		return
+	}
+	sessionID := parseUUID(claims.SessionID)
+	var ttl time.Duration
+	if claims.ExpiresAt != nil {
+		ttl = time.Until(claims.ExpiresAt.Time)
+		if ttl < 0 {
+			ttl = 0
+		}
+	}
+	if err := h.service.Logout(r.Context(), sessionID, jti, ttl); err != nil {
+		reqID := middleware.GetReqID(r.Context())
+		h.logger.Error("logout failed", zap.String("request_id", reqID), zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "logout failed", map[string]any{"request_id": reqID})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
 // AuthHandler exposes HTTP endpoints for authentication flows.

@@ -21,6 +21,42 @@ func (f AuditLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AuditLogMutation", m)
 }
 
+// The AuthorizationCodeFunc type is an adapter to allow the use of ordinary
+// function as AuthorizationCode mutator.
+type AuthorizationCodeFunc func(context.Context, *ent.AuthorizationCodeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AuthorizationCodeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AuthorizationCodeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AuthorizationCodeMutation", m)
+}
+
+// The ConsentSessionFunc type is an adapter to allow the use of ordinary
+// function as ConsentSession mutator.
+type ConsentSessionFunc func(context.Context, *ent.ConsentSessionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ConsentSessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ConsentSessionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ConsentSessionMutation", m)
+}
+
+// The FeatureEntitlementFunc type is an adapter to allow the use of ordinary
+// function as FeatureEntitlement mutator.
+type FeatureEntitlementFunc func(context.Context, *ent.FeatureEntitlementMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f FeatureEntitlementFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.FeatureEntitlementMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FeatureEntitlementMutation", m)
+}
+
 // The LoginAttemptFunc type is an adapter to allow the use of ordinary
 // function as LoginAttempt mutator.
 type LoginAttemptFunc func(context.Context, *ent.LoginAttemptMutation) (ent.Value, error)
@@ -31,6 +67,42 @@ func (f LoginAttemptFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LoginAttemptMutation", m)
+}
+
+// The MFABackupCodeFunc type is an adapter to allow the use of ordinary
+// function as MFABackupCode mutator.
+type MFABackupCodeFunc func(context.Context, *ent.MFABackupCodeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MFABackupCodeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MFABackupCodeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MFABackupCodeMutation", m)
+}
+
+// The MFASettingsFunc type is an adapter to allow the use of ordinary
+// function as MFASettings mutator.
+type MFASettingsFunc func(context.Context, *ent.MFASettingsMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MFASettingsFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MFASettingsMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MFASettingsMutation", m)
+}
+
+// The MFATOTPSecretFunc type is an adapter to allow the use of ordinary
+// function as MFATOTPSecret mutator.
+type MFATOTPSecretFunc func(context.Context, *ent.MFATOTPSecretMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MFATOTPSecretFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MFATOTPSecretMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MFATOTPSecretMutation", m)
 }
 
 // The OAuthClientFunc type is an adapter to allow the use of ordinary
@@ -91,6 +163,18 @@ func (f TenantMembershipFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.V
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TenantMembershipMutation", m)
+}
+
+// The UsageMetricFunc type is an adapter to allow the use of ordinary
+// function as UsageMetric mutator.
+type UsageMetricFunc func(context.Context, *ent.UsageMetricMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UsageMetricFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UsageMetricMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UsageMetricMutation", m)
 }
 
 // The UserFunc type is an adapter to allow the use of ordinary

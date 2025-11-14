@@ -51,9 +51,15 @@ type UserEdges struct {
 	PasswordResetTokens []*PasswordResetToken `json:"password_reset_tokens,omitempty"`
 	// Identities holds the value of the identities edge.
 	Identities []*UserIdentity `json:"identities,omitempty"`
+	// AuthorizationCodes holds the value of the authorization_codes edge.
+	AuthorizationCodes []*AuthorizationCode `json:"authorization_codes,omitempty"`
+	// MfaTotp holds the value of the mfa_totp edge.
+	MfaTotp []*MFATOTPSecret `json:"mfa_totp,omitempty"`
+	// MfaBackupCodes holds the value of the mfa_backup_codes edge.
+	MfaBackupCodes []*MFABackupCode `json:"mfa_backup_codes,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [7]bool
 }
 
 // MembershipsOrErr returns the Memberships value or an error if the edge
@@ -90,6 +96,33 @@ func (e UserEdges) IdentitiesOrErr() ([]*UserIdentity, error) {
 		return e.Identities, nil
 	}
 	return nil, &NotLoadedError{edge: "identities"}
+}
+
+// AuthorizationCodesOrErr returns the AuthorizationCodes value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) AuthorizationCodesOrErr() ([]*AuthorizationCode, error) {
+	if e.loadedTypes[4] {
+		return e.AuthorizationCodes, nil
+	}
+	return nil, &NotLoadedError{edge: "authorization_codes"}
+}
+
+// MfaTotpOrErr returns the MfaTotp value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) MfaTotpOrErr() ([]*MFATOTPSecret, error) {
+	if e.loadedTypes[5] {
+		return e.MfaTotp, nil
+	}
+	return nil, &NotLoadedError{edge: "mfa_totp"}
+}
+
+// MfaBackupCodesOrErr returns the MfaBackupCodes value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) MfaBackupCodesOrErr() ([]*MFABackupCode, error) {
+	if e.loadedTypes[6] {
+		return e.MfaBackupCodes, nil
+	}
+	return nil, &NotLoadedError{edge: "mfa_backup_codes"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -207,6 +240,21 @@ func (_m *User) QueryPasswordResetTokens() *PasswordResetTokenQuery {
 // QueryIdentities queries the "identities" edge of the User entity.
 func (_m *User) QueryIdentities() *UserIdentityQuery {
 	return NewUserClient(_m.config).QueryIdentities(_m)
+}
+
+// QueryAuthorizationCodes queries the "authorization_codes" edge of the User entity.
+func (_m *User) QueryAuthorizationCodes() *AuthorizationCodeQuery {
+	return NewUserClient(_m.config).QueryAuthorizationCodes(_m)
+}
+
+// QueryMfaTotp queries the "mfa_totp" edge of the User entity.
+func (_m *User) QueryMfaTotp() *MFATOTPSecretQuery {
+	return NewUserClient(_m.config).QueryMfaTotp(_m)
+}
+
+// QueryMfaBackupCodes queries the "mfa_backup_codes" edge of the User entity.
+func (_m *User) QueryMfaBackupCodes() *MFABackupCodeQuery {
+	return NewUserClient(_m.config).QueryMfaBackupCodes(_m)
 }
 
 // Update returns a builder for updating this User.

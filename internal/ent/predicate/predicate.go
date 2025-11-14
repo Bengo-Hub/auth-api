@@ -9,8 +9,26 @@ import (
 // AuditLog is the predicate function for auditlog builders.
 type AuditLog func(*sql.Selector)
 
+// AuthorizationCode is the predicate function for authorizationcode builders.
+type AuthorizationCode func(*sql.Selector)
+
+// ConsentSession is the predicate function for consentsession builders.
+type ConsentSession func(*sql.Selector)
+
+// FeatureEntitlement is the predicate function for featureentitlement builders.
+type FeatureEntitlement func(*sql.Selector)
+
 // LoginAttempt is the predicate function for loginattempt builders.
 type LoginAttempt func(*sql.Selector)
+
+// MFABackupCode is the predicate function for mfabackupcode builders.
+type MFABackupCode func(*sql.Selector)
+
+// MFASettings is the predicate function for mfasettings builders.
+type MFASettings func(*sql.Selector)
+
+// MFATOTPSecret is the predicate function for mfatotpsecret builders.
+type MFATOTPSecret func(*sql.Selector)
 
 // OAuthClient is the predicate function for oauthclient builders.
 type OAuthClient func(*sql.Selector)
@@ -26,6 +44,9 @@ type Tenant func(*sql.Selector)
 
 // TenantMembership is the predicate function for tenantmembership builders.
 type TenantMembership func(*sql.Selector)
+
+// UsageMetric is the predicate function for usagemetric builders.
+type UsageMetric func(*sql.Selector)
 
 // User is the predicate function for user builders.
 type User func(*sql.Selector)

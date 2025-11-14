@@ -12,6 +12,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
+	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
+	"github.com/bengobox/auth-service/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-service/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-service/internal/ent/predicate"
 	"github.com/bengobox/auth-service/internal/ent/session"
@@ -32,6 +35,9 @@ type UserQuery struct {
 	withSessions            *SessionQuery
 	withPasswordResetTokens *PasswordResetTokenQuery
 	withIdentities          *UserIdentityQuery
+	withAuthorizationCodes  *AuthorizationCodeQuery
+	withMfaTotp             *MFATOTPSecretQuery
+	withMfaBackupCodes      *MFABackupCodeQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -149,6 +155,72 @@ func (_q *UserQuery) QueryIdentities() *UserIdentityQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(useridentity.Table, useridentity.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.IdentitiesTable, user.IdentitiesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAuthorizationCodes chains the current query on the "authorization_codes" edge.
+func (_q *UserQuery) QueryAuthorizationCodes() *AuthorizationCodeQuery {
+	query := (&AuthorizationCodeClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(authorizationcode.Table, authorizationcode.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.AuthorizationCodesTable, user.AuthorizationCodesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMfaTotp chains the current query on the "mfa_totp" edge.
+func (_q *UserQuery) QueryMfaTotp() *MFATOTPSecretQuery {
+	query := (&MFATOTPSecretClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(mfatotpsecret.Table, mfatotpsecret.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.MfaTotpTable, user.MfaTotpColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMfaBackupCodes chains the current query on the "mfa_backup_codes" edge.
+func (_q *UserQuery) QueryMfaBackupCodes() *MFABackupCodeQuery {
+	query := (&MFABackupCodeClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(mfabackupcode.Table, mfabackupcode.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.MfaBackupCodesTable, user.MfaBackupCodesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -352,6 +424,9 @@ func (_q *UserQuery) Clone() *UserQuery {
 		withSessions:            _q.withSessions.Clone(),
 		withPasswordResetTokens: _q.withPasswordResetTokens.Clone(),
 		withIdentities:          _q.withIdentities.Clone(),
+		withAuthorizationCodes:  _q.withAuthorizationCodes.Clone(),
+		withMfaTotp:             _q.withMfaTotp.Clone(),
+		withMfaBackupCodes:      _q.withMfaBackupCodes.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -399,6 +474,39 @@ func (_q *UserQuery) WithIdentities(opts ...func(*UserIdentityQuery)) *UserQuery
 		opt(query)
 	}
 	_q.withIdentities = query
+	return _q
+}
+
+// WithAuthorizationCodes tells the query-builder to eager-load the nodes that are connected to
+// the "authorization_codes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithAuthorizationCodes(opts ...func(*AuthorizationCodeQuery)) *UserQuery {
+	query := (&AuthorizationCodeClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAuthorizationCodes = query
+	return _q
+}
+
+// WithMfaTotp tells the query-builder to eager-load the nodes that are connected to
+// the "mfa_totp" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithMfaTotp(opts ...func(*MFATOTPSecretQuery)) *UserQuery {
+	query := (&MFATOTPSecretClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMfaTotp = query
+	return _q
+}
+
+// WithMfaBackupCodes tells the query-builder to eager-load the nodes that are connected to
+// the "mfa_backup_codes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithMfaBackupCodes(opts ...func(*MFABackupCodeQuery)) *UserQuery {
+	query := (&MFABackupCodeClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMfaBackupCodes = query
 	return _q
 }
 
@@ -480,11 +588,14 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [7]bool{
 			_q.withMemberships != nil,
 			_q.withSessions != nil,
 			_q.withPasswordResetTokens != nil,
 			_q.withIdentities != nil,
+			_q.withAuthorizationCodes != nil,
+			_q.withMfaTotp != nil,
+			_q.withMfaBackupCodes != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -532,6 +643,29 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := _q.loadIdentities(ctx, query, nodes,
 			func(n *User) { n.Edges.Identities = []*UserIdentity{} },
 			func(n *User, e *UserIdentity) { n.Edges.Identities = append(n.Edges.Identities, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAuthorizationCodes; query != nil {
+		if err := _q.loadAuthorizationCodes(ctx, query, nodes,
+			func(n *User) { n.Edges.AuthorizationCodes = []*AuthorizationCode{} },
+			func(n *User, e *AuthorizationCode) {
+				n.Edges.AuthorizationCodes = append(n.Edges.AuthorizationCodes, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withMfaTotp; query != nil {
+		if err := _q.loadMfaTotp(ctx, query, nodes,
+			func(n *User) { n.Edges.MfaTotp = []*MFATOTPSecret{} },
+			func(n *User, e *MFATOTPSecret) { n.Edges.MfaTotp = append(n.Edges.MfaTotp, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withMfaBackupCodes; query != nil {
+		if err := _q.loadMfaBackupCodes(ctx, query, nodes,
+			func(n *User) { n.Edges.MfaBackupCodes = []*MFABackupCode{} },
+			func(n *User, e *MFABackupCode) { n.Edges.MfaBackupCodes = append(n.Edges.MfaBackupCodes, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -643,6 +777,96 @@ func (_q *UserQuery) loadIdentities(ctx context.Context, query *UserIdentityQuer
 	}
 	query.Where(predicate.UserIdentity(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(user.IdentitiesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadAuthorizationCodes(ctx context.Context, query *AuthorizationCodeQuery, nodes []*User, init func(*User), assign func(*User, *AuthorizationCode)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(authorizationcode.FieldUserID)
+	}
+	query.Where(predicate.AuthorizationCode(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.AuthorizationCodesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadMfaTotp(ctx context.Context, query *MFATOTPSecretQuery, nodes []*User, init func(*User), assign func(*User, *MFATOTPSecret)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(mfatotpsecret.FieldUserID)
+	}
+	query.Where(predicate.MFATOTPSecret(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.MfaTotpColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadMfaBackupCodes(ctx context.Context, query *MFABackupCodeQuery, nodes []*User, init func(*User), assign func(*User, *MFABackupCode)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(mfabackupcode.FieldUserID)
+	}
+	query.Where(predicate.MFABackupCode(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.MfaBackupCodesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

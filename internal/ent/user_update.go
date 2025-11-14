@@ -11,6 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
+	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
+	"github.com/bengobox/auth-service/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-service/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-service/internal/ent/predicate"
 	"github.com/bengobox/auth-service/internal/ent/session"
@@ -199,6 +202,51 @@ func (_u *UserUpdate) AddIdentities(v ...*UserIdentity) *UserUpdate {
 	return _u.AddIdentityIDs(ids...)
 }
 
+// AddAuthorizationCodeIDs adds the "authorization_codes" edge to the AuthorizationCode entity by IDs.
+func (_u *UserUpdate) AddAuthorizationCodeIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.AddAuthorizationCodeIDs(ids...)
+	return _u
+}
+
+// AddAuthorizationCodes adds the "authorization_codes" edges to the AuthorizationCode entity.
+func (_u *UserUpdate) AddAuthorizationCodes(v ...*AuthorizationCode) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAuthorizationCodeIDs(ids...)
+}
+
+// AddMfaTotpIDs adds the "mfa_totp" edge to the MFATOTPSecret entity by IDs.
+func (_u *UserUpdate) AddMfaTotpIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.AddMfaTotpIDs(ids...)
+	return _u
+}
+
+// AddMfaTotp adds the "mfa_totp" edges to the MFATOTPSecret entity.
+func (_u *UserUpdate) AddMfaTotp(v ...*MFATOTPSecret) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMfaTotpIDs(ids...)
+}
+
+// AddMfaBackupCodeIDs adds the "mfa_backup_codes" edge to the MFABackupCode entity by IDs.
+func (_u *UserUpdate) AddMfaBackupCodeIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.AddMfaBackupCodeIDs(ids...)
+	return _u
+}
+
+// AddMfaBackupCodes adds the "mfa_backup_codes" edges to the MFABackupCode entity.
+func (_u *UserUpdate) AddMfaBackupCodes(v ...*MFABackupCode) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMfaBackupCodeIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -286,6 +334,69 @@ func (_u *UserUpdate) RemoveIdentities(v ...*UserIdentity) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveIdentityIDs(ids...)
+}
+
+// ClearAuthorizationCodes clears all "authorization_codes" edges to the AuthorizationCode entity.
+func (_u *UserUpdate) ClearAuthorizationCodes() *UserUpdate {
+	_u.mutation.ClearAuthorizationCodes()
+	return _u
+}
+
+// RemoveAuthorizationCodeIDs removes the "authorization_codes" edge to AuthorizationCode entities by IDs.
+func (_u *UserUpdate) RemoveAuthorizationCodeIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.RemoveAuthorizationCodeIDs(ids...)
+	return _u
+}
+
+// RemoveAuthorizationCodes removes "authorization_codes" edges to AuthorizationCode entities.
+func (_u *UserUpdate) RemoveAuthorizationCodes(v ...*AuthorizationCode) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAuthorizationCodeIDs(ids...)
+}
+
+// ClearMfaTotp clears all "mfa_totp" edges to the MFATOTPSecret entity.
+func (_u *UserUpdate) ClearMfaTotp() *UserUpdate {
+	_u.mutation.ClearMfaTotp()
+	return _u
+}
+
+// RemoveMfaTotpIDs removes the "mfa_totp" edge to MFATOTPSecret entities by IDs.
+func (_u *UserUpdate) RemoveMfaTotpIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.RemoveMfaTotpIDs(ids...)
+	return _u
+}
+
+// RemoveMfaTotp removes "mfa_totp" edges to MFATOTPSecret entities.
+func (_u *UserUpdate) RemoveMfaTotp(v ...*MFATOTPSecret) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMfaTotpIDs(ids...)
+}
+
+// ClearMfaBackupCodes clears all "mfa_backup_codes" edges to the MFABackupCode entity.
+func (_u *UserUpdate) ClearMfaBackupCodes() *UserUpdate {
+	_u.mutation.ClearMfaBackupCodes()
+	return _u
+}
+
+// RemoveMfaBackupCodeIDs removes the "mfa_backup_codes" edge to MFABackupCode entities by IDs.
+func (_u *UserUpdate) RemoveMfaBackupCodeIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.RemoveMfaBackupCodeIDs(ids...)
+	return _u
+}
+
+// RemoveMfaBackupCodes removes "mfa_backup_codes" edges to MFABackupCode entities.
+func (_u *UserUpdate) RemoveMfaBackupCodes(v ...*MFABackupCode) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMfaBackupCodeIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -564,6 +675,141 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.AuthorizationCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuthorizationCodesTable,
+			Columns: []string{user.AuthorizationCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(authorizationcode.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAuthorizationCodesIDs(); len(nodes) > 0 && !_u.mutation.AuthorizationCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuthorizationCodesTable,
+			Columns: []string{user.AuthorizationCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(authorizationcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AuthorizationCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuthorizationCodesTable,
+			Columns: []string{user.AuthorizationCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(authorizationcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MfaTotpCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaTotpTable,
+			Columns: []string{user.MfaTotpColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfatotpsecret.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMfaTotpIDs(); len(nodes) > 0 && !_u.mutation.MfaTotpCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaTotpTable,
+			Columns: []string{user.MfaTotpColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfatotpsecret.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MfaTotpIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaTotpTable,
+			Columns: []string{user.MfaTotpColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfatotpsecret.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MfaBackupCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaBackupCodesTable,
+			Columns: []string{user.MfaBackupCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMfaBackupCodesIDs(); len(nodes) > 0 && !_u.mutation.MfaBackupCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaBackupCodesTable,
+			Columns: []string{user.MfaBackupCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MfaBackupCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaBackupCodesTable,
+			Columns: []string{user.MfaBackupCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -750,6 +996,51 @@ func (_u *UserUpdateOne) AddIdentities(v ...*UserIdentity) *UserUpdateOne {
 	return _u.AddIdentityIDs(ids...)
 }
 
+// AddAuthorizationCodeIDs adds the "authorization_codes" edge to the AuthorizationCode entity by IDs.
+func (_u *UserUpdateOne) AddAuthorizationCodeIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.AddAuthorizationCodeIDs(ids...)
+	return _u
+}
+
+// AddAuthorizationCodes adds the "authorization_codes" edges to the AuthorizationCode entity.
+func (_u *UserUpdateOne) AddAuthorizationCodes(v ...*AuthorizationCode) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAuthorizationCodeIDs(ids...)
+}
+
+// AddMfaTotpIDs adds the "mfa_totp" edge to the MFATOTPSecret entity by IDs.
+func (_u *UserUpdateOne) AddMfaTotpIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.AddMfaTotpIDs(ids...)
+	return _u
+}
+
+// AddMfaTotp adds the "mfa_totp" edges to the MFATOTPSecret entity.
+func (_u *UserUpdateOne) AddMfaTotp(v ...*MFATOTPSecret) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMfaTotpIDs(ids...)
+}
+
+// AddMfaBackupCodeIDs adds the "mfa_backup_codes" edge to the MFABackupCode entity by IDs.
+func (_u *UserUpdateOne) AddMfaBackupCodeIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.AddMfaBackupCodeIDs(ids...)
+	return _u
+}
+
+// AddMfaBackupCodes adds the "mfa_backup_codes" edges to the MFABackupCode entity.
+func (_u *UserUpdateOne) AddMfaBackupCodes(v ...*MFABackupCode) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMfaBackupCodeIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -837,6 +1128,69 @@ func (_u *UserUpdateOne) RemoveIdentities(v ...*UserIdentity) *UserUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveIdentityIDs(ids...)
+}
+
+// ClearAuthorizationCodes clears all "authorization_codes" edges to the AuthorizationCode entity.
+func (_u *UserUpdateOne) ClearAuthorizationCodes() *UserUpdateOne {
+	_u.mutation.ClearAuthorizationCodes()
+	return _u
+}
+
+// RemoveAuthorizationCodeIDs removes the "authorization_codes" edge to AuthorizationCode entities by IDs.
+func (_u *UserUpdateOne) RemoveAuthorizationCodeIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.RemoveAuthorizationCodeIDs(ids...)
+	return _u
+}
+
+// RemoveAuthorizationCodes removes "authorization_codes" edges to AuthorizationCode entities.
+func (_u *UserUpdateOne) RemoveAuthorizationCodes(v ...*AuthorizationCode) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAuthorizationCodeIDs(ids...)
+}
+
+// ClearMfaTotp clears all "mfa_totp" edges to the MFATOTPSecret entity.
+func (_u *UserUpdateOne) ClearMfaTotp() *UserUpdateOne {
+	_u.mutation.ClearMfaTotp()
+	return _u
+}
+
+// RemoveMfaTotpIDs removes the "mfa_totp" edge to MFATOTPSecret entities by IDs.
+func (_u *UserUpdateOne) RemoveMfaTotpIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.RemoveMfaTotpIDs(ids...)
+	return _u
+}
+
+// RemoveMfaTotp removes "mfa_totp" edges to MFATOTPSecret entities.
+func (_u *UserUpdateOne) RemoveMfaTotp(v ...*MFATOTPSecret) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMfaTotpIDs(ids...)
+}
+
+// ClearMfaBackupCodes clears all "mfa_backup_codes" edges to the MFABackupCode entity.
+func (_u *UserUpdateOne) ClearMfaBackupCodes() *UserUpdateOne {
+	_u.mutation.ClearMfaBackupCodes()
+	return _u
+}
+
+// RemoveMfaBackupCodeIDs removes the "mfa_backup_codes" edge to MFABackupCode entities by IDs.
+func (_u *UserUpdateOne) RemoveMfaBackupCodeIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.RemoveMfaBackupCodeIDs(ids...)
+	return _u
+}
+
+// RemoveMfaBackupCodes removes "mfa_backup_codes" edges to MFABackupCode entities.
+func (_u *UserUpdateOne) RemoveMfaBackupCodes(v ...*MFABackupCode) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMfaBackupCodeIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -1138,6 +1492,141 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(useridentity.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AuthorizationCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuthorizationCodesTable,
+			Columns: []string{user.AuthorizationCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(authorizationcode.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAuthorizationCodesIDs(); len(nodes) > 0 && !_u.mutation.AuthorizationCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuthorizationCodesTable,
+			Columns: []string{user.AuthorizationCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(authorizationcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AuthorizationCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AuthorizationCodesTable,
+			Columns: []string{user.AuthorizationCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(authorizationcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MfaTotpCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaTotpTable,
+			Columns: []string{user.MfaTotpColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfatotpsecret.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMfaTotpIDs(); len(nodes) > 0 && !_u.mutation.MfaTotpCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaTotpTable,
+			Columns: []string{user.MfaTotpColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfatotpsecret.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MfaTotpIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaTotpTable,
+			Columns: []string{user.MfaTotpColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfatotpsecret.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MfaBackupCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaBackupCodesTable,
+			Columns: []string{user.MfaBackupCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMfaBackupCodesIDs(); len(nodes) > 0 && !_u.mutation.MfaBackupCodesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaBackupCodesTable,
+			Columns: []string{user.MfaBackupCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MfaBackupCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MfaBackupCodesTable,
+			Columns: []string{user.MfaBackupCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

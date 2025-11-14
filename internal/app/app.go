@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/bengobox/auth-service/internal/audit"
 	"github.com/bengobox/auth-service/internal/cache"
@@ -15,8 +16,12 @@ import (
 	httpmiddleware "github.com/bengobox/auth-service/internal/httpapi/middleware"
 	"github.com/bengobox/auth-service/internal/password"
 	googleprovider "github.com/bengobox/auth-service/internal/providers/google"
+	"github.com/bengobox/auth-service/internal/revocation"
 	"github.com/bengobox/auth-service/internal/services/auth"
+	"github.com/bengobox/auth-service/internal/services/mfa"
+	"github.com/bengobox/auth-service/internal/services/oidc"
 	"github.com/bengobox/auth-service/internal/token"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -68,24 +73,52 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		Auditor:   auditor,
 		Logger:    logger,
 		Google:    googleProvider,
+		Revoker:   revocation.New(redisClient, cfg.Redis.Namespace),
 	})
 
 	authHandler := handlers.NewAuthHandler(authService, logger)
-	authMiddleware := httpmiddleware.NewAuth(authService)
+	revocationStore := revocation.New(redisClient, cfg.Redis.Namespace)
+	authMiddleware := httpmiddleware.NewAuth(authService, revocationStore)
+	rateLimiter := httpmiddleware.NewRateLimiter(redisClient, cfg.Redis.Namespace)
+	oidcService := oidc.New(entClient, tokenSvc, cfg)
+	oidcHandler := handlers.NewOIDCHandler(cfg, oidcService, authMiddleware, tokenSvc, logger)
+	mfaService := mfa.New(entClient, cfg.Token.Issuer)
+	mfaHandler := handlers.NewMFAHandler(mfaService, logger)
+	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
-		HealthHandler: handlers.Health,
+		HealthHandler:  handlers.Health,
+		MetricsHandler: promhttp.Handler(),
 		AuthHandlers: httpapi.AuthHandlers{
-			Register:             authHandler.Register,
-			Login:                authHandler.Login,
-			Refresh:              authHandler.Refresh,
-			RequestPasswordReset: authHandler.RequestPasswordReset,
-			ConfirmPasswordReset: authHandler.ConfirmPasswordReset,
-			Me:                   authHandler.Me,
-			GoogleOAuthStart:     authHandler.GoogleOAuthStart,
-			GoogleOAuthCallback:  authHandler.GoogleOAuthCallback,
+			Register:                 authHandler.Register,
+			Login:                    authHandler.Login,
+			Refresh:                  authHandler.Refresh,
+			RequestPasswordReset:     authHandler.RequestPasswordReset,
+			ConfirmPasswordReset:     authHandler.ConfirmPasswordReset,
+			Me:                       authHandler.Me,
+			Logout:                   authHandler.Logout,
+			GoogleOAuthStart:         authHandler.GoogleOAuthStart,
+			GoogleOAuthCallback:      authHandler.GoogleOAuthCallback,
+			WellKnownConfig:          oidcHandler.WellKnownConfig,
+			JWKS:                     oidcHandler.JWKS,
+			Authorize:                oidcHandler.Authorize,
+			Token:                    oidcHandler.Token,
+			UserInfo:                 oidcHandler.UserInfo,
+			MFAStartTOTP:             mfaHandler.StartTOTP,
+			MFAConfirmTOTP:           mfaHandler.ConfirmTOTP,
+			MFARegenerateBackupCodes: mfaHandler.RegenerateBackupCodes,
+			MFAConsumeBackupCode:     mfaHandler.ConsumeBackupCode,
+			AdminUpsertEntitlement:   adminHandler.UpsertEntitlement,
+			AdminListEntitlements:    adminHandler.ListEntitlements,
+			AdminIncrementUsage:      adminHandler.IncrementUsage,
+			AdminCreateTenant:        adminHandler.CreateTenant,
+			AdminListTenants:         adminHandler.ListTenants,
+			AdminCreateClient:        adminHandler.CreateClient,
+			AdminListClients:         adminHandler.ListClients,
 		},
 		RequireAuthHandler: authMiddleware.RequireAuth,
+		RateLimitLogin:     rateLimiter.Limit("login", 60, time.Minute, func(r *http.Request) string { return r.RemoteAddr }),
+		RateLimitToken:     rateLimiter.Limit("token", 120, time.Minute, func(r *http.Request) string { return r.RemoteAddr }),
 	})
 
 	server := &http.Server{

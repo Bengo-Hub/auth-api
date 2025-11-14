@@ -14,8 +14,20 @@ type Tx struct {
 	config
 	// AuditLog is the client for interacting with the AuditLog builders.
 	AuditLog *AuditLogClient
+	// AuthorizationCode is the client for interacting with the AuthorizationCode builders.
+	AuthorizationCode *AuthorizationCodeClient
+	// ConsentSession is the client for interacting with the ConsentSession builders.
+	ConsentSession *ConsentSessionClient
+	// FeatureEntitlement is the client for interacting with the FeatureEntitlement builders.
+	FeatureEntitlement *FeatureEntitlementClient
 	// LoginAttempt is the client for interacting with the LoginAttempt builders.
 	LoginAttempt *LoginAttemptClient
+	// MFABackupCode is the client for interacting with the MFABackupCode builders.
+	MFABackupCode *MFABackupCodeClient
+	// MFASettings is the client for interacting with the MFASettings builders.
+	MFASettings *MFASettingsClient
+	// MFATOTPSecret is the client for interacting with the MFATOTPSecret builders.
+	MFATOTPSecret *MFATOTPSecretClient
 	// OAuthClient is the client for interacting with the OAuthClient builders.
 	OAuthClient *OAuthClientClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
@@ -26,6 +38,8 @@ type Tx struct {
 	Tenant *TenantClient
 	// TenantMembership is the client for interacting with the TenantMembership builders.
 	TenantMembership *TenantMembershipClient
+	// UsageMetric is the client for interacting with the UsageMetric builders.
+	UsageMetric *UsageMetricClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
 	// UserIdentity is the client for interacting with the UserIdentity builders.
@@ -162,12 +176,19 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.AuditLog = NewAuditLogClient(tx.config)
+	tx.AuthorizationCode = NewAuthorizationCodeClient(tx.config)
+	tx.ConsentSession = NewConsentSessionClient(tx.config)
+	tx.FeatureEntitlement = NewFeatureEntitlementClient(tx.config)
 	tx.LoginAttempt = NewLoginAttemptClient(tx.config)
+	tx.MFABackupCode = NewMFABackupCodeClient(tx.config)
+	tx.MFASettings = NewMFASettingsClient(tx.config)
+	tx.MFATOTPSecret = NewMFATOTPSecretClient(tx.config)
 	tx.OAuthClient = NewOAuthClientClient(tx.config)
 	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.Tenant = NewTenantClient(tx.config)
 	tx.TenantMembership = NewTenantMembershipClient(tx.config)
+	tx.UsageMetric = NewUsageMetricClient(tx.config)
 	tx.User = NewUserClient(tx.config)
 	tx.UserIdentity = NewUserIdentityClient(tx.config)
 }

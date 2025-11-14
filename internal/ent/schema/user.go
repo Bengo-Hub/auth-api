@@ -51,5 +51,8 @@ func (User) Edges() []ent.Edge {
 		edge.To("sessions", Session.Type),
 		edge.To("password_reset_tokens", PasswordResetToken.Type),
 		edge.To("identities", UserIdentity.Type),
+		edge.To("authorization_codes", AuthorizationCode.Type),
+		edge.To("mfa_totp", MFATOTPSecret.Type),
+		edge.To("mfa_backup_codes", MFABackupCode.Type),
 	}
 }

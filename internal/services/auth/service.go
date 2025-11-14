@@ -64,6 +64,7 @@ type Service struct {
 	auditor   *audit.Logger
 	logger    *zap.Logger
 	google    *googleprovider.Provider
+	revoker   JTIRevoker
 }
 
 // Dependencies aggregates constructor inputs.
@@ -75,6 +76,7 @@ type Dependencies struct {
 	Auditor   *audit.Logger
 	Logger    *zap.Logger
 	Google    *googleprovider.Provider
+	Revoker   JTIRevoker
 }
 
 // New initialises the auth service.
@@ -87,7 +89,13 @@ func New(deps Dependencies) *Service {
 		auditor:   deps.Auditor,
 		logger:    deps.Logger,
 		google:    deps.Google,
+		revoker:   deps.Revoker,
 	}
+}
+
+// JTIRevoker abstracts a revocation store.
+type JTIRevoker interface {
+	Revoke(ctx context.Context, jti string, ttl time.Duration) error
 }
 
 // RegisterInput captures registration payload.
@@ -565,6 +573,23 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error) 
 // ValidateAccessToken ensures the JWT is valid.
 func (s *Service) ValidateAccessToken(tokenStr string) (*token.Claims, error) {
 	return s.tokenSvc.Parse(tokenStr)
+}
+
+// Logout revokes session and records token revocation for provided TTL.
+func (s *Service) Logout(ctx context.Context, sessionID uuid.UUID, jti string, ttl time.Duration) error {
+	if sessionID != uuid.Nil {
+		if err := s.entClient.Session.UpdateOneID(sessionID).
+			SetStatus("revoked").
+			SetRevokedAt(time.Now()).
+			SetRevocationReason("user_logout").
+			Exec(ctx); err != nil {
+			s.logger.Warn("failed to revoke session", zap.Error(err))
+		}
+	}
+	if s.revoker != nil && jti != "" && ttl > 0 {
+		_ = s.revoker.Revoke(ctx, jti, ttl)
+	}
+	return nil
 }
 
 type issueSessionInput struct {

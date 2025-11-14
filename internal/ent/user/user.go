@@ -39,6 +39,12 @@ const (
 	EdgePasswordResetTokens = "password_reset_tokens"
 	// EdgeIdentities holds the string denoting the identities edge name in mutations.
 	EdgeIdentities = "identities"
+	// EdgeAuthorizationCodes holds the string denoting the authorization_codes edge name in mutations.
+	EdgeAuthorizationCodes = "authorization_codes"
+	// EdgeMfaTotp holds the string denoting the mfa_totp edge name in mutations.
+	EdgeMfaTotp = "mfa_totp"
+	// EdgeMfaBackupCodes holds the string denoting the mfa_backup_codes edge name in mutations.
+	EdgeMfaBackupCodes = "mfa_backup_codes"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// MembershipsTable is the table that holds the memberships relation/edge.
@@ -69,6 +75,27 @@ const (
 	IdentitiesInverseTable = "user_identities"
 	// IdentitiesColumn is the table column denoting the identities relation/edge.
 	IdentitiesColumn = "user_id"
+	// AuthorizationCodesTable is the table that holds the authorization_codes relation/edge.
+	AuthorizationCodesTable = "authorization_codes"
+	// AuthorizationCodesInverseTable is the table name for the AuthorizationCode entity.
+	// It exists in this package in order to avoid circular dependency with the "authorizationcode" package.
+	AuthorizationCodesInverseTable = "authorization_codes"
+	// AuthorizationCodesColumn is the table column denoting the authorization_codes relation/edge.
+	AuthorizationCodesColumn = "user_id"
+	// MfaTotpTable is the table that holds the mfa_totp relation/edge.
+	MfaTotpTable = "mfatotp_secrets"
+	// MfaTotpInverseTable is the table name for the MFATOTPSecret entity.
+	// It exists in this package in order to avoid circular dependency with the "mfatotpsecret" package.
+	MfaTotpInverseTable = "mfatotp_secrets"
+	// MfaTotpColumn is the table column denoting the mfa_totp relation/edge.
+	MfaTotpColumn = "user_id"
+	// MfaBackupCodesTable is the table that holds the mfa_backup_codes relation/edge.
+	MfaBackupCodesTable = "mfa_backup_codes"
+	// MfaBackupCodesInverseTable is the table name for the MFABackupCode entity.
+	// It exists in this package in order to avoid circular dependency with the "mfabackupcode" package.
+	MfaBackupCodesInverseTable = "mfa_backup_codes"
+	// MfaBackupCodesColumn is the table column denoting the mfa_backup_codes relation/edge.
+	MfaBackupCodesColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -209,6 +236,48 @@ func ByIdentities(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newIdentitiesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByAuthorizationCodesCount orders the results by authorization_codes count.
+func ByAuthorizationCodesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAuthorizationCodesStep(), opts...)
+	}
+}
+
+// ByAuthorizationCodes orders the results by authorization_codes terms.
+func ByAuthorizationCodes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAuthorizationCodesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByMfaTotpCount orders the results by mfa_totp count.
+func ByMfaTotpCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMfaTotpStep(), opts...)
+	}
+}
+
+// ByMfaTotp orders the results by mfa_totp terms.
+func ByMfaTotp(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMfaTotpStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByMfaBackupCodesCount orders the results by mfa_backup_codes count.
+func ByMfaBackupCodesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMfaBackupCodesStep(), opts...)
+	}
+}
+
+// ByMfaBackupCodes orders the results by mfa_backup_codes terms.
+func ByMfaBackupCodes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMfaBackupCodesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newMembershipsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -235,5 +304,26 @@ func newIdentitiesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(IdentitiesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, IdentitiesTable, IdentitiesColumn),
+	)
+}
+func newAuthorizationCodesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AuthorizationCodesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AuthorizationCodesTable, AuthorizationCodesColumn),
+	)
+}
+func newMfaTotpStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MfaTotpInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, MfaTotpTable, MfaTotpColumn),
+	)
+}
+func newMfaBackupCodesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MfaBackupCodesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, MfaBackupCodesTable, MfaBackupCodesColumn),
 	)
 }

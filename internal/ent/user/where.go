@@ -603,6 +603,75 @@ func HasIdentitiesWith(preds ...predicate.UserIdentity) predicate.User {
 	})
 }
 
+// HasAuthorizationCodes applies the HasEdge predicate on the "authorization_codes" edge.
+func HasAuthorizationCodes() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AuthorizationCodesTable, AuthorizationCodesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAuthorizationCodesWith applies the HasEdge predicate on the "authorization_codes" edge with a given conditions (other predicates).
+func HasAuthorizationCodesWith(preds ...predicate.AuthorizationCode) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newAuthorizationCodesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasMfaTotp applies the HasEdge predicate on the "mfa_totp" edge.
+func HasMfaTotp() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, MfaTotpTable, MfaTotpColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMfaTotpWith applies the HasEdge predicate on the "mfa_totp" edge with a given conditions (other predicates).
+func HasMfaTotpWith(preds ...predicate.MFATOTPSecret) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newMfaTotpStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasMfaBackupCodes applies the HasEdge predicate on the "mfa_backup_codes" edge.
+func HasMfaBackupCodes() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, MfaBackupCodesTable, MfaBackupCodesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMfaBackupCodesWith applies the HasEdge predicate on the "mfa_backup_codes" edge with a given conditions (other predicates).
+func HasMfaBackupCodesWith(preds ...predicate.MFABackupCode) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newMfaBackupCodesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.User) predicate.User {
 	return predicate.User(sql.AndPredicates(predicates...))

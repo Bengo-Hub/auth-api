@@ -24,6 +24,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Changed
 - Auth service now auto-links/creates users from provider profiles, ensures tenant membership, and updates README/config docs for social login setup.
 
+## [0.5.0] - 2025-11-14
+### Added
+- Sprint 4 OIDC core: Authorization Code + PKCE, discovery document, JWKS, `userinfo`, `/authorize` and `/token` endpoints.
+- Ent schemas for `authorization_codes` and `consent_sessions` (future extensibility) with PKCE support and code consumption.
+
+### Changed
+- Router exposes OIDC endpoints; token service adds KID and JWKS exposure; README updated with OIDC surface.
+
+## [0.6.0] - 2025-11-14
+### Added
+- Sprint 5 logout + revocations: session status revocation and Redis-backed JWT JTI revocation with middleware checks.
+- Sprint 6 MFA (TOTP + backup codes) with endpoints to enroll/confirm/generate/regenerate.
+- Sprint 7 admin APIs for tenants and OAuth clients.
+- Sprint 8 entitlements and usage: new schemas, admin endpoints for entitlement upsert and usage increments.
+- Sprint 10 hardening: Redis rate limiting on sensitive routes, `/metrics` Prometheus endpoint, and key rotation admin endpoint.
+
 ## [0.2.0] - 2025-11-14
 ### Added
 - Sprint 1 local auth flows: registration, login, password reset request/confirmation, audit logging, login attempt tracking.

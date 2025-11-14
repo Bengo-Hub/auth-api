@@ -27,6 +27,72 @@ var (
 		Columns:    AuditLogsColumns,
 		PrimaryKey: []*schema.Column{AuditLogsColumns[0]},
 	}
+	// AuthorizationCodesColumns holds the columns for the "authorization_codes" table.
+	AuthorizationCodesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "client_id", Type: field.TypeString},
+		{Name: "redirect_uri", Type: field.TypeString},
+		{Name: "scope", Type: field.TypeString, Default: ""},
+		{Name: "code_hash", Type: field.TypeString},
+		{Name: "code_challenge", Type: field.TypeString, Default: ""},
+		{Name: "code_challenge_method", Type: field.TypeString, Default: ""},
+		{Name: "nonce", Type: field.TypeString, Default: ""},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "consumed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// AuthorizationCodesTable holds the schema information for the "authorization_codes" table.
+	AuthorizationCodesTable = &schema.Table{
+		Name:       "authorization_codes",
+		Columns:    AuthorizationCodesColumns,
+		PrimaryKey: []*schema.Column{AuthorizationCodesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "authorization_codes_users_authorization_codes",
+				Columns:    []*schema.Column{AuthorizationCodesColumns[12]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// ConsentSessionsColumns holds the columns for the "consent_sessions" table.
+	ConsentSessionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID},
+		{Name: "client_id", Type: field.TypeString},
+		{Name: "granted_scopes", Type: field.TypeString, Default: ""},
+		{Name: "granted_claims", Type: field.TypeJSON, Nullable: true},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ConsentSessionsTable holds the schema information for the "consent_sessions" table.
+	ConsentSessionsTable = &schema.Table{
+		Name:       "consent_sessions",
+		Columns:    ConsentSessionsColumns,
+		PrimaryKey: []*schema.Column{ConsentSessionsColumns[0]},
+	}
+	// FeatureEntitlementsColumns holds the columns for the "feature_entitlements" table.
+	FeatureEntitlementsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "tenant_id", Type: field.TypeUUID},
+		{Name: "feature_code", Type: field.TypeString},
+		{Name: "limit_json", Type: field.TypeJSON, Nullable: true},
+		{Name: "plan_source", Type: field.TypeString, Default: ""},
+		{Name: "synced_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// FeatureEntitlementsTable holds the schema information for the "feature_entitlements" table.
+	FeatureEntitlementsTable = &schema.Table{
+		Name:       "feature_entitlements",
+		Columns:    FeatureEntitlementsColumns,
+		PrimaryKey: []*schema.Column{FeatureEntitlementsColumns[0]},
+	}
 	// LoginAttemptsColumns holds the columns for the "login_attempts" table.
 	LoginAttemptsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -44,6 +110,69 @@ var (
 		Name:       "login_attempts",
 		Columns:    LoginAttemptsColumns,
 		PrimaryKey: []*schema.Column{LoginAttemptsColumns[0]},
+	}
+	// MfaBackupCodesColumns holds the columns for the "mfa_backup_codes" table.
+	MfaBackupCodesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "code_hash", Type: field.TypeString},
+		{Name: "used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// MfaBackupCodesTable holds the schema information for the "mfa_backup_codes" table.
+	MfaBackupCodesTable = &schema.Table{
+		Name:       "mfa_backup_codes",
+		Columns:    MfaBackupCodesColumns,
+		PrimaryKey: []*schema.Column{MfaBackupCodesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "mfa_backup_codes_users_mfa_backup_codes",
+				Columns:    []*schema.Column{MfaBackupCodesColumns[4]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// MfaSettingsColumns holds the columns for the "mfa_settings" table.
+	MfaSettingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "user_id", Type: field.TypeUUID, Unique: true},
+		{Name: "primary_method", Type: field.TypeString, Default: ""},
+		{Name: "enforced_at", Type: field.TypeTime, Nullable: true},
+		{Name: "recovery_channel", Type: field.TypeString, Default: ""},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// MfaSettingsTable holds the schema information for the "mfa_settings" table.
+	MfaSettingsTable = &schema.Table{
+		Name:       "mfa_settings",
+		Columns:    MfaSettingsColumns,
+		PrimaryKey: []*schema.Column{MfaSettingsColumns[0]},
+	}
+	// MfatotpSecretsColumns holds the columns for the "mfatotp_secrets" table.
+	MfatotpSecretsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "secret", Type: field.TypeString},
+		{Name: "digits", Type: field.TypeInt, Default: 6},
+		{Name: "period", Type: field.TypeInt, Default: 30},
+		{Name: "enabled_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// MfatotpSecretsTable holds the schema information for the "mfatotp_secrets" table.
+	MfatotpSecretsTable = &schema.Table{
+		Name:       "mfatotp_secrets",
+		Columns:    MfatotpSecretsColumns,
+		PrimaryKey: []*schema.Column{MfatotpSecretsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "mfatotp_secrets_users_mfa_totp",
+				Columns:    []*schema.Column{MfatotpSecretsColumns[7]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
 	}
 	// OauthClientsColumns holds the columns for the "oauth_clients" table.
 	OauthClientsColumns = []*schema.Column{
@@ -167,6 +296,24 @@ var (
 			},
 		},
 	}
+	// UsageMetricsColumns holds the columns for the "usage_metrics" table.
+	UsageMetricsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "tenant_id", Type: field.TypeUUID},
+		{Name: "metric_date", Type: field.TypeTime},
+		{Name: "active_users", Type: field.TypeInt, Default: 0},
+		{Name: "auth_transactions", Type: field.TypeInt, Default: 0},
+		{Name: "mfa_prompts", Type: field.TypeInt, Default: 0},
+		{Name: "machine_tokens", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// UsageMetricsTable holds the schema information for the "usage_metrics" table.
+	UsageMetricsTable = &schema.Table{
+		Name:       "usage_metrics",
+		Columns:    UsageMetricsColumns,
+		PrimaryKey: []*schema.Column{UsageMetricsColumns[0]},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -230,18 +377,28 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		AuditLogsTable,
+		AuthorizationCodesTable,
+		ConsentSessionsTable,
+		FeatureEntitlementsTable,
 		LoginAttemptsTable,
+		MfaBackupCodesTable,
+		MfaSettingsTable,
+		MfatotpSecretsTable,
 		OauthClientsTable,
 		PasswordResetTokensTable,
 		SessionsTable,
 		TenantsTable,
 		TenantMembershipsTable,
+		UsageMetricsTable,
 		UsersTable,
 		UserIdentitiesTable,
 	}
 )
 
 func init() {
+	AuthorizationCodesTable.ForeignKeys[0].RefTable = UsersTable
+	MfaBackupCodesTable.ForeignKeys[0].RefTable = UsersTable
+	MfatotpSecretsTable.ForeignKeys[0].RefTable = UsersTable
 	PasswordResetTokensTable.ForeignKeys[0].RefTable = UsersTable
 	SessionsTable.ForeignKeys[0].RefTable = UsersTable
 	TenantMembershipsTable.ForeignKeys[0].RefTable = TenantsTable
