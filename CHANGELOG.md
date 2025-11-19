@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   - `GET /api/v1/admin/api-keys` - List all API keys (filtered by service)
   - `GET /api/v1/admin/api-keys/validate` - Validate API key (internal use)
 - **Swagger UI Bearer Prefix:** Swagger UI now automatically adds "Bearer " prefix when users paste JWT tokens
+- **Service-Specific Redirects:** Added `redirect_uri` support to registration, login, and OAuth flows
+  - Services can specify `redirect_uri` to receive users back after authentication
+  - Tokens are included in URL fragment (SPAs) or query params (traditional apps)
+  - OAuth callbacks now redirect to service URLs when `redirect_uri` is provided
+  - See [docs/service-integration.md](docs/service-integration.md) for integration guide
 
 ### Changed
 - Standardized Swagger documentation path to `/v1/docs` (previously `/api/v1/docs`)

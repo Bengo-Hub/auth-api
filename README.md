@@ -128,7 +128,13 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 - **Treasury:** receives metering events and returns feature entitlements for subscription plans.
 - **Notifications:** delivers OTP and security alerts.
 
-Refer to [docs/erd.md](docs/erd.md) and [plan.md](plan.md)` for module-level design.
+Refer to [docs/erd.md](docs/erd.md) and [plan.md](plan.md) for module-level design.
+
+## Service Integration
+
+The auth-service handles all authentication logic for all services within the BengoBox ecosystem. Services should redirect users to auth-service for registration/login and receive redirects back with tokens.
+
+See [docs/service-integration.md](docs/service-integration.md) for complete integration guide.
 
 ## Status
 

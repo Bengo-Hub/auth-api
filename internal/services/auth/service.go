@@ -110,23 +110,25 @@ type JTIRevoker interface {
 
 // RegisterInput captures registration payload.
 type RegisterInput struct {
-	Email      string
-	Password   string
-	TenantSlug string
-	Profile    map[string]any
-	IPAddress  string
-	UserAgent  string
-	ClientID   string
+	Email       string
+	Password    string
+	TenantSlug  string
+	Profile     map[string]any
+	IPAddress   string
+	UserAgent   string
+	ClientID    string
+	RedirectURI string // Optional: redirect to service after successful registration
 }
 
 // LoginInput captures login payload.
 type LoginInput struct {
-	Email      string
-	Password   string
-	TenantSlug string
-	IPAddress  string
-	UserAgent  string
-	ClientID   string
+	Email       string
+	Password    string
+	TenantSlug  string
+	IPAddress   string
+	UserAgent   string
+	ClientID    string
+	RedirectURI string // Optional: redirect to service after successful login
 }
 
 // RefreshInput refresh token payload.
@@ -178,6 +180,7 @@ type AuthResult struct {
 	RefreshToken          string
 	RefreshTokenExpiresAt time.Time
 	SessionID             uuid.UUID
+	RedirectURI           string // Optional: redirect URI from OAuth state or request
 }
 
 // Register creates a new user and returns session tokens.
@@ -231,7 +234,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		},
 	})
 
-	return s.issueSession(ctx, issueSessionInput{
+	result, err := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  in.ClientID,
@@ -239,6 +242,11 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
 	})
+	if err != nil {
+		return nil, err
+	}
+	result.RedirectURI = in.RedirectURI
+	return result, nil
 }
 
 // Login authenticates a user with email/password.
@@ -296,7 +304,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		s.logger.Warn("failed to update last login", zap.Error(err))
 	}
 
-	return s.issueSession(ctx, issueSessionInput{
+	result, err := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  in.ClientID,
@@ -304,6 +312,11 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
 	})
+	if err != nil {
+		return nil, err
+	}
+	result.RedirectURI = in.RedirectURI
+	return result, nil
 }
 
 // Refresh exchanges a refresh token for a new token pair.
@@ -524,7 +537,7 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 	if err != nil {
 		return nil, err
 	}
-	return s.issueSession(ctx, issueSessionInput{
+	result, err := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  payload.ClientID,
@@ -532,6 +545,11 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
 	})
+	if err != nil {
+		return nil, err
+	}
+	result.RedirectURI = payload.RedirectURI
+	return result, nil
 }
 
 // StartMicrosoftOAuth builds Microsoft authorization URL.
@@ -595,7 +613,7 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 	if err != nil {
 		return nil, err
 	}
-	return s.issueSession(ctx, issueSessionInput{
+	result, err := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  payload.ClientID,
@@ -603,6 +621,11 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
 	})
+	if err != nil {
+		return nil, err
+	}
+	result.RedirectURI = payload.RedirectURI
+	return result, nil
 }
 
 // RequestPasswordReset creates a reset token (would be emailed in production).
