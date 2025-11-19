@@ -52,6 +52,9 @@ type AuthHandlers struct {
 	AdminListEntitlements    http.HandlerFunc
 	AdminIncrementUsage      http.HandlerFunc
 	AdminRotateKeys          http.HandlerFunc
+	AdminGenerateAPIKey      http.HandlerFunc
+	AdminListAPIKeys         http.HandlerFunc
+	AdminValidateAPIKey      http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -135,6 +138,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/entitlements", deps.AuthHandlers.AdminListEntitlements)
 			r.Post("/usage/increment", deps.AuthHandlers.AdminIncrementUsage)
 			r.Post("/keys/rotate", deps.AuthHandlers.AdminRotateKeys)
+			r.Post("/api-keys", deps.AuthHandlers.AdminGenerateAPIKey)
+			r.Get("/api-keys", deps.AuthHandlers.AdminListAPIKeys)
+			r.Get("/api-keys/validate", deps.AuthHandlers.AdminValidateAPIKey)
 		})
 	})
 

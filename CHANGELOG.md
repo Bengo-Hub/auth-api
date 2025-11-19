@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+- **API Key Management:** Added endpoints for generating, listing, and validating API keys
+  - `POST /api/v1/admin/api-keys` - Generate new API key for a service
+  - `GET /api/v1/admin/api-keys` - List all API keys (filtered by service)
+  - `GET /api/v1/admin/api-keys/validate` - Validate API key (internal use)
+- **Swagger UI Bearer Prefix:** Swagger UI now automatically adds "Bearer " prefix when users paste JWT tokens
+
 ### Changed
 - Standardized Swagger documentation path to `/v1/docs` (previously `/api/v1/docs`)
 - Updated OpenAPI specification servers to use HTTPS URLs for local development

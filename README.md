@@ -105,6 +105,9 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 | POST   | `/api/v1/admin/entitlements`     | Upsert tenant entitlement       |
 | POST   | `/api/v1/admin/usage/increment`  | Increment usage counter         |
 | POST   | `/api/v1/admin/keys/rotate`      | Reload signing keys             |
+| POST   | `/api/v1/admin/api-keys`         | Generate API key                |
+| GET    | `/api/v1/admin/api-keys`         | List API keys                   |
+| GET    | `/api/v1/admin/api-keys/validate`| Validate API key (internal)     |
 
 ### MFA
 - TOTP enrollment/confirmation and backup codes under `/api/v1/auth/mfa/*` (requires auth).
