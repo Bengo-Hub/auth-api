@@ -155,8 +155,17 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	}, nil
 }
 
-// Run starts the HTTP server.
+// Run starts the HTTP server with TLS if certificates are configured.
 func (a *App) Run() error {
+	if a.cfg.HTTP.TLSCertFile != "" && a.cfg.HTTP.TLSKeyFile != "" {
+		a.logger.Info("starting HTTPS server",
+			zap.String("cert", a.cfg.HTTP.TLSCertFile),
+			zap.String("key", a.cfg.HTTP.TLSKeyFile),
+			zap.String("addr", a.httpServer.Addr),
+		)
+		return a.httpServer.ListenAndServeTLS(a.cfg.HTTP.TLSCertFile, a.cfg.HTTP.TLSKeyFile)
+	}
+	a.logger.Info("starting HTTP server", zap.String("addr", a.httpServer.Addr))
 	return a.httpServer.ListenAndServe()
 }
 

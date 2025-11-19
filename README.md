@@ -68,7 +68,7 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 
 - Developer API guide: [docs/developer-api.md](docs/developer-api.md)
 - Local testing with Docker (Redis): [docs/local-testing.md](docs/local-testing.md)
-- Interactive Swagger UI: `GET /api/v1/docs` (loads `openapi.json`)
+- Interactive Swagger UI: `GET /v1/docs/` (loads `openapi.json` from `/api/v1/openapi.json`)
   - Default admin for quick testing:
     - Email: `admin@codevertexitsolutions.com`
     - Password: `ChangeMe123!`

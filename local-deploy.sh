@@ -13,6 +13,7 @@ EXAMPLE_ENV="$ROOT_DIR/config/example.env"
 KEYS_DIR="$ROOT_DIR/config/keys"
 PRIV_KEY="$KEYS_DIR/dev_jwt_private.pem"
 PUB_KEY="$KEYS_DIR/dev_jwt_public.pem"
+CERTS_DIR="$ROOT_DIR/config/certs"
 
 log() {
   echo "[local-deploy] $*"
@@ -136,12 +137,20 @@ run_docker() {
     docker rm -f "$SERVICE_CONTAINER_NAME" >/dev/null 2>&1 || true
   fi
 
+  # Mount TLS certificates if directory exists and contains cert files
+  local cert_volumes=()
+  if [[ -d "$CERTS_DIR" ]] && [[ -n "$(find "$CERTS_DIR" -name "*.pem" 2>/dev/null)" ]]; then
+    cert_volumes=("-v" "$CERTS_DIR:/app/config/certs")
+    log "Mounting TLS certificates from $CERTS_DIR"
+  fi
+  
   log "Running container $SERVICE_CONTAINER_NAME on :$APP_PORT"
   docker run --name "$SERVICE_CONTAINER_NAME" --rm \
     -p "$APP_PORT:$APP_PORT" \
     --env-file "$ENV_FILE" \
     "${override_env[@]}" \
     -v "$KEYS_DIR:/app/config/keys" \
+    "${cert_volumes[@]}" \
     "$SERVICE_IMAGE"
 }
 

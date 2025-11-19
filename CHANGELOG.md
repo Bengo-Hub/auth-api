@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Changed
+- Standardized Swagger documentation path to `/v1/docs` (previously `/api/v1/docs`)
+- Updated OpenAPI specification servers to use HTTPS URLs for local development
+- Swagger UI handler now uses protocol-aware URL detection for HTTPS compatibility
+
 ## [0.3.0] - 2025-11-14
 ### Added
 - Sprint 2 token service delivering RSA-signed JWT access tokens, opaque refresh tokens with rotation, and `/api/v1/auth/refresh` + `/api/v1/auth/me` endpoints.

@@ -1,11 +1,12 @@
 ## Auth Service Delivery Plan
 
 ### Vision & Mandate
-- Deliver a unified authentication, authorization, and identity orchestration platform for the entire BengoBox ecosystem (food delivery backend, POS, inventory, logistics, treasury, notifications, ERP, partner APIs) with a canonical `tenant_slug` propagated to all services.
+- Deliver a unified authentication, authorization, and identity orchestration platform for the entire BengoBox ecosystem (cafe-backend, POS, inventory, logistics, treasury, notifications, ERP, partner APIs) with a canonical `tenant_slug` propagated to all services.
 - Provide standards-compliant OAuth2/OpenID Connect capabilities to power Single Sign-On (SSO) across web, mobile, kiosk, and service-to-service flows.
 - Establish a secure foundation for multi-tenant, multi-brand operations with fine-grained policy enforcement, while delegating application-specific RBAC to downstream services.
 - Ensure extensibility for future identity protocols (SAML, SCIM, FIDO2) and marketplace integrations.
-- Act as the canonical source for tenant/outlet discovery: when a user authenticates, this service emits webhooks to downstream services (food-delivery, logistics, inventory, POS, treasury, notifications) so they can sync tenant/outlet metadata before handling domain-specific data.
+- **Entity Ownership**: This service owns all identity and access management entities: users, tenants, outlets, sessions, OAuth clients, MFA settings, and global tenant roles. All other services reference these entities via `user_id`, `tenant_id`, `tenant_slug`, and `outlet_id` but never duplicate user or tenant data.
+- Act as the canonical source for tenant/outlet discovery: when a user authenticates, this service emits webhooks to downstream services (cafe-backend, logistics, inventory, POS, treasury, notifications) so they can sync tenant/outlet metadata before handling domain-specific data.
 
 ### Scope & Responsibilities
 1. **SSO & OAuth2/OIDC Provider**

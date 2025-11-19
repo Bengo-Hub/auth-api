@@ -23,6 +23,7 @@ $EXAMPLE_ENV = Join-Path $ROOT_DIR "config\example.env"
 $KEYS_DIR = Join-Path $ROOT_DIR "config\keys"
 $PRIV_KEY = Join-Path $KEYS_DIR "dev_jwt_private.pem"
 $PUB_KEY = Join-Path $KEYS_DIR "dev_jwt_public.pem"
+$CERTS_DIR = Join-Path $ROOT_DIR "config\certs"
 
 function Log([string] $Message) {
   Write-Host "[local-deploy] $Message"
@@ -199,7 +200,6 @@ function Start-ServiceContainerInstance {
 
   $overrideArgs = New-OverrideEnvVars
   $keysHostPath = (Resolve-Path -LiteralPath $KEYS_DIR).Path
-  Log "Running container $SERVICE_CONTAINER_NAME on :$APP_PORT"
   $dockerArgs = @(
     'run',
     '-d',
@@ -207,9 +207,21 @@ function Start-ServiceContainerInstance {
     '-p', "${APP_PORT}:${APP_PORT}",
     '--env-file', $ENV_FILE
   ) + $overrideArgs + @(
-    '-v', "${keysHostPath}:/app/config/keys",
-    $SERVICE_IMAGE
+    '-v', "${keysHostPath}:/app/config/keys"
   )
+  
+  # Mount TLS certificates if directory exists and contains cert files
+  if (Test-Path -LiteralPath $CERTS_DIR -PathType Container) {
+    $certFiles = Get-ChildItem -Path $CERTS_DIR -Filter "*.pem" -ErrorAction SilentlyContinue
+    if ($certFiles.Count -gt 0) {
+      $certsHostPath = (Resolve-Path -LiteralPath $CERTS_DIR).Path
+      $dockerArgs += @('-v', "${certsHostPath}:/app/config/certs")
+      Log "Mounting TLS certificates from $certsHostPath"
+    }
+  }
+  
+  $dockerArgs += $SERVICE_IMAGE
+  Log "Running container $SERVICE_CONTAINER_NAME on :$APP_PORT"
   & docker @dockerArgs | Out-Null
 }
 

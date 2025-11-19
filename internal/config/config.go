@@ -31,6 +31,8 @@ type HTTPConfig struct {
 	IdleTimeout       time.Duration `env:"IDLE_TIMEOUT" envDefault:"120s"`
 	ReadHeaderTimeout time.Duration `env:"READ_HEADER_TIMEOUT" envDefault:"5s"`
 	ShutdownTimeout   time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"25s"`
+	TLSCertFile       string        `env:"TLS_CERT_FILE"`
+	TLSKeyFile        string        `env:"TLS_KEY_FILE"`
 }
 
 type DatabaseConfig struct {

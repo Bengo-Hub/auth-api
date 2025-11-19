@@ -13,6 +13,8 @@ RUN apk add --no-cache ca-certificates tzdata && addgroup -S app && adduser -S a
 WORKDIR /app
 COPY --from=builder /bin/auth /usr/local/bin/auth
 COPY config/keys ./config/keys
+# TLS certificates directory (optional, can be mounted as volume)
+RUN mkdir -p ./config/certs
 USER app
 EXPOSE 4101
 ENTRYPOINT ["/usr/local/bin/auth"]

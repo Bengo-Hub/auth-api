@@ -29,3 +29,7 @@
 /config/keys/dev_jwt_private.pem
 /config/keys/dev_jwt_public.pem
 
+# TLS certificates (mkcert generated)
+/config/certs/*.pem
+/config/certs/*.key
+

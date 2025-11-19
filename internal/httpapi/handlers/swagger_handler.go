@@ -29,8 +29,10 @@ func SwaggerUI(w http.ResponseWriter, r *http.Request) {
     <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
     <script>
       window.onload = () => {
+        // Use the same protocol as the current page to avoid HTTP/HTTPS mismatch
+        const specUrl = window.location.protocol + '//' + window.location.host + '/api/v1/openapi.json';
         window.ui = SwaggerUIBundle({
-          url: '/api/v1/openapi.json',
+          url: specUrl,
           dom_id: '#swagger-ui',
           presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
           layout: "BaseLayout"

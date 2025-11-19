@@ -76,13 +76,14 @@ func NewRouter(deps RouterDeps) http.Handler {
 		r.Method("GET", "/metrics", deps.MetricsHandler)
 	}
 
+	r.Get("/v1/docs/*", handlers.SwaggerUI)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		// OIDC discovery (also serve on absolute path for issuer consistency)
 		r.Group(func(r chi.Router) {
 			r.Get("/.well-known/openid-configuration", deps.AuthHandlers.WellKnownConfig)
 			r.Get("/.well-known/jwks.json", deps.AuthHandlers.JWKS)
 			r.Get("/openapi.json", handlers.OpenAPIJSON)
-			r.Get("/docs", handlers.SwaggerUI)
 			r.With(deps.RequireAuthHandler).Get("/authorize", deps.AuthHandlers.Authorize)
 			r.Post("/token", deps.AuthHandlers.Token)
 			r.With(deps.RequireAuthHandler).Get("/userinfo", deps.AuthHandlers.UserInfo)
