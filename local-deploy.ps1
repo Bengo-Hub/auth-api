@@ -98,10 +98,18 @@ function Start-RedisDependency {
 
   if (-not $exists) {
     Log "Starting Redis container"
-    docker run -d --name $REDIS_CONTAINER_NAME -p 6379:6379 learnos-redis | Out-Null
+    try {
+      docker run -d --name $REDIS_CONTAINER_NAME -p 6379:6379 redis:7 | Out-Null
+    } catch {
+      Log "Failed to start Redis container (redis:7). Ensure Docker access or run Redis manually: $($_.Exception.Message)"
+    }
   } elseif (-not $running) {
     Log "Starting existing Redis container"
-    docker start $REDIS_CONTAINER_NAME | Out-Null
+    try {
+      docker start $REDIS_CONTAINER_NAME | Out-Null
+    } catch {
+      Log "Failed to start Redis container. Ensure Docker access or run Redis manually: $($_.Exception.Message)"
+    }
   } else {
     Log "Redis container already running"
   }
@@ -140,15 +148,28 @@ function Invoke-DataSeed {
     Log "Go not installed; skipping seed."
     return
   }
+
+  Import-DotenvFile
+
   $password = $env:SEED_ADMIN_PASSWORD
   if ([string]::IsNullOrWhiteSpace($password)) {
-    Log "Skipping seed (set SEED_ADMIN_PASSWORD to seed admin user)."
-    return
+    $password = "ChangeMe123!"
+    Log "SEED_ADMIN_PASSWORD not set; using default admin password $password for seeding."
+  } else {
+    Log "Seeding data with provided admin password."
   }
-  Log "Seeding data"
-  Import-DotenvFile
-  $env:SEED_ADMIN_PASSWORD = $password
-  & go run ./cmd/seed
+
+  $originalPassword = $env:SEED_ADMIN_PASSWORD
+  try {
+    $env:SEED_ADMIN_PASSWORD = $password
+    & go run ./cmd/seed
+  } finally {
+    if ($originalPassword) {
+      $env:SEED_ADMIN_PASSWORD = $originalPassword
+    } else {
+      Remove-Item Env:SEED_ADMIN_PASSWORD -ErrorAction SilentlyContinue
+    }
+  }
 }
 
 function Invoke-ServiceImageBuild {
@@ -290,6 +311,8 @@ switch ($Command) {
     Initialize-EnvFile
     Initialize-KeyMaterial
     Start-RedisDependency
+    Invoke-DatabaseMigrations
+    Invoke-DataSeed
     Invoke-ServiceImageBuild
     Publish-ServiceImage
     Start-ServiceContainerInstance -Recreate
@@ -298,6 +321,8 @@ switch ($Command) {
     Initialize-EnvFile
     Initialize-KeyMaterial
     Start-RedisDependency
+    Invoke-DatabaseMigrations
+    Invoke-DataSeed
     Invoke-ServiceImageBuild
     Publish-ServiceImage
     Start-ServiceContainerInstance -Recreate
@@ -307,6 +332,7 @@ switch ($Command) {
     Initialize-KeyMaterial
     Start-RedisDependency
     Invoke-DatabaseMigrations
+    Invoke-DataSeed
     Confirm-ServiceContainer
   }
   "up-docker" {

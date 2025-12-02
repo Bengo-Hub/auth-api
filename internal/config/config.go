@@ -53,7 +53,7 @@ type RedisConfig struct {
 
 type TokenConfig struct {
 	Issuer              string        `env:"ISSUER" envDefault:"https://auth.bengobox.local"`
-	Audience            string        `env:"AUDIENCE" envDefault:"bengobox"`
+	Audience            string        `env:"AUDIENCE" envDefault:"codevertex"`
 	PrivateKeyPath      string        `env:"PRIVATE_KEY_PATH"`
 	PublicKeyPath       string        `env:"PUBLIC_KEY_PATH"`
 	AccessTokenTTL      time.Duration `env:"ACCESS_TTL" envDefault:"15m"`

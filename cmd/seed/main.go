@@ -34,11 +34,11 @@ func main() {
 	}
 
 	// Create or fetch default tenant
-	tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ("bengobox")).Only(ctx)
+	tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ("codevertex")).Only(ctx)
 	if err != nil {
 		tenantEntity, err = client.Tenant.Create().
-			SetName("BengoBox").
-			SetSlug("bengobox").
+			SetName("CodeVertex").
+			SetSlug("codevertex").
 			SetStatus("active").
 			Save(ctx)
 		if err != nil {
