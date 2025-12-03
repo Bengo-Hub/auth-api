@@ -15,6 +15,9 @@ func New(cfg config.RedisConfig) (*redis.Client, error) {
 		Addr:     cfg.Addr,
 		Password: cfg.Password,
 		DB:       cfg.DB,
+		// Disable client-side caching to avoid "maint_notifications" error
+		// Redis 7.x doesn't support this subcommand, causing harmless warnings
+		DisableIndentity: true,
 	}
 
 	if cfg.EnableTLS {
