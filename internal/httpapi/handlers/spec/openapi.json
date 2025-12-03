@@ -7,7 +7,7 @@
   },
   "servers": [
     { "url": "https://auth.codevertex.local:4101", "description": "Local development (HTTPS)" },
-    { "url": "https://sso.codevrtexitsolutions.com", "description": "Production" }
+    { "url": "https://sso.codevertexitsolutions.com", "description": "Production" }
   ],
   "components": {
     "securitySchemes": {
@@ -19,7 +19,7 @@
         "properties": {
           "email": { "type": "string", "example": "user@example.com" },
           "password": { "type": "string", "example": "StrongPassw0rd!" },
-          "tenant_slug": { "type": "string", "example": "bengobox" }
+          "tenant_slug": { "type": "string", "example": "codevertex" }
         },
         "required": ["email","password","tenant_slug"]
       },
@@ -28,7 +28,7 @@
         "properties": {
           "email": { "type": "string", "example": "admin@codevertexitsolutions.com" },
           "password": { "type": "string", "example": "ChangeMe123!" },
-          "tenant_slug": { "type": "string", "example": "bengobox" }
+          "tenant_slug": { "type": "string", "example": "codevertex" }
         },
         "required": ["email","password","tenant_slug"]
       },
@@ -36,7 +36,7 @@
         "type": "object",
         "properties": {
           "email": { "type": "string", "example": "user@example.com" },
-          "tenant_slug": { "type": "string", "example": "bengobox" }
+          "tenant_slug": { "type": "string", "example": "codevertex" }
         },
         "required": ["email","tenant_slug"]
       },
@@ -52,6 +52,28 @@
   },
   "security": [ { "bearerAuth": [] } ],
   "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns service health status",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "time": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register": { "post": { "summary": "Register", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegisterRequest" } } } }, "responses": { "201": { "description": "Created" } } } },
     "/api/v1/auth/login": {
       "post": {
