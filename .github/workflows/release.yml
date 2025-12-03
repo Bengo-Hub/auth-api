@@ -42,8 +42,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Bengo-Hub/devops-k8s
-          token: ${{ secrets.GH_TOKEN_DEVOPS }}
+          token: ${{ secrets.GH_TOKEN_DEVOPS || secrets.GITHUB_TOKEN }}
           path: devops-k8s
+          fetch-depth: 1
 
       - name: Ensure auth-service app files exist
         run: |
