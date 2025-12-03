@@ -47,6 +47,10 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		if err := database.RunMigrations(ctx, entClient); err != nil {
 			return nil, err
 		}
+		// Run seeding after migrations (idempotent)
+		if err := database.SeedData(ctx, entClient); err != nil {
+			return nil, fmt.Errorf("seed data: %w", err)
+		}
 	}
 
 	redisClient, err := cache.New(cfg.Redis)
