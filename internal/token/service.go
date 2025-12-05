@@ -23,6 +23,7 @@ type Claims struct {
 	SessionID string   `json:"sid"`
 	TenantID  string   `json:"tenant_id,omitempty"`
 	Scope     []string `json:"scope,omitempty"`
+	Roles     []string `json:"roles,omitempty"` // User roles from TenantMembership (e.g., "superuser", "admin", "member")
 	Email     string   `json:"email,omitempty"`
 	jwt.RegisteredClaims
 }
@@ -34,6 +35,7 @@ type AccessTokenInput struct {
 	SessionID uuid.UUID
 	Email     string
 	Scopes    []string
+	Roles     []string // User roles from TenantMembership
 	Audience  []string
 }
 
@@ -92,6 +94,7 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	claims := &Claims{
 		SessionID: input.SessionID.String(),
 		Scope:     input.Scopes,
+		Roles:     input.Roles,
 		Email:     input.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.cfg.Issuer,

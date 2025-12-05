@@ -52,6 +52,8 @@ type AuthHandlers struct {
 	AdminListEntitlements    http.HandlerFunc
 	AdminIncrementUsage      http.HandlerFunc
 	AdminRotateKeys          http.HandlerFunc
+	PublicCreateTenant       http.HandlerFunc
+	PublicGetTenantBySlug    http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -122,6 +124,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Post("/backup-codes/consume", deps.AuthHandlers.MFAConsumeBackupCode)
 				})
 			})
+		})
+		// Public tenant endpoints for auto-discovery (no authentication required)
+		r.Route("/tenants", func(r chi.Router) {
+			r.Post("/", deps.AuthHandlers.PublicCreateTenant)
+			r.Get("/by-slug/{slug}", deps.AuthHandlers.PublicGetTenantBySlug)
 		})
 		r.Route("/admin", func(r chi.Router) {
 			if deps.RequireAuthHandler != nil {

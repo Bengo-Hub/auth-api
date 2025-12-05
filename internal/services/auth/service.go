@@ -801,12 +801,27 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		effectiveScopes = s.cfg.Token.DefaultScopes
 	}
 
+	// Fetch user roles from TenantMembership
+	var roles []string
+	if tenantIDPtr != nil {
+		membership, err := s.entClient.TenantMembership.Query().
+			Where(
+				tenantmembership.UserID(userEntity.ID),
+				tenantmembership.TenantID(*tenantIDPtr),
+			).
+			Only(ctx)
+		if err == nil && membership != nil {
+			roles = membership.Roles
+		}
+	}
+
 	accessToken, exp, err := s.tokenSvc.MintAccessToken(token.AccessTokenInput{
 		UserID:    sessionEntity.UserID,
 		TenantID:  tenantIDPtr,
 		SessionID: sessionEntity.ID,
 		Email:     userEntity.Email,
 		Scopes:    effectiveScopes,
+		Roles:     roles,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("mint access token: %w", err)
