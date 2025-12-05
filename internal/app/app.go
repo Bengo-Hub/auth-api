@@ -131,6 +131,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminListTenants:         adminHandler.ListTenants,
 			AdminCreateClient:        adminHandler.CreateClient,
 			AdminListClients:         adminHandler.ListClients,
+			PublicCreateTenant:       adminHandler.CreateTenantPublic,
+			PublicGetTenantBySlug:    adminHandler.GetTenantBySlugPublic,
 		},
 		RequireAuthHandler: authMiddleware.RequireAuth,
 		RateLimitLogin:     rateLimiter.Limit("login", 60, time.Minute, func(r *http.Request) string { return r.RemoteAddr }),

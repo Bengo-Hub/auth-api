@@ -10,6 +10,7 @@ import (
 	"github.com/bengobox/auth-service/internal/services/entitlements"
 	"github.com/bengobox/auth-service/internal/services/usage"
 	"github.com/bengobox/auth-service/internal/token"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -38,6 +39,16 @@ func (h *AdminHandler) requireAdmin(r *http.Request) bool {
 	if !ok || claims == nil {
 		return false
 	}
+
+	// Superuser bypass: check if user has superuser role (bypasses all RBAC/permissions)
+	// Superuser role is set in TenantMembership and included in token claims
+	for _, role := range claims.Roles {
+		if role == "superuser" {
+			return true
+		}
+	}
+
+	// Check for admin scopes
 	for _, s := range claims.Scope {
 		if s == "admin" || s == "auth.admin" {
 			return true
@@ -48,8 +59,12 @@ func (h *AdminHandler) requireAdmin(r *http.Request) bool {
 
 // Tenants
 type tenantRequest struct {
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+	ID           string                 `json:"id,omitempty"` // Tenant UUID - must match across all services
+	Name         string                 `json:"name"`
+	Slug         string                 `json:"slug"`
+	ContactEmail string                 `json:"contact_email,omitempty"`
+	ContactPhone string                 `json:"contact_phone,omitempty"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
 func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
@@ -62,16 +77,124 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
 		return
 	}
-	t, err := h.ent.Tenant.Create().
+	create := h.ent.Tenant.Create().
 		SetName(req.Name).
 		SetSlug(req.Slug).
-		SetStatus("active").
-		Save(r.Context())
+		SetStatus("active")
+
+	// If tenant ID is provided, use it (for cross-service tenant sync)
+	if req.ID != "" {
+		tenantID, err := uuid.Parse(req.ID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant ID format", nil)
+			return
+		}
+		create.SetID(tenantID)
+	}
+
+	// Set optional fields (contact info stored in metadata since schema doesn't have those fields)
+	metadata := make(map[string]interface{})
+	if req.Metadata != nil {
+		metadata = req.Metadata
+	}
+	if req.ContactEmail != "" {
+		metadata["contact_email"] = req.ContactEmail
+	}
+	if req.ContactPhone != "" {
+		metadata["contact_phone"] = req.ContactPhone
+	}
+	if len(metadata) > 0 {
+		create.SetMetadata(metadata)
+	}
+
+	t, err := create.Save(r.Context())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "conflict", "could not create tenant", nil)
 		return
 	}
 	writeJSON(w, http.StatusCreated, t)
+}
+
+// CreateTenantPublic creates a tenant via public endpoint (for tenant auto-discovery).
+// This endpoint does not require authentication and is used by services to sync tenants.
+func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request) {
+	var req tenantRequest
+	if err := decodeJSON(r, &req); err != nil || req.Slug == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload: slug is required", nil)
+		return
+	}
+
+	// Name is required, use slug as fallback
+	if req.Name == "" {
+		req.Name = req.Slug
+	}
+
+	create := h.ent.Tenant.Create().
+		SetName(req.Name).
+		SetSlug(req.Slug).
+		SetStatus("active")
+
+	// If tenant ID is provided, use it (for cross-service tenant sync with matching UUIDs)
+	if req.ID != "" {
+		tenantID, err := uuid.Parse(req.ID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant ID format", nil)
+			return
+		}
+		create.SetID(tenantID)
+	}
+
+	// Set optional fields (contact info stored in metadata since schema doesn't have those fields)
+	metadata := make(map[string]interface{})
+	if req.Metadata != nil {
+		metadata = req.Metadata
+	}
+	if req.ContactEmail != "" {
+		metadata["contact_email"] = req.ContactEmail
+	}
+	if req.ContactPhone != "" {
+		metadata["contact_phone"] = req.ContactPhone
+	}
+	if len(metadata) > 0 {
+		create.SetMetadata(metadata)
+	}
+
+	t, err := create.Save(r.Context())
+	if err != nil {
+		// Check if tenant already exists (idempotent)
+		existing, err := h.ent.Tenant.Query().
+			Where(tenant.SlugEQ(req.Slug)).
+			Only(r.Context())
+		if err == nil && existing != nil {
+			writeJSON(w, http.StatusOK, existing)
+			return
+		}
+		writeError(w, http.StatusBadRequest, "conflict", "could not create tenant", nil)
+		return
+	}
+	writeJSON(w, http.StatusCreated, t)
+}
+
+// GetTenantBySlugPublic retrieves a tenant by slug via public endpoint (for tenant auto-discovery).
+func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "slug is required", nil)
+		return
+	}
+
+	t, err := h.ent.Tenant.Query().
+		Where(tenant.SlugEQ(slug)).
+		Only(r.Context())
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to get tenant", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, t)
 }
 
 func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
