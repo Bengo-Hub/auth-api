@@ -9,6 +9,7 @@ import (
 	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-service/internal/ent/consentsession"
 	"github.com/bengobox/auth-service/internal/ent/featureentitlement"
+	"github.com/bengobox/auth-service/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-service/internal/ent/loginattempt"
 	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
 	"github.com/bengobox/auth-service/internal/ent/mfasettings"
@@ -129,6 +130,34 @@ func init() {
 	featureentitlementDescID := featureentitlementFields[0].Descriptor()
 	// featureentitlement.DefaultID holds the default value on creation for the id field.
 	featureentitlement.DefaultID = featureentitlementDescID.Default.(func() uuid.UUID)
+	integrationconfigFields := schema.IntegrationConfig{}.Fields()
+	_ = integrationconfigFields
+	// integrationconfigDescService is the schema descriptor for service field.
+	integrationconfigDescService := integrationconfigFields[2].Descriptor()
+	// integrationconfig.ServiceValidator is a validator for the "service" field. It is called by the builders before save.
+	integrationconfig.ServiceValidator = integrationconfigDescService.Validators[0].(func(string) error)
+	// integrationconfigDescConfigData is the schema descriptor for config_data field.
+	integrationconfigDescConfigData := integrationconfigFields[3].Descriptor()
+	// integrationconfig.ConfigDataValidator is a validator for the "config_data" field. It is called by the builders before save.
+	integrationconfig.ConfigDataValidator = integrationconfigDescConfigData.Validators[0].(func(string) error)
+	// integrationconfigDescKeyID is the schema descriptor for key_id field.
+	integrationconfigDescKeyID := integrationconfigFields[4].Descriptor()
+	// integrationconfig.KeyIDValidator is a validator for the "key_id" field. It is called by the builders before save.
+	integrationconfig.KeyIDValidator = integrationconfigDescKeyID.Validators[0].(func(string) error)
+	// integrationconfigDescCreatedAt is the schema descriptor for created_at field.
+	integrationconfigDescCreatedAt := integrationconfigFields[5].Descriptor()
+	// integrationconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
+	integrationconfig.DefaultCreatedAt = integrationconfigDescCreatedAt.Default.(func() time.Time)
+	// integrationconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	integrationconfigDescUpdatedAt := integrationconfigFields[6].Descriptor()
+	// integrationconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	integrationconfig.DefaultUpdatedAt = integrationconfigDescUpdatedAt.Default.(func() time.Time)
+	// integrationconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	integrationconfig.UpdateDefaultUpdatedAt = integrationconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// integrationconfigDescID is the schema descriptor for id field.
+	integrationconfigDescID := integrationconfigFields[0].Descriptor()
+	// integrationconfig.DefaultID holds the default value on creation for the id field.
+	integrationconfig.DefaultID = integrationconfigDescID.Default.(func() uuid.UUID)
 	loginattemptFields := schema.LoginAttempt{}.Fields()
 	_ = loginattemptFields
 	// loginattemptDescEmail is the schema descriptor for email field.

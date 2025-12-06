@@ -57,6 +57,18 @@ func (f FeatureEntitlementFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.FeatureEntitlementMutation", m)
 }
 
+// The IntegrationConfigFunc type is an adapter to allow the use of ordinary
+// function as IntegrationConfig mutator.
+type IntegrationConfigFunc func(context.Context, *ent.IntegrationConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f IntegrationConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.IntegrationConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IntegrationConfigMutation", m)
+}
+
 // The LoginAttemptFunc type is an adapter to allow the use of ordinary
 // function as LoginAttempt mutator.
 type LoginAttemptFunc func(context.Context, *ent.LoginAttemptMutation) (ent.Value, error)

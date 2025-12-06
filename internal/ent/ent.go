@@ -16,6 +16,7 @@ import (
 	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-service/internal/ent/consentsession"
 	"github.com/bengobox/auth-service/internal/ent/featureentitlement"
+	"github.com/bengobox/auth-service/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-service/internal/ent/loginattempt"
 	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
 	"github.com/bengobox/auth-service/internal/ent/mfasettings"
@@ -92,6 +93,7 @@ func checkColumn(t, c string) error {
 			authorizationcode.Table:  authorizationcode.ValidColumn,
 			consentsession.Table:     consentsession.ValidColumn,
 			featureentitlement.Table: featureentitlement.ValidColumn,
+			integrationconfig.Table:  integrationconfig.ValidColumn,
 			loginattempt.Table:       loginattempt.ValidColumn,
 			mfabackupcode.Table:      mfabackupcode.ValidColumn,
 			mfasettings.Table:        mfasettings.ValidColumn,

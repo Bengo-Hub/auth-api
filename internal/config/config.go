@@ -69,6 +69,7 @@ type SecurityConfig struct {
 	Argon2Threads     uint8  `env:"ARGON2_THREADS" envDefault:"2"`
 	Argon2KeyLength   uint32 `env:"ARGON2_KEY_LENGTH" envDefault:"32"`
 	OAuthStateSecret  string `env:"OAUTH_STATE_SECRET"`
+	EncryptionKey     string `env:"ENCRYPTION_KEY"` // 32-byte hex string or raw key
 }
 
 type ProvidersConfig struct {

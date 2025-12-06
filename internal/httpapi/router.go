@@ -22,38 +22,42 @@ type RouterDeps struct {
 
 // AuthHandlers groups the HTTP handlers for auth routes.
 type AuthHandlers struct {
-	Register                 http.HandlerFunc
-	Login                    http.HandlerFunc
-	Refresh                  http.HandlerFunc
-	RequestPasswordReset     http.HandlerFunc
-	ConfirmPasswordReset     http.HandlerFunc
-	Me                       http.HandlerFunc
-	Logout                   http.HandlerFunc
-	GoogleOAuthStart         http.HandlerFunc
-	GoogleOAuthCallback      http.HandlerFunc
-	GitHubOAuthStart         http.HandlerFunc
-	GitHubOAuthCallback      http.HandlerFunc
-	MicrosoftOAuthStart      http.HandlerFunc
-	MicrosoftOAuthCallback   http.HandlerFunc
-	WellKnownConfig          http.HandlerFunc
-	JWKS                     http.HandlerFunc
-	Authorize                http.HandlerFunc
-	Token                    http.HandlerFunc
-	UserInfo                 http.HandlerFunc
-	MFAStartTOTP             http.HandlerFunc
-	MFAConfirmTOTP           http.HandlerFunc
-	MFARegenerateBackupCodes http.HandlerFunc
-	MFAConsumeBackupCode     http.HandlerFunc
-	AdminCreateTenant        http.HandlerFunc
-	AdminListTenants         http.HandlerFunc
-	AdminCreateClient        http.HandlerFunc
-	AdminListClients         http.HandlerFunc
-	AdminUpsertEntitlement   http.HandlerFunc
-	AdminListEntitlements    http.HandlerFunc
-	AdminIncrementUsage      http.HandlerFunc
-	AdminRotateKeys          http.HandlerFunc
-	PublicCreateTenant       http.HandlerFunc
-	PublicGetTenantBySlug    http.HandlerFunc
+	Register                     http.HandlerFunc
+	Login                        http.HandlerFunc
+	Refresh                      http.HandlerFunc
+	RequestPasswordReset         http.HandlerFunc
+	ConfirmPasswordReset         http.HandlerFunc
+	Me                           http.HandlerFunc
+	Logout                       http.HandlerFunc
+	GoogleOAuthStart             http.HandlerFunc
+	GoogleOAuthCallback          http.HandlerFunc
+	GitHubOAuthStart             http.HandlerFunc
+	GitHubOAuthCallback          http.HandlerFunc
+	MicrosoftOAuthStart          http.HandlerFunc
+	MicrosoftOAuthCallback       http.HandlerFunc
+	WellKnownConfig              http.HandlerFunc
+	JWKS                         http.HandlerFunc
+	Authorize                    http.HandlerFunc
+	Token                        http.HandlerFunc
+	UserInfo                     http.HandlerFunc
+	MFAStartTOTP                 http.HandlerFunc
+	MFAConfirmTOTP               http.HandlerFunc
+	MFARegenerateBackupCodes     http.HandlerFunc
+	MFAConsumeBackupCode         http.HandlerFunc
+	AdminCreateTenant            http.HandlerFunc
+	AdminListTenants             http.HandlerFunc
+	AdminCreateClient            http.HandlerFunc
+	AdminListClients             http.HandlerFunc
+	AdminUpsertEntitlement       http.HandlerFunc
+	AdminListEntitlements        http.HandlerFunc
+	AdminIncrementUsage          http.HandlerFunc
+	AdminRotateKeys              http.HandlerFunc
+	PublicCreateTenant           http.HandlerFunc
+	PublicGetTenantBySlug        http.HandlerFunc
+	AdminCreateIntegrationConfig http.HandlerFunc
+	AdminGetIntegrationConfig    http.HandlerFunc
+	AdminListIntegrationConfigs  http.HandlerFunc
+	AdminDeleteIntegrationConfig http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -142,6 +146,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/entitlements", deps.AuthHandlers.AdminListEntitlements)
 			r.Post("/usage/increment", deps.AuthHandlers.AdminIncrementUsage)
 			r.Post("/keys/rotate", deps.AuthHandlers.AdminRotateKeys)
+			r.Post("/integrations", deps.AuthHandlers.AdminCreateIntegrationConfig)
+			r.Get("/integrations/{id}", deps.AuthHandlers.AdminGetIntegrationConfig)
+			r.Get("/integrations", deps.AuthHandlers.AdminListIntegrationConfigs)
+			r.Delete("/integrations/{id}", deps.AuthHandlers.AdminDeleteIntegrationConfig)
 		})
 	})
 

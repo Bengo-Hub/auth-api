@@ -20,6 +20,8 @@ type Tx struct {
 	ConsentSession *ConsentSessionClient
 	// FeatureEntitlement is the client for interacting with the FeatureEntitlement builders.
 	FeatureEntitlement *FeatureEntitlementClient
+	// IntegrationConfig is the client for interacting with the IntegrationConfig builders.
+	IntegrationConfig *IntegrationConfigClient
 	// LoginAttempt is the client for interacting with the LoginAttempt builders.
 	LoginAttempt *LoginAttemptClient
 	// MFABackupCode is the client for interacting with the MFABackupCode builders.
@@ -179,6 +181,7 @@ func (tx *Tx) init() {
 	tx.AuthorizationCode = NewAuthorizationCodeClient(tx.config)
 	tx.ConsentSession = NewConsentSessionClient(tx.config)
 	tx.FeatureEntitlement = NewFeatureEntitlementClient(tx.config)
+	tx.IntegrationConfig = NewIntegrationConfigClient(tx.config)
 	tx.LoginAttempt = NewLoginAttemptClient(tx.config)
 	tx.MFABackupCode = NewMFABackupCodeClient(tx.config)
 	tx.MFASettings = NewMFASettingsClient(tx.config)

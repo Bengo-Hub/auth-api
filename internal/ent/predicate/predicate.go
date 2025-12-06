@@ -18,6 +18,9 @@ type ConsentSession func(*sql.Selector)
 // FeatureEntitlement is the predicate function for featureentitlement builders.
 type FeatureEntitlement func(*sql.Selector)
 
+// IntegrationConfig is the predicate function for integrationconfig builders.
+type IntegrationConfig func(*sql.Selector)
+
 // LoginAttempt is the predicate function for loginattempt builders.
 type LoginAttempt func(*sql.Selector)
 

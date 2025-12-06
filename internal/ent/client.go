@@ -20,6 +20,7 @@ import (
 	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-service/internal/ent/consentsession"
 	"github.com/bengobox/auth-service/internal/ent/featureentitlement"
+	"github.com/bengobox/auth-service/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-service/internal/ent/loginattempt"
 	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
 	"github.com/bengobox/auth-service/internal/ent/mfasettings"
@@ -47,6 +48,8 @@ type Client struct {
 	ConsentSession *ConsentSessionClient
 	// FeatureEntitlement is the client for interacting with the FeatureEntitlement builders.
 	FeatureEntitlement *FeatureEntitlementClient
+	// IntegrationConfig is the client for interacting with the IntegrationConfig builders.
+	IntegrationConfig *IntegrationConfigClient
 	// LoginAttempt is the client for interacting with the LoginAttempt builders.
 	LoginAttempt *LoginAttemptClient
 	// MFABackupCode is the client for interacting with the MFABackupCode builders.
@@ -86,6 +89,7 @@ func (c *Client) init() {
 	c.AuthorizationCode = NewAuthorizationCodeClient(c.config)
 	c.ConsentSession = NewConsentSessionClient(c.config)
 	c.FeatureEntitlement = NewFeatureEntitlementClient(c.config)
+	c.IntegrationConfig = NewIntegrationConfigClient(c.config)
 	c.LoginAttempt = NewLoginAttemptClient(c.config)
 	c.MFABackupCode = NewMFABackupCodeClient(c.config)
 	c.MFASettings = NewMFASettingsClient(c.config)
@@ -194,6 +198,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AuthorizationCode:  NewAuthorizationCodeClient(cfg),
 		ConsentSession:     NewConsentSessionClient(cfg),
 		FeatureEntitlement: NewFeatureEntitlementClient(cfg),
+		IntegrationConfig:  NewIntegrationConfigClient(cfg),
 		LoginAttempt:       NewLoginAttemptClient(cfg),
 		MFABackupCode:      NewMFABackupCodeClient(cfg),
 		MFASettings:        NewMFASettingsClient(cfg),
@@ -229,6 +234,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AuthorizationCode:  NewAuthorizationCodeClient(cfg),
 		ConsentSession:     NewConsentSessionClient(cfg),
 		FeatureEntitlement: NewFeatureEntitlementClient(cfg),
+		IntegrationConfig:  NewIntegrationConfigClient(cfg),
 		LoginAttempt:       NewLoginAttemptClient(cfg),
 		MFABackupCode:      NewMFABackupCodeClient(cfg),
 		MFASettings:        NewMFASettingsClient(cfg),
@@ -271,9 +277,9 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.AuditLog, c.AuthorizationCode, c.ConsentSession, c.FeatureEntitlement,
-		c.LoginAttempt, c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient,
-		c.PasswordResetToken, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserIdentity,
+		c.IntegrationConfig, c.LoginAttempt, c.MFABackupCode, c.MFASettings,
+		c.MFATOTPSecret, c.OAuthClient, c.PasswordResetToken, c.Session, c.Tenant,
+		c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
 	} {
 		n.Use(hooks...)
 	}
@@ -284,9 +290,9 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.AuditLog, c.AuthorizationCode, c.ConsentSession, c.FeatureEntitlement,
-		c.LoginAttempt, c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient,
-		c.PasswordResetToken, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserIdentity,
+		c.IntegrationConfig, c.LoginAttempt, c.MFABackupCode, c.MFASettings,
+		c.MFATOTPSecret, c.OAuthClient, c.PasswordResetToken, c.Session, c.Tenant,
+		c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -303,6 +309,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ConsentSession.mutate(ctx, m)
 	case *FeatureEntitlementMutation:
 		return c.FeatureEntitlement.mutate(ctx, m)
+	case *IntegrationConfigMutation:
+		return c.IntegrationConfig.mutate(ctx, m)
 	case *LoginAttemptMutation:
 		return c.LoginAttempt.mutate(ctx, m)
 	case *MFABackupCodeMutation:
@@ -877,6 +885,139 @@ func (c *FeatureEntitlementClient) mutate(ctx context.Context, m *FeatureEntitle
 		return (&FeatureEntitlementDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown FeatureEntitlement mutation op: %q", m.Op())
+	}
+}
+
+// IntegrationConfigClient is a client for the IntegrationConfig schema.
+type IntegrationConfigClient struct {
+	config
+}
+
+// NewIntegrationConfigClient returns a client for the IntegrationConfig from the given config.
+func NewIntegrationConfigClient(c config) *IntegrationConfigClient {
+	return &IntegrationConfigClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `integrationconfig.Hooks(f(g(h())))`.
+func (c *IntegrationConfigClient) Use(hooks ...Hook) {
+	c.hooks.IntegrationConfig = append(c.hooks.IntegrationConfig, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `integrationconfig.Intercept(f(g(h())))`.
+func (c *IntegrationConfigClient) Intercept(interceptors ...Interceptor) {
+	c.inters.IntegrationConfig = append(c.inters.IntegrationConfig, interceptors...)
+}
+
+// Create returns a builder for creating a IntegrationConfig entity.
+func (c *IntegrationConfigClient) Create() *IntegrationConfigCreate {
+	mutation := newIntegrationConfigMutation(c.config, OpCreate)
+	return &IntegrationConfigCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of IntegrationConfig entities.
+func (c *IntegrationConfigClient) CreateBulk(builders ...*IntegrationConfigCreate) *IntegrationConfigCreateBulk {
+	return &IntegrationConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *IntegrationConfigClient) MapCreateBulk(slice any, setFunc func(*IntegrationConfigCreate, int)) *IntegrationConfigCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &IntegrationConfigCreateBulk{err: fmt.Errorf("calling to IntegrationConfigClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*IntegrationConfigCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &IntegrationConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for IntegrationConfig.
+func (c *IntegrationConfigClient) Update() *IntegrationConfigUpdate {
+	mutation := newIntegrationConfigMutation(c.config, OpUpdate)
+	return &IntegrationConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *IntegrationConfigClient) UpdateOne(_m *IntegrationConfig) *IntegrationConfigUpdateOne {
+	mutation := newIntegrationConfigMutation(c.config, OpUpdateOne, withIntegrationConfig(_m))
+	return &IntegrationConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *IntegrationConfigClient) UpdateOneID(id uuid.UUID) *IntegrationConfigUpdateOne {
+	mutation := newIntegrationConfigMutation(c.config, OpUpdateOne, withIntegrationConfigID(id))
+	return &IntegrationConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for IntegrationConfig.
+func (c *IntegrationConfigClient) Delete() *IntegrationConfigDelete {
+	mutation := newIntegrationConfigMutation(c.config, OpDelete)
+	return &IntegrationConfigDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *IntegrationConfigClient) DeleteOne(_m *IntegrationConfig) *IntegrationConfigDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *IntegrationConfigClient) DeleteOneID(id uuid.UUID) *IntegrationConfigDeleteOne {
+	builder := c.Delete().Where(integrationconfig.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &IntegrationConfigDeleteOne{builder}
+}
+
+// Query returns a query builder for IntegrationConfig.
+func (c *IntegrationConfigClient) Query() *IntegrationConfigQuery {
+	return &IntegrationConfigQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeIntegrationConfig},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a IntegrationConfig entity by its id.
+func (c *IntegrationConfigClient) Get(ctx context.Context, id uuid.UUID) (*IntegrationConfig, error) {
+	return c.Query().Where(integrationconfig.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *IntegrationConfigClient) GetX(ctx context.Context, id uuid.UUID) *IntegrationConfig {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *IntegrationConfigClient) Hooks() []Hook {
+	return c.hooks.IntegrationConfig
+}
+
+// Interceptors returns the client interceptors.
+func (c *IntegrationConfigClient) Interceptors() []Interceptor {
+	return c.inters.IntegrationConfig
+}
+
+func (c *IntegrationConfigClient) mutate(ctx context.Context, m *IntegrationConfigMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&IntegrationConfigCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&IntegrationConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&IntegrationConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&IntegrationConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown IntegrationConfig mutation op: %q", m.Op())
 	}
 }
 
@@ -2719,14 +2860,15 @@ func (c *UserIdentityClient) mutate(ctx context.Context, m *UserIdentityMutation
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement, LoginAttempt,
-		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, PasswordResetToken,
-		Session, Tenant, TenantMembership, UsageMetric, User, UserIdentity []ent.Hook
+		AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement,
+		IntegrationConfig, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
+		OAuthClient, PasswordResetToken, Session, Tenant, TenantMembership,
+		UsageMetric, User, UserIdentity []ent.Hook
 	}
 	inters struct {
-		AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement, LoginAttempt,
-		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, PasswordResetToken,
-		Session, Tenant, TenantMembership, UsageMetric, User,
-		UserIdentity []ent.Interceptor
+		AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement,
+		IntegrationConfig, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
+		OAuthClient, PasswordResetToken, Session, Tenant, TenantMembership,
+		UsageMetric, User, UserIdentity []ent.Interceptor
 	}
 )

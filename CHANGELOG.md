@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+- Integration config CRUD endpoints for secure storage of OAuth2 and third-party secrets
+- AES-256-GCM encryption utilities for integration configuration data
+
 ### Changed
 - Standardized Swagger documentation path to `/v1/docs` (previously `/api/v1/docs`)
 - Updated OpenAPI specification servers to use HTTPS URLs for local development

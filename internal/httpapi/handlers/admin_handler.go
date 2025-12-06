@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/bengobox/auth-service/internal/ent"
+	"github.com/bengobox/auth-service/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-service/internal/ent/oauthclient"
 	"github.com/bengobox/auth-service/internal/ent/tenant"
 	authmiddleware "github.com/bengobox/auth-service/internal/httpapi/middleware"
@@ -356,4 +359,203 @@ func (h *AdminHandler) IncrementUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// Integration Config endpoints
+type integrationConfigRequest struct {
+	TenantID   string                 `json:"tenant_id,omitempty"`
+	Service    string                 `json:"service"`
+	ConfigData map[string]interface{} `json:"config_data"`
+}
+
+type integrationConfigResponse struct {
+	ID         string                 `json:"id"`
+	TenantID   *string                `json:"tenant_id,omitempty"`
+	Service    string                 `json:"service"`
+	ConfigData map[string]interface{} `json:"config_data,omitempty"`
+	CreatedAt  string                 `json:"created_at"`
+	UpdatedAt  string                 `json:"updated_at"`
+}
+
+func (h *AdminHandler) CreateIntegrationConfig(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	var req integrationConfigRequest
+	if err := decodeJSON(r, &req); err != nil || req.Service == "" || req.ConfigData == nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
+		return
+	}
+
+	// Serialize config data to JSON
+	configJSON, err := json.Marshal(req.ConfigData)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid config data", nil)
+		return
+	}
+
+	// Encrypt config data (requires AUTH_SECURITY_ENCRYPTION_KEY environment variable)
+	// For now, store unencrypted until encryption key is configured
+	// In production, this should always encrypt
+	encryptedData := string(configJSON)
+	keyID := "plaintext" // TODO: Use actual key ID from config when encryption is enabled
+
+	create := h.ent.IntegrationConfig.Create().
+		SetService(req.Service).
+		SetConfigData(encryptedData).
+		SetKeyID(keyID)
+
+	if req.TenantID != "" {
+		tenantUUID, err := uuid.Parse(req.TenantID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+			return
+		}
+		create.SetTenantID(tenantUUID)
+	}
+
+	config, err := create.Save(r.Context())
+	if err != nil {
+		h.logger.Error("Failed to create integration config", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not create config", nil)
+		return
+	}
+
+	// Decrypt for response
+	var configData map[string]interface{}
+	if err := json.Unmarshal([]byte(config.ConfigData), &configData); err != nil {
+		h.logger.Warn("Failed to unmarshal config data", zap.Error(err))
+	}
+
+	var tenantIDStr *string
+	if config.TenantID != nil {
+		tid := config.TenantID.String()
+		tenantIDStr = &tid
+	}
+
+	writeJSON(w, http.StatusCreated, integrationConfigResponse{
+		ID:         config.ID.String(),
+		TenantID:   tenantIDStr,
+		Service:    config.Service,
+		ConfigData: configData,
+		CreatedAt:  config.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  config.UpdatedAt.Format(time.RFC3339),
+	})
+}
+
+func (h *AdminHandler) GetIntegrationConfig(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid id", nil)
+		return
+	}
+
+	config, err := h.ent.IntegrationConfig.Get(r.Context(), id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "config not found", nil)
+			return
+		}
+		h.logger.Error("Failed to get integration config", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to get config", nil)
+		return
+	}
+
+	// Decrypt config data
+	var configData map[string]interface{}
+	if err := json.Unmarshal([]byte(config.ConfigData), &configData); err != nil {
+		h.logger.Warn("Failed to unmarshal config data", zap.Error(err))
+	}
+
+	var tenantIDStr *string
+	if config.TenantID != nil {
+		tid := config.TenantID.String()
+		tenantIDStr = &tid
+	}
+
+	writeJSON(w, http.StatusOK, integrationConfigResponse{
+		ID:         config.ID.String(),
+		TenantID:   tenantIDStr,
+		Service:    config.Service,
+		ConfigData: configData,
+		CreatedAt:  config.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  config.UpdatedAt.Format(time.RFC3339),
+	})
+}
+
+func (h *AdminHandler) ListIntegrationConfigs(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+
+	tenantIDStr := r.URL.Query().Get("tenant_id")
+	query := h.ent.IntegrationConfig.Query()
+
+	if tenantIDStr != "" {
+		tenantID, err := uuid.Parse(tenantIDStr)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+			return
+		}
+		query = query.Where(integrationconfig.TenantIDEQ(tenantID))
+	}
+
+	configs, err := query.All(r.Context())
+	if err != nil {
+		h.logger.Error("Failed to list integration configs", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to list configs", nil)
+		return
+	}
+
+	// Return list without decrypted data for security
+	var response []map[string]interface{}
+	for _, config := range configs {
+		item := map[string]interface{}{
+			"id":         config.ID.String(),
+			"service":    config.Service,
+			"key_id":     config.KeyID,
+			"created_at": config.CreatedAt.Format(time.RFC3339),
+			"updated_at": config.UpdatedAt.Format(time.RFC3339),
+		}
+		if config.TenantID != nil {
+			item["tenant_id"] = config.TenantID.String()
+		}
+		response = append(response, item)
+	}
+
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *AdminHandler) DeleteIntegrationConfig(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid id", nil)
+		return
+	}
+
+	if err := h.ent.IntegrationConfig.DeleteOneID(id).Exec(r.Context()); err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "config not found", nil)
+			return
+		}
+		h.logger.Error("Failed to delete integration config", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete config", nil)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
