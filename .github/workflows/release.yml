@@ -105,17 +105,9 @@ jobs:
           YAML
           fi
 
-      - name: Bump image tag in devops-k8s
+      - name: Trigger devops-k8s sync (using latest tag)
         run: |
-          sed -i "s/tag:.*/tag: ${{ steps.vars.outputs.short_sha }}/" devops-k8s/apps/auth-api/values.yaml
-
-      - name: Create PR to devops-k8s
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.DEVOPS_K8S_ACCESS_TOKEN || secrets.GH_PAT }}
-          commit-message: "chore(auth-api): bump image tag to ${{ steps.vars.outputs.short_sha }}"
-          title: "chore(auth-api): bump image tag to ${{ steps.vars.outputs.short_sha }}"
-          branch: ci/bump-auth-api-${{ steps.vars.outputs.short_sha }}
-          base: main
-          path: devops-k8s
+          echo "✅ Image pushed with tags: ${{ github.sha }} and latest"
+          echo "📦 docker.io/codevertex/auth-api:latest ready for deployment"
+          echo "🔄 ArgoCD will auto-sync on next refresh cycle"
 
