@@ -1,4 +1,4 @@
-module github.com/bengobox/auth-service
+module github.com/bengobox/auth-api
 
 go 1.24.0
 
@@ -57,4 +57,4 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 )
 
-replace github.com/Bengo-Hub/shared-password-hasher => ../../shared/password-hasher
+replace github.com/Bengo-Hub/shared-password-hasher => github.com/Bengo-Hub/password-hasher v0.1.0

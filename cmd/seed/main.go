@@ -6,11 +6,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/config"
-	"github.com/bengobox/auth-service/internal/database"
-	"github.com/bengobox/auth-service/internal/ent/tenant"
-	"github.com/bengobox/auth-service/internal/ent/user"
-	"github.com/bengobox/auth-service/internal/password"
+	"github.com/bengobox/auth-api/internal/config"
+	"github.com/bengobox/auth-api/internal/database"
+	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/password"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )

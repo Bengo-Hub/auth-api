@@ -9,8 +9,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
-	"github.com/bengobox/auth-service/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
+	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/google/uuid"
 )
 

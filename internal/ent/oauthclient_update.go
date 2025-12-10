@@ -12,8 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
-	"github.com/bengobox/auth-service/internal/ent/oauthclient"
-	"github.com/bengobox/auth-service/internal/ent/predicate"
+	"github.com/bengobox/auth-api/internal/ent/oauthclient"
+	"github.com/bengobox/auth-api/internal/ent/predicate"
 )
 
 // OAuthClientUpdate is the builder for updating OAuthClient entities.

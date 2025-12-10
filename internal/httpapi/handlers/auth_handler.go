@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/ent"
-	authmiddleware "github.com/bengobox/auth-service/internal/httpapi/middleware"
-	"github.com/bengobox/auth-service/internal/services/auth"
+	"github.com/bengobox/auth-api/internal/ent"
+	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"go.uber.org/zap"

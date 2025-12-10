@@ -36,9 +36,9 @@ EOF
     
     success "Database reset complete"
     info "Next steps:"
-    echo "  1. Delete auth pods to trigger restart: kubectl delete pod -n auth -l app=auth-service"
+    echo "  1. Delete auth pods to trigger restart: kubectl delete pod -n auth -l app=auth-api"
     echo "  2. Pods will automatically run migrations and seeding"
-    echo "  3. Check logs: kubectl logs -n auth -l app=auth-service -f"
+    echo "  3. Check logs: kubectl logs -n auth -l app=auth-api -f"
     
 elif docker ps &> /dev/null; then
     info "Using Docker for local PostgreSQL"

@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/bengobox/auth-service/internal/ent/passwordresettoken"
-	"github.com/bengobox/auth-service/internal/ent/predicate"
+	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
+	"github.com/bengobox/auth-api/internal/ent/predicate"
 )
 
 // PasswordResetTokenDelete is the builder for deleting a PasswordResetToken entity.

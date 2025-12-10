@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/config"
-	"github.com/bengobox/auth-service/internal/ent"
-	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
-	"github.com/bengobox/auth-service/internal/ent/oauthclient"
-	"github.com/bengobox/auth-service/internal/token"
+	"github.com/bengobox/auth-api/internal/config"
+	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
+	"github.com/bengobox/auth-api/internal/ent/oauthclient"
+	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
 )
 

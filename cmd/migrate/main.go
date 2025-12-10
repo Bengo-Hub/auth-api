@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/bengobox/auth-service/internal/config"
-	"github.com/bengobox/auth-service/internal/database"
+	"github.com/bengobox/auth-api/internal/config"
+	"github.com/bengobox/auth-api/internal/database"
 	"github.com/joho/godotenv"
 )
 

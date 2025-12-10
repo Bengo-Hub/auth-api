@@ -12,10 +12,10 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
-	"github.com/bengobox/auth-service/internal/ent/predicate"
-	"github.com/bengobox/auth-service/internal/ent/tenant"
-	"github.com/bengobox/auth-service/internal/ent/tenantmembership"
-	"github.com/bengobox/auth-service/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/predicate"
+	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
+	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/google/uuid"
 )
 

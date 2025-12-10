@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
-	"github.com/bengobox/auth-service/internal/ent/predicate"
+	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
+	"github.com/bengobox/auth-api/internal/ent/predicate"
 )
 
 // MFABackupCodeDelete is the builder for deleting a MFABackupCode entity.

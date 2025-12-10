@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bengobox/auth-service/internal/config"
+	"github.com/bengobox/auth-api/internal/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )

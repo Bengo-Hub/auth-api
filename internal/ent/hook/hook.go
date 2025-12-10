@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bengobox/auth-service/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent"
 )
 
 // The AuditLogFunc type is an adapter to allow the use of ordinary

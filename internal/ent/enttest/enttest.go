@@ -5,12 +5,12 @@ package enttest
 import (
 	"context"
 
-	"github.com/bengobox/auth-service/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent"
 	// required by schema hooks.
-	_ "github.com/bengobox/auth-service/internal/ent/runtime"
+	_ "github.com/bengobox/auth-api/internal/ent/runtime"
 
 	"entgo.io/ent/dialect/sql/schema"
-	"github.com/bengobox/auth-service/internal/ent/migrate"
+	"github.com/bengobox/auth-api/internal/ent/migrate"
 )
 
 type (

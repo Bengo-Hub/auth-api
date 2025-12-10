@@ -8,8 +8,8 @@ import (
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
-	"github.com/bengobox/auth-service/internal/config"
-	"github.com/bengobox/auth-service/internal/ent"
+	"github.com/bengobox/auth-api/internal/config"
+	"github.com/bengobox/auth-api/internal/ent"
 	_ "github.com/jackc/pgx/v5/stdlib" // register pgx driver
 )
 

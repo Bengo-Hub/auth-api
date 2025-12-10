@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/ent"
-	"github.com/bengobox/auth-service/internal/ent/featureentitlement"
+	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/featureentitlement"
 	"github.com/google/uuid"
 )
 
