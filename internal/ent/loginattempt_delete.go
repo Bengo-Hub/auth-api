@@ -8,8 +8,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/bengobox/auth-service/internal/ent/loginattempt"
-	"github.com/bengobox/auth-service/internal/ent/predicate"
+	"github.com/bengobox/auth-api/internal/ent/loginattempt"
+	"github.com/bengobox/auth-api/internal/ent/predicate"
 )
 
 // LoginAttemptDelete is the builder for deleting a LoginAttempt entity.

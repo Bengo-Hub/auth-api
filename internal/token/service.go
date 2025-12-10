@@ -13,7 +13,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/config"
+	"github.com/bengobox/auth-api/internal/config"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )

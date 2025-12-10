@@ -6,8 +6,8 @@ cd "$ROOT_DIR"
 
 APP_PORT=4101
 REDIS_CONTAINER_NAME="redis"
-SERVICE_IMAGE="auth-service:local"
-SERVICE_CONTAINER_NAME="auth-service-local"
+SERVICE_IMAGE="auth-api:local"
+SERVICE_CONTAINER_NAME="auth-api-local"
 ENV_FILE="$ROOT_DIR/.env"
 EXAMPLE_ENV="$ROOT_DIR/config/example.env"
 KEYS_DIR="$ROOT_DIR/config/keys"

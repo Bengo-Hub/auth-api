@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/ent"
-	"github.com/bengobox/auth-service/internal/ent/auditlog"
+	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/auditlog"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

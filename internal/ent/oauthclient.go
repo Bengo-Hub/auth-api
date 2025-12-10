@@ -10,7 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
-	"github.com/bengobox/auth-service/internal/ent/oauthclient"
+	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/google/uuid"
 )
 

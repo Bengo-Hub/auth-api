@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/ent"
-	"github.com/bengobox/auth-service/internal/ent/usagemetric"
+	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/usagemetric"
 	"github.com/google/uuid"
 )
 

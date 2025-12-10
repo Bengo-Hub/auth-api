@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	sharedhasher "github.com/Bengo-Hub/shared-password-hasher"
-	"github.com/bengobox/auth-service/internal/config"
+	"github.com/bengobox/auth-api/internal/config"
 )
 
 // ErrInvalidHash indicates the stored hash cannot be parsed.

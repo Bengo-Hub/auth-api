@@ -11,9 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/bengobox/auth-service/internal/ent/authorizationcode"
-	"github.com/bengobox/auth-service/internal/ent/predicate"
-	"github.com/bengobox/auth-service/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
+	"github.com/bengobox/auth-api/internal/ent/predicate"
+	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/google/uuid"
 )
 

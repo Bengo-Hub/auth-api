@@ -14,9 +14,9 @@ success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-APP_NAME=${APP_NAME:-"auth-service"}
+APP_NAME=${APP_NAME:-"auth-api"}
 NAMESPACE=${NAMESPACE:-"auth"}
-ENV_SECRET_NAME=${ENV_SECRET_NAME:-"auth-service-secrets"}
+ENV_SECRET_NAME=${ENV_SECRET_NAME:-"auth-api-secrets"}
 DEPLOY=${DEPLOY:-true}
 SETUP_DATABASES=${SETUP_DATABASES:-true}
 DB_TYPES=${DB_TYPES:-postgres,redis}

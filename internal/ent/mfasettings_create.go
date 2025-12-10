@@ -10,7 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/bengobox/auth-service/internal/ent/mfasettings"
+	"github.com/bengobox/auth-api/internal/ent/mfasettings"
 	"github.com/google/uuid"
 )
 

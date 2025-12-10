@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	authmiddleware "github.com/bengobox/auth-service/internal/httpapi/middleware"
-	"github.com/bengobox/auth-service/internal/services/mfa"
+	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/services/mfa"
 	"go.uber.org/zap"
 )
 

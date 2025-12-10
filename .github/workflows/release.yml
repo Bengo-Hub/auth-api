@@ -31,8 +31,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            docker.io/codevertex/auth-service:${{ github.sha }}
-            docker.io/codevertex/auth-service:latest
+            docker.io/codevertex/auth-api:${{ github.sha }}
+            docker.io/codevertex/auth-api:latest
 
       - name: Short SHA
         id: vars
@@ -46,15 +46,15 @@ jobs:
           path: devops-k8s
           fetch-depth: 1
 
-      - name: Ensure auth-service app files exist
+      - name: Ensure auth-api app files exist
         run: |
-          mkdir -p devops-k8s/apps/auth-service
-          if [ ! -f devops-k8s/apps/auth-service/app.yaml ]; then
-            cat > devops-k8s/apps/auth-service/app.yaml <<'YAML'
+          mkdir -p devops-k8s/apps/auth-api
+          if [ ! -f devops-k8s/apps/auth-api/app.yaml ]; then
+            cat > devops-k8s/apps/auth-api/app.yaml <<'YAML'
             apiVersion: argoproj.io/v1alpha1
             kind: Application
             metadata:
-              name: auth-service
+              name: auth-api
               namespace: argocd
             spec:
               project: default
@@ -64,7 +64,7 @@ jobs:
                 path: charts/app
                 helm:
                   valueFiles:
-                    - ../../apps/auth-service/values.yaml
+                    - ../../apps/auth-api/values.yaml
               destination:
                 server: https://kubernetes.default.svc
                 namespace: auth
@@ -76,10 +76,10 @@ jobs:
                   - CreateNamespace=true
             YAML
           fi
-          if [ ! -f devops-k8s/apps/auth-service/values.yaml ]; then
-            cat > devops-k8s/apps/auth-service/values.yaml <<'YAML'
+          if [ ! -f devops-k8s/apps/auth-api/values.yaml ]; then
+            cat > devops-k8s/apps/auth-api/values.yaml <<'YAML'
             image:
-              repository: docker.io/codevertex/auth-service
+              repository: docker.io/codevertex/auth-api
               tag: latest
               pullSecrets:
                 - name: registry-credentials
@@ -107,15 +107,15 @@ jobs:
 
       - name: Bump image tag in devops-k8s
         run: |
-          sed -i "s/tag:.*/tag: ${{ steps.vars.outputs.short_sha }}/" devops-k8s/apps/auth-service/values.yaml
+          sed -i "s/tag:.*/tag: ${{ steps.vars.outputs.short_sha }}/" devops-k8s/apps/auth-api/values.yaml
 
       - name: Create PR to devops-k8s
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.DEVOPS_K8S_ACCESS_TOKEN || secrets.GH_PAT }}
-          commit-message: "chore(auth-service): bump image tag to ${{ steps.vars.outputs.short_sha }}"
-          title: "chore(auth-service): bump image tag to ${{ steps.vars.outputs.short_sha }}"
-          branch: ci/bump-auth-service-${{ steps.vars.outputs.short_sha }}
+          commit-message: "chore(auth-api): bump image tag to ${{ steps.vars.outputs.short_sha }}"
+          title: "chore(auth-api): bump image tag to ${{ steps.vars.outputs.short_sha }}"
+          branch: ci/bump-auth-api-${{ steps.vars.outputs.short_sha }}
           base: main
           path: devops-k8s
 

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/ent"
-	"github.com/bengobox/auth-service/internal/ent/mfabackupcode"
-	"github.com/bengobox/auth-service/internal/ent/mfatotpsecret"
+	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
+	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/google/uuid"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"

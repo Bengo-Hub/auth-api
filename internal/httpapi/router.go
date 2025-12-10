@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/httpapi/handlers"
+	"github.com/bengobox/auth-api/internal/httpapi/handlers"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"

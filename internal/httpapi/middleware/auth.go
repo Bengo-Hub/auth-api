@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bengobox/auth-service/internal/token"
+	"github.com/bengobox/auth-api/internal/token"
 )
 
 // TokenValidator defines the capabilities required to validate JWTs.

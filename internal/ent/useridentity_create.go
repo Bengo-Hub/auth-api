@@ -10,8 +10,8 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/bengobox/auth-service/internal/ent/user"
-	"github.com/bengobox/auth-service/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/useridentity"
 	"github.com/google/uuid"
 )
 

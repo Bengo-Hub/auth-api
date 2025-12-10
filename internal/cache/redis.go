@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 
-	"github.com/bengobox/auth-service/internal/config"
+	"github.com/bengobox/auth-api/internal/config"
 	"github.com/redis/go-redis/v9"
 )
 

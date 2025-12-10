@@ -15,8 +15,8 @@ Set-Location $ROOT_DIR
 
 $APP_PORT = 4101
 $REDIS_CONTAINER_NAME = "learnos-redis"
-$SERVICE_IMAGE = "auth-service:local"
-$SERVICE_CONTAINER_NAME = "auth-service-local"
+$SERVICE_IMAGE = "auth-api:local"
+$SERVICE_CONTAINER_NAME = "auth-api-local"
 $DOCKER_PUSH_TARGET = $env:AUTH_DOCKER_PUSH_TARGET
 $ENV_FILE = Join-Path $ROOT_DIR ".env"
 $EXAMPLE_ENV = Join-Path $ROOT_DIR "config\example.env"

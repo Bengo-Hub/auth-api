@@ -7,7 +7,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/bengobox/auth-service/internal/ent/predicate"
+	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/google/uuid"
 )
 

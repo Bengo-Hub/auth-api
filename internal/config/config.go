@@ -20,7 +20,7 @@ type Config struct {
 
 type AppConfig struct {
 	Environment string `env:"ENV" envDefault:"development"`
-	ServiceName string `env:"SERVICE_NAME" envDefault:"auth-service"`
+	ServiceName string `env:"SERVICE_NAME" envDefault:"auth-api"`
 }
 
 type HTTPConfig struct {

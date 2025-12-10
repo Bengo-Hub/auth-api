@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bengobox/auth-service/internal/app"
-	"github.com/bengobox/auth-service/internal/config"
-	"github.com/bengobox/auth-service/internal/logger"
+	"github.com/bengobox/auth-api/internal/app"
+	"github.com/bengobox/auth-api/internal/config"
+	"github.com/bengobox/auth-api/internal/logger"
 	"github.com/joho/godotenv"
 )
 
