@@ -51,58 +51,58 @@ jobs:
           mkdir -p devops-k8s/apps/auth-api
           if [ ! -f devops-k8s/apps/auth-api/app.yaml ]; then
             cat > devops-k8s/apps/auth-api/app.yaml <<'YAML'
-            apiVersion: argoproj.io/v1alpha1
-            kind: Application
-            metadata:
-              name: auth-api
-              namespace: argocd
-            spec:
-              project: default
-              source:
-                repoURL: https://github.com/Bengo-Hub/devops-k8s.git
-                targetRevision: main
-                path: charts/app
-                helm:
-                  valueFiles:
-                    - ../../apps/auth-api/values.yaml
-              destination:
-                server: https://kubernetes.default.svc
-                namespace: auth
-              syncPolicy:
-                automated:
-                  prune: true
-                  selfHeal: true
-                syncOptions:
-                  - CreateNamespace=true
-            YAML
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: auth-api
+            namespace: argocd
+          spec:
+            project: default
+            source:
+              repoURL: https://github.com/Bengo-Hub/devops-k8s.git
+              targetRevision: main
+              path: charts/app
+              helm:
+                valueFiles:
+                  - ../../apps/auth-api/values.yaml
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: auth
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              syncOptions:
+                - CreateNamespace=true
+          YAML
           fi
           if [ ! -f devops-k8s/apps/auth-api/values.yaml ]; then
             cat > devops-k8s/apps/auth-api/values.yaml <<'YAML'
-            image:
-              repository: docker.io/codevertex/auth-api
-              tag: latest
-              pullSecrets:
-                - name: registry-credentials
-            service:
-              port: 4101
-              targetPort: 4101
-            healthCheck:
-              enabled: true
-              readiness:
-                httpGet:
-                  path: /healthz
-                  port: http
-                initialDelaySeconds: 5
-                periodSeconds: 10
-                timeoutSeconds: 3
-              liveness:
-                httpGet:
-                  path: /healthz
-                  port: http
-                initialDelaySeconds: 10
-                periodSeconds: 20
-                timeoutSeconds: 5
-            YAML
+          image:
+            repository: docker.io/codevertex/auth-api
+            tag: latest
+            pullSecrets:
+              - name: registry-credentials
+          service:
+            port: 4101
+            targetPort: 4101
+          healthCheck:
+            enabled: true
+            readiness:
+              httpGet:
+                path: /healthz
+                port: http
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 3
+            liveness:
+              httpGet:
+                path: /healthz
+                port: http
+              initialDelaySeconds: 10
+              periodSeconds: 20
+              timeoutSeconds: 5
+          YAML
           fi
 
       - name: Bump image tag in devops-k8s
