@@ -15,7 +15,11 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load() // load .env if present
+	if err := godotenv.Load(); err != nil {
+		log.Printf("warning: could not load .env file: %v", err)
+	} else {
+		log.Println("✓ .env file loaded successfully")
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
