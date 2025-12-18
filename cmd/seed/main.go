@@ -33,20 +33,51 @@ func main() {
 		log.Fatalf("migrate: %v", err)
 	}
 
-	// Create or fetch default tenant
-	tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ("codevertex")).Only(ctx)
-	if err != nil {
-		tenantEntity, err = client.Tenant.Create().
-			SetName("CodeVertex").
-			SetSlug("codevertex").
-			SetStatus("active").
-			Save(ctx)
-		if err != nil {
-			log.Fatalf("create tenant: %v", err)
-		}
+	log.Println("Starting seed process...")
+
+	// Create or fetch default tenants
+	tenants := []struct {
+		name string
+		slug string
+	}{
+		{"CodeVertex", "codevertex"},
+		{"Kura Weigh", "kura"},
 	}
 
-	// Seed admin user
+	var tenantEntities []*struct {
+		ID   uuid.UUID
+		Name string
+		Slug string
+	}
+
+	for _, t := range tenants {
+		tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ(t.slug)).Only(ctx)
+		if err != nil {
+			tenantEntity, err = client.Tenant.Create().
+				SetName(t.name).
+				SetSlug(t.slug).
+				SetStatus("active").
+				Save(ctx)
+			if err != nil {
+				log.Fatalf("create tenant %s: %v", t.slug, err)
+			}
+			log.Printf("✓ Created tenant: %s (%s)", t.name, t.slug)
+		} else {
+			log.Printf("✓ Tenant exists: %s (%s)", t.name, t.slug)
+		}
+
+		tenantEntities = append(tenantEntities, &struct {
+			ID   uuid.UUID
+			Name string
+			Slug string
+		}{
+			ID:   tenantEntity.ID,
+			Name: tenantEntity.Name,
+			Slug: tenantEntity.Slug,
+		})
+	}
+
+	// Seed admin user (for all tenants)
 	adminEmail := "admin@codevertexitsolutions.com"
 	adminPassword := os.Getenv("SEED_ADMIN_PASSWORD")
 	if adminPassword == "" {
@@ -62,7 +93,7 @@ func main() {
 		SetEmail(adminEmail).
 		SetPasswordHash(hash).
 		SetStatus("active").
-		SetPrimaryTenantID(tenantEntity.ID.String()).
+		SetPrimaryTenantID(tenantEntities[0].ID.String()).
 		Save(ctx)
 	if err != nil {
 		// Try to fetch existing
@@ -70,16 +101,38 @@ func main() {
 		if err != nil {
 			log.Fatalf("seed user: %v", err)
 		}
+		log.Printf("✓ Admin user exists: %s", adminEmail)
+	} else {
+		log.Printf("✓ Created admin user: %s", adminEmail)
 	}
 
-	// Add membership with superuser role
-	_, _ = client.TenantMembership.Create().
-		SetUserID(userEntity.ID).
-		SetTenantID(tenantEntity.ID).
-		SetRoles([]string{"superuser"}).
-		Save(ctx)
+	// Add superuser membership to all tenants
+	for _, tenantEnt := range tenantEntities {
+		_, err = client.TenantMembership.Create().
+			SetUserID(userEntity.ID).
+			SetTenantID(tenantEnt.ID).
+			SetRoles([]string{"superuser"}).
+			Save(ctx)
+		if err != nil {
+			// Might already exist, that's okay
+			log.Printf("  (membership for %s may already exist)", tenantEnt.Slug)
+		} else {
+			log.Printf("  ✓ Added superuser role in %s", tenantEnt.Slug)
+		}
+	}
 
-	log.Printf("seed completed: admin=%s tenant=%s password=%s\n", adminEmail, tenantEntity.Slug, adminPassword)
+	log.Printf("")
+	log.Printf("========================================")
+	log.Printf("✅ Seeding completed successfully!")
+	log.Printf("========================================")
+	log.Printf("Admin Email: %s", adminEmail)
+	log.Printf("Password: %s", adminPassword)
+	log.Printf("Tenants seeded: %d", len(tenants))
+	for _, te := range tenantEntities {
+		log.Printf("  - %s (%s)", te.Name, te.Slug)
+	}
+	log.Printf("========================================")
+
 	_ = os.Setenv("SEEDED_AT", time.Now().Format(time.RFC3339))
 	_ = uuid.New()
 }
