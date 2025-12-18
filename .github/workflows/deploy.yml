@@ -118,7 +118,8 @@ jobs:
           echo "$KUBE_CONFIG_B64" | base64 -d > ~/.kube/config
 
           if kubectl get deployment auth-api -n ${NS} >/dev/null 2>&1; then
-            kubectl rollout status deployment/auth-api -n ${NS} --timeout=300s
+            # Increased timeout to 20 minutes (1200s) for migrations and startup
+            kubectl rollout status deployment/auth-api -n ${NS} --timeout=1200s
             HOSTS=$(kubectl get ingress -n ${NS} -o jsonpath='{.items[*].spec.rules[*].host}' | tr ' ' '\n' | grep -E 'sso|auth' || true)
             if [ -n "$HOSTS" ]; then
               for H in $HOSTS; do

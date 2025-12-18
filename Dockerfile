@@ -19,10 +19,11 @@ COPY --from=builder /bin/auth /usr/local/bin/auth
 COPY --from=builder /bin/auth-migrate /usr/local/bin/auth-migrate
 COPY --from=builder /bin/auth-seed /usr/local/bin/auth-seed
 COPY config/keys ./config/keys
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 # TLS certificates directory (optional, can be mounted as volume)
-RUN mkdir -p ./config/certs
+RUN mkdir -p ./config/certs && chmod +x /usr/local/bin/entrypoint.sh
 USER app
 EXPOSE 4101
-# Default entrypoint is the server
-ENTRYPOINT ["/usr/local/bin/auth"]
+# Default entrypoint is the wrapper script
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
