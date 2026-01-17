@@ -79,7 +79,10 @@ func main() {
 	}
 
 	// Seed admin user (for all tenants)
-	adminEmail := "admin@codevertexitsolutions.com"
+	adminEmail := os.Getenv("SEED_ADMIN_EMAIL")
+	if adminEmail == "" {
+		adminEmail = "admin@codevertexitsolutions.com"
+	}
 	adminPassword := os.Getenv("SEED_ADMIN_PASSWORD")
 	if adminPassword == "" {
 		adminPassword = "ChangeMe123!"
