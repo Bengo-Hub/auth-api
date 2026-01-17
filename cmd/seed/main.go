@@ -17,10 +17,13 @@ import (
 
 func main() {
 	_ = godotenv.Load()
-	cfg, err := config.Load()
+
+	// Load minimal config for seeding (no OAuth validation needed)
+	cfg, err := config.LoadForSeed()
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
+
 	ctx := context.Background()
 	client, err := database.NewClient(ctx, cfg.Database)
 	if err != nil {

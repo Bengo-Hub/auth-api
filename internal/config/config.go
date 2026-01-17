@@ -160,3 +160,37 @@ func Load() (*Config, error) {
 	}
 	return cfg, nil
 }
+
+// LoadDatabaseOnly parses only database-related environment variables.
+// Use this for migrations and setup scripts that don't need full config validation.
+func LoadDatabaseOnly() (DatabaseConfig, error) {
+	type dbOnlyConfig struct {
+		Database DatabaseConfig `envPrefix:"AUTH_DB_"`
+	}
+	cfg := &dbOnlyConfig{}
+	if err := env.Parse(cfg); err != nil {
+		return DatabaseConfig{}, fmt.Errorf("parse env: %w", err)
+	}
+	if cfg.Database.URL == "" {
+		return DatabaseConfig{}, fmt.Errorf("AUTH_DB_URL is required")
+	}
+	return cfg.Database, nil
+}
+
+// SeedConfig contains only what's needed for seeding (database + security for password hashing).
+type SeedConfig struct {
+	Database DatabaseConfig `envPrefix:"AUTH_DB_"`
+	Security SecurityConfig `envPrefix:"AUTH_SECURITY_"`
+}
+
+// LoadForSeed parses config needed for seeding without OAuth validation.
+func LoadForSeed() (*SeedConfig, error) {
+	cfg := &SeedConfig{}
+	if err := env.Parse(cfg); err != nil {
+		return nil, fmt.Errorf("parse env: %w", err)
+	}
+	if cfg.Database.URL == "" {
+		return nil, fmt.Errorf("AUTH_DB_URL is required")
+	}
+	return cfg, nil
+}
