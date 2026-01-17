@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-ui-env
+  namespace: auth
+type: Opaque
+stringData:
+  # Runtime env for Next.js server (standalone output). Build-time uses NEXT_PUBLIC_* args.
+  NODE_ENV: "production"
+  PORT: "4000"
+  NEXT_PUBLIC_NOTIFICATIONS_URL: "https://notificationsapi.codevertexitsolutions.com"
+  NEXT_PUBLIC_APP_URL: "https://accounts.codevertexitsolutions.com"
+  NEXT_PUBLIC_MAPBOX_TOKEN: "set-this-token"
+  NEXT_PUBLIC_SENTRY_DSN: ""

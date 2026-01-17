@@ -57,6 +57,18 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "logout failed", map[string]any{"request_id": reqID})
 		return
 	}
+
+	// Clear session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "bb_session",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
@@ -118,6 +130,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, r, err)
 		return
 	}
+
+	// Set session cookie for OIDC flows
+	http.SetCookie(w, &http.Cookie{
+		Name:     "bb_session",
+		Value:    result.AccessToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true, // Should be true in production
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(24 * time.Hour), // Adjust as needed
+	})
 
 	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
 }

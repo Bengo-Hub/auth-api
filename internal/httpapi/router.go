@@ -15,6 +15,7 @@ type RouterDeps struct {
 	HealthHandler      http.HandlerFunc
 	AuthHandlers       AuthHandlers
 	RequireAuthHandler func(http.Handler) http.Handler
+	TryAuthHandler     func(http.Handler) http.Handler
 	RateLimitLogin     func(http.Handler) http.Handler
 	RateLimitToken     func(http.Handler) http.Handler
 	MetricsHandler     http.Handler
@@ -58,6 +59,8 @@ type AuthHandlers struct {
 	AdminGetIntegrationConfig    http.HandlerFunc
 	AdminListIntegrationConfigs  http.HandlerFunc
 	AdminDeleteIntegrationConfig http.HandlerFunc
+	DeveloperListClients         http.HandlerFunc
+	DeveloperCreateClient       http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -68,9 +71,33 @@ func NewRouter(deps RouterDeps) http.Handler {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		// AllowOriginFunc allows dynamic origin checking for credentials mode
+		// This returns true for allowed origins, enabling credentials with specific origins
+		AllowOriginFunc: func(r *http.Request, origin string) bool {
+			// Allow all localhost origins for development
+			if origin == "" ||
+				origin == "http://localhost:3000" ||
+				origin == "http://localhost:3001" ||
+				origin == "http://localhost:4101" ||
+				origin == "http://127.0.0.1:3000" ||
+				origin == "http://127.0.0.1:3001" {
+				return true
+			}
+			// Allow production origins
+			if origin == "https://accounts.codevertexitsolutions.com" ||
+				origin == "https://sso.codevertexitsolutions.com" ||
+				origin == "https://codevertexitsolutions.com" {
+				return true
+			}
+			// Allow any subdomain of codevertexitsolutions.com
+			if len(origin) > 28 && origin[len(origin)-28:] == ".codevertexitsolutions.com" {
+				return true
+			}
+			return false
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Requested-With"},
+		ExposedHeaders:   []string{"Set-Cookie"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
@@ -90,7 +117,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/.well-known/openid-configuration", deps.AuthHandlers.WellKnownConfig)
 			r.Get("/.well-known/jwks.json", deps.AuthHandlers.JWKS)
 			r.Get("/openapi.json", handlers.OpenAPIJSON)
-			r.With(deps.RequireAuthHandler).Get("/authorize", deps.AuthHandlers.Authorize)
+			r.With(deps.TryAuthHandler).Get("/authorize", deps.AuthHandlers.Authorize)
 			r.Post("/token", deps.AuthHandlers.Token)
 			r.With(deps.RequireAuthHandler).Get("/userinfo", deps.AuthHandlers.UserInfo)
 		})
@@ -150,8 +177,13 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/integrations/{id}", deps.AuthHandlers.AdminGetIntegrationConfig)
 			r.Get("/integrations", deps.AuthHandlers.AdminListIntegrationConfigs)
 			r.Delete("/integrations/{id}", deps.AuthHandlers.AdminDeleteIntegrationConfig)
-		})
-	})
+		})		r.Route("/developer", func(r chi.Router) {
+			if deps.RequireAuthHandler != nil {
+				r.Use(deps.RequireAuthHandler)
+			}
+			r.Get("/clients", deps.AuthHandlers.DeveloperListClients)
+			r.Post("/clients", deps.AuthHandlers.DeveloperCreateClient)
+		})	})
 
 	return r
 }

@@ -35,6 +35,8 @@ func (OAuthClient) Fields() []ent.Field {
 			Default(false),
 		field.String("tenant_id").
 			Optional(),
+		field.UUID("created_by", uuid.UUID{}).
+			Optional(),
 		field.JSON("metadata", map[string]any{}).
 			Optional(),
 		field.Time("created_at").
