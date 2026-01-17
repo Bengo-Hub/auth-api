@@ -97,6 +97,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	mfaService := mfa.New(entClient, cfg.Token.Issuer)
 	mfaHandler := handlers.NewMFAHandler(mfaService, logger)
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, logger)
+	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
 		HealthHandler:  handlers.Health,
@@ -138,8 +139,11 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminGetIntegrationConfig:    adminHandler.GetIntegrationConfig,
 			AdminListIntegrationConfigs:  adminHandler.ListIntegrationConfigs,
 			AdminDeleteIntegrationConfig: adminHandler.DeleteIntegrationConfig,
+			DeveloperListClients:         developerHandler.ListClients,
+			DeveloperCreateClient:        developerHandler.CreateClient,
 		},
 		RequireAuthHandler: authMiddleware.RequireAuth,
+		TryAuthHandler:     authMiddleware.TryAuth,
 		RateLimitLogin:     rateLimiter.Limit("login", 60, time.Minute, func(r *http.Request) string { return r.RemoteAddr }),
 		RateLimitToken:     rateLimiter.Limit("token", 120, time.Minute, func(r *http.Request) string { return r.RemoteAddr }),
 	})

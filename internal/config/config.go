@@ -21,6 +21,7 @@ type Config struct {
 type AppConfig struct {
 	Environment string `env:"ENV" envDefault:"development"`
 	ServiceName string `env:"SERVICE_NAME" envDefault:"auth-api"`
+	AuthUIURL   string `env:"UI_URL" envDefault:"http://localhost:3000"`
 }
 
 type HTTPConfig struct {

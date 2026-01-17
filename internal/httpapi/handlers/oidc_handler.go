@@ -65,7 +65,19 @@ func (h *OIDCHandler) JWKS(w http.ResponseWriter, r *http.Request) {
 func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		// Redirect to Auth UI login page
+		loginURL := h.cfg.App.AuthUIURL + "/login"
+		q := r.URL.Query()
+
+		// Preserve the original authorize request as return_to
+		fullAuthorizeURL := h.cfg.Token.Issuer + r.URL.RequestURI()
+
+		u, _ := url.Parse(loginURL)
+		uq := u.Query()
+		uq.Set("return_to", fullAuthorizeURL)
+		u.RawQuery = uq.Encode()
+
+		http.Redirect(w, r, u.String(), http.StatusFound)
 		return
 	}
 	q := r.URL.Query()

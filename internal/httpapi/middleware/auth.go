@@ -33,28 +33,89 @@ func NewAuth(validator TokenValidator, revoked RevocationChecker) *Auth {
 // RequireAuth ensures incoming requests possess a valid bearer token.
 func (a *Auth) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. Check Authorization header
 		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" || !strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
-			writeAuthError(w, http.StatusUnauthorized, "missing bearer token")
-			return
-		}
-
-		tokenStr := strings.TrimSpace(authHeader[7:])
-		claims, err := a.validator.ValidateAccessToken(tokenStr)
-		if err != nil {
-			writeAuthError(w, http.StatusUnauthorized, "invalid token")
-			return
-		}
-		// Check revocation by JTI if available
-		if a.revoked != nil && claims != nil && claims.ID != "" {
-			if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && revoked {
-				writeAuthError(w, http.StatusUnauthorized, "token revoked")
+		if authHeader != "" && strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+			tokenStr := strings.TrimSpace(authHeader[7:])
+			claims, err := a.validator.ValidateAccessToken(tokenStr)
+			if err == nil {
+				if a.revoked != nil && claims != nil && claims.ID != "" {
+					if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && revoked {
+						writeAuthError(w, http.StatusUnauthorized, "token revoked")
+						return
+					}
+				}
+				ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
+				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
 		}
 
-		ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		// 2. Check session cookie
+		cookie, err := r.Cookie("bb_session")
+		if err == nil {
+			claims, err := a.validator.ValidateAccessToken(cookie.Value)
+			if err == nil {
+				if a.revoked != nil && claims != nil && claims.ID != "" {
+					if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && revoked {
+						writeAuthError(w, http.StatusUnauthorized, "token revoked")
+						return
+					}
+				}
+				ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+		}
+
+		writeAuthError(w, http.StatusUnauthorized, "missing or invalid auth")
+	})
+}
+
+// TryAuth attempts to populate the context with claims if a valid token or cookie is present,
+// but does not fail the request if auth is missing or invalid.
+func (a *Auth) TryAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. Check Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" && strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+			tokenStr := strings.TrimSpace(authHeader[7:])
+			claims, err := a.validator.ValidateAccessToken(tokenStr)
+			if err == nil {
+				if a.revoked != nil && claims != nil && claims.ID != "" {
+					if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && !revoked {
+						ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+				} else {
+					ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
+		}
+
+		// 2. Check session cookie
+		cookie, err := r.Cookie("bb_session")
+		if err == nil {
+			claims, err := a.validator.ValidateAccessToken(cookie.Value)
+			if err == nil {
+				if a.revoked != nil && claims != nil && claims.ID != "" {
+					if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && !revoked {
+						ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+				} else {
+					ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }
 

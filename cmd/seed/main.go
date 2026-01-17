@@ -42,6 +42,7 @@ func main() {
 	}{
 		{"CodeVertex", "codevertex"},
 		{"Kura Weigh", "kura"},
+		{"Urban Loft Cafe", "urban-cafe"},
 	}
 
 	var tenantEntities []*struct {
