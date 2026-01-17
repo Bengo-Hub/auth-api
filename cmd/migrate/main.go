@@ -11,12 +11,15 @@ import (
 
 func main() {
 	_ = godotenv.Load()
-	cfg, err := config.Load()
+
+	// Load only database config for migrations (no OAuth validation needed)
+	dbCfg, err := config.LoadDatabaseOnly()
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
+
 	ctx := context.Background()
-	client, err := database.NewClient(ctx, cfg.Database)
+	client, err := database.NewClient(ctx, dbCfg)
 	if err != nil {
 		log.Fatalf("db: %v", err)
 	}

@@ -1,14 +1,33 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: auth-ui-env
+  name: auth-api-secrets
   namespace: auth
 type: Opaque
 stringData:
-  # Runtime env for Next.js server (standalone output). Build-time uses NEXT_PUBLIC_* args.
-  NODE_ENV: "production"
-  PORT: "4000"
-  NEXT_PUBLIC_NOTIFICATIONS_URL: "https://notificationsapi.codevertexitsolutions.com"
-  NEXT_PUBLIC_APP_URL: "https://accounts.codevertexitsolutions.com"
-  NEXT_PUBLIC_MAPBOX_TOKEN: "set-this-token"
-  NEXT_PUBLIC_SENTRY_DSN: ""
+  # Database - Set via GitHub Secrets
+  postgresUrl: "${POSTGRES_URL}"
+
+  # Redis - Set via GitHub Secrets
+  REDIS_PASSWORD: "${REDIS_PASSWORD}"
+
+  # OAuth State Secret (for CSRF protection) - Set via GitHub Secrets
+  OAUTH_STATE_SECRET: "${OAUTH_STATE_SECRET}"
+
+  # Google OAuth - Set via GitHub Secrets
+  GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
+  GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
+
+  # GitHub OAuth - Set via GitHub Secrets (use same names as local dev: GIT_APP_ID, GIT_APP_SECRET)
+  GIT_APP_ID: "${GIT_APP_ID}"
+  GIT_APP_SECRET: "${GIT_APP_SECRET}"
+
+  # Microsoft OAuth (Azure AD) - Set via GitHub Secrets
+  MICROSOFT_CLIENT_ID: "${MICROSOFT_CLIENT_ID}"
+  MICROSOFT_CLIENT_SECRET: "${MICROSOFT_CLIENT_SECRET}"
+  MICROSOFT_TENANT_ID: "${MICROSOFT_TENANT_ID}"
+
+  # Seed credentials - Set via GitHub Secrets
+  SEED_ADMIN_EMAIL: "${SEED_ADMIN_EMAIL}"
+  SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD}"
+  DEFAULT_TENANT_SLUG: "${DEFAULT_TENANT_SLUG}"
