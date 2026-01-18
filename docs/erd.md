@@ -58,7 +58,7 @@ Schema definitions are managed with Ent, and all tables are multi-tenant and aud
 | Table | Key Columns | Purpose / Notes |
 |-------|-------------|-----------------|
 | `tenant_policies` | `tenant_id (PK)`, `password_policy_json`, `session_policy_json`, `mfa_policy_json`, `allowed_providers`, `created_at`, `updated_at` | Configurable security policies enforced during auth flows. |
-| `feature_entitlements` | `id`, `tenant_id`, `feature_code`, `limit_json`, `plan_source`, `synced_at` | Entitlement snapshot received from `treasury-app`. |
+| `feature_entitlements` | `id`, `tenant_id`, `feature_code`, `limit_json`, `plan_source`, `synced_at` | Entitlement snapshot received from `treasury-api`. |
 | `usage_metrics` | `id`, `tenant_id`, `metric_date`, `active_users`, `auth_transactions`, `mfa_prompts`, `machine_tokens`, `created_at` | Aggregated usage for billing and capacity planning. |
 
 ## Audit & Security Events
@@ -82,7 +82,7 @@ Schema definitions are managed with Ent, and all tables are multi-tenant and aud
 - `users` have many `session_tokens`, `user_devices`, and `user_external_identities`.
 - `session_tokens` link to `access_tokens` and `token_revocations` for revocation workflows.
 - Clients (`oauth_clients`) own redirect URIs, grant permissions, scopes, and can request consent from users.
-- Tenant policies and entitlements originate from `treasury-app`; changes trigger webhook notifications to dependent services.
+- Tenant policies and entitlements originate from `treasury-api`; changes trigger webhook notifications to dependent services.
 - **Entity Ownership**: This service owns all identity entities (users, tenants, outlets, sessions, OAuth clients, MFA). Downstream services (cafe-backend, POS, inventory, logistics, treasury, notifications) validate JWTs via JWKS and map `tenant_id`, `tenant_slug`, `user_id`, and global `roles` claims onto their local RBAC models. **Services never duplicate user or tenant tables**—they only store `user_id` and `tenant_id` references. Service-specific RBAC (POS cashier, logistics dispatcher) is owned by each service but references `user_id` from auth-service.
 - Tenant/outlet discovery webhooks (`auth.tenant.synced`, `auth.outlet.synced`) ensure downstream services hydrate metadata before persisting domain data.
 - MFA challenges use notifications service for SMS/email delivery; push or app-based challenges integrate later.
