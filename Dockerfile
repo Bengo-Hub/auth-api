@@ -4,14 +4,14 @@ FROM golang:1.23-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache git ca-certificates
 COPY go.mod go.sum ./
-ENV GOTOOLCHAIN=auto
-RUN go mod download
+
+RUN GOTOOLCHAIN=auto go mod download
 COPY . .
 # Build all binaries: server, migrate, seed, and setup-db
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth ./cmd/server && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-migrate ./cmd/migrate && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-seed ./cmd/seed && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-setup-db ./cmd/setup-db
+RUN GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth ./cmd/server && \
+    GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-migrate ./cmd/migrate && \
+    GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-seed ./cmd/seed && \
+    GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-setup-db ./cmd/setup-db
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata && addgroup -S app && adduser -S app -G app
