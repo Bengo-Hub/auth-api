@@ -81,59 +81,114 @@ func main() {
 		})
 	}
 
-	// Seed admin user (for all tenants)
-	adminEmail := os.Getenv("SEED_ADMIN_EMAIL")
-	if adminEmail == "" {
-		adminEmail = "admin@codevertexitsolutions.com"
-	}
-	adminPassword := os.Getenv("SEED_ADMIN_PASSWORD")
-	if adminPassword == "" {
-		adminPassword = "ChangeMe123!"
-	}
 	hasher := password.NewHasher(cfg.Security)
-	hash, err := hasher.Hash(adminPassword)
+
+	// Seed demo user with publicly safe credentials (for development/testing only)
+	// These credentials are intentionally public and should NEVER be used in production
+	const (
+		demoEmail    = "demo@bengobox.dev"
+		demoPassword = "DemoUser2024!" // Safe to expose - demo account only
+	)
+
+	demoHash, err := hasher.Hash(demoPassword)
 	if err != nil {
-		log.Fatalf("hash password: %v", err)
+		log.Fatalf("hash demo password: %v", err)
 	}
 
-	userEntity, err := client.User.Create().
-		SetEmail(adminEmail).
-		SetPasswordHash(hash).
+	demoUser, err := client.User.Create().
+		SetEmail(demoEmail).
+		SetPasswordHash(demoHash).
 		SetStatus("active").
 		SetPrimaryTenantID(tenantEntities[0].ID.String()).
+		SetProfile(map[string]any{
+			"name":       "Demo User",
+			"is_demo":    true,
+			"created_by": "seed",
+		}).
 		Save(ctx)
 	if err != nil {
-		// Try to fetch existing
-		userEntity, err = client.User.Query().Where(user.EmailEQ(adminEmail)).Only(ctx)
+		demoUser, err = client.User.Query().Where(user.EmailEQ(demoEmail)).Only(ctx)
 		if err != nil {
-			log.Fatalf("seed user: %v", err)
+			log.Fatalf("seed demo user: %v", err)
 		}
-		log.Printf("✓ Admin user exists: %s", adminEmail)
+		log.Printf("✓ Demo user exists: %s", demoEmail)
 	} else {
-		log.Printf("✓ Created admin user: %s", adminEmail)
+		log.Printf("✓ Created demo user: %s", demoEmail)
 	}
 
-	// Add superuser membership to all tenants
+	// Add demo user membership to all tenants with 'member' role (not superuser)
 	for _, tenantEnt := range tenantEntities {
 		_, err = client.TenantMembership.Create().
-			SetUserID(userEntity.ID).
+			SetUserID(demoUser.ID).
 			SetTenantID(tenantEnt.ID).
-			SetRoles([]string{"superuser"}).
+			SetRoles([]string{"member"}).
 			Save(ctx)
 		if err != nil {
-			// Might already exist, that's okay
-			log.Printf("  (membership for %s may already exist)", tenantEnt.Slug)
+			log.Printf("  (demo membership for %s may already exist)", tenantEnt.Slug)
 		} else {
-			log.Printf("  ✓ Added superuser role in %s", tenantEnt.Slug)
+			log.Printf("  ✓ Added demo member role in %s", tenantEnt.Slug)
 		}
+	}
+
+	// Seed admin user from environment (required for real admin access)
+	// Admin credentials MUST come from environment variables - never hardcoded
+	adminEmail := os.Getenv("SEED_ADMIN_EMAIL")
+	adminPassword := os.Getenv("SEED_ADMIN_PASSWORD")
+
+	if adminEmail != "" && adminPassword != "" {
+		adminHash, err := hasher.Hash(adminPassword)
+		if err != nil {
+			log.Fatalf("hash admin password: %v", err)
+		}
+
+		adminUser, err := client.User.Create().
+			SetEmail(adminEmail).
+			SetPasswordHash(adminHash).
+			SetStatus("active").
+			SetPrimaryTenantID(tenantEntities[0].ID.String()).
+			Save(ctx)
+		if err != nil {
+			adminUser, err = client.User.Query().Where(user.EmailEQ(adminEmail)).Only(ctx)
+			if err != nil {
+				log.Fatalf("seed admin user: %v", err)
+			}
+			log.Printf("✓ Admin user exists: %s", adminEmail)
+		} else {
+			log.Printf("✓ Created admin user: %s", adminEmail)
+		}
+
+		// Add superuser membership to all tenants
+		for _, tenantEnt := range tenantEntities {
+			_, err = client.TenantMembership.Create().
+				SetUserID(adminUser.ID).
+				SetTenantID(tenantEnt.ID).
+				SetRoles([]string{"superuser"}).
+				Save(ctx)
+			if err != nil {
+				log.Printf("  (superuser membership for %s may already exist)", tenantEnt.Slug)
+			} else {
+				log.Printf("  ✓ Added superuser role in %s", tenantEnt.Slug)
+			}
+		}
+	} else {
+		log.Printf("⚠️  No admin credentials provided (set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD)")
 	}
 
 	log.Printf("")
 	log.Printf("========================================")
 	log.Printf("✅ Seeding completed successfully!")
 	log.Printf("========================================")
-	log.Printf("Admin Email: %s", adminEmail)
-	log.Printf("Password: %s", adminPassword)
+	log.Printf("Demo Account (safe to share):")
+	log.Printf("  Email: %s", demoEmail)
+	log.Printf("  Password: %s", demoPassword)
+	log.Printf("  Role: member (limited access)")
+	log.Printf("")
+	if adminEmail != "" {
+		log.Printf("Admin Account (from environment):")
+		log.Printf("  Email: %s", adminEmail)
+		log.Printf("  Role: superuser (full access)")
+	}
+	log.Printf("")
 	log.Printf("Tenants seeded: %d", len(tenants))
 	for _, te := range tenantEntities {
 		log.Printf("  - %s (%s)", te.Name, te.Slug)

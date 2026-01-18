@@ -60,7 +60,12 @@ type AuthHandlers struct {
 	AdminListIntegrationConfigs  http.HandlerFunc
 	AdminDeleteIntegrationConfig http.HandlerFunc
 	DeveloperListClients         http.HandlerFunc
-	DeveloperCreateClient       http.HandlerFunc
+	DeveloperCreateClient        http.HandlerFunc
+	// API Key management and validation
+	AdminCreateAPIKey            http.HandlerFunc
+	AdminListAPIKeys             http.HandlerFunc
+	AdminRevokeAPIKey            http.HandlerFunc
+	ValidateAPIKey               http.HandlerFunc // Public endpoint for service-to-service validation
 }
 
 // NewRouter wires HTTP routes.
@@ -96,7 +101,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 			return false
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Requested-With"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Requested-With", "X-API-Key"},
 		ExposedHeaders:   []string{"Set-Cookie"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -162,22 +167,34 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/by-slug/{slug}", deps.AuthHandlers.PublicGetTenantBySlug)
 		})
 		r.Route("/admin", func(r chi.Router) {
-			if deps.RequireAuthHandler != nil {
-				r.Use(deps.RequireAuthHandler)
-			}
-			r.Post("/tenants", deps.AuthHandlers.AdminCreateTenant)
-			r.Get("/tenants", deps.AuthHandlers.AdminListTenants)
-			r.Post("/clients", deps.AuthHandlers.AdminCreateClient)
-			r.Get("/clients", deps.AuthHandlers.AdminListClients)
-			r.Post("/entitlements", deps.AuthHandlers.AdminUpsertEntitlement)
-			r.Get("/entitlements", deps.AuthHandlers.AdminListEntitlements)
-			r.Post("/usage/increment", deps.AuthHandlers.AdminIncrementUsage)
-			r.Post("/keys/rotate", deps.AuthHandlers.AdminRotateKeys)
-			r.Post("/integrations", deps.AuthHandlers.AdminCreateIntegrationConfig)
-			r.Get("/integrations/{id}", deps.AuthHandlers.AdminGetIntegrationConfig)
-			r.Get("/integrations", deps.AuthHandlers.AdminListIntegrationConfigs)
-			r.Delete("/integrations/{id}", deps.AuthHandlers.AdminDeleteIntegrationConfig)
-		})		r.Route("/developer", func(r chi.Router) {
+			// API Key validation endpoint (public - validates via X-API-Key header)
+			// This MUST be outside the auth middleware since it validates API keys, not JWTs
+			r.Get("/api-keys/validate", deps.AuthHandlers.ValidateAPIKey)
+
+			// Protected admin routes
+			r.Group(func(r chi.Router) {
+				if deps.RequireAuthHandler != nil {
+					r.Use(deps.RequireAuthHandler)
+				}
+				r.Post("/tenants", deps.AuthHandlers.AdminCreateTenant)
+				r.Get("/tenants", deps.AuthHandlers.AdminListTenants)
+				r.Post("/clients", deps.AuthHandlers.AdminCreateClient)
+				r.Get("/clients", deps.AuthHandlers.AdminListClients)
+				r.Post("/entitlements", deps.AuthHandlers.AdminUpsertEntitlement)
+				r.Get("/entitlements", deps.AuthHandlers.AdminListEntitlements)
+				r.Post("/usage/increment", deps.AuthHandlers.AdminIncrementUsage)
+				r.Post("/keys/rotate", deps.AuthHandlers.AdminRotateKeys)
+				r.Post("/integrations", deps.AuthHandlers.AdminCreateIntegrationConfig)
+				r.Get("/integrations/{id}", deps.AuthHandlers.AdminGetIntegrationConfig)
+				r.Get("/integrations", deps.AuthHandlers.AdminListIntegrationConfigs)
+				r.Delete("/integrations/{id}", deps.AuthHandlers.AdminDeleteIntegrationConfig)
+				// API Key management (requires auth)
+				r.Post("/api-keys", deps.AuthHandlers.AdminCreateAPIKey)
+				r.Get("/api-keys", deps.AuthHandlers.AdminListAPIKeys)
+				r.Delete("/api-keys/{id}", deps.AuthHandlers.AdminRevokeAPIKey)
+			})
+		})
+		r.Route("/developer", func(r chi.Router) {
 			if deps.RequireAuthHandler != nil {
 				r.Use(deps.RequireAuthHandler)
 			}

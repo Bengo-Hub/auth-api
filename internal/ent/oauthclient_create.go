@@ -87,6 +87,20 @@ func (_c *OAuthClientCreate) SetNillableTenantID(v *string) *OAuthClientCreate {
 	return _c
 }
 
+// SetCreatedBy sets the "created_by" field.
+func (_c *OAuthClientCreate) SetCreatedBy(v uuid.UUID) *OAuthClientCreate {
+	_c.mutation.SetCreatedBy(v)
+	return _c
+}
+
+// SetNillableCreatedBy sets the "created_by" field if the given value is not nil.
+func (_c *OAuthClientCreate) SetNillableCreatedBy(v *uuid.UUID) *OAuthClientCreate {
+	if v != nil {
+		_c.SetCreatedBy(*v)
+	}
+	return _c
+}
+
 // SetMetadata sets the "metadata" field.
 func (_c *OAuthClientCreate) SetMetadata(v map[string]interface{}) *OAuthClientCreate {
 	_c.mutation.SetMetadata(v)
@@ -277,6 +291,10 @@ func (_c *OAuthClientCreate) createSpec() (*OAuthClient, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.TenantID(); ok {
 		_spec.SetField(oauthclient.FieldTenantID, field.TypeString, value)
 		_node.TenantID = value
+	}
+	if value, ok := _c.mutation.CreatedBy(); ok {
+		_spec.SetField(oauthclient.FieldCreatedBy, field.TypeUUID, value)
+		_node.CreatedBy = value
 	}
 	if value, ok := _c.mutation.Metadata(); ok {
 		_spec.SetField(oauthclient.FieldMetadata, field.TypeJSON, value)

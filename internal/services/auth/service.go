@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bengobox/auth-api/internal/audit"
+	"github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
@@ -61,45 +62,48 @@ const (
 
 // Service encapsulates core authentication flows.
 type Service struct {
-	entClient *ent.Client
-	tokenSvc  *token.Service
-	hasher    *password.Hasher
-	cfg       *config.Config
-	auditor   *audit.Logger
-	logger    *zap.Logger
-	google    *googleprovider.Provider
-	revoker   JTIRevoker
-	github    *githubprovider.Provider
-	microsoft *microsoftprovider.Provider
+	entClient      *ent.Client
+	tokenSvc       *token.Service
+	hasher         *password.Hasher
+	cfg            *config.Config
+	auditor        *audit.Logger
+	logger         *zap.Logger
+	google         *googleprovider.Provider
+	revoker        JTIRevoker
+	github         *githubprovider.Provider
+	microsoft      *microsoftprovider.Provider
+	subscriptionCl *subscription.Client
 }
 
 // Dependencies aggregates constructor inputs.
 type Dependencies struct {
-	EntClient *ent.Client
-	TokenSvc  *token.Service
-	Hasher    *password.Hasher
-	Config    *config.Config
-	Auditor   *audit.Logger
-	Logger    *zap.Logger
-	Google    *googleprovider.Provider
-	Revoker   JTIRevoker
-	GitHub    *githubprovider.Provider
-	Microsoft *microsoftprovider.Provider
+	EntClient          *ent.Client
+	TokenSvc           *token.Service
+	Hasher             *password.Hasher
+	Config             *config.Config
+	Auditor            *audit.Logger
+	Logger             *zap.Logger
+	Google             *googleprovider.Provider
+	Revoker            JTIRevoker
+	GitHub             *githubprovider.Provider
+	Microsoft          *microsoftprovider.Provider
+	SubscriptionClient *subscription.Client
 }
 
 // New initialises the auth service.
 func New(deps Dependencies) *Service {
 	return &Service{
-		entClient: deps.EntClient,
-		tokenSvc:  deps.TokenSvc,
-		hasher:    deps.Hasher,
-		cfg:       deps.Config,
-		auditor:   deps.Auditor,
-		logger:    deps.Logger,
-		google:    deps.Google,
-		revoker:   deps.Revoker,
-		github:    deps.GitHub,
-		microsoft: deps.Microsoft,
+		entClient:      deps.EntClient,
+		tokenSvc:       deps.TokenSvc,
+		hasher:         deps.Hasher,
+		cfg:            deps.Config,
+		auditor:        deps.Auditor,
+		logger:         deps.Logger,
+		google:         deps.Google,
+		revoker:        deps.Revoker,
+		github:         deps.GitHub,
+		microsoft:      deps.Microsoft,
+		subscriptionCl: deps.SubscriptionClient,
 	}
 }
 
@@ -815,14 +819,35 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		}
 	}
 
-	accessToken, exp, err := s.tokenSvc.MintAccessToken(token.AccessTokenInput{
+	// Build token input with subscription data if available
+	tokenInput := token.AccessTokenInput{
 		UserID:    sessionEntity.UserID,
 		TenantID:  tenantIDPtr,
 		SessionID: sessionEntity.ID,
 		Email:     userEntity.Email,
 		Scopes:    effectiveScopes,
 		Roles:     roles,
-	})
+	}
+
+	// Fetch subscription data for tenant (non-blocking, fail-open)
+	if tenantIDPtr != nil && s.subscriptionCl != nil && s.cfg.Subscription.Enabled {
+		sub, err := s.subscriptionCl.GetTenantSubscription(ctx, *tenantIDPtr)
+		if err != nil {
+			s.logger.Warn("failed to fetch subscription for JWT enrichment",
+				zap.String("tenant_id", tenantIDPtr.String()),
+				zap.Error(err),
+			)
+			// Continue without subscription data (fail-open)
+		} else if sub != nil {
+			tokenInput.SubscriptionPlan = sub.PlanCode
+			tokenInput.SubscriptionStatus = sub.Status
+			tokenInput.SubscriptionFeatures = sub.Features
+			tokenInput.SubscriptionLimits = sub.Limits
+			tokenInput.SubscriptionExpires = &sub.CurrentPeriodEnd
+		}
+	}
+
+	accessToken, exp, err := s.tokenSvc.MintAccessToken(tokenInput)
 	if err != nil {
 		return nil, fmt.Errorf("mint access token: %w", err)
 	}

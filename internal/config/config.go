@@ -9,13 +9,22 @@ import (
 
 // Config aggregates all runtime settings.
 type Config struct {
-	App       AppConfig       `envPrefix:"AUTH_"`
-	HTTP      HTTPConfig      `envPrefix:"AUTH_HTTP_"`
-	Database  DatabaseConfig  `envPrefix:"AUTH_DB_"`
-	Redis     RedisConfig     `envPrefix:"AUTH_REDIS_"`
-	Token     TokenConfig     `envPrefix:"AUTH_TOKEN_"`
-	Security  SecurityConfig  `envPrefix:"AUTH_SECURITY_"`
-	Providers ProvidersConfig `envPrefix:"AUTH_PROVIDERS_"`
+	App          AppConfig          `envPrefix:"AUTH_"`
+	HTTP         HTTPConfig         `envPrefix:"AUTH_HTTP_"`
+	Database     DatabaseConfig     `envPrefix:"AUTH_DB_"`
+	Redis        RedisConfig        `envPrefix:"AUTH_REDIS_"`
+	Token        TokenConfig        `envPrefix:"AUTH_TOKEN_"`
+	Security     SecurityConfig     `envPrefix:"AUTH_SECURITY_"`
+	Providers    ProvidersConfig    `envPrefix:"AUTH_PROVIDERS_"`
+	Subscription SubscriptionConfig `envPrefix:"AUTH_SUBSCRIPTION_"`
+}
+
+// SubscriptionConfig holds settings for subscription-service integration.
+type SubscriptionConfig struct {
+	BaseURL string        `env:"BASE_URL" envDefault:"http://localhost:4103"`
+	APIKey  string        `env:"API_KEY"`
+	Timeout time.Duration `env:"TIMEOUT" envDefault:"5s"`
+	Enabled bool          `env:"ENABLED" envDefault:"true"`
 }
 
 type AppConfig struct {
