@@ -67,7 +67,6 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// Redirect to Auth UI login page
 		loginURL := h.cfg.App.AuthUIURL + "/login"
-		q := r.URL.Query()
 
 		// Preserve the original authorize request as return_to
 		fullAuthorizeURL := h.cfg.Token.Issuer + r.URL.RequestURI()
@@ -103,7 +102,7 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Generate code
-	codePlain := randomString(32)
+	codePlain := randomOIDCString(32)
 	_, err = h.oidc.CreateAuthorizationCode(
 		r.Context(),
 		parseUUID(claims.Subject),
@@ -217,7 +216,7 @@ func scopesFromString(s string) []string {
 	return out
 }
 
-func randomString(n int) string {
+func randomOIDCString(n int) string {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
 		return uuid.New().String()

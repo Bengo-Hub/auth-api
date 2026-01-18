@@ -33,6 +33,8 @@ type OAuthClient struct {
 	Public bool `json:"public,omitempty"`
 	// TenantID holds the value of the "tenant_id" field.
 	TenantID string `json:"tenant_id,omitempty"`
+	// CreatedBy holds the value of the "created_by" field.
+	CreatedBy uuid.UUID `json:"created_by,omitempty"`
 	// Metadata holds the value of the "metadata" field.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -55,7 +57,7 @@ func (*OAuthClient) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case oauthclient.FieldCreatedAt, oauthclient.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case oauthclient.FieldID:
+		case oauthclient.FieldID, oauthclient.FieldCreatedBy:
 			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -123,6 +125,12 @@ func (_m *OAuthClient) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field tenant_id", values[i])
 			} else if value.Valid {
 				_m.TenantID = value.String
+			}
+		case oauthclient.FieldCreatedBy:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field created_by", values[i])
+			} else if value != nil {
+				_m.CreatedBy = *value
 			}
 		case oauthclient.FieldMetadata:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -199,6 +207,9 @@ func (_m *OAuthClient) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("tenant_id=")
 	builder.WriteString(_m.TenantID)
+	builder.WriteString(", ")
+	builder.WriteString("created_by=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CreatedBy))
 	builder.WriteString(", ")
 	builder.WriteString("metadata=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))

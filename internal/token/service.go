@@ -25,6 +25,14 @@ type Claims struct {
 	Scope     []string `json:"scope,omitempty"`
 	Roles     []string `json:"roles,omitempty"` // User roles from TenantMembership (e.g., "superuser", "admin", "member")
 	Email     string   `json:"email,omitempty"`
+
+	// Subscription claims (enriched from subscription-service)
+	SubscriptionPlan     string         `json:"sub_plan,omitempty"`     // Plan code (STARTER, GROWTH, PROFESSIONAL)
+	SubscriptionStatus   string         `json:"sub_status,omitempty"`   // Status (ACTIVE, TRIAL, EXPIRED, etc.)
+	SubscriptionFeatures []string       `json:"sub_features,omitempty"` // Feature codes enabled for this plan
+	SubscriptionLimits   map[string]int `json:"sub_limits,omitempty"`   // Plan limits (max_outlets, max_riders, etc.)
+	SubscriptionExpires  *int64         `json:"sub_expires,omitempty"`  // Current period end as Unix timestamp
+
 	jwt.RegisteredClaims
 }
 
@@ -37,6 +45,13 @@ type AccessTokenInput struct {
 	Scopes    []string
 	Roles     []string // User roles from TenantMembership
 	Audience  []string
+
+	// Subscription data (optional, from subscription-service)
+	SubscriptionPlan     string
+	SubscriptionStatus   string
+	SubscriptionFeatures []string
+	SubscriptionLimits   map[string]int
+	SubscriptionExpires  *time.Time
 }
 
 // Service handles JWT minting and verification.
@@ -110,6 +125,18 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	}
 	if len(input.Audience) > 0 {
 		claims.RegisteredClaims.Audience = jwt.ClaimStrings(input.Audience)
+	}
+
+	// Add subscription claims if available
+	if input.SubscriptionPlan != "" {
+		claims.SubscriptionPlan = input.SubscriptionPlan
+		claims.SubscriptionStatus = input.SubscriptionStatus
+		claims.SubscriptionFeatures = input.SubscriptionFeatures
+		claims.SubscriptionLimits = input.SubscriptionLimits
+		if input.SubscriptionExpires != nil {
+			ts := input.SubscriptionExpires.Unix()
+			claims.SubscriptionExpires = &ts
+		}
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)

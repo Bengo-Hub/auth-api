@@ -8,6 +8,7 @@ import (
 
 	"github.com/bengobox/auth-api/internal/audit"
 	"github.com/bengobox/auth-api/internal/cache"
+	subscriptionclient "github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/database"
 	"github.com/bengobox/auth-api/internal/ent"
@@ -75,17 +76,31 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	hasher := password.NewHasher(cfg.Security)
 	auditor := audit.New(entClient, logger)
 
+	// Initialize subscription client for JWT enrichment (optional)
+	var subClient *subscriptionclient.Client
+	if cfg.Subscription.Enabled && cfg.Subscription.BaseURL != "" {
+		subClient = subscriptionclient.NewClient(subscriptionclient.Config{
+			BaseURL: cfg.Subscription.BaseURL,
+			APIKey:  cfg.Subscription.APIKey,
+			Timeout: cfg.Subscription.Timeout,
+		}, logger)
+		logger.Info("subscription client initialized",
+			zap.String("base_url", cfg.Subscription.BaseURL),
+		)
+	}
+
 	authService := auth.New(auth.Dependencies{
-		EntClient: entClient,
-		TokenSvc:  tokenSvc,
-		Hasher:    hasher,
-		Config:    cfg,
-		Auditor:   auditor,
-		Logger:    logger,
-		Google:    googleProvider,
-		Revoker:   revocation.New(redisClient, cfg.Redis.Namespace),
-		GitHub:    githubProvider,
-		Microsoft: microsoftProvider,
+		EntClient:          entClient,
+		TokenSvc:           tokenSvc,
+		Hasher:             hasher,
+		Config:             cfg,
+		Auditor:            auditor,
+		Logger:             logger,
+		Google:             googleProvider,
+		Revoker:            revocation.New(redisClient, cfg.Redis.Namespace),
+		GitHub:             githubProvider,
+		Microsoft:          microsoftProvider,
+		SubscriptionClient: subClient,
 	})
 
 	authHandler := handlers.NewAuthHandler(authService, logger)
@@ -98,6 +113,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	mfaHandler := handlers.NewMFAHandler(mfaService, logger)
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
+	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
 		HealthHandler:  handlers.Health,
@@ -141,6 +157,11 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminDeleteIntegrationConfig: adminHandler.DeleteIntegrationConfig,
 			DeveloperListClients:         developerHandler.ListClients,
 			DeveloperCreateClient:        developerHandler.CreateClient,
+			// API Key management (service accounts)
+			AdminCreateAPIKey: apiKeyHandler.CreateAPIKey,
+			AdminListAPIKeys:  apiKeyHandler.ListAPIKeys,
+			AdminRevokeAPIKey: apiKeyHandler.RevokeAPIKey,
+			ValidateAPIKey:    apiKeyHandler.ValidateAPIKey,
 		},
 		RequireAuthHandler: authMiddleware.RequireAuth,
 		TryAuthHandler:     authMiddleware.TryAuth,

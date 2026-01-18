@@ -5,6 +5,7 @@ package ent
 import (
 	"time"
 
+	"github.com/bengobox/auth-api/internal/ent/apikey"
 	"github.com/bengobox/auth-api/internal/ent/auditlog"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/consentsession"
@@ -30,6 +31,34 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	apikeyFields := schema.APIKey{}.Fields()
+	_ = apikeyFields
+	// apikeyDescName is the schema descriptor for name field.
+	apikeyDescName := apikeyFields[1].Descriptor()
+	// apikey.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	apikey.NameValidator = apikeyDescName.Validators[0].(func(string) error)
+	// apikeyDescKeyHash is the schema descriptor for key_hash field.
+	apikeyDescKeyHash := apikeyFields[2].Descriptor()
+	// apikey.KeyHashValidator is a validator for the "key_hash" field. It is called by the builders before save.
+	apikey.KeyHashValidator = apikeyDescKeyHash.Validators[0].(func(string) error)
+	// apikeyDescKeyPrefix is the schema descriptor for key_prefix field.
+	apikeyDescKeyPrefix := apikeyFields[3].Descriptor()
+	// apikey.KeyPrefixValidator is a validator for the "key_prefix" field. It is called by the builders before save.
+	apikey.KeyPrefixValidator = apikeyDescKeyPrefix.Validators[0].(func(string) error)
+	// apikeyDescCreatedAt is the schema descriptor for created_at field.
+	apikeyDescCreatedAt := apikeyFields[13].Descriptor()
+	// apikey.DefaultCreatedAt holds the default value on creation for the created_at field.
+	apikey.DefaultCreatedAt = apikeyDescCreatedAt.Default.(func() time.Time)
+	// apikeyDescUpdatedAt is the schema descriptor for updated_at field.
+	apikeyDescUpdatedAt := apikeyFields[14].Descriptor()
+	// apikey.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	apikey.DefaultUpdatedAt = apikeyDescUpdatedAt.Default.(func() time.Time)
+	// apikey.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	apikey.UpdateDefaultUpdatedAt = apikeyDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// apikeyDescID is the schema descriptor for id field.
+	apikeyDescID := apikeyFields[0].Descriptor()
+	// apikey.DefaultID holds the default value on creation for the id field.
+	apikey.DefaultID = apikeyDescID.Default.(func() uuid.UUID)
 	auditlogFields := schema.AuditLog{}.Fields()
 	_ = auditlogFields
 	// auditlogDescAction is the schema descriptor for action field.
@@ -247,11 +276,11 @@ func init() {
 	// oauthclient.DefaultPublic holds the default value on creation for the public field.
 	oauthclient.DefaultPublic = oauthclientDescPublic.Default.(bool)
 	// oauthclientDescCreatedAt is the schema descriptor for created_at field.
-	oauthclientDescCreatedAt := oauthclientFields[9].Descriptor()
+	oauthclientDescCreatedAt := oauthclientFields[10].Descriptor()
 	// oauthclient.DefaultCreatedAt holds the default value on creation for the created_at field.
 	oauthclient.DefaultCreatedAt = oauthclientDescCreatedAt.Default.(func() time.Time)
 	// oauthclientDescUpdatedAt is the schema descriptor for updated_at field.
-	oauthclientDescUpdatedAt := oauthclientFields[10].Descriptor()
+	oauthclientDescUpdatedAt := oauthclientFields[11].Descriptor()
 	// oauthclient.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	oauthclient.DefaultUpdatedAt = oauthclientDescUpdatedAt.Default.(func() time.Time)
 	// oauthclient.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

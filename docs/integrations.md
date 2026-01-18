@@ -76,6 +76,93 @@ The Auth Service is the central identity provider for all BengoBox services. Thi
 - `POST /api/v1/introspect` - Token introspection
 - `POST /api/v1/revoke` - Token revocation
 
+### 5. API Key Validation Pattern
+
+**Use Case**: Service-to-service authentication without JWT tokens
+
+**Endpoint**: `GET /api/v1/admin/api-keys/validate`
+
+**Request**:
+```
+GET /api/v1/admin/api-keys/validate
+X-API-Key: bng_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**Response** (200 OK):
+```json
+{
+  "client_id": "api-key-uuid",
+  "tenant_id": "tenant-uuid",
+  "scopes": ["read:orders", "write:inventory"],
+  "service": "ordering-service"
+}
+```
+
+**Error Responses**:
+- `401 Unauthorized` - Invalid or missing API key
+- `401 Unauthorized` - Expired API key
+- `403 Forbidden` - IP not in whitelist
+
+**Implementation in other services**:
+```go
+import authclient "github.com/Bengo-Hub/shared-auth-client"
+
+// Create API key validator
+apiKeyValidator := authclient.NewAPIKeyValidator(
+    os.Getenv("AUTH_SERVICE_URL"),
+    nil, // uses default HTTP client
+)
+
+// Create dual-auth middleware
+authMiddleware := authclient.NewAuthMiddlewareWithAPIKey(
+    jwtValidator,
+    apiKeyValidator,
+)
+
+// Apply to routes
+r.Use(authMiddleware.RequireAuth)
+```
+
+### 6. API Key Management
+
+**Use Case**: Creating and managing service API keys
+
+**Endpoints** (require admin JWT):
+- `POST /api/v1/admin/api-keys` - Create new API key
+- `GET /api/v1/admin/api-keys` - List API keys for tenant
+- `DELETE /api/v1/admin/api-keys/{id}` - Revoke API key
+
+**Create Request**:
+```json
+{
+  "name": "ordering-service-prod",
+  "service": "ordering-service",
+  "scopes": ["read:users", "read:tenants"],
+  "expires_in": 365
+}
+```
+
+**Create Response** (key shown only once):
+```json
+{
+  "id": "api-key-uuid",
+  "name": "ordering-service-prod",
+  "key": "bng_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "key_prefix": "bng_xxxx",
+  "service": "ordering-service",
+  "scopes": ["read:users", "read:tenants"],
+  "expires_at": "2027-01-18T00:00:00Z",
+  "created_at": "2026-01-18T00:00:00Z"
+}
+```
+
+**Security Notes**:
+- API keys are hashed with SHA-256 before storage
+- Plain text key is only returned on creation
+- Keys can have IP whitelists for additional security
+- Keys can be scoped to specific permissions
+- Keys can have expiration dates
+
 ---
 
 ## Internal BengoBox Service Integrations

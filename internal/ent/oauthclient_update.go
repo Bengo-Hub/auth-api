@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
+	"github.com/google/uuid"
 )
 
 // OAuthClientUpdate is the builder for updating OAuthClient entities.
@@ -147,6 +148,26 @@ func (_u *OAuthClientUpdate) ClearTenantID() *OAuthClientUpdate {
 	return _u
 }
 
+// SetCreatedBy sets the "created_by" field.
+func (_u *OAuthClientUpdate) SetCreatedBy(v uuid.UUID) *OAuthClientUpdate {
+	_u.mutation.SetCreatedBy(v)
+	return _u
+}
+
+// SetNillableCreatedBy sets the "created_by" field if the given value is not nil.
+func (_u *OAuthClientUpdate) SetNillableCreatedBy(v *uuid.UUID) *OAuthClientUpdate {
+	if v != nil {
+		_u.SetCreatedBy(*v)
+	}
+	return _u
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (_u *OAuthClientUpdate) ClearCreatedBy() *OAuthClientUpdate {
+	_u.mutation.ClearCreatedBy()
+	return _u
+}
+
 // SetMetadata sets the "metadata" field.
 func (_u *OAuthClientUpdate) SetMetadata(v map[string]interface{}) *OAuthClientUpdate {
 	_u.mutation.SetMetadata(v)
@@ -275,6 +296,12 @@ func (_u *OAuthClientUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	}
 	if _u.mutation.TenantIDCleared() {
 		_spec.ClearField(oauthclient.FieldTenantID, field.TypeString)
+	}
+	if value, ok := _u.mutation.CreatedBy(); ok {
+		_spec.SetField(oauthclient.FieldCreatedBy, field.TypeUUID, value)
+	}
+	if _u.mutation.CreatedByCleared() {
+		_spec.ClearField(oauthclient.FieldCreatedBy, field.TypeUUID)
 	}
 	if value, ok := _u.mutation.Metadata(); ok {
 		_spec.SetField(oauthclient.FieldMetadata, field.TypeJSON, value)
@@ -420,6 +447,26 @@ func (_u *OAuthClientUpdateOne) SetNillableTenantID(v *string) *OAuthClientUpdat
 // ClearTenantID clears the value of the "tenant_id" field.
 func (_u *OAuthClientUpdateOne) ClearTenantID() *OAuthClientUpdateOne {
 	_u.mutation.ClearTenantID()
+	return _u
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (_u *OAuthClientUpdateOne) SetCreatedBy(v uuid.UUID) *OAuthClientUpdateOne {
+	_u.mutation.SetCreatedBy(v)
+	return _u
+}
+
+// SetNillableCreatedBy sets the "created_by" field if the given value is not nil.
+func (_u *OAuthClientUpdateOne) SetNillableCreatedBy(v *uuid.UUID) *OAuthClientUpdateOne {
+	if v != nil {
+		_u.SetCreatedBy(*v)
+	}
+	return _u
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (_u *OAuthClientUpdateOne) ClearCreatedBy() *OAuthClientUpdateOne {
+	_u.mutation.ClearCreatedBy()
 	return _u
 }
 
@@ -581,6 +628,12 @@ func (_u *OAuthClientUpdateOne) sqlSave(ctx context.Context) (_node *OAuthClient
 	}
 	if _u.mutation.TenantIDCleared() {
 		_spec.ClearField(oauthclient.FieldTenantID, field.TypeString)
+	}
+	if value, ok := _u.mutation.CreatedBy(); ok {
+		_spec.SetField(oauthclient.FieldCreatedBy, field.TypeUUID, value)
+	}
+	if _u.mutation.CreatedByCleared() {
+		_spec.ClearField(oauthclient.FieldCreatedBy, field.TypeUUID)
 	}
 	if value, ok := _u.mutation.Metadata(); ok {
 		_spec.SetField(oauthclient.FieldMetadata, field.TypeJSON, value)
