@@ -79,29 +79,42 @@ func NewRouter(deps RouterDeps) http.Handler {
 		// AllowOriginFunc allows dynamic origin checking for credentials mode
 		// This returns true for allowed origins, enabling credentials with specific origins
 		AllowOriginFunc: func(r *http.Request, origin string) bool {
+			// Allow empty origin (same-origin requests)
+			if origin == "" {
+				return true
+			}
 			// Allow all localhost origins for development
-			if origin == "" ||
-				origin == "http://localhost:3000" ||
+			if origin == "http://localhost:3000" ||
 				origin == "http://localhost:3001" ||
 				origin == "http://localhost:4101" ||
 				origin == "http://127.0.0.1:3000" ||
-				origin == "http://127.0.0.1:3001" {
+				origin == "http://127.0.0.1:3001" ||
+				origin == "https://localhost:3000" ||
+				origin == "https://auth.codevertex.local:4101" {
 				return true
 			}
-			// Allow production origins
+			// Allow production origins (explicit list)
 			if origin == "https://accounts.codevertexitsolutions.com" ||
 				origin == "https://sso.codevertexitsolutions.com" ||
-				origin == "https://codevertexitsolutions.com" {
+				origin == "https://codevertexitsolutions.com" ||
+				origin == "https://orderapp.codevertexitsolutions.com" ||
+				origin == "https://bengobox.codevertexitsolutions.com" ||
+				origin == "https://erp.codevertexitsolutions.com" ||
+				origin == "https://pos.codevertexitsolutions.com" {
 				return true
 			}
-			// Allow any subdomain of codevertexitsolutions.com
-			if len(origin) > 28 && origin[len(origin)-28:] == ".codevertexitsolutions.com" {
+			// Allow any subdomain of codevertexitsolutions.com (https only)
+			const suffix = ".codevertexitsolutions.com"
+			const httpsPrefix = "https://"
+			if len(origin) > len(httpsPrefix)+len(suffix) &&
+				origin[:len(httpsPrefix)] == httpsPrefix &&
+				origin[len(origin)-len(suffix):] == suffix {
 				return true
 			}
 			return false
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Requested-With", "X-API-Key"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Requested-With", "X-API-Key", "X-Tenant-Slug"},
 		ExposedHeaders:   []string{"Set-Cookie"},
 		AllowCredentials: true,
 		MaxAge:           300,
