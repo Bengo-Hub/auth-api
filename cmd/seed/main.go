@@ -9,6 +9,7 @@ import (
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/database"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/password"
 	"github.com/google/uuid"
@@ -118,13 +119,29 @@ func main() {
 
 	// Add demo user membership to all tenants with 'member' role (not superuser)
 	for _, tenantEnt := range tenantEntities {
+		// Check if membership already exists to prevent duplicates
+		exists, err := client.TenantMembership.Query().
+			Where(
+				tenantmembership.UserID(demoUser.ID),
+				tenantmembership.TenantID(tenantEnt.ID),
+			).
+			Exist(ctx)
+		if err != nil {
+			log.Printf("  ⚠️  Error checking membership for %s: %v", tenantEnt.Slug, err)
+			continue
+		}
+		if exists {
+			log.Printf("  ✓ Demo membership exists for %s", tenantEnt.Slug)
+			continue
+		}
+
 		_, err = client.TenantMembership.Create().
 			SetUserID(demoUser.ID).
 			SetTenantID(tenantEnt.ID).
 			SetRoles([]string{"member"}).
 			Save(ctx)
 		if err != nil {
-			log.Printf("  (demo membership for %s may already exist)", tenantEnt.Slug)
+			log.Printf("  ⚠️  Error creating demo membership for %s: %v", tenantEnt.Slug, err)
 		} else {
 			log.Printf("  ✓ Added demo member role in %s", tenantEnt.Slug)
 		}
@@ -159,13 +176,29 @@ func main() {
 
 		// Add superuser membership to all tenants
 		for _, tenantEnt := range tenantEntities {
+			// Check if membership already exists to prevent duplicates
+			exists, err := client.TenantMembership.Query().
+				Where(
+					tenantmembership.UserID(adminUser.ID),
+					tenantmembership.TenantID(tenantEnt.ID),
+				).
+				Exist(ctx)
+			if err != nil {
+				log.Printf("  ⚠️  Error checking admin membership for %s: %v", tenantEnt.Slug, err)
+				continue
+			}
+			if exists {
+				log.Printf("  ✓ Admin membership exists for %s", tenantEnt.Slug)
+				continue
+			}
+
 			_, err = client.TenantMembership.Create().
 				SetUserID(adminUser.ID).
 				SetTenantID(tenantEnt.ID).
 				SetRoles([]string{"superuser"}).
 				Save(ctx)
 			if err != nil {
-				log.Printf("  (superuser membership for %s may already exist)", tenantEnt.Slug)
+				log.Printf("  ⚠️  Error creating admin membership for %s: %v", tenantEnt.Slug, err)
 			} else {
 				log.Printf("  ✓ Added superuser role in %s", tenantEnt.Slug)
 			}

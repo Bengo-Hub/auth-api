@@ -367,6 +367,13 @@ var (
 				OnDelete:   schema.NoAction,
 			},
 		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "tenantmembership_user_id_tenant_id",
+				Unique:  true,
+				Columns: []*schema.Column{TenantMembershipsColumns[6], TenantMembershipsColumns[5]},
+			},
+		},
 	}
 	// UsageMetricsColumns holds the columns for the "usage_metrics" table.
 	UsageMetricsColumns = []*schema.Column{
