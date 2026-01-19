@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 )
 
@@ -48,5 +49,14 @@ func (TenantMembership) Edges() []ent.Edge {
 			Field("tenant_id").
 			Unique().
 			Required(),
+	}
+}
+
+// Indexes of the TenantMembership.
+func (TenantMembership) Indexes() []ent.Index {
+	return []ent.Index{
+		// Unique constraint: a user can only have one membership per tenant
+		index.Fields("user_id", "tenant_id").
+			Unique(),
 	}
 }

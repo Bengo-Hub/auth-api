@@ -218,8 +218,13 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		SetTenantID(tenantEntity.ID).
 		SetRoles([]string{"member"}).
 		Save(ctx)
-	if err != nil && !ent.IsConstraintError(err) {
-		return nil, fmt.Errorf("create tenant membership: %w", err)
+	if err != nil {
+		if ent.IsConstraintError(err) {
+			// Membership already exists (duplicate insert), this is OK - log and continue
+			s.logger.Warn("tenant membership already exists", zap.String("user_id", userEntity.ID.String()), zap.String("tenant_id", tenantEntity.ID.String()))
+		} else {
+			return nil, fmt.Errorf("create tenant membership: %w", err)
+		}
 	}
 
 	s.auditor.Record(ctx, audit.Entry{
@@ -264,13 +269,13 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		return nil, fmt.Errorf("query user: %w", err)
 	}
 
-	// Ensure membership exists
+	// Ensure membership exists (use First instead of Only to handle duplicate memberships gracefully)
 	_, err = s.entClient.TenantMembership.Query().
 		Where(
 			tenantmembership.UserID(userEntity.ID),
 			tenantmembership.TenantID(tenantEntity.ID),
 		).
-		Only(ctx)
+		First(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return nil, ErrInvalidCredentials
@@ -627,12 +632,13 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 		return "", fmt.Errorf("query user: %w", err)
 	}
 
+	// Ensure membership exists (use First instead of Only to handle duplicate memberships gracefully)
 	_, err = s.entClient.TenantMembership.Query().
 		Where(
 			tenantmembership.UserID(userEntity.ID),
 			tenantmembership.TenantID(tenantEntity.ID),
 		).
-		Only(ctx)
+		First(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return "", ErrInvalidCredentials
@@ -1116,6 +1122,11 @@ func (s *Service) ensureMembership(ctx context.Context, userID, tenantID uuid.UU
 		SetRoles([]string{"member"}).
 		Save(ctx)
 	if err != nil {
+		// Ignore constraint errors (membership already exists due to race condition)
+		if ent.IsConstraintError(err) {
+			s.logger.Warn("tenant membership already exists (race condition)", zap.String("user_id", userID.String()), zap.String("tenant_id", tenantID.String()))
+			return nil
+		}
 		return fmt.Errorf("create tenant membership: %w", err)
 	}
 	return nil
