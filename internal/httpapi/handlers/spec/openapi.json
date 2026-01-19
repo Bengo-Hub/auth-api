@@ -3,11 +3,11 @@
   "info": {
     "title": "Auth Service API",
     "version": "1.0.0",
-    "description": "SSO/OIDC provider for BengoBox platform. Default admin: admin@codevertexitsolutions.com"
+    "description": "SSO/OIDC provider for BengoBox platform. Demo: demo@bengobox.dev / DemoUser2024!"
   },
   "servers": [
-    { "url": "https://auth.codevertex.local:4101", "description": "Local development (HTTPS)" },
-    { "url": "https://sso.codevertexitsolutions.com", "description": "Production" }
+    { "url": "https://sso.codevertexitsolutions.com", "description": "Production (default)" },
+    { "url": "https://auth.codevertex.local:4101", "description": "Local development (HTTPS)" }
   ],
   "components": {
     "securitySchemes": {
@@ -26,8 +26,8 @@
       "LoginRequest": {
         "type": "object",
         "properties": {
-          "email": { "type": "string", "example": "admin@codevertexitsolutions.com" },
-          "password": { "type": "string", "example": "ChangeMe123!" },
+          "email": { "type": "string", "example": "demo@bengobox.dev" },
+          "password": { "type": "string", "example": "DemoUser2024!" },
           "tenant_slug": { "type": "string", "example": "codevertex" }
         },
         "required": ["email","password","tenant_slug"]
