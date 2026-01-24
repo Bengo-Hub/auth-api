@@ -145,30 +145,14 @@ if ! kubectl -n "$NAMESPACE" get secret "$ENV_SECRET_NAME" >/dev/null 2>&1; then
   fi
 fi
 
-TOKEN="${GH_PAT:-${GIT_SECRET:-${GITHUB_TOKEN:-}}}"
-CLONE_URL="https://github.com/${DEVOPS_REPO}.git"
-[[ -n $TOKEN ]] && CLONE_URL="https://x-access-token:${TOKEN}@github.com/${DEVOPS_REPO}.git"
-
-if [[ ! -d $DEVOPS_DIR ]]; then
-  git clone "$CLONE_URL" "$DEVOPS_DIR" || { warn "Unable to clone devops repo"; DEVOPS_DIR=""; }
-fi
-
-if [[ -n $DEVOPS_DIR && -d $DEVOPS_DIR ]]; then
-  pushd "$DEVOPS_DIR" >/dev/null || true
-  git config user.email "$GIT_EMAIL"
-  git config user.name "$GIT_USER"
-  git fetch origin main || true
-  git checkout main || git checkout -b main || true
-  if [[ -f "$VALUES_FILE_PATH" ]]; then
-    IMAGE_REPO_ENV="$IMAGE_REPO" IMAGE_TAG_ENV="$GIT_COMMIT_ID" \
-      yq e -i '.image.repository = strenv(IMAGE_REPO_ENV) | .image.tag = strenv(IMAGE_TAG_ENV)' "$VALUES_FILE_PATH"
-    git add "$VALUES_FILE_PATH"
-    git commit -m "${APP_NAME}:${GIT_COMMIT_ID} released" || true
-    [[ -n $TOKEN ]] && git push origin HEAD:main || warn "Skipped pushing values (no token)"
-  else
-    warn "${VALUES_FILE_PATH} not found in devops repo"
-  fi
-  popd >/dev/null || true
+# Update Helm values using centralized script
+source "${HOME}/devops-k8s/scripts/helm/update-values.sh" 2>/dev/null || {
+  warn "Centralized helm update script not available"
+}
+if declare -f update_helm_values >/dev/null 2>&1; then
+  update_helm_values "$APP_NAME" "$GIT_COMMIT_ID" "$IMAGE_REPO"
+else
+  warn "update_helm_values function not available - helm values not updated"
 fi
 
 info "Deployment summary"
