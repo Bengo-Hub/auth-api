@@ -33,6 +33,53 @@ jobs:
           echo "VALUES_FILE_PATH=apps/auth-api/values.yaml" >> $GITHUB_ENV
           echo "APP_NAME=auth-api" >> $GITHUB_ENV
 
+      - name: Sync deployment secrets
+        env:
+          GH_TOKEN: ${{ secrets.PROPAGATE_PAT || secrets.GH_PAT || secrets.GIT_TOKEN || github.token }}
+        run: |
+          REQUIRED_SECRETS=(REGISTRY_USERNAME REGISTRY_PASSWORD REGISTRY_EMAIL GIT_TOKEN POSTGRES_PASSWORD REDIS_PASSWORD RABBITMQ_PASSWORD KUBE_CONFIG)
+          MAX_RETRIES=3
+          MAX_WAIT=300
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            echo "[Attempt $((RETRY_COUNT + 1))/$MAX_RETRIES] Triggering secret sync from devops-k8s..."
+            
+            gh workflow run sync-secrets.yml \
+              --repo Bengo-Hub/devops-k8s \
+              -f target_repo=${{ github.repository }} \
+              -f secrets="${REQUIRED_SECRETS[*]}"
+            
+            echo "Waiting for sync workflow to complete (max ${MAX_WAIT}s)..."
+            ELAPSED=0
+            while [ $ELAPSED -lt $MAX_WAIT ]; do
+              sleep 10
+              ELAPSED=$((ELAPSED + 10))
+              
+              # Check if secrets exist
+              MISSING=0
+              for secret in "${REQUIRED_SECRETS[@]}"; do
+                if ! gh secret list --repo ${{ github.repository }} 2>/dev/null | grep -q "^${secret}[[:space:]]"; then
+                  MISSING=$((MISSING + 1))
+                fi
+              done
+              
+              if [ $MISSING -eq 0 ]; then
+                echo "✅ All secrets synced successfully after ${ELAPSED}s"
+                exit 0
+              fi
+              
+              echo "⏳ Still waiting... (${MISSING} secrets pending, ${ELAPSED}s elapsed)"
+            done
+            
+            echo "⚠️  Timeout waiting for secrets (attempt $((RETRY_COUNT + 1)))"
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+          
+          echo "❌ Failed to sync secrets after $MAX_RETRIES attempts"
+          echo "Build.sh will attempt to continue with existing secrets..."
+          exit 0
+
       - name: Run production deployment
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
