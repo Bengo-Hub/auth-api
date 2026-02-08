@@ -159,6 +159,10 @@ jobs:
           APP_NAME: auth-api
           GIT_USER: ${{ secrets.GIT_USER || 'Auth Bot' }}
           GIT_EMAIL: ${{ secrets.GIT_EMAIL || 'dev@bengobox.com' }}
+          # Database passwords from shared infrastructure
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
         run: |
           chmod +x build.sh
           ./build.sh
