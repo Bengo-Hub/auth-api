@@ -134,6 +134,7 @@ jobs:
 
       - name: Install DevOps Tools
         if: needs.sync-secrets.outputs.result != 'synced'
+        # NOTE: Repository name is case-sensitive - must be Bengo-Hub (not bengo-hub)
         uses: Bengo-Hub/devops-k8s/.github/actions/install-devops-tools@main
 
       - name: Set deployment variables
