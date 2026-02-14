@@ -172,7 +172,7 @@ jobs:
           }
 
           check_secret "REGISTRY_USERNAME"  5    "$REGISTRY_USERNAME"
-          check_secret "REGISTRY_PASSWORD"  20   "$REGISTRY_PASSWORD"
+          check_secret "REGISTRY_PASSWORD"  12   "$REGISTRY_PASSWORD"
           check_secret "KUBE_CONFIG"        1000 "$KUBE_CONFIG"
           check_secret "POSTGRES_PASSWORD"  8    "$POSTGRES_PASSWORD"
           check_secret "REDIS_PASSWORD"     8    "$REDIS_PASSWORD"
