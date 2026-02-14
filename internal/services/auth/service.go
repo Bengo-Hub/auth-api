@@ -834,6 +834,9 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		Scopes:    effectiveScopes,
 		Roles:     roles,
 	}
+	if tenantEntity != nil {
+		tokenInput.TenantSlug = tenantEntity.Slug
+	}
 
 	// Fetch subscription data for tenant (non-blocking, fail-open)
 	if tenantIDPtr != nil && s.subscriptionCl != nil && s.cfg.Subscription.Enabled {

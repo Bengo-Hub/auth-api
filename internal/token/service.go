@@ -20,10 +20,11 @@ import (
 
 // Claims represents the JWT registered claims plus auth specific metadata.
 type Claims struct {
-	SessionID string   `json:"sid"`
-	TenantID  string   `json:"tenant_id,omitempty"`
-	Scope     []string `json:"scope,omitempty"`
-	Roles     []string `json:"roles,omitempty"` // User roles from TenantMembership (e.g., "superuser", "admin", "member")
+	SessionID  string   `json:"sid"`
+	TenantID   string   `json:"tenant_id,omitempty"`
+	TenantSlug string   `json:"tenant_slug,omitempty"`
+	Scope      []string `json:"scope,omitempty"`
+	Roles      []string `json:"roles,omitempty"` // User roles from TenantMembership (e.g., "superuser", "admin", "member")
 	Email     string   `json:"email,omitempty"`
 
 	// Subscription claims (enriched from subscription-service)
@@ -38,13 +39,14 @@ type Claims struct {
 
 // AccessTokenInput defines metadata for token minting.
 type AccessTokenInput struct {
-	UserID    uuid.UUID
-	TenantID  *uuid.UUID
-	SessionID uuid.UUID
-	Email     string
-	Scopes    []string
-	Roles     []string // User roles from TenantMembership
-	Audience  []string
+	UserID     uuid.UUID
+	TenantID   *uuid.UUID
+	TenantSlug string
+	SessionID  uuid.UUID
+	Email      string
+	Scopes     []string
+	Roles      []string // User roles from TenantMembership
+	Audience   []string
 
 	// Subscription data (optional, from subscription-service)
 	SubscriptionPlan     string
@@ -122,6 +124,9 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	}
 	if input.TenantID != nil {
 		claims.TenantID = input.TenantID.String()
+	}
+	if input.TenantSlug != "" {
+		claims.TenantSlug = input.TenantSlug
 	}
 	if len(input.Audience) > 0 {
 		claims.RegisteredClaims.Audience = jwt.ClaimStrings(input.Audience)
