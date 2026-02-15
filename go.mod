@@ -4,9 +4,9 @@ go 1.24.0
 
 require (
 	entgo.io/ent v0.14.5
-	github.com/Bengo-Hub/shared-events v0.1.0
+	github.com/Bengo-Hub/shared-events v0.2.0
 	github.com/Bengo-Hub/shared-password-hasher v0.1.0
-	github.com/Bengo-Hub/shared-service-client v0.1.0
+	github.com/Bengo-Hub/shared-service-client v0.2.0
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-chi/cors v1.2.2
@@ -25,7 +25,7 @@ require (
 require (
 	ariga.io/atlas v0.32.1-0.20250325101103-175b25e1c1b9 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
-	github.com/Bengo-Hub/httpware v0.1.1 // indirect
+	github.com/Bengo-Hub/httpware v0.2.0 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -72,5 +72,3 @@ require (
 )
 
 replace github.com/Bengo-Hub/shared-password-hasher => github.com/Bengo-Hub/password-hasher v0.1.1
-
-replace github.com/Bengo-Hub/shared-service-client => github.com/Bengo-Hub/shared-service-client v0.1.1
