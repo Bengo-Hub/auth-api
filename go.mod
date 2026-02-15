@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	entgo.io/ent v0.14.5
+	github.com/Bengo-Hub/shared-events v0.1.0
 	github.com/Bengo-Hub/shared-password-hasher v0.1.0
 	github.com/Bengo-Hub/shared-service-client v0.1.0
 	github.com/caarlos0/env/v11 v11.3.1
@@ -13,6 +14,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
+	github.com/nats-io/nats.go v1.48.0
 	github.com/pquerna/otp v1.4.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/redis/go-redis/v9 v9.16.0
@@ -23,7 +25,7 @@ require (
 require (
 	ariga.io/atlas v0.32.1-0.20250325101103-175b25e1c1b9 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
-	github.com/Bengo-Hub/shared-events v0.1.0 // indirect
+	github.com/Bengo-Hub/httpware v0.1.1 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -44,7 +46,6 @@ require (
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/nats-io/nats.go v1.48.0 // indirect
 	github.com/nats-io/nkeys v0.4.11 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
@@ -60,7 +61,7 @@ require (
 	go.opentelemetry.io/otel v1.32.0 // indirect
 	go.opentelemetry.io/otel/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
-	go.uber.org/multierr v1.10.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.40.0 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
@@ -71,4 +72,5 @@ require (
 )
 
 replace github.com/Bengo-Hub/shared-password-hasher => github.com/Bengo-Hub/password-hasher v0.1.1
+
 replace github.com/Bengo-Hub/shared-service-client => github.com/Bengo-Hub/shared-service-client v0.1.1
