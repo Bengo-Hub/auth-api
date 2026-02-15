@@ -266,6 +266,54 @@ var (
 		Columns:    OauthClientsColumns,
 		PrimaryKey: []*schema.Column{OauthClientsColumns[0]},
 	}
+	// OutboxEventsColumns holds the columns for the "outbox_events" table.
+	OutboxEventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "tenant_id", Type: field.TypeUUID},
+		{Name: "aggregate_type", Type: field.TypeString},
+		{Name: "aggregate_id", Type: field.TypeUUID},
+		{Name: "event_type", Type: field.TypeString},
+		{Name: "payload", Type: field.TypeJSON},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"PENDING", "PUBLISHED", "FAILED"}, Default: "PENDING"},
+		{Name: "attempts", Type: field.TypeInt, Default: 0},
+		{Name: "last_attempt_at", Type: field.TypeTime, Nullable: true},
+		{Name: "published_at", Type: field.TypeTime, Nullable: true},
+		{Name: "error_message", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// OutboxEventsTable holds the schema information for the "outbox_events" table.
+	OutboxEventsTable = &schema.Table{
+		Name:       "outbox_events",
+		Columns:    OutboxEventsColumns,
+		PrimaryKey: []*schema.Column{OutboxEventsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "outboxevent_tenant_id",
+				Unique:  false,
+				Columns: []*schema.Column{OutboxEventsColumns[1]},
+			},
+			{
+				Name:    "outboxevent_aggregate_type_aggregate_id",
+				Unique:  false,
+				Columns: []*schema.Column{OutboxEventsColumns[2], OutboxEventsColumns[3]},
+			},
+			{
+				Name:    "outboxevent_event_type",
+				Unique:  false,
+				Columns: []*schema.Column{OutboxEventsColumns[4]},
+			},
+			{
+				Name:    "outboxevent_status",
+				Unique:  false,
+				Columns: []*schema.Column{OutboxEventsColumns[6]},
+			},
+			{
+				Name:    "outboxevent_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{OutboxEventsColumns[11]},
+			},
+		},
+	}
 	// PasswordResetTokensColumns holds the columns for the "password_reset_tokens" table.
 	PasswordResetTokensColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -466,6 +514,7 @@ var (
 		MfaSettingsTable,
 		MfatotpSecretsTable,
 		OauthClientsTable,
+		OutboxEventsTable,
 		PasswordResetTokensTable,
 		SessionsTable,
 		TenantsTable,

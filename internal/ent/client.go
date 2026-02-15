@@ -27,6 +27,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
+	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -63,6 +64,8 @@ type Client struct {
 	MFATOTPSecret *MFATOTPSecretClient
 	// OAuthClient is the client for interacting with the OAuthClient builders.
 	OAuthClient *OAuthClientClient
+	// OutboxEvent is the client for interacting with the OutboxEvent builders.
+	OutboxEvent *OutboxEventClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
 	PasswordResetToken *PasswordResetTokenClient
 	// Session is the client for interacting with the Session builders.
@@ -99,6 +102,7 @@ func (c *Client) init() {
 	c.MFASettings = NewMFASettingsClient(c.config)
 	c.MFATOTPSecret = NewMFATOTPSecretClient(c.config)
 	c.OAuthClient = NewOAuthClientClient(c.config)
+	c.OutboxEvent = NewOutboxEventClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.Tenant = NewTenantClient(c.config)
@@ -209,6 +213,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		MFASettings:        NewMFASettingsClient(cfg),
 		MFATOTPSecret:      NewMFATOTPSecretClient(cfg),
 		OAuthClient:        NewOAuthClientClient(cfg),
+		OutboxEvent:        NewOutboxEventClient(cfg),
 		PasswordResetToken: NewPasswordResetTokenClient(cfg),
 		Session:            NewSessionClient(cfg),
 		Tenant:             NewTenantClient(cfg),
@@ -246,6 +251,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		MFASettings:        NewMFASettingsClient(cfg),
 		MFATOTPSecret:      NewMFATOTPSecretClient(cfg),
 		OAuthClient:        NewOAuthClientClient(cfg),
+		OutboxEvent:        NewOutboxEventClient(cfg),
 		PasswordResetToken: NewPasswordResetTokenClient(cfg),
 		Session:            NewSessionClient(cfg),
 		Tenant:             NewTenantClient(cfg),
@@ -284,8 +290,9 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.FeatureEntitlement, c.IntegrationConfig, c.LoginAttempt, c.MFABackupCode,
-		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.PasswordResetToken, c.Session,
-		c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
+		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
+		c.PasswordResetToken, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserIdentity,
 	} {
 		n.Use(hooks...)
 	}
@@ -297,8 +304,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.FeatureEntitlement, c.IntegrationConfig, c.LoginAttempt, c.MFABackupCode,
-		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.PasswordResetToken, c.Session,
-		c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
+		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
+		c.PasswordResetToken, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserIdentity,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -329,6 +337,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.MFATOTPSecret.mutate(ctx, m)
 	case *OAuthClientMutation:
 		return c.OAuthClient.mutate(ctx, m)
+	case *OutboxEventMutation:
+		return c.OutboxEvent.mutate(ctx, m)
 	case *PasswordResetTokenMutation:
 		return c.PasswordResetToken.mutate(ctx, m)
 	case *SessionMutation:
@@ -1859,6 +1869,139 @@ func (c *OAuthClientClient) mutate(ctx context.Context, m *OAuthClientMutation) 
 	}
 }
 
+// OutboxEventClient is a client for the OutboxEvent schema.
+type OutboxEventClient struct {
+	config
+}
+
+// NewOutboxEventClient returns a client for the OutboxEvent from the given config.
+func NewOutboxEventClient(c config) *OutboxEventClient {
+	return &OutboxEventClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `outboxevent.Hooks(f(g(h())))`.
+func (c *OutboxEventClient) Use(hooks ...Hook) {
+	c.hooks.OutboxEvent = append(c.hooks.OutboxEvent, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `outboxevent.Intercept(f(g(h())))`.
+func (c *OutboxEventClient) Intercept(interceptors ...Interceptor) {
+	c.inters.OutboxEvent = append(c.inters.OutboxEvent, interceptors...)
+}
+
+// Create returns a builder for creating a OutboxEvent entity.
+func (c *OutboxEventClient) Create() *OutboxEventCreate {
+	mutation := newOutboxEventMutation(c.config, OpCreate)
+	return &OutboxEventCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of OutboxEvent entities.
+func (c *OutboxEventClient) CreateBulk(builders ...*OutboxEventCreate) *OutboxEventCreateBulk {
+	return &OutboxEventCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *OutboxEventClient) MapCreateBulk(slice any, setFunc func(*OutboxEventCreate, int)) *OutboxEventCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &OutboxEventCreateBulk{err: fmt.Errorf("calling to OutboxEventClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*OutboxEventCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &OutboxEventCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for OutboxEvent.
+func (c *OutboxEventClient) Update() *OutboxEventUpdate {
+	mutation := newOutboxEventMutation(c.config, OpUpdate)
+	return &OutboxEventUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *OutboxEventClient) UpdateOne(_m *OutboxEvent) *OutboxEventUpdateOne {
+	mutation := newOutboxEventMutation(c.config, OpUpdateOne, withOutboxEvent(_m))
+	return &OutboxEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *OutboxEventClient) UpdateOneID(id uuid.UUID) *OutboxEventUpdateOne {
+	mutation := newOutboxEventMutation(c.config, OpUpdateOne, withOutboxEventID(id))
+	return &OutboxEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for OutboxEvent.
+func (c *OutboxEventClient) Delete() *OutboxEventDelete {
+	mutation := newOutboxEventMutation(c.config, OpDelete)
+	return &OutboxEventDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *OutboxEventClient) DeleteOne(_m *OutboxEvent) *OutboxEventDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *OutboxEventClient) DeleteOneID(id uuid.UUID) *OutboxEventDeleteOne {
+	builder := c.Delete().Where(outboxevent.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &OutboxEventDeleteOne{builder}
+}
+
+// Query returns a query builder for OutboxEvent.
+func (c *OutboxEventClient) Query() *OutboxEventQuery {
+	return &OutboxEventQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeOutboxEvent},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a OutboxEvent entity by its id.
+func (c *OutboxEventClient) Get(ctx context.Context, id uuid.UUID) (*OutboxEvent, error) {
+	return c.Query().Where(outboxevent.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *OutboxEventClient) GetX(ctx context.Context, id uuid.UUID) *OutboxEvent {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *OutboxEventClient) Hooks() []Hook {
+	return c.hooks.OutboxEvent
+}
+
+// Interceptors returns the client interceptors.
+func (c *OutboxEventClient) Interceptors() []Interceptor {
+	return c.inters.OutboxEvent
+}
+
+func (c *OutboxEventClient) mutate(ctx context.Context, m *OutboxEventMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&OutboxEventCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&OutboxEventUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&OutboxEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&OutboxEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown OutboxEvent mutation op: %q", m.Op())
+	}
+}
+
 // PasswordResetTokenClient is a client for the PasswordResetToken schema.
 type PasswordResetTokenClient struct {
 	config
@@ -3003,13 +3146,13 @@ type (
 	hooks struct {
 		APIKey, AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement,
 		IntegrationConfig, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
-		OAuthClient, PasswordResetToken, Session, Tenant, TenantMembership,
-		UsageMetric, User, UserIdentity []ent.Hook
+		OAuthClient, OutboxEvent, PasswordResetToken, Session, Tenant,
+		TenantMembership, UsageMetric, User, UserIdentity []ent.Hook
 	}
 	inters struct {
 		APIKey, AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement,
 		IntegrationConfig, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
-		OAuthClient, PasswordResetToken, Session, Tenant, TenantMembership,
-		UsageMetric, User, UserIdentity []ent.Interceptor
+		OAuthClient, OutboxEvent, PasswordResetToken, Session, Tenant,
+		TenantMembership, UsageMetric, User, UserIdentity []ent.Interceptor
 	}
 )

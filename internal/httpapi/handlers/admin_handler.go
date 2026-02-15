@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
 
+	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
+	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/services/entitlements"
@@ -58,6 +61,44 @@ func (h *AdminHandler) requireAdmin(r *http.Request) bool {
 		}
 	}
 	return false
+}
+
+// publishTenantEvent writes a tenant.created event to the outbox for async NATS publishing.
+func (h *AdminHandler) publishTenantEvent(ctx context.Context, tenantID uuid.UUID, name, slug, createdBy string) {
+	event := sharedevents.Event{
+		ID:            uuid.New(),
+		TenantID:      tenantID,
+		AggregateType: "auth.tenant",
+		AggregateID:   tenantID,
+		EventType:     "created",
+		Payload: map[string]any{
+			"tenant_id":  tenantID.String(),
+			"name":       name,
+			"slug":       slug,
+			"created_by": createdBy,
+		},
+		Timestamp: time.Now().UTC(),
+		Version:   "1.0",
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		h.logger.Warn("failed to marshal tenant event", zap.Error(err))
+		return
+	}
+
+	err = h.ent.OutboxEvent.Create().
+		SetTenantID(tenantID).
+		SetAggregateType("auth.tenant").
+		SetAggregateID(tenantID).
+		SetEventType("created").
+		SetPayload(payload).
+		SetStatus(outboxevent.StatusPENDING).
+		SetAttempts(0).
+		Exec(ctx)
+	if err != nil {
+		h.logger.Warn("failed to write tenant outbox event", zap.Error(err))
+	}
 }
 
 // Tenants
@@ -115,6 +156,15 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "conflict", "could not create tenant", nil)
 		return
 	}
+
+	// Publish tenant.created event
+	claims, _ := authmiddleware.ClaimsFromContext(r.Context())
+	createdBy := ""
+	if claims != nil {
+		createdBy = claims.Subject
+	}
+	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, createdBy)
+
 	writeJSON(w, http.StatusCreated, t)
 }
 
@@ -175,6 +225,10 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "conflict", "could not create tenant", nil)
 		return
 	}
+
+	// Publish tenant.created event
+	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, "self-service")
+
 	writeJSON(w, http.StatusCreated, t)
 }
 

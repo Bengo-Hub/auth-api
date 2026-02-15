@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"time"
@@ -15,7 +16,9 @@ import (
 	"github.com/bengobox/auth-api/internal/httpapi"
 	"github.com/bengobox/auth-api/internal/httpapi/handlers"
 	httpmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/modules/outbox"
 	"github.com/bengobox/auth-api/internal/password"
+	platformevents "github.com/bengobox/auth-api/internal/platform/events"
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
 	googleprovider "github.com/bengobox/auth-api/internal/providers/google"
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
@@ -24,6 +27,7 @@ import (
 	"github.com/bengobox/auth-api/internal/services/mfa"
 	"github.com/bengobox/auth-api/internal/services/oidc"
 	"github.com/bengobox/auth-api/internal/token"
+	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -31,16 +35,19 @@ import (
 
 // App wires core dependencies and exposes server lifecycle controls.
 type App struct {
-	cfg        *config.Config
-	logger     *zap.Logger
-	entClient  *ent.Client
-	redis      *redis.Client
-	httpServer *http.Server
+	cfg             *config.Config
+	logger          *zap.Logger
+	entClient       *ent.Client
+	db              *sql.DB
+	redis           *redis.Client
+	natsConn        *nats.Conn
+	outboxPublisher *outbox.Publisher
+	httpServer      *http.Server
 }
 
 // New constructs the application.
 func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, error) {
-	entClient, err := database.NewClient(ctx, cfg.Database)
+	entClient, sqlDB, err := database.NewClient(ctx, cfg.Database)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +94,27 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		logger.Info("subscription client initialized",
 			zap.String("base_url", cfg.Subscription.BaseURL),
 		)
+	}
+
+	// Initialize NATS event publishing (optional)
+	var natsConn *nats.Conn
+	var outboxPub *outbox.Publisher
+	if cfg.Events.Enabled {
+		natsConn, err = platformevents.Connect(cfg.Events)
+		if err != nil {
+			return nil, fmt.Errorf("connect to NATS: %w", err)
+		}
+		logger.Info("NATS connection established",
+			zap.String("url", cfg.Events.NATSURL),
+		)
+
+		outboxRepo := outbox.NewEntRepository(entClient, sqlDB)
+		outboxNatsPublisher := platformevents.NewOutboxPublisher(natsConn, logger)
+		outboxPub = outbox.NewPublisher(outboxRepo, outboxNatsPublisher, logger, outbox.PublisherConfig{
+			BatchSize:  cfg.Events.OutboxBatchSize,
+			PollPeriod: cfg.Events.OutboxPollPeriod,
+		})
+		outboxPub.Start(ctx)
 	}
 
 	authService := auth.New(auth.Dependencies{
@@ -141,6 +169,9 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			MFAConfirmTOTP:               mfaHandler.ConfirmTOTP,
 			MFARegenerateBackupCodes:     mfaHandler.RegenerateBackupCodes,
 			MFAConsumeBackupCode:         mfaHandler.ConsumeBackupCode,
+			ListSessions:                 authHandler.ListSessions,
+			RevokeSession:                authHandler.RevokeSession,
+			RevokeAllSessions:            authHandler.RevokeAllSessions,
 			AdminUpsertEntitlement:       adminHandler.UpsertEntitlement,
 			AdminListEntitlements:        adminHandler.ListEntitlements,
 			AdminIncrementUsage:          adminHandler.IncrementUsage,
@@ -179,11 +210,14 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	}
 
 	return &App{
-		cfg:        cfg,
-		logger:     logger,
-		entClient:  entClient,
-		redis:      redisClient,
-		httpServer: server,
+		cfg:             cfg,
+		logger:          logger,
+		entClient:       entClient,
+		db:              sqlDB,
+		redis:           redisClient,
+		natsConn:        natsConn,
+		outboxPublisher: outboxPub,
+		httpServer:      server,
 	}, nil
 }
 
@@ -205,10 +239,29 @@ func (a *App) Run() error {
 func (a *App) Shutdown(ctx context.Context) error {
 	shutdownErr := a.httpServer.Shutdown(ctx)
 
+	// Stop outbox publisher first
+	if a.outboxPublisher != nil {
+		a.outboxPublisher.Stop()
+	}
+
+	// Drain and close NATS
+	if a.natsConn != nil {
+		a.natsConn.Drain()
+		a.natsConn.Close()
+	}
+
 	if err := a.entClient.Close(); err != nil {
 		a.logger.Warn("failed to close ent client", zap.Error(err))
 		if shutdownErr == nil {
 			shutdownErr = err
+		}
+	}
+	if a.db != nil {
+		if err := a.db.Close(); err != nil {
+			a.logger.Warn("failed to close database", zap.Error(err))
+			if shutdownErr == nil {
+				shutdownErr = err
+			}
 		}
 	}
 	if err := a.redis.Close(); err != nil {

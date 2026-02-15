@@ -66,6 +66,10 @@ type AuthHandlers struct {
 	AdminListAPIKeys             http.HandlerFunc
 	AdminRevokeAPIKey            http.HandlerFunc
 	ValidateAPIKey               http.HandlerFunc // Public endpoint for service-to-service validation
+	// Session management
+	ListSessions                 http.HandlerFunc
+	RevokeSession                http.HandlerFunc
+	RevokeAllSessions            http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -171,6 +175,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Post("/totp/confirm", deps.AuthHandlers.MFAConfirmTOTP)
 					r.Post("/backup-codes/regenerate", deps.AuthHandlers.MFARegenerateBackupCodes)
 					r.Post("/backup-codes/consume", deps.AuthHandlers.MFAConsumeBackupCode)
+				})
+			r.Route("/sessions", func(r chi.Router) {
+					r.Get("/", deps.AuthHandlers.ListSessions)
+					r.Post("/revoke", deps.AuthHandlers.RevokeSession)
+					r.Post("/revoke-all", deps.AuthHandlers.RevokeAllSessions)
 				})
 			})
 		})

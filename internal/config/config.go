@@ -17,6 +17,15 @@ type Config struct {
 	Security     SecurityConfig     `envPrefix:"AUTH_SECURITY_"`
 	Providers    ProvidersConfig    `envPrefix:"AUTH_PROVIDERS_"`
 	Subscription SubscriptionConfig `envPrefix:"AUTH_SUBSCRIPTION_"`
+	Events       EventsConfig       `envPrefix:"AUTH_EVENTS_"`
+}
+
+// EventsConfig holds NATS and outbox publisher settings.
+type EventsConfig struct {
+	NATSURL          string        `env:"NATS_URL" envDefault:"nats://127.0.0.1:4222"`
+	Enabled          bool          `env:"ENABLED" envDefault:"false"`
+	OutboxPollPeriod time.Duration `env:"OUTBOX_POLL_PERIOD" envDefault:"5s"`
+	OutboxBatchSize  int           `env:"OUTBOX_BATCH_SIZE" envDefault:"100"`
 }
 
 // SubscriptionConfig holds settings for subscription-service integration.
