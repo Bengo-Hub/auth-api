@@ -23,6 +23,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
+	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -101,6 +102,7 @@ func checkColumn(t, c string) error {
 			mfasettings.Table:        mfasettings.ValidColumn,
 			mfatotpsecret.Table:      mfatotpsecret.ValidColumn,
 			oauthclient.Table:        oauthclient.ValidColumn,
+			outboxevent.Table:        outboxevent.ValidColumn,
 			passwordresettoken.Table: passwordresettoken.ValidColumn,
 			session.Table:            session.ValidColumn,
 			tenant.Table:             tenant.ValidColumn,

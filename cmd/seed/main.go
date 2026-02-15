@@ -26,7 +26,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	client, err := database.NewClient(ctx, cfg.Database)
+	client, _, err := database.NewClient(ctx, cfg.Database)
 	if err != nil {
 		log.Fatalf("db: %v", err)
 	}

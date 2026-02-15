@@ -34,6 +34,8 @@ type Tx struct {
 	MFATOTPSecret *MFATOTPSecretClient
 	// OAuthClient is the client for interacting with the OAuthClient builders.
 	OAuthClient *OAuthClientClient
+	// OutboxEvent is the client for interacting with the OutboxEvent builders.
+	OutboxEvent *OutboxEventClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
 	PasswordResetToken *PasswordResetTokenClient
 	// Session is the client for interacting with the Session builders.
@@ -190,6 +192,7 @@ func (tx *Tx) init() {
 	tx.MFASettings = NewMFASettingsClient(tx.config)
 	tx.MFATOTPSecret = NewMFATOTPSecretClient(tx.config)
 	tx.OAuthClient = NewOAuthClientClient(tx.config)
+	tx.OutboxEvent = NewOutboxEventClient(tx.config)
 	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.Tenant = NewTenantClient(tx.config)

@@ -29,6 +29,9 @@ type AuthService interface {
 	CompleteGitHubOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
 	StartMicrosoftOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
 	CompleteMicrosoftOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
+	ListSessions(ctx context.Context, userID uuid.UUID) ([]*ent.Session, error)
+	RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error
+	RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error
 }
 
 // Logout revokes the current session and token.
@@ -373,6 +376,8 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password", nil)
 	case errors.Is(err, auth.ErrTenantNotFound):
 		writeError(w, http.StatusNotFound, "tenant_not_found", "tenant not found", nil)
+	case errors.Is(err, auth.ErrTenantInactive):
+		writeError(w, http.StatusForbidden, "tenant_inactive", "tenant is not active", nil)
 	case errors.Is(err, auth.ErrPasswordTooWeak):
 		writeError(w, http.StatusUnprocessableEntity, "weak_password", "password does not meet requirements", nil)
 	case errors.Is(err, auth.ErrPasswordResetTokenInvalid):
@@ -473,4 +478,91 @@ type googleOAuthStartRequest struct {
 	ClientID    string `json:"client_id"`
 	Flow        string `json:"flow"`
 	RedirectURI string `json:"redirect_uri"`
+}
+
+// ListSessions returns all active sessions for the authenticated user.
+func (h *AuthHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id", nil)
+		return
+	}
+	sessions, err := h.service.ListSessions(r.Context(), userID)
+	if err != nil {
+		h.logger.Error("failed to list sessions", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to list sessions", nil)
+		return
+	}
+	var result []map[string]any
+	for _, s := range sessions {
+		result = append(result, map[string]any{
+			"id":         s.ID,
+			"status":     s.Status,
+			"ip_address": s.IPAddress,
+			"user_agent": s.UserAgent,
+			"issued_at":  s.IssuedAt,
+			"expires_at": s.ExpiresAt,
+			"is_current": claims.ID == s.ID.String(),
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"sessions": result})
+}
+
+// RevokeSession revokes a specific session for the authenticated user.
+func (h *AuthHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id", nil)
+		return
+	}
+	var req struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := decodeJSON(r, &req); err != nil || req.SessionID == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "session_id required", nil)
+		return
+	}
+	sessionID, err := uuid.Parse(req.SessionID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid session id", nil)
+		return
+	}
+	if err := h.service.RevokeSession(r.Context(), userID, sessionID); err != nil {
+		h.logger.Error("failed to revoke session", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to revoke session", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+}
+
+// RevokeAllSessions revokes all sessions except the current one.
+func (h *AuthHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id", nil)
+		return
+	}
+	// Keep the current session active
+	currentSessionID, _ := uuid.Parse(claims.ID)
+	if err := h.service.RevokeAllSessions(r.Context(), userID, currentSessionID); err != nil {
+		h.logger.Error("failed to revoke all sessions", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to revoke sessions", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "all_revoked"})
 }

@@ -39,6 +39,9 @@ type MFATOTPSecret func(*sql.Selector)
 // OAuthClient is the predicate function for oauthclient builders.
 type OAuthClient func(*sql.Selector)
 
+// OutboxEvent is the predicate function for outboxevent builders.
+type OutboxEvent func(*sql.Selector)
+
 // PasswordResetToken is the predicate function for passwordresettoken builders.
 type PasswordResetToken func(*sql.Selector)
 

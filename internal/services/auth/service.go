@@ -6,15 +6,18 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/audit"
 	"github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -51,6 +54,8 @@ var (
 	ErrEmailNotVerified = errors.New("provider email not verified")
 	// ErrEmailDomainNotAllowed indicates the email domain is not in the allowed list.
 	ErrEmailDomainNotAllowed = errors.New("email domain not allowed")
+	// ErrTenantInactive indicates the requested tenant is not active.
+	ErrTenantInactive = errors.New("tenant is not active")
 )
 
 const (
@@ -240,6 +245,16 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		},
 	})
 
+	// Publish user.created event for downstream service sync
+	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
+		"user_id":     userEntity.ID.String(),
+		"email":       userEntity.Email,
+		"tenant_id":   tenantEntity.ID.String(),
+		"tenant_slug": tenantEntity.Slug,
+		"roles":       []string{"member"},
+		"method":      "email",
+	})
+
 	return s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
@@ -297,6 +312,16 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		ResourceID: userEntity.ID.String(),
 		IPAddress:  in.IPAddress,
 		UserAgent:  in.UserAgent,
+	})
+
+	// Publish user.login event
+	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
+		"user_id":     userEntity.ID.String(),
+		"email":       userEntity.Email,
+		"tenant_id":   tenantEntity.ID.String(),
+		"tenant_slug": tenantEntity.Slug,
+		"method":      "email",
+		"ip_address":  in.IPAddress,
 	})
 
 	if err := s.entClient.User.UpdateOneID(userEntity.ID).
@@ -473,6 +498,16 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 		},
 	})
 
+	// Publish user.login event for OAuth
+	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
+		"user_id":     userEntity.ID.String(),
+		"email":       userEntity.Email,
+		"tenant_id":   tenantEntity.ID.String(),
+		"tenant_slug": tenantEntity.Slug,
+		"method":      "google",
+		"ip_address":  in.IPAddress,
+	})
+
 	return result, nil
 }
 
@@ -533,6 +568,17 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 	if err != nil {
 		return nil, err
 	}
+
+	// Publish user.login event for OAuth
+	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
+		"user_id":     userEntity.ID.String(),
+		"email":       userEntity.Email,
+		"tenant_id":   tenantEntity.ID.String(),
+		"tenant_slug": tenantEntity.Slug,
+		"method":      "github",
+		"ip_address":  in.IPAddress,
+	})
+
 	return s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
@@ -604,6 +650,17 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 	if err != nil {
 		return nil, err
 	}
+
+	// Publish user.login event for OAuth
+	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
+		"user_id":     userEntity.ID.String(),
+		"email":       userEntity.Email,
+		"tenant_id":   tenantEntity.ID.String(),
+		"tenant_slug": tenantEntity.Slug,
+		"method":      "microsoft",
+		"ip_address":  in.IPAddress,
+	})
+
 	return s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
@@ -735,7 +792,13 @@ func (s *Service) ValidateAccessToken(tokenStr string) (*token.Claims, error) {
 
 // Logout revokes session and records token revocation for provided TTL.
 func (s *Service) Logout(ctx context.Context, sessionID uuid.UUID, jti string, ttl time.Duration) error {
+	var sessionEntity *ent.Session
 	if sessionID != uuid.Nil {
+		var err error
+		sessionEntity, err = s.entClient.Session.Get(ctx, sessionID)
+		if err != nil {
+			s.logger.Warn("failed to get session for logout", zap.Error(err))
+		}
 		if err := s.entClient.Session.UpdateOneID(sessionID).
 			SetStatus("revoked").
 			SetRevokedAt(time.Now()).
@@ -747,7 +810,63 @@ func (s *Service) Logout(ctx context.Context, sessionID uuid.UUID, jti string, t
 	if s.revoker != nil && jti != "" && ttl > 0 {
 		_ = s.revoker.Revoke(ctx, jti, ttl)
 	}
+
+	// Publish user.logout event
+	if sessionEntity != nil {
+		s.publishEvent(ctx, sessionEntity.TenantID, "auth.user", sessionEntity.UserID, "logout", map[string]any{
+			"user_id":    sessionEntity.UserID.String(),
+			"session_id": sessionID.String(),
+			"tenant_id":  sessionEntity.TenantID.String(),
+		})
+	}
+
 	return nil
+}
+
+// ListSessions returns all active sessions for a user.
+func (s *Service) ListSessions(ctx context.Context, userID uuid.UUID) ([]*ent.Session, error) {
+	return s.entClient.Session.Query().
+		Where(
+			session.UserID(userID),
+			session.StatusEQ("active"),
+		).
+		Order(ent.Desc(session.FieldIssuedAt)).
+		All(ctx)
+}
+
+// RevokeSession revokes a specific session owned by the user.
+func (s *Service) RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error {
+	// Ensure the session belongs to this user
+	sess, err := s.entClient.Session.Query().
+		Where(
+			session.IDEQ(sessionID),
+			session.UserID(userID),
+		).
+		Only(ctx)
+	if err != nil {
+		return fmt.Errorf("session not found: %w", err)
+	}
+	return s.entClient.Session.UpdateOneID(sess.ID).
+		SetStatus("revoked").
+		SetRevokedAt(time.Now()).
+		SetRevocationReason("user_revoked").
+		Exec(ctx)
+}
+
+// RevokeAllSessions revokes all sessions for a user except the specified one.
+func (s *Service) RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error {
+	now := time.Now()
+	_, err := s.entClient.Session.Update().
+		Where(
+			session.UserID(userID),
+			session.StatusEQ("active"),
+			session.IDNEQ(exceptSessionID),
+		).
+		SetStatus("revoked").
+		SetRevokedAt(now).
+		SetRevocationReason("user_revoked_all").
+		Save(ctx)
+	return err
 }
 
 type issueSessionInput struct {
@@ -922,6 +1041,7 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 			user.EmailEQ(email),
 		).
 		Only(ctx)
+	isNewUser := false
 	if err != nil {
 		if !ent.IsNotFound(err) {
 			return nil, fmt.Errorf("lookup user by email: %w", err)
@@ -935,6 +1055,7 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 		if err != nil {
 			return nil, fmt.Errorf("create user from google profile: %w", err)
 		}
+		isNewUser = true
 	}
 
 	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
@@ -943,6 +1064,17 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 
 	if err := s.createIdentity(ctx, userEntity.ID, profile, token); err != nil {
 		return nil, err
+	}
+
+	if isNewUser {
+		s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
+			"user_id":     userEntity.ID.String(),
+			"email":       userEntity.Email,
+			"tenant_id":   tenantEntity.ID.String(),
+			"tenant_slug": tenantEntity.Slug,
+			"roles":       []string{"member"},
+			"method":      "google",
+		})
 	}
 
 	return userEntity, nil
@@ -977,6 +1109,7 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 	userEntity, err := s.entClient.User.Query().
 		Where(user.EmailEQ(email)).
 		Only(ctx)
+	isNewUser := false
 	if err != nil && !ent.IsNotFound(err) {
 		return nil, fmt.Errorf("lookup user: %w", err)
 	}
@@ -990,12 +1123,23 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 		if err != nil {
 			return nil, fmt.Errorf("create user: %w", err)
 		}
+		isNewUser = true
 	}
 	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
 		return nil, err
 	}
 	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.Name}, token); err != nil {
 		return nil, err
+	}
+	if isNewUser {
+		s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
+			"user_id":     userEntity.ID.String(),
+			"email":       userEntity.Email,
+			"tenant_id":   tenantEntity.ID.String(),
+			"tenant_slug": tenantEntity.Slug,
+			"roles":       []string{"member"},
+			"method":      "github",
+		})
 	}
 	return userEntity, nil
 }
@@ -1033,6 +1177,7 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 	userEntity, err := s.entClient.User.Query().
 		Where(user.EmailEQ(email)).
 		Only(ctx)
+	isNewUser := false
 	if err != nil && !ent.IsNotFound(err) {
 		return nil, fmt.Errorf("lookup user: %w", err)
 	}
@@ -1046,12 +1191,23 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 		if err != nil {
 			return nil, fmt.Errorf("create user: %w", err)
 		}
+		isNewUser = true
 	}
 	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
 		return nil, err
 	}
 	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.DisplayName}, token); err != nil {
 		return nil, err
+	}
+	if isNewUser {
+		s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
+			"user_id":     userEntity.ID.String(),
+			"email":       userEntity.Email,
+			"tenant_id":   tenantEntity.ID.String(),
+			"tenant_slug": tenantEntity.Slug,
+			"roles":       []string{"member"},
+			"method":      "microsoft",
+		})
 	}
 	return userEntity, nil
 }
@@ -1216,6 +1372,10 @@ func (s *Service) lookupTenant(ctx context.Context, slug string) (*ent.Tenant, e
 		}
 		return nil, fmt.Errorf("query tenant: %w", err)
 	}
+	// Reject auth attempts against inactive/suspended tenants
+	if tenantEntity.Status != "active" {
+		return nil, ErrTenantInactive
+	}
 	return tenantEntity, nil
 }
 
@@ -1251,6 +1411,44 @@ func generatePasswordResetToken() (string, string, error) {
 
 func normalizeEmail(email string) string {
 	return strings.TrimSpace(strings.ToLower(email))
+}
+
+// publishEvent writes an event to the outbox table for async NATS publishing.
+// Best-effort: failures are logged but do not block the caller.
+func (s *Service) publishEvent(ctx context.Context, tenantID uuid.UUID, aggregateType string, aggregateID uuid.UUID, eventType string, data map[string]any) {
+	event := sharedevents.Event{
+		ID:            uuid.New(),
+		TenantID:      tenantID,
+		AggregateType: aggregateType,
+		AggregateID:   aggregateID,
+		EventType:     eventType,
+		Payload:       data,
+		Timestamp:     time.Now().UTC(),
+		Version:       "1.0",
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		s.logger.Warn("failed to marshal outbox event",
+			zap.String("event_type", eventType),
+			zap.Error(err))
+		return
+	}
+
+	err = s.entClient.OutboxEvent.Create().
+		SetTenantID(tenantID).
+		SetAggregateType(aggregateType).
+		SetAggregateID(aggregateID).
+		SetEventType(eventType).
+		SetPayload(payload).
+		SetStatus(outboxevent.StatusPENDING).
+		SetAttempts(0).
+		Exec(ctx)
+	if err != nil {
+		s.logger.Warn("failed to write outbox event",
+			zap.String("event_type", eventType),
+			zap.Error(err))
+	}
 }
 
 func coalesceMap(input map[string]any) map[string]any {
