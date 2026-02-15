@@ -70,6 +70,5 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 )
 
-replace github.com/Bengo-Hub/shared-password-hasher => github.com/Bengo-Hub/password-hasher v0.1.0
-
-replace github.com/Bengo-Hub/shared-service-client => github.com/Bengo-Hub/shared-service-client v0.1.0
+replace github.com/Bengo-Hub/shared-password-hasher => github.com/Bengo-Hub/password-hasher v0.1.1
+replace github.com/Bengo-Hub/shared-service-client => github.com/Bengo-Hub/shared-service-client v0.1.1
