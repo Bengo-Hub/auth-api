@@ -46,7 +46,7 @@ func main() {
 	}{
 		{"CodeVertex", "codevertex"},
 		{"Kura Weigh", "kura"},
-		{"Urban Loft Cafe", "urban-cafe"},
+		{"Urban Loft Cafe", "urban-loft"},
 	}
 
 	var tenantEntities []*struct {
@@ -205,6 +205,139 @@ func main() {
 		}
 	} else {
 		log.Printf("⚠️  No admin credentials provided (set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD)")
+	}
+
+	// Seed tenant-specific admin for Urban Loft Cafe
+	urbanLoftTenant := tenantEntities[2] // "Urban Loft Cafe" / "urban-loft"
+	tenantAdminEmail := "admin@theurbanloftcafe.com"
+	tenantAdminPassword := "TenantAdmin2024!"
+	tenantAdminHash, _ := hasher.Hash(tenantAdminPassword)
+
+	tenantAdmin, err := client.User.Create().
+		SetEmail(tenantAdminEmail).
+		SetPasswordHash(tenantAdminHash).
+		SetStatus("active").
+		SetPrimaryTenantID(urbanLoftTenant.ID.String()).
+		SetProfile(map[string]any{
+			"name":       "Urban Loft Admin",
+			"created_by": "seed",
+		}).
+		Save(ctx)
+	if err != nil {
+		tenantAdmin, err = client.User.Query().Where(user.EmailEQ(tenantAdminEmail)).Only(ctx)
+		if err != nil {
+			log.Printf("⚠️  seed tenant admin: %v", err)
+		} else {
+			log.Printf("✓ Tenant admin exists: %s", tenantAdminEmail)
+		}
+	} else {
+		log.Printf("✓ Created tenant admin: %s", tenantAdminEmail)
+	}
+
+	if tenantAdmin != nil {
+		exists, _ := client.TenantMembership.Query().
+			Where(
+				tenantmembership.UserID(tenantAdmin.ID),
+				tenantmembership.TenantID(urbanLoftTenant.ID),
+			).Exist(ctx)
+		if !exists {
+			_, err = client.TenantMembership.Create().
+				SetUserID(tenantAdmin.ID).
+				SetTenantID(urbanLoftTenant.ID).
+				SetRoles([]string{"admin"}).
+				Save(ctx)
+			if err != nil {
+				log.Printf("  ⚠️  Error creating tenant admin membership: %v", err)
+			} else {
+				log.Printf("  ✓ Added admin role in %s", urbanLoftTenant.Slug)
+			}
+		}
+	}
+
+	// Seed demo customer
+	customerEmail := "customer@demo.com"
+	customerPassword := "Customer2024!"
+	customerHash, _ := hasher.Hash(customerPassword)
+
+	customerUser, err := client.User.Create().
+		SetEmail(customerEmail).
+		SetPasswordHash(customerHash).
+		SetStatus("active").
+		SetPrimaryTenantID(urbanLoftTenant.ID.String()).
+		SetProfile(map[string]any{
+			"name":       "Demo Customer",
+			"phone":      "+254700000001",
+			"created_by": "seed",
+		}).
+		Save(ctx)
+	if err != nil {
+		customerUser, err = client.User.Query().Where(user.EmailEQ(customerEmail)).Only(ctx)
+		if err != nil {
+			log.Printf("⚠️  seed customer: %v", err)
+		} else {
+			log.Printf("✓ Customer exists: %s", customerEmail)
+		}
+	} else {
+		log.Printf("✓ Created customer: %s", customerEmail)
+	}
+
+	if customerUser != nil {
+		exists, _ := client.TenantMembership.Query().
+			Where(
+				tenantmembership.UserID(customerUser.ID),
+				tenantmembership.TenantID(urbanLoftTenant.ID),
+			).Exist(ctx)
+		if !exists {
+			_, _ = client.TenantMembership.Create().
+				SetUserID(customerUser.ID).
+				SetTenantID(urbanLoftTenant.ID).
+				SetRoles([]string{"member"}).
+				Save(ctx)
+			log.Printf("  ✓ Added member role in %s", urbanLoftTenant.Slug)
+		}
+	}
+
+	// Seed demo rider
+	riderEmail := "rider@demo.com"
+	riderPassword := "Rider2024!"
+	riderHash, _ := hasher.Hash(riderPassword)
+
+	riderUser, err := client.User.Create().
+		SetEmail(riderEmail).
+		SetPasswordHash(riderHash).
+		SetStatus("active").
+		SetPrimaryTenantID(urbanLoftTenant.ID.String()).
+		SetProfile(map[string]any{
+			"name":       "Demo Rider",
+			"phone":      "+254700000002",
+			"created_by": "seed",
+		}).
+		Save(ctx)
+	if err != nil {
+		riderUser, err = client.User.Query().Where(user.EmailEQ(riderEmail)).Only(ctx)
+		if err != nil {
+			log.Printf("⚠️  seed rider: %v", err)
+		} else {
+			log.Printf("✓ Rider exists: %s", riderEmail)
+		}
+	} else {
+		log.Printf("✓ Created rider: %s", riderEmail)
+	}
+
+	if riderUser != nil {
+		exists, _ := client.TenantMembership.Query().
+			Where(
+				tenantmembership.UserID(riderUser.ID),
+				tenantmembership.TenantID(urbanLoftTenant.ID),
+			).Exist(ctx)
+		if !exists {
+			_, _ = client.TenantMembership.Create().
+				SetUserID(riderUser.ID).
+				SetTenantID(urbanLoftTenant.ID).
+				SetRoles([]string{"member"}).
+				Save(ctx)
+			log.Printf("  ✓ Added member role in %s", urbanLoftTenant.Slug)
+		}
 	}
 
 	log.Printf("")
