@@ -14,6 +14,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
+	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
 )
@@ -121,6 +122,81 @@ func (s *Service) ExchangeCode(ctx context.Context, codePlain, clientID, redirec
 	return userEntity, client, code, nil
 }
 
+// SessionResult holds the session and refresh token created for OIDC flows.
+type SessionResult struct {
+	SessionID    uuid.UUID
+	RefreshToken string
+	ExpiresAt    time.Time
+}
+
+// CreateSession creates a new session with refresh token for the OIDC code exchange.
+func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, clientID string, ipAddress, userAgent string) (*SessionResult, error) {
+	refreshPlain, refreshHash, err := s.tokenSvc.GenerateRefreshToken()
+	if err != nil {
+		return nil, fmt.Errorf("generate refresh token: %w", err)
+	}
+	expiresAt := time.Now().Add(s.cfg.Token.RefreshTokenTTL)
+	sessionCreate := s.entClient.Session.Create().
+		SetUserID(userID).
+		SetRefreshTokenHash(refreshHash).
+		SetSessionType("user").
+		SetStatus("active").
+		SetExpiresAt(expiresAt).
+		SetClientID(clientID).
+		SetIPAddress(ipAddress).
+		SetUserAgent(userAgent)
+
+	// Look up user's primary tenant
+	user, err := s.entClient.User.Get(ctx, userID)
+	if err == nil && user.PrimaryTenantID != "" {
+		if tid, parseErr := uuid.Parse(user.PrimaryTenantID); parseErr == nil {
+			sessionCreate.SetTenantID(tid)
+		}
+	}
+
+	session, err := sessionCreate.Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create session: %w", err)
+	}
+	return &SessionResult{
+		SessionID:    session.ID,
+		RefreshToken: refreshPlain,
+		ExpiresAt:    expiresAt,
+	}, nil
+}
+
+// UserMembership holds a user's role and tenant information for a single tenant.
+type UserMembership struct {
+	TenantID   uuid.UUID
+	TenantSlug string
+	TenantName string
+	Roles      []string
+}
+
+// GetUserMemberships returns the user's tenant memberships with tenant details.
+func (s *Service) GetUserMemberships(ctx context.Context, userID uuid.UUID) ([]UserMembership, error) {
+	memberships, err := s.entClient.TenantMembership.Query().
+		Where(tenantmembership.UserID(userID)).
+		WithTenant().
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("query memberships: %w", err)
+	}
+	result := make([]UserMembership, 0, len(memberships))
+	for _, m := range memberships {
+		um := UserMembership{
+			TenantID: m.TenantID,
+			Roles:    m.Roles,
+		}
+		if m.Edges.Tenant != nil {
+			um.TenantSlug = m.Edges.Tenant.Slug
+			um.TenantName = m.Edges.Tenant.Name
+		}
+		result = append(result, um)
+	}
+	return result, nil
+}
+
 // UserInfoPayload builds OIDC userinfo payload from user.
 func (s *Service) UserInfoPayload(u *ent.User) map[string]any {
 	sub := u.ID.String()
@@ -134,8 +210,45 @@ func (s *Service) UserInfoPayload(u *ent.User) map[string]any {
 		"email":          email,
 		"email_verified": emailVerified,
 		"name":           firstProfileString(u.Profile, "name", email),
+		"phone":          firstProfileString(u.Profile, "phone", ""),
 		"updated_at":     u.UpdatedAt.Unix(),
 	}
+}
+
+// UserInfoPayloadFull builds a rich OIDC userinfo payload including tenant and role data.
+func (s *Service) UserInfoPayloadFull(ctx context.Context, u *ent.User) map[string]any {
+	payload := s.UserInfoPayload(u)
+
+	memberships, err := s.GetUserMemberships(ctx, u.ID)
+	if err == nil && len(memberships) > 0 {
+		// Collect all roles across memberships
+		var allRoles []string
+		tenants := make([]map[string]any, 0, len(memberships))
+		for _, m := range memberships {
+			allRoles = append(allRoles, m.Roles...)
+			tenants = append(tenants, map[string]any{
+				"id":    m.TenantID.String(),
+				"slug":  m.TenantSlug,
+				"name":  m.TenantName,
+				"roles": m.Roles,
+			})
+		}
+		payload["roles"] = allRoles
+		payload["tenants"] = tenants
+
+		// Set primary tenant info
+		if u.PrimaryTenantID != "" {
+			payload["tenant_id"] = u.PrimaryTenantID
+			for _, m := range memberships {
+				if m.TenantID.String() == u.PrimaryTenantID {
+					payload["tenant_slug"] = m.TenantSlug
+					break
+				}
+			}
+		}
+	}
+
+	return payload
 }
 
 // GetUserByID fetches user by ID.
