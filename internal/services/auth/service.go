@@ -249,6 +249,8 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
 		"user_id":     userEntity.ID.String(),
 		"email":       userEntity.Email,
+		"full_name":   profileStr(userEntity.Profile, "name"),
+		"phone":       profileStr(userEntity.Profile, "phone"),
 		"tenant_id":   tenantEntity.ID.String(),
 		"tenant_slug": tenantEntity.Slug,
 		"roles":       []string{"member"},
@@ -318,6 +320,8 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
 		"user_id":     userEntity.ID.String(),
 		"email":       userEntity.Email,
+		"full_name":   profileStr(userEntity.Profile, "name"),
+		"phone":       profileStr(userEntity.Profile, "phone"),
 		"tenant_id":   tenantEntity.ID.String(),
 		"tenant_slug": tenantEntity.Slug,
 		"method":      "email",
@@ -1070,6 +1074,8 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 		s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
 			"user_id":     userEntity.ID.String(),
 			"email":       userEntity.Email,
+			"full_name":   profileStr(userEntity.Profile, "name"),
+			"phone":       profileStr(userEntity.Profile, "phone"),
 			"tenant_id":   tenantEntity.ID.String(),
 			"tenant_slug": tenantEntity.Slug,
 			"roles":       []string{"member"},
@@ -1135,6 +1141,8 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 		s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
 			"user_id":     userEntity.ID.String(),
 			"email":       userEntity.Email,
+			"full_name":   profileStr(userEntity.Profile, "name"),
+			"phone":       profileStr(userEntity.Profile, "phone"),
 			"tenant_id":   tenantEntity.ID.String(),
 			"tenant_slug": tenantEntity.Slug,
 			"roles":       []string{"member"},
@@ -1203,6 +1211,8 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 		s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
 			"user_id":     userEntity.ID.String(),
 			"email":       userEntity.Email,
+			"full_name":   profileStr(userEntity.Profile, "name"),
+			"phone":       profileStr(userEntity.Profile, "phone"),
 			"tenant_id":   tenantEntity.ID.String(),
 			"tenant_slug": tenantEntity.Slug,
 			"roles":       []string{"member"},
@@ -1456,4 +1466,17 @@ func coalesceMap(input map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	return input
+}
+
+// profileStr extracts a string value from a user's Profile JSON map.
+func profileStr(profile map[string]any, key string) string {
+	if profile == nil {
+		return ""
+	}
+	if v, ok := profile[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
 }

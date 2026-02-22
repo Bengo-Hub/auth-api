@@ -74,6 +74,14 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		u, _ := url.Parse(loginURL)
 		uq := u.Query()
 		uq.Set("return_to", fullAuthorizeURL)
+
+		// Propagate tenant slug if provided, else default to codevertex
+		tenant := r.URL.Query().Get("tenant")
+		if tenant == "" {
+			tenant = "codevertex"
+		}
+		uq.Set("tenant", tenant)
+
 		u.RawQuery = uq.Encode()
 
 		http.Redirect(w, r, u.String(), http.StatusFound)
@@ -151,20 +159,57 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_grant", err.Error(), nil)
 		return
 	}
-	// Use access-token service to mint tokens
+
+	scopes := scopesFromString(authCode.Scope)
+
+	// Fetch user memberships for enriched tokens
+	memberships, _ := h.oidc.GetUserMemberships(r.Context(), userEntity.ID)
+	var roles []string
+	var tenantID *uuid.UUID
+	var tenantSlug string
+	for _, m := range memberships {
+		roles = append(roles, m.Roles...)
+		if tenantID == nil || (userEntity.PrimaryTenantID != "" && m.TenantID.String() == userEntity.PrimaryTenantID) {
+			tid := m.TenantID
+			tenantID = &tid
+			tenantSlug = m.TenantSlug
+		}
+	}
+
+	// Create session when offline_access is requested (enables refresh tokens)
+	var sessionID uuid.UUID
+	var refreshToken string
+	if hasScope(scopes, "offline_access") {
+		session, sessErr := h.oidc.CreateSession(r.Context(), userEntity.ID, clientID, r.RemoteAddr, r.UserAgent())
+		if sessErr != nil {
+			h.logger.Error("create oidc session failed", zap.Error(sessErr))
+			writeError(w, http.StatusInternalServerError, "server_error", "session creation failed", nil)
+			return
+		}
+		sessionID = session.SessionID
+		refreshToken = session.RefreshToken
+	} else {
+		sessionID = uuid.New()
+	}
+
+	// Mint access token with roles and tenant info
 	access, accessExp, err := h.tokenSvc.MintAccessToken(token.AccessTokenInput{
-		UserID:    userEntity.ID,
-		TenantID:  nil,
-		SessionID: uuid.New(),
-		Email:     userEntity.Email,
-		Scopes:    scopesFromString(authCode.Scope),
-		Audience:  []string{client.ClientID},
+		UserID:     userEntity.ID,
+		TenantID:   tenantID,
+		TenantSlug: tenantSlug,
+		SessionID:  sessionID,
+		Email:      userEntity.Email,
+		Scopes:     scopes,
+		Roles:      roles,
+		Audience:   []string{client.ClientID},
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "mint access token failed", nil)
 		return
 	}
-	// Build ID token
+
+	// Build enriched ID token
+	now := time.Now().UTC()
 	idClaims := map[string]any{
 		"iss":            h.cfg.Token.Issuer,
 		"aud":            client.ClientID,
@@ -172,24 +217,48 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		"email":          userEntity.Email,
 		"email_verified": true,
 		"nonce":          authCode.Nonce,
-		"iat":            time.Now().UTC().Unix(),
-		"exp":            time.Now().UTC().Add(5 * time.Minute).Unix(),
+		"iat":            now.Unix(),
+		"exp":            now.Add(5 * time.Minute).Unix(),
+		"name":           firstProfileString(userEntity.Profile, "name"),
+		"phone":          firstProfileString(userEntity.Profile, "phone"),
+		"roles":          roles,
 	}
+	if tenantID != nil {
+		idClaims["tenant_id"] = tenantID.String()
+		idClaims["tenant_slug"] = tenantSlug
+	}
+	if len(memberships) > 0 {
+		tenants := make([]map[string]any, 0, len(memberships))
+		for _, m := range memberships {
+			tenants = append(tenants, map[string]any{
+				"id":    m.TenantID.String(),
+				"slug":  m.TenantSlug,
+				"name":  m.TenantName,
+				"roles": m.Roles,
+			})
+		}
+		idClaims["tenants"] = tenants
+	}
+
 	idToken, err := h.tokenSvc.SignJWT(idClaims)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "mint id token failed", nil)
 		return
 	}
+
 	resp := map[string]any{
 		"access_token": access,
 		"token_type":   "Bearer",
 		"expires_in":   int(time.Until(accessExp).Seconds()),
 		"id_token":     idToken,
 	}
+	if refreshToken != "" {
+		resp["refresh_token"] = refreshToken
+	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// UserInfo returns standard OIDC claims for the current user.
+// UserInfo returns standard OIDC claims for the current user, including tenant and role data.
 func (h *OIDCHandler) UserInfo(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
@@ -202,10 +271,11 @@ func (h *OIDCHandler) UserInfo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "user not found", nil)
 		return
 	}
-	writeJSON(w, http.StatusOK, h.oidc.UserInfoPayload(u))
+	writeJSON(w, http.StatusOK, h.oidc.UserInfoPayloadFull(r.Context(), u))
 }
 
 // helpers
+
 func scopesFromString(s string) []string {
 	var out []string
 	for _, p := range strings.Fields(s) {
@@ -214,6 +284,27 @@ func scopesFromString(s string) []string {
 		}
 	}
 	return out
+}
+
+func hasScope(scopes []string, target string) bool {
+	for _, s := range scopes {
+		if strings.EqualFold(s, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func firstProfileString(profile map[string]any, key string) string {
+	if profile == nil {
+		return ""
+	}
+	if v, ok := profile[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
 }
 
 func randomOIDCString(n int) string {
@@ -228,6 +319,3 @@ func parseUUID(s string) uuid.UUID {
 	id, _ := uuid.Parse(s)
 	return id
 }
-
-// mintIDToken creates a minimal OIDC ID token.
-// signing moved to token service; no local signer here
