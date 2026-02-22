@@ -8,6 +8,7 @@ import (
 
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/database"
+	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -45,8 +46,10 @@ func main() {
 		slug string
 	}{
 		{"CodeVertex", "codevertex"},
-		{"Kura Weigh", "kura"},
+		{"Masterspace Solutions", "mss"},
 		{"Urban Loft Cafe", "urban-loft"},
+		{"Kenya Urban Roads Authority", "kura"},
+		{"UltiChange", "ultichange"},
 	}
 
 	var tenantEntities []*struct {
@@ -359,6 +362,60 @@ func main() {
 	for _, te := range tenantEntities {
 		log.Printf("  - %s (%s)", te.Name, te.Slug)
 	}
+
+	// Seed OAuth Clients
+	log.Println("Seeding OAuth Clients...")
+	clients := []struct {
+		ID           string
+		Name         string
+		RedirectURIs []string
+		Public       bool
+	}{
+		{
+			ID:   "notifications-ui",
+			Name: "TruLoad Notifications UI",
+			RedirectURIs: []string{
+				"https://notifications.codevertexitsolutions.com/codevertex/auth/callback",
+				"http://localhost:3000/codevertex/auth/callback",
+			},
+			Public: true,
+		},
+		{
+			ID:   "ordering-ui",
+			Name: "Codevertex Ordering UI",
+			RedirectURIs: []string{
+				"https://ordersapp.codevertexitsolutions.com/codevertex/auth/callback",
+				"http://localhost:3001/codevertex/auth/callback",
+			},
+			Public: true,
+		},
+	}
+
+	for _, c := range clients {
+		exists, err := client.OAuthClient.Query().Where(oauthclient.ClientID(c.ID)).Exist(ctx)
+		if err != nil {
+			log.Printf("  ⚠️  Error checking client %s: %v", c.ID, err)
+			continue
+		}
+		if exists {
+			log.Printf("  ✓ Client exists: %s", c.ID)
+			continue
+		}
+
+		_, err = client.OAuthClient.Create().
+			SetClientID(c.ID).
+			SetName(c.Name).
+			SetRedirectUris(c.RedirectURIs).
+			SetPublic(c.Public).
+			SetAllowedScopes([]string{"openid", "profile", "email", "offline_access"}).
+			Save(ctx)
+		if err != nil {
+			log.Printf("  ⚠️  Error creating client %s: %v", c.ID, err)
+		} else {
+			log.Printf("  ✓ Created client: %s", c.ID)
+		}
+	}
+
 	log.Printf("========================================")
 
 	_ = os.Setenv("SEEDED_AT", time.Now().Format(time.RFC3339))
