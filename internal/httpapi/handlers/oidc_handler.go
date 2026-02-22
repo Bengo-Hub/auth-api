@@ -74,6 +74,14 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		u, _ := url.Parse(loginURL)
 		uq := u.Query()
 		uq.Set("return_to", fullAuthorizeURL)
+
+		// Propagate tenant slug if provided, else default to codevertex
+		tenant := r.URL.Query().Get("tenant")
+		if tenant == "" {
+			tenant = "codevertex"
+		}
+		uq.Set("tenant", tenant)
+
 		u.RawQuery = uq.Encode()
 
 		http.Redirect(w, r, u.String(), http.StatusFound)
