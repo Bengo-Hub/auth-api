@@ -38,6 +38,12 @@ fi
 
 echo ""
 echo "=========================================="
+echo "🌱 Running seed (idempotent)"
+echo "=========================================="
+/usr/local/bin/auth-seed || echo "⚠️ Seed completed with warnings (non-fatal)"
+
+echo ""
+echo "=========================================="
 echo "✅ Starting Auth-API server"
 echo "=========================================="
 echo ""
