@@ -8,6 +8,7 @@ import (
 
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/database"
+	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
@@ -363,42 +364,79 @@ func main() {
 		log.Printf("  - %s (%s)", te.Name, te.Slug)
 	}
 
-	// Seed OAuth Clients
+	// Seed OAuth Clients (upsert — always update redirect_uris so seed stays authoritative)
 	log.Println("Seeding OAuth Clients...")
-	clients := []struct {
+	type oauthClientSpec struct {
 		ID           string
 		Name         string
 		RedirectURIs []string
 		Public       bool
-	}{
+	}
+	oauthClients := []oauthClientSpec{
 		{
+			// notifications-ui: callback at /{orgSlug}/auth/callback
 			ID:   "notifications-ui",
-			Name: "TruLoad Notifications UI",
+			Name: "BengoBox Notifications UI",
 			RedirectURIs: []string{
-				"https://notifications.codevertexitsolutions.com/codevertex/auth/callback",
+				"https://notifications.codevertexitsolutions.com/urban-loft/auth/callback",
+				"http://localhost:3000/urban-loft/auth/callback",
 				"http://localhost:3000/codevertex/auth/callback",
 			},
 			Public: true,
 		},
 		{
+			// ordering-ui: callback at /{orgSlug}/auth/callback (tenant-aware)
 			ID:   "ordering-ui",
-			Name: "Codevertex Ordering UI",
+			Name: "BengoBox Ordering UI",
 			RedirectURIs: []string{
-				"https://ordersapp.codevertexitsolutions.com/codevertex/auth/callback",
+				"https://ordersapp.codevertexitsolutions.com/urban-loft/auth/callback",
+				"http://localhost:3001/urban-loft/auth/callback",
 				"http://localhost:3001/codevertex/auth/callback",
 			},
 			Public: true,
 		},
+		{
+			// rider-app: fixed callback at /auth/callback (not tenant-aware)
+			ID:   "rider-app",
+			Name: "BengoBox Rider App",
+			RedirectURIs: []string{
+				"https://rider.codevertexitsolutions.com/auth/callback",
+				"http://localhost:3002/auth/callback",
+			},
+			Public: true,
+		},
+		{
+			// cafe-website: uses NextAuth; callback at /api/auth/callback/bengobox-auth
+			ID:   "cafe-website",
+			Name: "Urban Loft Cafe Website",
+			RedirectURIs: []string{
+				"https://theurbanloftcafe.com/api/auth/callback/bengobox-auth",
+				"http://localhost:3000/api/auth/callback/bengobox-auth",
+			},
+			Public: false,
+		},
 	}
 
-	for _, c := range clients {
-		exists, err := client.OAuthClient.Query().Where(oauthclient.ClientID(c.ID)).Exist(ctx)
-		if err != nil {
-			log.Printf("  ⚠️  Error checking client %s: %v", c.ID, err)
+	for _, c := range oauthClients {
+		existing, queryErr := client.OAuthClient.Query().Where(oauthclient.ClientID(c.ID)).Only(ctx)
+		if queryErr != nil && !ent.IsNotFound(queryErr) {
+			log.Printf("  ⚠️  Error checking client %s: %v", c.ID, queryErr)
 			continue
 		}
-		if exists {
-			log.Printf("  ✓ Client exists: %s", c.ID)
+
+		if existing != nil {
+			// Upsert: update redirect_uris so re-seeding fixes misconfigured clients
+			_, err = existing.Update().
+				SetName(c.Name).
+				SetRedirectUris(c.RedirectURIs).
+				SetPublic(c.Public).
+				SetAllowedScopes([]string{"openid", "profile", "email", "offline_access"}).
+				Save(ctx)
+			if err != nil {
+				log.Printf("  ⚠️  Error updating client %s: %v", c.ID, err)
+			} else {
+				log.Printf("  ✓ Updated client: %s", c.ID)
+			}
 			continue
 		}
 
