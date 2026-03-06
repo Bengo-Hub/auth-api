@@ -337,6 +337,58 @@ var (
 			},
 		},
 	}
+	// PermissionsColumns holds the columns for the "permissions" table.
+	PermissionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "code", Type: field.TypeString, Unique: true},
+		{Name: "resource", Type: field.TypeString},
+		{Name: "action", Type: field.TypeString},
+	}
+	// PermissionsTable holds the schema information for the "permissions" table.
+	PermissionsTable = &schema.Table{
+		Name:       "permissions",
+		Columns:    PermissionsColumns,
+		PrimaryKey: []*schema.Column{PermissionsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "permission_resource_action",
+				Unique:  true,
+				Columns: []*schema.Column{PermissionsColumns[2], PermissionsColumns[3]},
+			},
+		},
+	}
+	// RolePermissionsColumns holds the columns for the "role_permissions" table.
+	RolePermissionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "role_name", Type: field.TypeString},
+		{Name: "permission_id", Type: field.TypeInt},
+	}
+	// RolePermissionsTable holds the schema information for the "role_permissions" table.
+	RolePermissionsTable = &schema.Table{
+		Name:       "role_permissions",
+		Columns:    RolePermissionsColumns,
+		PrimaryKey: []*schema.Column{RolePermissionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "role_permissions_permissions_permission",
+				Columns:    []*schema.Column{RolePermissionsColumns[2]},
+				RefColumns: []*schema.Column{PermissionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "rolepermission_role_name_permission_id",
+				Unique:  true,
+				Columns: []*schema.Column{RolePermissionsColumns[1], RolePermissionsColumns[2]},
+			},
+			{
+				Name:    "rolepermission_role_name",
+				Unique:  false,
+				Columns: []*schema.Column{RolePermissionsColumns[1]},
+			},
+		},
+	}
 	// SessionsColumns holds the columns for the "sessions" table.
 	SessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -516,6 +568,8 @@ var (
 		OauthClientsTable,
 		OutboxEventsTable,
 		PasswordResetTokensTable,
+		PermissionsTable,
+		RolePermissionsTable,
 		SessionsTable,
 		TenantsTable,
 		TenantMembershipsTable,
@@ -530,6 +584,7 @@ func init() {
 	MfaBackupCodesTable.ForeignKeys[0].RefTable = UsersTable
 	MfatotpSecretsTable.ForeignKeys[0].RefTable = UsersTable
 	PasswordResetTokensTable.ForeignKeys[0].RefTable = UsersTable
+	RolePermissionsTable.ForeignKeys[0].RefTable = PermissionsTable
 	SessionsTable.ForeignKeys[0].RefTable = UsersTable
 	TenantMembershipsTable.ForeignKeys[0].RefTable = TenantsTable
 	TenantMembershipsTable.ForeignKeys[1].RefTable = UsersTable

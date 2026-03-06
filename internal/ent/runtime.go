@@ -18,6 +18,8 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
+	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/schema"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -326,6 +328,26 @@ func init() {
 	passwordresettokenDescID := passwordresettokenFields[0].Descriptor()
 	// passwordresettoken.DefaultID holds the default value on creation for the id field.
 	passwordresettoken.DefaultID = passwordresettokenDescID.Default.(func() uuid.UUID)
+	permissionFields := schema.Permission{}.Fields()
+	_ = permissionFields
+	// permissionDescCode is the schema descriptor for code field.
+	permissionDescCode := permissionFields[0].Descriptor()
+	// permission.CodeValidator is a validator for the "code" field. It is called by the builders before save.
+	permission.CodeValidator = permissionDescCode.Validators[0].(func(string) error)
+	// permissionDescResource is the schema descriptor for resource field.
+	permissionDescResource := permissionFields[1].Descriptor()
+	// permission.ResourceValidator is a validator for the "resource" field. It is called by the builders before save.
+	permission.ResourceValidator = permissionDescResource.Validators[0].(func(string) error)
+	// permissionDescAction is the schema descriptor for action field.
+	permissionDescAction := permissionFields[2].Descriptor()
+	// permission.ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	permission.ActionValidator = permissionDescAction.Validators[0].(func(string) error)
+	rolepermissionFields := schema.RolePermission{}.Fields()
+	_ = rolepermissionFields
+	// rolepermissionDescRoleName is the schema descriptor for role_name field.
+	rolepermissionDescRoleName := rolepermissionFields[0].Descriptor()
+	// rolepermission.RoleNameValidator is a validator for the "role_name" field. It is called by the builders before save.
+	rolepermission.RoleNameValidator = rolepermissionDescRoleName.Validators[0].(func(string) error)
 	sessionFields := schema.Session{}.Fields()
 	_ = sessionFields
 	// sessionDescSessionType is the schema descriptor for session_type field.

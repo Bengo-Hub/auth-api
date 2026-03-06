@@ -22,6 +22,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
+	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
 	"github.com/bengobox/auth-api/internal/oauth/state"
@@ -787,6 +788,46 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, in PasswordResetConf
 // GetUser returns user by id.
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error) {
 	return s.entClient.User.Get(ctx, id)
+}
+
+// GetUserRolesAndPermissions returns the list of role names and permission codes for the user (from all tenant memberships).
+// Used by GET /me to expose RBAC data for frontend nav/route guards. Can be cached in Redis with TTL.
+func (s *Service) GetUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) (roles []string, permissions []string, err error) {
+	memberships, err := s.entClient.TenantMembership.Query().
+		Where(tenantmembership.UserID(userID)).
+		All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	roleSet := make(map[string]struct{})
+	for _, m := range memberships {
+		for _, r := range m.Roles {
+			roleSet[r] = struct{}{}
+		}
+	}
+	for r := range roleSet {
+		roles = append(roles, r)
+	}
+	if len(roles) == 0 {
+		return roles, nil, nil
+	}
+	rps, err := s.entClient.RolePermission.Query().
+		Where(rolepermission.RoleNameIn(roles...)).
+		WithPermission().
+		All(ctx)
+	if err != nil {
+		return roles, nil, err
+	}
+	permSet := make(map[string]struct{})
+	for _, rp := range rps {
+		if rp.Edges.Permission != nil {
+			permSet[rp.Edges.Permission.Code] = struct{}{}
+		}
+	}
+	for p := range permSet {
+		permissions = append(permissions, p)
+	}
+	return roles, permissions, nil
 }
 
 // ValidateAccessToken ensures the JWT is valid.

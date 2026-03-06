@@ -29,6 +29,8 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
+	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
@@ -68,6 +70,10 @@ type Client struct {
 	OutboxEvent *OutboxEventClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
 	PasswordResetToken *PasswordResetTokenClient
+	// Permission is the client for interacting with the Permission builders.
+	Permission *PermissionClient
+	// RolePermission is the client for interacting with the RolePermission builders.
+	RolePermission *RolePermissionClient
 	// Session is the client for interacting with the Session builders.
 	Session *SessionClient
 	// Tenant is the client for interacting with the Tenant builders.
@@ -104,6 +110,8 @@ func (c *Client) init() {
 	c.OAuthClient = NewOAuthClientClient(c.config)
 	c.OutboxEvent = NewOutboxEventClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
+	c.Permission = NewPermissionClient(c.config)
+	c.RolePermission = NewRolePermissionClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.Tenant = NewTenantClient(c.config)
 	c.TenantMembership = NewTenantMembershipClient(c.config)
@@ -215,6 +223,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		OAuthClient:        NewOAuthClientClient(cfg),
 		OutboxEvent:        NewOutboxEventClient(cfg),
 		PasswordResetToken: NewPasswordResetTokenClient(cfg),
+		Permission:         NewPermissionClient(cfg),
+		RolePermission:     NewRolePermissionClient(cfg),
 		Session:            NewSessionClient(cfg),
 		Tenant:             NewTenantClient(cfg),
 		TenantMembership:   NewTenantMembershipClient(cfg),
@@ -253,6 +263,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		OAuthClient:        NewOAuthClientClient(cfg),
 		OutboxEvent:        NewOutboxEventClient(cfg),
 		PasswordResetToken: NewPasswordResetTokenClient(cfg),
+		Permission:         NewPermissionClient(cfg),
+		RolePermission:     NewRolePermissionClient(cfg),
 		Session:            NewSessionClient(cfg),
 		Tenant:             NewTenantClient(cfg),
 		TenantMembership:   NewTenantMembershipClient(cfg),
@@ -291,8 +303,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.APIKey, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.FeatureEntitlement, c.IntegrationConfig, c.LoginAttempt, c.MFABackupCode,
 		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
-		c.PasswordResetToken, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserIdentity,
+		c.PasswordResetToken, c.Permission, c.RolePermission, c.Session, c.Tenant,
+		c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
 	} {
 		n.Use(hooks...)
 	}
@@ -305,8 +317,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.APIKey, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.FeatureEntitlement, c.IntegrationConfig, c.LoginAttempt, c.MFABackupCode,
 		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
-		c.PasswordResetToken, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserIdentity,
+		c.PasswordResetToken, c.Permission, c.RolePermission, c.Session, c.Tenant,
+		c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -341,6 +353,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.OutboxEvent.mutate(ctx, m)
 	case *PasswordResetTokenMutation:
 		return c.PasswordResetToken.mutate(ctx, m)
+	case *PermissionMutation:
+		return c.Permission.mutate(ctx, m)
+	case *RolePermissionMutation:
+		return c.RolePermission.mutate(ctx, m)
 	case *SessionMutation:
 		return c.Session.mutate(ctx, m)
 	case *TenantMutation:
@@ -2151,6 +2167,288 @@ func (c *PasswordResetTokenClient) mutate(ctx context.Context, m *PasswordResetT
 	}
 }
 
+// PermissionClient is a client for the Permission schema.
+type PermissionClient struct {
+	config
+}
+
+// NewPermissionClient returns a client for the Permission from the given config.
+func NewPermissionClient(c config) *PermissionClient {
+	return &PermissionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `permission.Hooks(f(g(h())))`.
+func (c *PermissionClient) Use(hooks ...Hook) {
+	c.hooks.Permission = append(c.hooks.Permission, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `permission.Intercept(f(g(h())))`.
+func (c *PermissionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Permission = append(c.inters.Permission, interceptors...)
+}
+
+// Create returns a builder for creating a Permission entity.
+func (c *PermissionClient) Create() *PermissionCreate {
+	mutation := newPermissionMutation(c.config, OpCreate)
+	return &PermissionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Permission entities.
+func (c *PermissionClient) CreateBulk(builders ...*PermissionCreate) *PermissionCreateBulk {
+	return &PermissionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PermissionClient) MapCreateBulk(slice any, setFunc func(*PermissionCreate, int)) *PermissionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PermissionCreateBulk{err: fmt.Errorf("calling to PermissionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PermissionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PermissionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Permission.
+func (c *PermissionClient) Update() *PermissionUpdate {
+	mutation := newPermissionMutation(c.config, OpUpdate)
+	return &PermissionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PermissionClient) UpdateOne(_m *Permission) *PermissionUpdateOne {
+	mutation := newPermissionMutation(c.config, OpUpdateOne, withPermission(_m))
+	return &PermissionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PermissionClient) UpdateOneID(id int) *PermissionUpdateOne {
+	mutation := newPermissionMutation(c.config, OpUpdateOne, withPermissionID(id))
+	return &PermissionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Permission.
+func (c *PermissionClient) Delete() *PermissionDelete {
+	mutation := newPermissionMutation(c.config, OpDelete)
+	return &PermissionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PermissionClient) DeleteOne(_m *Permission) *PermissionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PermissionClient) DeleteOneID(id int) *PermissionDeleteOne {
+	builder := c.Delete().Where(permission.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PermissionDeleteOne{builder}
+}
+
+// Query returns a query builder for Permission.
+func (c *PermissionClient) Query() *PermissionQuery {
+	return &PermissionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePermission},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Permission entity by its id.
+func (c *PermissionClient) Get(ctx context.Context, id int) (*Permission, error) {
+	return c.Query().Where(permission.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PermissionClient) GetX(ctx context.Context, id int) *Permission {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *PermissionClient) Hooks() []Hook {
+	return c.hooks.Permission
+}
+
+// Interceptors returns the client interceptors.
+func (c *PermissionClient) Interceptors() []Interceptor {
+	return c.inters.Permission
+}
+
+func (c *PermissionClient) mutate(ctx context.Context, m *PermissionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PermissionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PermissionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PermissionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PermissionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Permission mutation op: %q", m.Op())
+	}
+}
+
+// RolePermissionClient is a client for the RolePermission schema.
+type RolePermissionClient struct {
+	config
+}
+
+// NewRolePermissionClient returns a client for the RolePermission from the given config.
+func NewRolePermissionClient(c config) *RolePermissionClient {
+	return &RolePermissionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `rolepermission.Hooks(f(g(h())))`.
+func (c *RolePermissionClient) Use(hooks ...Hook) {
+	c.hooks.RolePermission = append(c.hooks.RolePermission, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `rolepermission.Intercept(f(g(h())))`.
+func (c *RolePermissionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RolePermission = append(c.inters.RolePermission, interceptors...)
+}
+
+// Create returns a builder for creating a RolePermission entity.
+func (c *RolePermissionClient) Create() *RolePermissionCreate {
+	mutation := newRolePermissionMutation(c.config, OpCreate)
+	return &RolePermissionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RolePermission entities.
+func (c *RolePermissionClient) CreateBulk(builders ...*RolePermissionCreate) *RolePermissionCreateBulk {
+	return &RolePermissionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RolePermissionClient) MapCreateBulk(slice any, setFunc func(*RolePermissionCreate, int)) *RolePermissionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RolePermissionCreateBulk{err: fmt.Errorf("calling to RolePermissionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RolePermissionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RolePermissionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RolePermission.
+func (c *RolePermissionClient) Update() *RolePermissionUpdate {
+	mutation := newRolePermissionMutation(c.config, OpUpdate)
+	return &RolePermissionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RolePermissionClient) UpdateOne(_m *RolePermission) *RolePermissionUpdateOne {
+	mutation := newRolePermissionMutation(c.config, OpUpdateOne, withRolePermission(_m))
+	return &RolePermissionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RolePermissionClient) UpdateOneID(id int) *RolePermissionUpdateOne {
+	mutation := newRolePermissionMutation(c.config, OpUpdateOne, withRolePermissionID(id))
+	return &RolePermissionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RolePermission.
+func (c *RolePermissionClient) Delete() *RolePermissionDelete {
+	mutation := newRolePermissionMutation(c.config, OpDelete)
+	return &RolePermissionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RolePermissionClient) DeleteOne(_m *RolePermission) *RolePermissionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RolePermissionClient) DeleteOneID(id int) *RolePermissionDeleteOne {
+	builder := c.Delete().Where(rolepermission.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RolePermissionDeleteOne{builder}
+}
+
+// Query returns a query builder for RolePermission.
+func (c *RolePermissionClient) Query() *RolePermissionQuery {
+	return &RolePermissionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRolePermission},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RolePermission entity by its id.
+func (c *RolePermissionClient) Get(ctx context.Context, id int) (*RolePermission, error) {
+	return c.Query().Where(rolepermission.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RolePermissionClient) GetX(ctx context.Context, id int) *RolePermission {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryPermission queries the permission edge of a RolePermission.
+func (c *RolePermissionClient) QueryPermission(_m *RolePermission) *PermissionQuery {
+	query := (&PermissionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(rolepermission.Table, rolepermission.FieldID, id),
+			sqlgraph.To(permission.Table, permission.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, rolepermission.PermissionTable, rolepermission.PermissionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *RolePermissionClient) Hooks() []Hook {
+	return c.hooks.RolePermission
+}
+
+// Interceptors returns the client interceptors.
+func (c *RolePermissionClient) Interceptors() []Interceptor {
+	return c.inters.RolePermission
+}
+
+func (c *RolePermissionClient) mutate(ctx context.Context, m *RolePermissionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RolePermissionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RolePermissionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RolePermissionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RolePermissionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RolePermission mutation op: %q", m.Op())
+	}
+}
+
 // SessionClient is a client for the Session schema.
 type SessionClient struct {
 	config
@@ -3146,13 +3444,14 @@ type (
 	hooks struct {
 		APIKey, AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement,
 		IntegrationConfig, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
-		OAuthClient, OutboxEvent, PasswordResetToken, Session, Tenant,
-		TenantMembership, UsageMetric, User, UserIdentity []ent.Hook
+		OAuthClient, OutboxEvent, PasswordResetToken, Permission, RolePermission,
+		Session, Tenant, TenantMembership, UsageMetric, User, UserIdentity []ent.Hook
 	}
 	inters struct {
 		APIKey, AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement,
 		IntegrationConfig, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
-		OAuthClient, OutboxEvent, PasswordResetToken, Session, Tenant,
-		TenantMembership, UsageMetric, User, UserIdentity []ent.Interceptor
+		OAuthClient, OutboxEvent, PasswordResetToken, Permission, RolePermission,
+		Session, Tenant, TenantMembership, UsageMetric, User,
+		UserIdentity []ent.Interceptor
 	}
 )

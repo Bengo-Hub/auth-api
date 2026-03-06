@@ -38,6 +38,10 @@ type Tx struct {
 	OutboxEvent *OutboxEventClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
 	PasswordResetToken *PasswordResetTokenClient
+	// Permission is the client for interacting with the Permission builders.
+	Permission *PermissionClient
+	// RolePermission is the client for interacting with the RolePermission builders.
+	RolePermission *RolePermissionClient
 	// Session is the client for interacting with the Session builders.
 	Session *SessionClient
 	// Tenant is the client for interacting with the Tenant builders.
@@ -194,6 +198,8 @@ func (tx *Tx) init() {
 	tx.OAuthClient = NewOAuthClientClient(tx.config)
 	tx.OutboxEvent = NewOutboxEventClient(tx.config)
 	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
+	tx.Permission = NewPermissionClient(tx.config)
+	tx.RolePermission = NewRolePermissionClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.Tenant = NewTenantClient(tx.config)
 	tx.TenantMembership = NewTenantMembershipClient(tx.config)
