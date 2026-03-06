@@ -372,31 +372,38 @@ func main() {
 		RedirectURIs []string
 		Public       bool
 	}
+	var tenantSlugs []string
+	for _, te := range tenantEntities {
+		tenantSlugs = append(tenantSlugs, te.Slug)
+	}
+
+	notificationsRedirects := []string{}
+	orderingRedirects := []string{}
+	for _, slug := range tenantSlugs {
+		notificationsRedirects = append(notificationsRedirects,
+			"https://notifications.codevertexitsolutions.com/"+slug+"/auth/callback",
+			"http://localhost:3000/"+slug+"/auth/callback",
+		)
+		orderingRedirects = append(orderingRedirects,
+			"https://ordersapp.codevertexitsolutions.com/"+slug+"/auth/callback",
+			"http://localhost:3001/"+slug+"/auth/callback",
+		)
+	}
+
 	oauthClients := []oauthClientSpec{
 		{
-			// notifications-ui: callback at /{orgSlug}/auth/callback
-			ID:   "notifications-ui",
-			Name: "BengoBox Notifications UI",
-			RedirectURIs: []string{
-				"https://notifications.codevertexitsolutions.com/urban-loft/auth/callback",
-				"http://localhost:3000/urban-loft/auth/callback",
-				"http://localhost:3000/codevertex/auth/callback",
-			},
-			Public: true,
+			ID:           "notifications-ui",
+			Name:         "BengoBox Notifications UI",
+			RedirectURIs: notificationsRedirects,
+			Public:       true,
 		},
 		{
-			// ordering-ui: callback at /{orgSlug}/auth/callback (tenant-aware)
-			ID:   "ordering-ui",
-			Name: "BengoBox Ordering UI",
-			RedirectURIs: []string{
-				"https://ordersapp.codevertexitsolutions.com/urban-loft/auth/callback",
-				"http://localhost:3001/urban-loft/auth/callback",
-				"http://localhost:3001/codevertex/auth/callback",
-			},
-			Public: true,
+			ID:           "ordering-ui",
+			Name:         "BengoBox Ordering UI",
+			RedirectURIs: orderingRedirects,
+			Public:       true,
 		},
 		{
-			// rider-app: fixed callback at /auth/callback (not tenant-aware)
 			ID:   "rider-app",
 			Name: "BengoBox Rider App",
 			RedirectURIs: []string{
@@ -406,7 +413,6 @@ func main() {
 			Public: true,
 		},
 		{
-			// cafe-website: uses NextAuth; callback at /api/auth/callback/bengobox-auth
 			ID:   "cafe-website",
 			Name: "Urban Loft Cafe Website",
 			RedirectURIs: []string{
