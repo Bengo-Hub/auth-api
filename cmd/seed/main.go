@@ -479,10 +479,10 @@ func main() {
 			ID:   "cafe-website",
 			Name: "Urban Loft Cafe Website",
 			RedirectURIs: []string{
-				"https://theurbanloftcafe.com/api/auth/callback/bengobox-auth",
-				"http://localhost:3000/api/auth/callback/bengobox-auth",
+				"https://theurbanloftcafe.com/auth/callback",
+				"http://localhost:3000/auth/callback",
 			},
-			Public: false,
+			Public: true,
 		},
 	}
 

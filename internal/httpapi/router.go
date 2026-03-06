@@ -62,14 +62,14 @@ type AuthHandlers struct {
 	DeveloperListClients         http.HandlerFunc
 	DeveloperCreateClient        http.HandlerFunc
 	// API Key management and validation
-	AdminCreateAPIKey            http.HandlerFunc
-	AdminListAPIKeys             http.HandlerFunc
-	AdminRevokeAPIKey            http.HandlerFunc
-	ValidateAPIKey               http.HandlerFunc // Public endpoint for service-to-service validation
+	AdminCreateAPIKey http.HandlerFunc
+	AdminListAPIKeys  http.HandlerFunc
+	AdminRevokeAPIKey http.HandlerFunc
+	ValidateAPIKey    http.HandlerFunc // Public endpoint for service-to-service validation
 	// Session management
-	ListSessions                 http.HandlerFunc
-	RevokeSession                http.HandlerFunc
-	RevokeAllSessions            http.HandlerFunc
+	ListSessions      http.HandlerFunc
+	RevokeSession     http.HandlerFunc
+	RevokeAllSessions http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -102,6 +102,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 				origin == "https://sso.codevertexitsolutions.com" ||
 				origin == "https://codevertexitsolutions.com" ||
 				origin == "https://orderapp.codevertexitsolutions.com" ||
+				origin == "https://ordersapp.codevertexitsolutions.com" ||
+				origin == "https://theurbanloftcafe.com" ||
+				origin == "https://notifications.codevertexitsolutions.com" ||
+				origin == "https://logistics.codevertexitsolutions.com" ||
 				origin == "https://bengobox.codevertexitsolutions.com" ||
 				origin == "https://erp.codevertexitsolutions.com" ||
 				origin == "https://pos.codevertexitsolutions.com" {
@@ -183,7 +187,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Post("/backup-codes/regenerate", deps.AuthHandlers.MFARegenerateBackupCodes)
 					r.Post("/backup-codes/consume", deps.AuthHandlers.MFAConsumeBackupCode)
 				})
-			r.Route("/sessions", func(r chi.Router) {
+				r.Route("/sessions", func(r chi.Router) {
 					r.Get("/", deps.AuthHandlers.ListSessions)
 					r.Post("/revoke", deps.AuthHandlers.RevokeSession)
 					r.Post("/revoke-all", deps.AuthHandlers.RevokeAllSessions)
@@ -229,7 +233,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 			}
 			r.Get("/clients", deps.AuthHandlers.DeveloperListClients)
 			r.Post("/clients", deps.AuthHandlers.DeveloperCreateClient)
-		})	})
+		})
+	})
 
 	return r
 }
