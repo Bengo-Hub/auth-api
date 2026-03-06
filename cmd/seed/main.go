@@ -10,6 +10,8 @@ import (
 	"github.com/bengobox/auth-api/internal/database"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
+	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -342,6 +344,67 @@ func main() {
 				Save(ctx)
 			log.Printf("  ✓ Added member role in %s", urbanLoftTenant.Slug)
 		}
+	}
+
+	// Seed permissions and role-permission mapping (MVP RBAC: add, read, read_own, change, change_own, delete, manage, manage_own per resource)
+	log.Println("Seeding permissions and role-permission mapping...")
+	actions := []string{"add", "read", "read_own", "change", "change_own", "delete", "manage", "manage_own"}
+	resources := []string{"orders", "menu", "users", "tenants", "riders", "inventory", "settings", "gateways"}
+	permissionIDs := make(map[string]int)
+	for _, res := range resources {
+		for _, act := range actions {
+			code := res + ":" + act
+			perm, err := client.Permission.Query().Where(permission.CodeEQ(code)).Only(ctx)
+			if err != nil {
+				perm, err = client.Permission.Create().
+					SetCode(code).
+					SetResource(res).
+					SetAction(act).
+					Save(ctx)
+				if err != nil {
+					log.Printf("  ⚠️  Error creating permission %s: %v", code, err)
+					continue
+				}
+				log.Printf("  ✓ Created permission: %s", code)
+			}
+			permissionIDs[code] = perm.ID
+		}
+	}
+	// Assign permissions to roles: superuser (all), admin (all), staff (orders, menu, riders, inventory read/change/add), member (orders read_own, change_own), rider (riders read_own, change_own)
+	rolePerms := map[string][]string{
+		"superuser": {},
+		"admin":     {},
+		"staff":     {"orders:read", "orders:change", "orders:add", "menu:read", "menu:change", "menu:add", "riders:read", "inventory:read", "inventory:change"},
+		"member":    {"orders:read_own", "orders:change_own", "orders:add", "menu:read"},
+		"rider":     {"riders:read_own", "riders:change_own", "orders:read"},
+	}
+	for roleName, codes := range rolePerms {
+		if len(codes) == 0 {
+			codes = make([]string, 0, len(permissionIDs))
+			for code := range permissionIDs {
+				codes = append(codes, code)
+			}
+		}
+		for _, code := range codes {
+			pid, ok := permissionIDs[code]
+			if !ok {
+				continue
+			}
+			exists, _ := client.RolePermission.Query().
+				Where(rolepermission.RoleNameEQ(roleName), rolepermission.PermissionIDEQ(pid)).
+				Exist(ctx)
+			if exists {
+				continue
+			}
+			_, err = client.RolePermission.Create().
+				SetRoleName(roleName).
+				SetPermissionID(pid).
+				Save(ctx)
+			if err != nil {
+				log.Printf("  ⚠️  Error creating role_permission %s/%s: %v", roleName, code, err)
+			}
+		}
+		log.Printf("  ✓ Role %s: %d permissions", roleName, len(codes))
 	}
 
 	log.Printf("")

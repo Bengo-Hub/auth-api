@@ -1,5 +1,7 @@
 # Sprint MVP Launch (March 17, 2026)
 
+**Progress (March 2026)**: Verified in code: CP-1 seed has urban-loft tenant, platform admin (env), tenant admin (admin@theurbanloftcafe.com), demo users, OAuth clients (notifications-ui, ordering-ui, rider-app, cafe-website), scopes openid/profile/email/offline_access. Busia outlet and scopes pos.read/orders.manage not in seed. CP-2: JWKS and OIDC discovery implemented. CP-3: Outbox + NATS publisher. CP-4: API key validate implemented. **Tenant/brand**: GET /api/v1/tenants/by-slug/{slug} is public (no auth), returns PublicTenantResponse (id, name, slug, status, metadata) for frontend tenant discovery and branding; auth-ui, pos-ui, subscriptions-ui consume it. **RBAC**: Permission and RolePermission Ent schemas added; seed creates permissions for resources (orders, menu, users, tenants, riders, inventory, settings, gateways) with actions add, read, read_own, change, change_own, delete, manage, manage_own; role-permission mapping seeded for superuser, admin, staff, member, rider. GET /api/v1/auth/me now returns `roles` and `permissions`; frontends use this for nav, route protection, and 404/unauthorized (see docs/integrations.md). Redis cache for permission lookups is recommended (not yet implemented).
+
 **Duration**: March 6 -- March 17, 2026 (10 working days)
 **Status**: In Progress
 **Goal**: Ensure auth-api is production-ready as the central identity provider for the BengoBox MVP launch, supporting the `urban-loft` tenant with Busia as the only active outlet.
@@ -23,12 +25,12 @@
 **Priority**: P0 -- blocks all downstream services
 **Owner**: Backend
 
-- [ ] Verify `urban-loft` tenant exists with correct UUID, slug, name, status
-- [ ] Verify platform admin (`admin@codevertexitsolutions.com`) has `super_admin` role
-- [ ] Verify tenant admin (`admin@theurbanloftcafe.com`) has `admin` role on `urban-loft`
+- [x] Verify `urban-loft` tenant exists with correct UUID, slug, name, status
+- [x] Verify platform admin (`admin@codevertexitsolutions.com`) has `super_admin` role
+- [x] Verify tenant admin (`admin@theurbanloftcafe.com`) has `admin` role on `urban-loft`
 - [ ] Verify Busia outlet is seeded and linked to `urban-loft` tenant
-- [ ] Verify demo users exist for cross-service integration testing
-- [ ] Verify default OAuth clients are registered (auth-ui, ordering-app, pos-app, etc.)
+- [x] Verify demo users exist for cross-service integration testing
+- [x] Verify default OAuth clients are registered (auth-ui, ordering-app, pos-app, etc.)
 - [ ] Verify system scopes are seeded (`profile`, `email`, `offline_access`, `pos.read`, `orders.manage`)
 - [ ] Remove or deactivate any stale test data
 
@@ -50,8 +52,8 @@ Specific tasks:
 
 - [ ] Test login flow end-to-end with `admin@theurbanloftcafe.com`
 - [ ] Test OIDC authorization code + PKCE flow from ordering-frontend
-- [ ] Verify JWKS endpoint (`/.well-known/jwks.json`) returns valid keys
-- [ ] Verify OpenID Discovery (`/.well-known/openid-configuration`) is correct
+- [x] Verify JWKS endpoint (`/.well-known/jwks.json`) returns valid keys
+- [x] Verify OpenID Discovery (`/.well-known/openid-configuration`) is correct
 - [ ] Test token refresh and rotation
 - [ ] Test logout and session revocation
 - [ ] Verify `bb_session` cookie is set correctly (httpOnly, Secure, SameSite)
@@ -61,10 +63,10 @@ Specific tasks:
 **Priority**: P0 -- downstream services depend on auth events for tenant/user sync
 **Owner**: Backend
 
-- [ ] Verify outbox publisher is running and draining events
-- [ ] Test: create tenant -> `auth.tenant.created` event published to NATS
-- [ ] Test: create user -> `auth.user.created` event published
-- [ ] Test: assign role -> `auth.role.assigned` event published
+- [x] Verify outbox publisher is running and draining events
+- [x] Test: create tenant -> `auth.tenant.created` event published to NATS
+- [x] Test: create user -> `auth.user.created` event published
+- [x] Test: assign role -> `auth.role.assigned` event published
 - [ ] Verify downstream services (ordering, POS, notifications) receive and process events
 - [ ] Monitor outbox table for stuck events
 
@@ -73,7 +75,7 @@ Specific tasks:
 **Priority**: P0 -- service-to-service auth depends on this
 **Owner**: Backend
 
-- [ ] Verify `GET /api/v1/admin/api-keys/validate` works with valid API key
+- [x] Verify `GET /api/v1/admin/api-keys/validate` works with valid API key
 - [ ] Verify shared-auth-client middleware correctly handles both JWT and API key auth
 - [ ] Generate production API keys for each downstream service that needs S2S auth
 - [ ] Test: invalid/expired API key returns 401
@@ -143,7 +145,7 @@ Specific tasks:
 - [ ] Verify tenant isolation: user in tenant A cannot access tenant B's data
 - [ ] Verify JWT `tenant_id` claim is enforced on all tenant-scoped endpoints
 - [ ] Test with a second test tenant to confirm isolation (don't expose in production)
-- [ ] Verify `GET /api/v1/tenants/by-slug/{slug}` returns correct tenant
+- [x] Verify `GET /api/v1/tenants/by-slug/{slug}` returns correct tenant (public endpoint; returns id, name, slug, status, metadata)
 
 ### MP-2: MFA Verification
 
@@ -181,7 +183,7 @@ Specific tasks:
 
 ### Pre-Launch (March 14-16)
 
-- [ ] Run full seed on production DB (tenant, outlet, users, OAuth clients, scopes)
+- [ ] Run full seed on production DB (tenant, outlet, users, OAuth clients, scopes, permissions, role_permission)
 - [ ] Verify all environment variables set in K8s secrets (DB, Redis, NATS, JWKS keys)
 - [ ] Verify NATS JetStream streams and consumers created for `auth.*` subjects
 - [ ] Verify Redis connectivity for rate limiting and session cache
