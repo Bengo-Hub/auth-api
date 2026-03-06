@@ -23,6 +23,7 @@ type AuthService interface {
 	RequestPasswordReset(ctx context.Context, in auth.PasswordResetRequestInput) (string, error)
 	ConfirmPasswordReset(ctx context.Context, in auth.PasswordResetConfirmInput) error
 	GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error)
+	GetUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) (roles []string, permissions []string, err error)
 	StartGoogleOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
 	CompleteGoogleOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
 	StartGitHubOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
@@ -367,7 +368,19 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, userViewFromEnt(userEntity))
+	roles, permissions, err := h.service.GetUserRolesAndPermissions(r.Context(), userID)
+	if err != nil {
+		h.logger.Warn("failed to load roles/permissions in /me", zap.Error(err))
+		roles = claims.Roles
+		permissions = nil
+	}
+	out := userViewFromEnt(userEntity)
+	if out == nil {
+		out = make(map[string]any)
+	}
+	out["roles"] = roles
+	out["permissions"] = permissions
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err error) {

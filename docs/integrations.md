@@ -71,8 +71,9 @@ The Auth Service is the central identity provider for all BengoBox services. Thi
 **Endpoints**:
 - `GET /api/v1/users/{id}` - Get user details
 - `GET /api/v1/tenants/{id}` - Get tenant details
-- `GET /api/v1/tenants/by-slug/{slug}` - Get tenant by slug (public, for tenant auto-discovery)
+- `GET /api/v1/tenants/by-slug/{slug}` - Get tenant by slug (public, no auth; returns id, name, slug, status, metadata for tenant auto-discovery and branding; metadata may include primary_color, logo_url, etc.)
 - `POST /api/v1/tenants` - Create tenant (public, for tenant auto-discovery, accepts `id` field for matching UUIDs across services)
+- `GET /api/v1/auth/me` - Get current user profile (requires JWT). Returns user fields plus **`roles`** (string[]) and **`permissions`** (string[]) for RBAC. Frontends should call this with TanStack Query (or equivalent) and a short TTL (e.g. 5 min), and use roles/permissions for nav visibility, route protection, and 404/unauthorized pages. Permission codes follow the model `resource:action` (e.g. `orders:read`, `orders:read_own`, `menu:change`). See §8 in shared-docs/mvp-critical-path.md.
 - `POST /api/v1/introspect` - Token introspection
 - `POST /api/v1/revoke` - Token revocation
 

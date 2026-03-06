@@ -232,7 +232,18 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusCreated, t)
 }
 
-// GetTenantBySlugPublic retrieves a tenant by slug via public endpoint (for tenant auto-discovery).
+// PublicTenantResponse is the response for GET /api/v1/tenants/by-slug/{slug} (public, no auth).
+// Used by frontends for tenant auto-discovery and branding (name, slug, metadata.primary_color, etc.).
+type PublicTenantResponse struct {
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	Slug     string         `json:"slug"`
+	Status   string         `json:"status"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+// GetTenantBySlugPublic retrieves a tenant by slug via public endpoint (for tenant auto-discovery and branding).
+// No authentication required. Returns id, name, slug, status, and metadata (e.g. logo_url, primary_color for brand).
 func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if slug == "" {
@@ -251,7 +262,17 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get tenant", nil)
 		return
 	}
-	writeJSON(w, http.StatusOK, t)
+	meta := t.Metadata
+	if meta == nil {
+		meta = make(map[string]interface{})
+	}
+	writeJSON(w, http.StatusOK, PublicTenantResponse{
+		ID:       t.ID.String(),
+		Name:     t.Name,
+		Slug:     t.Slug,
+		Status:   t.Status,
+		Metadata: meta,
+	})
 }
 
 func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
