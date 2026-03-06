@@ -43,16 +43,19 @@ func main() {
 
 	log.Println("Starting seed process...")
 
-	// Create or fetch default tenants
+	// Default tenants (align with notifications-api and all SSO-integrating services).
+	// 1. Codevertex = platform owner (not a tenant in business sense; super admin scope).
+	// 2–5. Masterspace, Urban Loft, KURA, UltiChange = tenants with base domains.
 	tenants := []struct {
-		name string
-		slug string
+		name       string
+		slug       string
+		baseDomain string
 	}{
-		{"CodeVertex", "codevertex"},
-		{"Masterspace Solutions", "mss"},
-		{"Urban Loft Cafe", "urban-loft"},
-		{"Kenya Urban Roads Authority", "kura"},
-		{"UltiChange", "ultichange"},
+		{"CodeVertex", "codevertex", "codevertexitsolutions.com"},
+		{"Masterspace Solutions", "mss", "masterspace.co.ke"},
+		{"Urban Loft Cafe", "urban-loft", "theurbanloftcafe.com"},
+		{"Kenya Urban Roads Authority", "kura", "kura.go.ke"},
+		{"UltiChange", "ultichange", "ultichange.org"},
 	}
 
 	var tenantEntities []*struct {
@@ -68,12 +71,15 @@ func main() {
 				SetName(t.name).
 				SetSlug(t.slug).
 				SetStatus("active").
+				SetMetadata(map[string]any{"base_domain": t.baseDomain}).
 				Save(ctx)
 			if err != nil {
 				log.Fatalf("create tenant %s: %v", t.slug, err)
 			}
-			log.Printf("✓ Created tenant: %s (%s)", t.name, t.slug)
+			log.Printf("✓ Created tenant: %s (%s) base_domain=%s", t.name, t.slug, t.baseDomain)
 		} else {
+			// Upsert metadata so base_domain stays in sync
+			_, _ = tenantEntity.Update().SetMetadata(map[string]any{"base_domain": t.baseDomain}).Save(ctx)
 			log.Printf("✓ Tenant exists: %s (%s)", t.name, t.slug)
 		}
 
@@ -470,6 +476,7 @@ func main() {
 			ID:   "rider-app",
 			Name: "BengoBox Rider App",
 			RedirectURIs: []string{
+				"https://riderapp.codevertexitsolutions.com/auth/callback",
 				"https://rider.codevertexitsolutions.com/auth/callback",
 				"http://localhost:3002/auth/callback",
 			},
