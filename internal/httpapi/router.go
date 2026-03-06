@@ -124,6 +124,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 		MaxAge:           300,
 	}))
 
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/v1/docs/", http.StatusMovedPermanently)
+	})
+
 	if deps.HealthHandler != nil {
 		r.Get("/healthz", deps.HealthHandler)
 	}
@@ -132,6 +136,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 	}
 
 	r.Get("/v1/docs/*", handlers.SwaggerUI)
+
+	r.Get("/.well-known/openid-configuration", deps.AuthHandlers.WellKnownConfig)
+	r.Get("/.well-known/jwks.json", deps.AuthHandlers.JWKS)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// OIDC discovery (also serve on absolute path for issuer consistency)
