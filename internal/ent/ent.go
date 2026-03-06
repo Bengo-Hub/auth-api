@@ -25,6 +25,8 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
+	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
@@ -104,6 +106,8 @@ func checkColumn(t, c string) error {
 			oauthclient.Table:        oauthclient.ValidColumn,
 			outboxevent.Table:        outboxevent.ValidColumn,
 			passwordresettoken.Table: passwordresettoken.ValidColumn,
+			permission.Table:         permission.ValidColumn,
+			rolepermission.Table:     rolepermission.ValidColumn,
 			session.Table:            session.ValidColumn,
 			tenant.Table:             tenant.ValidColumn,
 			tenantmembership.Table:   tenantmembership.ValidColumn,
