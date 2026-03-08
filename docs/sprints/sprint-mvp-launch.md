@@ -103,7 +103,7 @@ Specific tasks:
 **Priority**: P1
 **Owner**: Backend + Frontend
 
-- [ ] Verify `super_admin` role gates platform-level endpoints (gateways, all-tenant views, role management)
+- [ ] Verify `super_admin` role gates platform-level endpoints (all-tenant views, role management); gateways owned by treasury-api
 - [ ] Verify `admin` role gates tenant-level endpoints only (own tenant users, settings, API keys)
 - [ ] Test: tenant admin cannot access platform admin endpoints (expect 403)
 - [ ] Test: platform admin can access both platform and tenant endpoints
@@ -226,7 +226,7 @@ Specific tasks:
 ## Success Criteria
 
 - [ ] All downstream BengoBox services can authenticate users via OIDC/JWT
-- [ ] Platform admin can manage tenants, roles, gateways at `auth.codevertexitsolutions.com`
+- [ ] Platform admin can manage tenants and roles at auth; gateways at treasury-ui (Codevertex Books)
 - [ ] Tenant admin can manage users, API keys for `urban-loft`
 - [ ] Auth events (`auth.tenant.created`, `auth.user.created`, `auth.role.assigned`) flow to NATS
 - [ ] Zero cross-tenant data leaks
