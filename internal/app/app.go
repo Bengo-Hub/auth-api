@@ -186,8 +186,13 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminGetIntegrationConfig:    adminHandler.GetIntegrationConfig,
 			AdminListIntegrationConfigs:  adminHandler.ListIntegrationConfigs,
 			AdminDeleteIntegrationConfig: adminHandler.DeleteIntegrationConfig,
-			DeveloperListClients:         developerHandler.ListClients,
-			DeveloperCreateClient:        developerHandler.CreateClient,
+			// Tenant member management
+			AddTenantMember:       adminHandler.AddTenantMember,
+			ListTenantMembers:     adminHandler.ListTenantMembers,
+			UpdateTenantMember:    adminHandler.UpdateTenantMember,
+			RemoveTenantMember:    adminHandler.RemoveTenantMember,
+			DeveloperListClients:  developerHandler.ListClients,
+			DeveloperCreateClient: developerHandler.CreateClient,
 			// API Key management (service accounts)
 			AdminCreateAPIKey: apiKeyHandler.CreateAPIKey,
 			AdminListAPIKeys:  apiKeyHandler.ListAPIKeys,

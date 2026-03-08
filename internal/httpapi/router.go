@@ -70,6 +70,11 @@ type AuthHandlers struct {
 	ListSessions      http.HandlerFunc
 	RevokeSession     http.HandlerFunc
 	RevokeAllSessions http.HandlerFunc
+	// Tenant member management
+	AddTenantMember    http.HandlerFunc
+	ListTenantMembers  http.HandlerFunc
+	UpdateTenantMember http.HandlerFunc
+	RemoveTenantMember http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -211,6 +216,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 				}
 				r.Post("/tenants", deps.AuthHandlers.AdminCreateTenant)
 				r.Get("/tenants", deps.AuthHandlers.AdminListTenants)
+				r.Route("/tenants/{tenant_id}/members", func(r chi.Router) {
+					r.Post("/", deps.AuthHandlers.AddTenantMember)
+					r.Get("/", deps.AuthHandlers.ListTenantMembers)
+					r.Put("/{user_id}", deps.AuthHandlers.UpdateTenantMember)
+					r.Delete("/{user_id}", deps.AuthHandlers.RemoveTenantMember)
+				})
 				r.Post("/clients", deps.AuthHandlers.AdminCreateClient)
 				r.Get("/clients", deps.AuthHandlers.AdminListClients)
 				r.Post("/entitlements", deps.AuthHandlers.AdminUpsertEntitlement)
