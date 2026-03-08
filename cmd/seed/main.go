@@ -352,10 +352,10 @@ func main() {
 		}
 	}
 
-	// Seed permissions and role-permission mapping (MVP RBAC: add, read, read_own, change, change_own, delete, manage, manage_own per resource)
+	// Seed permissions and role-permission mapping (MVP RBAC). Include canonical codes used by ordering-backend (catalog:view, catalog:manage).
 	log.Println("Seeding permissions and role-permission mapping...")
-	actions := []string{"add", "read", "read_own", "change", "change_own", "delete", "manage", "manage_own"}
-	resources := []string{"orders", "menu", "users", "tenants", "riders", "inventory", "settings", "gateways"}
+	actions := []string{"add", "read", "read_own", "change", "change_own", "delete", "manage", "manage_own", "view"}
+	resources := []string{"orders", "menu", "users", "tenants", "riders", "inventory", "settings", "gateways", "catalog"}
 	permissionIDs := make(map[string]int)
 	for _, res := range resources {
 		for _, act := range actions {
@@ -376,12 +376,12 @@ func main() {
 			permissionIDs[code] = perm.ID
 		}
 	}
-	// Assign permissions to roles: superuser (all), admin (all), staff (orders, menu, riders, inventory read/change/add), member (orders read_own, change_own), rider (riders read_own, change_own)
+	// Assign permissions to roles. Use canonical codes matching ordering-backend (catalog:view, catalog:manage).
 	rolePerms := map[string][]string{
 		"superuser": {},
 		"admin":     {},
-		"staff":     {"orders:read", "orders:change", "orders:add", "menu:read", "menu:change", "menu:add", "riders:read", "inventory:read", "inventory:change"},
-		"member":    {"orders:read_own", "orders:change_own", "orders:add", "menu:read"},
+		"staff":     {"orders:read", "orders:change", "orders:add", "menu:read", "menu:change", "menu:add", "catalog:view", "catalog:manage", "riders:read", "inventory:read", "inventory:change"},
+		"member":    {"orders:read_own", "orders:change_own", "orders:add", "menu:read", "catalog:view"},
 		"rider":     {"riders:read_own", "riders:change_own", "orders:read"},
 	}
 	for roleName, codes := range rolePerms {

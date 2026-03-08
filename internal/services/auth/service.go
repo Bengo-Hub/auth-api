@@ -19,10 +19,10 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
+	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
-	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
 	"github.com/bengobox/auth-api/internal/oauth/state"
@@ -989,14 +989,18 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		}
 	}
 
+	// Load permissions for JWT (canonical codes for RBAC)
+	_, permissions, _ := s.GetUserRolesAndPermissions(ctx, sessionEntity.UserID)
+
 	// Build token input with subscription data if available
 	tokenInput := token.AccessTokenInput{
-		UserID:    sessionEntity.UserID,
-		TenantID:  tenantIDPtr,
-		SessionID: sessionEntity.ID,
-		Email:     userEntity.Email,
-		Scopes:    effectiveScopes,
-		Roles:     roles,
+		UserID:      sessionEntity.UserID,
+		TenantID:    tenantIDPtr,
+		SessionID:   sessionEntity.ID,
+		Email:       userEntity.Email,
+		Scopes:      effectiveScopes,
+		Roles:       roles,
+		Permissions: permissions,
 	}
 	if tenantEntity != nil {
 		tokenInput.TenantSlug = tenantEntity.Slug
