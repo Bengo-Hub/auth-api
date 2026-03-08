@@ -154,6 +154,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			ConfirmPasswordReset:         authHandler.ConfirmPasswordReset,
 			Me:                           authHandler.Me,
 			Logout:                       authHandler.Logout,
+			LogoutGet:                    authHandler.LogoutGet,
 			GoogleOAuthStart:             authHandler.GoogleOAuthStart,
 			GoogleOAuthCallback:          authHandler.GoogleOAuthCallback,
 			GitHubOAuthStart:             authHandler.GitHubOAuthStart,

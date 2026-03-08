@@ -30,6 +30,7 @@ type AuthHandlers struct {
 	ConfirmPasswordReset         http.HandlerFunc
 	Me                           http.HandlerFunc
 	Logout                       http.HandlerFunc
+	LogoutGet                    http.HandlerFunc
 	GoogleOAuthStart             http.HandlerFunc
 	GoogleOAuthCallback          http.HandlerFunc
 	GitHubOAuthStart             http.HandlerFunc
@@ -180,6 +181,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Post("/oauth/microsoft/start", deps.AuthHandlers.MicrosoftOAuthStart)
 			r.Get("/oauth/microsoft/callback", deps.AuthHandlers.MicrosoftOAuthCallback)
 
+			// GET /logout is public: for redirect-based logout (post_logout_redirect_uri from clients)
+			r.Get("/logout", deps.AuthHandlers.LogoutGet)
 			r.Group(func(r chi.Router) {
 				if deps.RequireAuthHandler != nil {
 					r.Use(deps.RequireAuthHandler)
