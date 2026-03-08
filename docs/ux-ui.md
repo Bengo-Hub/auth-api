@@ -226,13 +226,7 @@ POST   /api/v1/admin/keys/rotate    -- Rotate JWKS signing keys
 
 Platform admin endpoints are gated by `super_admin` role (platform admin at `admin@codevertexitsolutions.com`).
 
-### Payment Gateway Configuration
-
-```
-GET    /api/v1/platform/gateways     -- List payment gateway configs
-POST   /api/v1/platform/gateways     -- Create gateway config
-PUT    /api/v1/platform/gateways/{id} -- Update gateway config
-```
+**Payment gateway configuration** is owned by **treasury-api**; auth-api does not expose gateway CRUD. Use treasury-api for gateway list/create/update. Auth-ui redirects platform admins to treasury-ui (Codevertex Books).
 
 ### Role & Permission Management
 
@@ -327,7 +321,7 @@ After login, fetch permissions via `GET /api/v1/auth/me` or `GET /api/v1/users/m
 
 | Role | Access |
 |------|--------|
-| `super_admin` | Platform admin section (gateways, roles, all tenants) |
+| `super_admin` | Platform admin section (roles, all tenants); gateways → treasury-api/ui |
 | `admin` | Tenant admin section (users, settings, API keys) |
 | `user` | Standard user features (profile, security) |
 
