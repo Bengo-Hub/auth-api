@@ -12,6 +12,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/services/entitlements"
 	"github.com/bengobox/auth-api/internal/services/usage"
@@ -633,4 +634,233 @@ func (h *AdminHandler) DeleteIntegrationConfig(w http.ResponseWriter, r *http.Re
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+// Tenant Member Management Endpoints
+
+type addTenantMemberRequest struct {
+	UserID string   `json:"user_id"`
+	Roles  []string `json:"roles"`
+}
+
+type tenantMemberResponse struct {
+	ID        string   `json:"id"`
+	UserID    string   `json:"user_id"`
+	TenantID  string   `json:"tenant_id"`
+	Roles     []string `json:"roles"`
+	Status    string   `json:"status"`
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at"`
+}
+
+// AddTenantMember adds a user to a tenant with specified roles.
+// POST /api/v1/admin/tenants/{tenant_id}/members
+func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+
+	tenantIDStr := chi.URLParam(r, "tenant_id")
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+
+	var req addTenantMemberRequest
+	if err := decodeJSON(r, &req); err != nil || req.UserID == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "user_id is required", nil)
+		return
+	}
+
+	userID, err := uuid.Parse(req.UserID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+		return
+	}
+
+	// Create or update tenant membership
+	existingMember, _ := h.ent.TenantMembership.Query().
+		Where(
+			tenantmembership.UserID(userID),
+			tenantmembership.TenantID(tenantID),
+		).
+		Only(r.Context())
+
+	var membership *ent.TenantMembership
+	if existingMember != nil {
+		// Update existing
+		membership, err = existingMember.Update().
+			SetRoles(req.Roles).
+			SetStatus("active").
+			Save(r.Context())
+	} else {
+		// Create new
+		membership, err = h.ent.TenantMembership.Create().
+			SetUserID(userID).
+			SetTenantID(tenantID).
+			SetRoles(req.Roles).
+			SetStatus("active").
+			Save(r.Context())
+	}
+
+	if err != nil {
+		h.logger.Error("Failed to add tenant member", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not add member", nil)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, tenantMemberResponse{
+		ID:        membership.ID.String(),
+		UserID:    membership.UserID.String(),
+		TenantID:  membership.TenantID.String(),
+		Roles:     membership.Roles,
+		Status:    membership.Status,
+		CreatedAt: membership.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: membership.UpdatedAt.Format(time.RFC3339),
+	})
+}
+
+// ListTenantMembers lists all members of a tenant.
+// GET /api/v1/admin/tenants/{tenant_id}/members
+func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+
+	tenantIDStr := chi.URLParam(r, "tenant_id")
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+
+	members, err := h.ent.TenantMembership.Query().
+		Where(tenantmembership.TenantID(tenantID)).
+		All(r.Context())
+	if err != nil {
+		h.logger.Error("Failed to list tenant members", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not list members", nil)
+		return
+	}
+
+	response := make([]map[string]interface{}, 0)
+	for _, member := range members {
+		response = append(response, map[string]interface{}{
+			"id":         member.ID.String(),
+			"user_id":    member.UserID.String(),
+			"tenant_id":  member.TenantID.String(),
+			"roles":      member.Roles,
+			"status":     member.Status,
+			"created_at": member.CreatedAt.Format(time.RFC3339),
+			"updated_at": member.UpdatedAt.Format(time.RFC3339),
+		})
+	}
+
+	writeJSON(w, http.StatusOK, response)
+}
+
+// UpdateTenantMember updates a member's roles.
+// PUT /api/v1/admin/tenants/{tenant_id}/members/{user_id}
+func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+
+	tenantIDStr := chi.URLParam(r, "tenant_id")
+	userIDStr := chi.URLParam(r, "user_id")
+
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+		return
+	}
+
+	var req addTenantMemberRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
+		return
+	}
+
+	membership, err := h.ent.TenantMembership.Query().
+		Where(
+			tenantmembership.UserID(userID),
+			tenantmembership.TenantID(tenantID),
+		).
+		Only(r.Context())
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "member not found", nil)
+			return
+		}
+		h.logger.Error("Failed to find tenant member", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not find member", nil)
+		return
+	}
+
+	updated, err := membership.Update().
+		SetRoles(req.Roles).
+		Save(r.Context())
+	if err != nil {
+		h.logger.Error("Failed to update tenant member", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not update member", nil)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, tenantMemberResponse{
+		ID:        updated.ID.String(),
+		UserID:    updated.UserID.String(),
+		TenantID:  updated.TenantID.String(),
+		Roles:     updated.Roles,
+		Status:    updated.Status,
+		CreatedAt: updated.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: updated.UpdatedAt.Format(time.RFC3339),
+	})
+}
+
+// RemoveTenantMember removes a user from a tenant.
+// DELETE /api/v1/admin/tenants/{tenant_id}/members/{user_id}
+func (h *AdminHandler) RemoveTenantMember(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+
+	tenantIDStr := chi.URLParam(r, "tenant_id")
+	userIDStr := chi.URLParam(r, "user_id")
+
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+		return
+	}
+
+	_, err = h.ent.TenantMembership.Delete().
+		Where(
+			tenantmembership.UserID(userID),
+			tenantmembership.TenantID(tenantID),
+		).
+		Exec(r.Context())
+	if err != nil {
+		h.logger.Error("Failed to remove tenant member", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not remove member", nil)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "removed"})
 }
