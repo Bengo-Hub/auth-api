@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"net/http"
@@ -17,13 +18,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// RolesPermissionsProvider returns roles and canonical permission codes for a user (for JWT claims).
+type RolesPermissionsProvider interface {
+	GetUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) (roles []string, permissions []string, err error)
+}
+
 // OIDCHandler serves OIDC discovery and grant endpoints.
 type OIDCHandler struct {
-	cfg      *config.Config
-	oidc     *oidc.Service
-	auth     *authmiddleware.Auth
-	tokenSvc *token.Service
-	logger   *zap.Logger
+	cfg        *config.Config
+	oidc       *oidc.Service
+	auth       *authmiddleware.Auth
+	tokenSvc   *token.Service
+	rolesPerms RolesPermissionsProvider // optional: for permissions in access token
+	logger     *zap.Logger
 }
 
 // NewOIDCHandler constructs a handler.
@@ -34,6 +41,18 @@ func NewOIDCHandler(cfg *config.Config, svc *oidc.Service, auth *authmiddleware.
 		auth:     auth,
 		tokenSvc: tokenSvc,
 		logger:   logger,
+	}
+}
+
+// NewOIDCHandlerWithRolesPermissions constructs a handler with optional provider for JWT permissions.
+func NewOIDCHandlerWithRolesPermissions(cfg *config.Config, svc *oidc.Service, auth *authmiddleware.Auth, tokenSvc *token.Service, rolesPerms RolesPermissionsProvider, logger *zap.Logger) *OIDCHandler {
+	return &OIDCHandler{
+		cfg:        cfg,
+		oidc:       svc,
+		auth:       auth,
+		tokenSvc:   tokenSvc,
+		rolesPerms: rolesPerms,
+		logger:     logger,
 	}
 }
 
@@ -192,16 +211,22 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		sessionID = uuid.New()
 	}
 
-	// Mint access token with roles and tenant info
+	var permissions []string
+	if h.rolesPerms != nil {
+		_, permissions, _ = h.rolesPerms.GetUserRolesAndPermissions(r.Context(), userEntity.ID)
+	}
+
+	// Mint access token with roles, permissions, and tenant info
 	access, accessExp, err := h.tokenSvc.MintAccessToken(token.AccessTokenInput{
-		UserID:     userEntity.ID,
-		TenantID:   tenantID,
-		TenantSlug: tenantSlug,
-		SessionID:  sessionID,
-		Email:      userEntity.Email,
-		Scopes:     scopes,
-		Roles:      roles,
-		Audience:   []string{client.ClientID},
+		UserID:      userEntity.ID,
+		TenantID:    tenantID,
+		TenantSlug:  tenantSlug,
+		SessionID:   sessionID,
+		Email:       userEntity.Email,
+		Scopes:      scopes,
+		Roles:       roles,
+		Permissions: permissions,
+		Audience:    []string{client.ClientID},
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "mint access token failed", nil)

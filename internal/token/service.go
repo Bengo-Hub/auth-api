@@ -20,12 +20,13 @@ import (
 
 // Claims represents the JWT registered claims plus auth specific metadata.
 type Claims struct {
-	SessionID  string   `json:"sid"`
-	TenantID   string   `json:"tenant_id,omitempty"`
-	TenantSlug string   `json:"tenant_slug,omitempty"`
-	Scope      []string `json:"scope,omitempty"`
-	Roles      []string `json:"roles,omitempty"` // User roles from TenantMembership (e.g., "superuser", "admin", "member")
-	Email     string   `json:"email,omitempty"`
+	SessionID   string   `json:"sid"`
+	TenantID    string   `json:"tenant_id,omitempty"`
+	TenantSlug  string   `json:"tenant_slug,omitempty"`
+	Scope       []string `json:"scope,omitempty"`
+	Roles       []string `json:"roles,omitempty"`       // User roles from TenantMembership (e.g., "superuser", "admin", "member")
+	Permissions []string `json:"permissions,omitempty"` // Canonical permission codes for RBAC (e.g., "catalog:view", "orders:read")
+	Email       string   `json:"email,omitempty"`
 
 	// Subscription claims (enriched from subscription-service)
 	SubscriptionPlan     string         `json:"sub_plan,omitempty"`     // Plan code (STARTER, GROWTH, PROFESSIONAL)
@@ -39,14 +40,15 @@ type Claims struct {
 
 // AccessTokenInput defines metadata for token minting.
 type AccessTokenInput struct {
-	UserID     uuid.UUID
-	TenantID   *uuid.UUID
-	TenantSlug string
-	SessionID  uuid.UUID
-	Email      string
-	Scopes     []string
-	Roles      []string // User roles from TenantMembership
-	Audience   []string
+	UserID      uuid.UUID
+	TenantID    *uuid.UUID
+	TenantSlug  string
+	SessionID   uuid.UUID
+	Email       string
+	Scopes      []string
+	Roles       []string // User roles from TenantMembership
+	Permissions []string // Canonical permission codes (e.g., catalog:view, orders:read)
+	Audience    []string
 
 	// Subscription data (optional, from subscription-service)
 	SubscriptionPlan     string
@@ -109,10 +111,11 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	jti := uuid.NewString()
 
 	claims := &Claims{
-		SessionID: input.SessionID.String(),
-		Scope:     input.Scopes,
-		Roles:     input.Roles,
-		Email:     input.Email,
+		SessionID:   input.SessionID.String(),
+		Scope:       input.Scopes,
+		Roles:       input.Roles,
+		Permissions: input.Permissions,
+		Email:       input.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.cfg.Issuer,
 			IssuedAt:  jwt.NewNumericDate(now),
