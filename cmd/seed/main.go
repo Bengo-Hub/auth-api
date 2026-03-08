@@ -44,18 +44,20 @@ func main() {
 	log.Println("Starting seed process...")
 
 	// Default tenants (align with notifications-api and all SSO-integrating services).
-	// 1. Codevertex = platform owner (not a tenant in business sense; super admin scope).
+	// 1. Codevertex = platform owner (not a business tenant; default super_admin scope).
 	// 2–5. Masterspace, Urban Loft, KURA, UltiChange = tenants with base domains.
+	// All tenants use DB-generated UUIDs (no SetID); tenant slug must be consistent across auth and all services.
 	tenants := []struct {
-		name       string
-		slug       string
-		baseDomain string
+		name            string
+		slug            string
+		baseDomain      string
+		isPlatformOwner bool
 	}{
-		{"CodeVertex", "codevertex", "codevertexitsolutions.com"},
-		{"Masterspace Solutions", "mss", "masterspace.co.ke"},
-		{"Urban Loft Cafe", "urban-loft", "theurbanloftcafe.com"},
-		{"Kenya Urban Roads Authority", "kura", "kura.go.ke"},
-		{"UltiChange", "ultichange", "ultichange.org"},
+		{"CodeVertex", "codevertex", "codevertexitsolutions.com", true},
+		{"Masterspace Solutions", "mss", "masterspace.co.ke", false},
+		{"Urban Loft Cafe", "urban-loft", "theurbanloftcafe.com", false},
+		{"Kenya Urban Roads Authority (KURA)", "kura", "kura.go.ke", false},
+		{"UltiChange", "ultichange", "ultichange.org", false},
 	}
 
 	var tenantEntities []*struct {
@@ -65,21 +67,25 @@ func main() {
 	}
 
 	for _, t := range tenants {
+		meta := map[string]any{"base_domain": t.baseDomain}
+		if t.isPlatformOwner {
+			meta["is_platform_owner"] = true
+			meta["scope"] = "platform"
+		}
 		tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ(t.slug)).Only(ctx)
 		if err != nil {
 			tenantEntity, err = client.Tenant.Create().
 				SetName(t.name).
 				SetSlug(t.slug).
 				SetStatus("active").
-				SetMetadata(map[string]any{"base_domain": t.baseDomain}).
+				SetMetadata(meta).
 				Save(ctx)
 			if err != nil {
 				log.Fatalf("create tenant %s: %v", t.slug, err)
 			}
 			log.Printf("✓ Created tenant: %s (%s) base_domain=%s", t.name, t.slug, t.baseDomain)
 		} else {
-			// Upsert metadata so base_domain stays in sync
-			_, _ = tenantEntity.Update().SetMetadata(map[string]any{"base_domain": t.baseDomain}).Save(ctx)
+			_, _ = tenantEntity.Update().SetMetadata(meta).Save(ctx)
 			log.Printf("✓ Tenant exists: %s (%s)", t.name, t.slug)
 		}
 
@@ -159,10 +165,22 @@ func main() {
 		}
 	}
 
-	// Seed admin user from environment (required for real admin access)
-	// Admin credentials MUST come from environment variables - never hardcoded
-	adminEmail := os.Getenv("SEED_ADMIN_EMAIL")
-	adminPassword := os.Getenv("SEED_ADMIN_PASSWORD")
+	// Seed platform owner / default super admin (full access across all services).
+	// Prefer SEED_SUPER_ADMIN_* then SEED_ADMIN_*; fallback to defaults when env not set.
+	adminEmail := os.Getenv("SEED_SUPER_ADMIN_EMAIL")
+	if adminEmail == "" {
+		adminEmail = os.Getenv("SEED_ADMIN_EMAIL")
+	}
+	if adminEmail == "" {
+		adminEmail = "admin@codevertexitsolutions.com"
+	}
+	adminPassword := os.Getenv("SEED_SUPER_ADMIN_PASSWORD")
+	if adminPassword == "" {
+		adminPassword = os.Getenv("SEED_ADMIN_PASSWORD")
+	}
+	if adminPassword == "" {
+		adminPassword = "ChangeMe123!"
+	}
 
 	if adminEmail != "" && adminPassword != "" {
 		adminHash, err := hasher.Hash(adminPassword)
@@ -423,9 +441,9 @@ func main() {
 	log.Printf("  Role: member (limited access)")
 	log.Printf("")
 	if adminEmail != "" {
-		log.Printf("Admin Account (from environment):")
+		log.Printf("Platform / Admin Account (from SEED_SUPER_ADMIN_* or SEED_ADMIN_*):")
 		log.Printf("  Email: %s", adminEmail)
-		log.Printf("  Role: superuser (full access)")
+		log.Printf("  Role: superuser (platform owner scope)")
 	}
 	log.Printf("")
 	log.Printf("Tenants seeded: %d", len(tenants))
