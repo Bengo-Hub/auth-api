@@ -179,7 +179,8 @@ type PasswordResetConfirmInput struct {
 	NewPassword string
 }
 
-// AuthResult returned to caller.
+// AuthResult returned to caller (login, register, refresh).
+// Roles and Permissions are included so frontends can drive RBAC (sidebar, buttons) without a separate /me call.
 type AuthResult struct {
 	User                  *ent.User
 	Tenant                *ent.Tenant
@@ -188,6 +189,8 @@ type AuthResult struct {
 	RefreshToken          string
 	RefreshTokenExpiresAt time.Time
 	SessionID             uuid.UUID
+	Roles                 []string // All roles (all tenants) for RBAC; matches GET /me
+	Permissions           []string // Canonical permission codes; matches GET /me
 }
 
 // Register creates a new user and returns session tokens.
@@ -989,8 +992,11 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		}
 	}
 
-	// Load permissions for JWT (canonical codes for RBAC)
-	_, permissions, _ := s.GetUserRolesAndPermissions(ctx, sessionEntity.UserID)
+	// Load roles and permissions for JWT and response (canonical RBAC; matches GET /me)
+	allRoles, permissions, _ := s.GetUserRolesAndPermissions(ctx, sessionEntity.UserID)
+	if len(roles) == 0 && len(allRoles) > 0 {
+		roles = allRoles
+	}
 
 	// Build token input with subscription data if available
 	tokenInput := token.AccessTokenInput{
@@ -1046,6 +1052,8 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		RefreshToken:          refreshToken,
 		RefreshTokenExpiresAt: sessionEntity.ExpiresAt,
 		SessionID:             sessionEntity.ID,
+		Roles:                 allRoles,
+		Permissions:           permissions,
 	}, nil
 }
 
