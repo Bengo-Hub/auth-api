@@ -458,6 +458,11 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 }
 
 func (h *AuthHandler) toAuthResponse(result *auth.AuthResult) map[string]any {
+	userMap := userViewFromEnt(result.User)
+	if userMap != nil {
+		userMap["roles"] = result.Roles
+		userMap["permissions"] = result.Permissions
+	}
 	return map[string]any{
 		"access_token":       result.AccessToken,
 		"token_type":         "Bearer",
@@ -465,8 +470,10 @@ func (h *AuthHandler) toAuthResponse(result *auth.AuthResult) map[string]any {
 		"refresh_token":      result.RefreshToken,
 		"refresh_expires_in": int(time.Until(result.RefreshTokenExpiresAt).Seconds()),
 		"session_id":         result.SessionID,
-		"user":               userViewFromEnt(result.User),
+		"user":               userMap,
 		"tenant":             tenantViewFromEnt(result.Tenant),
+		"roles":              result.Roles,
+		"permissions":        result.Permissions,
 	}
 }
 
