@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bengobox/auth-api/internal/ent"
@@ -74,6 +76,49 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
+}
+
+// allowedLogoutRedirectHosts are hosts we allow for post_logout_redirect_uri (open redirect protection).
+var allowedLogoutRedirectHosts = []string{
+	"theurbanloftcafe.com", "www.theurbanloftcafe.com",
+	"ordersapp.codevertexitsolutions.com",
+	"accounts.codevertexitsolutions.com", "sso.codevertexitsolutions.com",
+	"notifications.codevertexitsolutions.com", "books.codevertexitsolutions.com",
+	"localhost",
+}
+
+// LogoutGet handles GET /auth/logout?post_logout_redirect_uri=... for browser redirect-based logout (e.g. from cafe-website).
+// Does not require auth. Clears session cookie and redirects to post_logout_redirect_uri if allowlisted, else to auth-ui landing.
+func (h *AuthHandler) LogoutGet(w http.ResponseWriter, r *http.Request) {
+	redirectURI := r.URL.Query().Get("post_logout_redirect_uri")
+
+	// Clear session cookie so the user is logged out on the auth domain
+	http.SetCookie(w, &http.Cookie{
+		Name:     "bb_session",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+
+	// If we have a valid redirect URI (same-origin or allowlisted), redirect there
+	if redirectURI != "" {
+		u, err := url.Parse(redirectURI)
+		if err == nil && u.Scheme != "" && (u.Scheme == "https" || u.Scheme == "http" && strings.HasPrefix(u.Host, "localhost")) {
+			host := strings.ToLower(strings.TrimPrefix(u.Host, "www."))
+			for _, allowed := range allowedLogoutRedirectHosts {
+				if host == allowed || strings.HasSuffix(host, "."+allowed) {
+					http.Redirect(w, r, redirectURI, http.StatusFound)
+					return
+				}
+			}
+		}
+	}
+
+	// Default: redirect to auth-ui landing (accounts)
+	http.Redirect(w, r, "https://accounts.codevertexitsolutions.com", http.StatusFound)
 }
 
 // AuthHandler exposes HTTP endpoints for authentication flows.
