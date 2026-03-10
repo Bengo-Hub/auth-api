@@ -19,14 +19,16 @@ type Service struct {
 	client        *ent.Client
 	redis         *redis.Client
 	encryptionKey string // AES hex key hex
+	apiBaseURL    string // Base URL for callback generation
 }
 
 // New creates a new integration service.
-func New(client *ent.Client, redis *redis.Client, encryptionKey string) *Service {
+func New(client *ent.Client, redis *redis.Client, encryptionKey, apiBaseURL string) *Service {
 	return &Service{
 		client:        client,
 		redis:         redis,
 		encryptionKey: encryptionKey,
+		apiBaseURL:    apiBaseURL,
 	}
 }
 
@@ -112,7 +114,12 @@ func (s *Service) GetDecryptedConfig(ctx context.Context, tenantID *uuid.UUID, n
 		return nil, fmt.Errorf("unmarshal credentials for %s: %w", name, err)
 	}
 
-	// 4. Cache in Redis for 24h
+	// 4. Resolve dynamic fields (like callback URLs) if missing
+	if _, exists := creds["redirect_url"]; !exists && s.apiBaseURL != "" {
+		creds["redirect_url"] = fmt.Sprintf("%s/api/v1/auth/oauth/%s/callback", s.apiBaseURL, name)
+	}
+
+	// 5. Cache in Redis for 24h
 	credsJSON, _ := json.Marshal(creds)
 	s.redis.Set(ctx, cacheKey, credsJSON, 24*time.Hour)
 
