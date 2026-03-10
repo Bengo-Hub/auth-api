@@ -22,6 +22,7 @@ COPY --from=builder /bin/auth-migrate /usr/local/bin/auth-migrate
 COPY --from=builder /bin/auth-seed /usr/local/bin/auth-seed
 COPY --from=builder /bin/auth-setup-db /usr/local/bin/auth-setup-db
 COPY config/keys ./config/keys
+COPY internal/ent/migrate/migrations ./internal/ent/migrate/migrations
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 # TLS certificates directory (optional, can be mounted as volume)
 RUN mkdir -p ./config/certs && chmod +x /usr/local/bin/entrypoint.sh

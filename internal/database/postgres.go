@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/schema"
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/migrate"
 	_ "github.com/jackc/pgx/v5/stdlib" // register pgx driver
 )
 
@@ -34,12 +35,9 @@ func NewClient(ctx context.Context, cfg config.DatabaseConfig) (*ent.Client, *sq
 	return client, db, nil
 }
 
-// RunMigrations executes Ent schema migrations.
+// RunMigrations executes Atlas versioned migrations.
 func RunMigrations(ctx context.Context, client *ent.Client) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	if err := client.Schema.Create(ctx); err != nil {
-		return fmt.Errorf("run migrations: %w", err)
-	}
-	return nil
+	return client.Schema.Create(ctx, 
+		schema.WithDir(migrate.Dir),
+	)
 }
