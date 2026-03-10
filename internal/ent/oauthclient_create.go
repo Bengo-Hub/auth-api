@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
@@ -19,6 +21,7 @@ type OAuthClientCreate struct {
 	config
 	mutation *OAuthClientMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetClientID sets the "client_id" field.
@@ -260,6 +263,7 @@ func (_c *OAuthClientCreate) createSpec() (*OAuthClient, *sqlgraph.CreateSpec) {
 		_node = &OAuthClient{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(oauthclient.Table, sqlgraph.NewFieldSpec(oauthclient.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -311,11 +315,488 @@ func (_c *OAuthClientCreate) createSpec() (*OAuthClient, *sqlgraph.CreateSpec) {
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.OAuthClient.Create().
+//		SetClientID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.OAuthClientUpsert) {
+//			SetClientID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *OAuthClientCreate) OnConflict(opts ...sql.ConflictOption) *OAuthClientUpsertOne {
+	_c.conflict = opts
+	return &OAuthClientUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.OAuthClient.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *OAuthClientCreate) OnConflictColumns(columns ...string) *OAuthClientUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &OAuthClientUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// OAuthClientUpsertOne is the builder for "upsert"-ing
+	//  one OAuthClient node.
+	OAuthClientUpsertOne struct {
+		create *OAuthClientCreate
+	}
+
+	// OAuthClientUpsert is the "OnConflict" setter.
+	OAuthClientUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetClientID sets the "client_id" field.
+func (u *OAuthClientUpsert) SetClientID(v string) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldClientID, v)
+	return u
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateClientID() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldClientID)
+	return u
+}
+
+// SetClientSecret sets the "client_secret" field.
+func (u *OAuthClientUpsert) SetClientSecret(v string) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldClientSecret, v)
+	return u
+}
+
+// UpdateClientSecret sets the "client_secret" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateClientSecret() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldClientSecret)
+	return u
+}
+
+// ClearClientSecret clears the value of the "client_secret" field.
+func (u *OAuthClientUpsert) ClearClientSecret() *OAuthClientUpsert {
+	u.SetNull(oauthclient.FieldClientSecret)
+	return u
+}
+
+// SetName sets the "name" field.
+func (u *OAuthClientUpsert) SetName(v string) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldName, v)
+	return u
+}
+
+// UpdateName sets the "name" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateName() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldName)
+	return u
+}
+
+// SetRedirectUris sets the "redirect_uris" field.
+func (u *OAuthClientUpsert) SetRedirectUris(v []string) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldRedirectUris, v)
+	return u
+}
+
+// UpdateRedirectUris sets the "redirect_uris" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateRedirectUris() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldRedirectUris)
+	return u
+}
+
+// ClearRedirectUris clears the value of the "redirect_uris" field.
+func (u *OAuthClientUpsert) ClearRedirectUris() *OAuthClientUpsert {
+	u.SetNull(oauthclient.FieldRedirectUris)
+	return u
+}
+
+// SetAllowedScopes sets the "allowed_scopes" field.
+func (u *OAuthClientUpsert) SetAllowedScopes(v []string) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldAllowedScopes, v)
+	return u
+}
+
+// UpdateAllowedScopes sets the "allowed_scopes" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateAllowedScopes() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldAllowedScopes)
+	return u
+}
+
+// ClearAllowedScopes clears the value of the "allowed_scopes" field.
+func (u *OAuthClientUpsert) ClearAllowedScopes() *OAuthClientUpsert {
+	u.SetNull(oauthclient.FieldAllowedScopes)
+	return u
+}
+
+// SetPublic sets the "public" field.
+func (u *OAuthClientUpsert) SetPublic(v bool) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldPublic, v)
+	return u
+}
+
+// UpdatePublic sets the "public" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdatePublic() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldPublic)
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *OAuthClientUpsert) SetTenantID(v string) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldTenantID, v)
+	return u
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateTenantID() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldTenantID)
+	return u
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *OAuthClientUpsert) ClearTenantID() *OAuthClientUpsert {
+	u.SetNull(oauthclient.FieldTenantID)
+	return u
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (u *OAuthClientUpsert) SetCreatedBy(v uuid.UUID) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldCreatedBy, v)
+	return u
+}
+
+// UpdateCreatedBy sets the "created_by" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateCreatedBy() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldCreatedBy)
+	return u
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (u *OAuthClientUpsert) ClearCreatedBy() *OAuthClientUpsert {
+	u.SetNull(oauthclient.FieldCreatedBy)
+	return u
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *OAuthClientUpsert) SetMetadata(v map[string]interface{}) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldMetadata, v)
+	return u
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateMetadata() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldMetadata)
+	return u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *OAuthClientUpsert) ClearMetadata() *OAuthClientUpsert {
+	u.SetNull(oauthclient.FieldMetadata)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *OAuthClientUpsert) SetUpdatedAt(v time.Time) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateUpdatedAt() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldUpdatedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.OAuthClient.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(oauthclient.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *OAuthClientUpsertOne) UpdateNewValues() *OAuthClientUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(oauthclient.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(oauthclient.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.OAuthClient.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *OAuthClientUpsertOne) Ignore() *OAuthClientUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *OAuthClientUpsertOne) DoNothing() *OAuthClientUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the OAuthClientCreate.OnConflict
+// documentation for more info.
+func (u *OAuthClientUpsertOne) Update(set func(*OAuthClientUpsert)) *OAuthClientUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&OAuthClientUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetClientID sets the "client_id" field.
+func (u *OAuthClientUpsertOne) SetClientID(v string) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetClientID(v)
+	})
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateClientID() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateClientID()
+	})
+}
+
+// SetClientSecret sets the "client_secret" field.
+func (u *OAuthClientUpsertOne) SetClientSecret(v string) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetClientSecret(v)
+	})
+}
+
+// UpdateClientSecret sets the "client_secret" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateClientSecret() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateClientSecret()
+	})
+}
+
+// ClearClientSecret clears the value of the "client_secret" field.
+func (u *OAuthClientUpsertOne) ClearClientSecret() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearClientSecret()
+	})
+}
+
+// SetName sets the "name" field.
+func (u *OAuthClientUpsertOne) SetName(v string) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetName(v)
+	})
+}
+
+// UpdateName sets the "name" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateName() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateName()
+	})
+}
+
+// SetRedirectUris sets the "redirect_uris" field.
+func (u *OAuthClientUpsertOne) SetRedirectUris(v []string) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetRedirectUris(v)
+	})
+}
+
+// UpdateRedirectUris sets the "redirect_uris" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateRedirectUris() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateRedirectUris()
+	})
+}
+
+// ClearRedirectUris clears the value of the "redirect_uris" field.
+func (u *OAuthClientUpsertOne) ClearRedirectUris() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearRedirectUris()
+	})
+}
+
+// SetAllowedScopes sets the "allowed_scopes" field.
+func (u *OAuthClientUpsertOne) SetAllowedScopes(v []string) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetAllowedScopes(v)
+	})
+}
+
+// UpdateAllowedScopes sets the "allowed_scopes" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateAllowedScopes() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateAllowedScopes()
+	})
+}
+
+// ClearAllowedScopes clears the value of the "allowed_scopes" field.
+func (u *OAuthClientUpsertOne) ClearAllowedScopes() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearAllowedScopes()
+	})
+}
+
+// SetPublic sets the "public" field.
+func (u *OAuthClientUpsertOne) SetPublic(v bool) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetPublic(v)
+	})
+}
+
+// UpdatePublic sets the "public" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdatePublic() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdatePublic()
+	})
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *OAuthClientUpsertOne) SetTenantID(v string) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateTenantID() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *OAuthClientUpsertOne) ClearTenantID() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearTenantID()
+	})
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (u *OAuthClientUpsertOne) SetCreatedBy(v uuid.UUID) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetCreatedBy(v)
+	})
+}
+
+// UpdateCreatedBy sets the "created_by" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateCreatedBy() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateCreatedBy()
+	})
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (u *OAuthClientUpsertOne) ClearCreatedBy() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearCreatedBy()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *OAuthClientUpsertOne) SetMetadata(v map[string]interface{}) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateMetadata() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *OAuthClientUpsertOne) ClearMetadata() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *OAuthClientUpsertOne) SetUpdatedAt(v time.Time) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateUpdatedAt() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *OAuthClientUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for OAuthClientCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *OAuthClientUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *OAuthClientUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: OAuthClientUpsertOne.ID is not supported by MySQL driver. Use OAuthClientUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *OAuthClientUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // OAuthClientCreateBulk is the builder for creating many OAuthClient entities in bulk.
 type OAuthClientCreateBulk struct {
 	config
 	err      error
 	builders []*OAuthClientCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the OAuthClient entities in the database.
@@ -345,6 +826,7 @@ func (_c *OAuthClientCreateBulk) Save(ctx context.Context) ([]*OAuthClient, erro
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -391,6 +873,305 @@ func (_c *OAuthClientCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *OAuthClientCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.OAuthClient.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.OAuthClientUpsert) {
+//			SetClientID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *OAuthClientCreateBulk) OnConflict(opts ...sql.ConflictOption) *OAuthClientUpsertBulk {
+	_c.conflict = opts
+	return &OAuthClientUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.OAuthClient.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *OAuthClientCreateBulk) OnConflictColumns(columns ...string) *OAuthClientUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &OAuthClientUpsertBulk{
+		create: _c,
+	}
+}
+
+// OAuthClientUpsertBulk is the builder for "upsert"-ing
+// a bulk of OAuthClient nodes.
+type OAuthClientUpsertBulk struct {
+	create *OAuthClientCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.OAuthClient.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(oauthclient.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *OAuthClientUpsertBulk) UpdateNewValues() *OAuthClientUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(oauthclient.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(oauthclient.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.OAuthClient.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *OAuthClientUpsertBulk) Ignore() *OAuthClientUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *OAuthClientUpsertBulk) DoNothing() *OAuthClientUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the OAuthClientCreateBulk.OnConflict
+// documentation for more info.
+func (u *OAuthClientUpsertBulk) Update(set func(*OAuthClientUpsert)) *OAuthClientUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&OAuthClientUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetClientID sets the "client_id" field.
+func (u *OAuthClientUpsertBulk) SetClientID(v string) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetClientID(v)
+	})
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateClientID() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateClientID()
+	})
+}
+
+// SetClientSecret sets the "client_secret" field.
+func (u *OAuthClientUpsertBulk) SetClientSecret(v string) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetClientSecret(v)
+	})
+}
+
+// UpdateClientSecret sets the "client_secret" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateClientSecret() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateClientSecret()
+	})
+}
+
+// ClearClientSecret clears the value of the "client_secret" field.
+func (u *OAuthClientUpsertBulk) ClearClientSecret() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearClientSecret()
+	})
+}
+
+// SetName sets the "name" field.
+func (u *OAuthClientUpsertBulk) SetName(v string) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetName(v)
+	})
+}
+
+// UpdateName sets the "name" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateName() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateName()
+	})
+}
+
+// SetRedirectUris sets the "redirect_uris" field.
+func (u *OAuthClientUpsertBulk) SetRedirectUris(v []string) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetRedirectUris(v)
+	})
+}
+
+// UpdateRedirectUris sets the "redirect_uris" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateRedirectUris() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateRedirectUris()
+	})
+}
+
+// ClearRedirectUris clears the value of the "redirect_uris" field.
+func (u *OAuthClientUpsertBulk) ClearRedirectUris() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearRedirectUris()
+	})
+}
+
+// SetAllowedScopes sets the "allowed_scopes" field.
+func (u *OAuthClientUpsertBulk) SetAllowedScopes(v []string) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetAllowedScopes(v)
+	})
+}
+
+// UpdateAllowedScopes sets the "allowed_scopes" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateAllowedScopes() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateAllowedScopes()
+	})
+}
+
+// ClearAllowedScopes clears the value of the "allowed_scopes" field.
+func (u *OAuthClientUpsertBulk) ClearAllowedScopes() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearAllowedScopes()
+	})
+}
+
+// SetPublic sets the "public" field.
+func (u *OAuthClientUpsertBulk) SetPublic(v bool) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetPublic(v)
+	})
+}
+
+// UpdatePublic sets the "public" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdatePublic() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdatePublic()
+	})
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *OAuthClientUpsertBulk) SetTenantID(v string) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateTenantID() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *OAuthClientUpsertBulk) ClearTenantID() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearTenantID()
+	})
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (u *OAuthClientUpsertBulk) SetCreatedBy(v uuid.UUID) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetCreatedBy(v)
+	})
+}
+
+// UpdateCreatedBy sets the "created_by" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateCreatedBy() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateCreatedBy()
+	})
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (u *OAuthClientUpsertBulk) ClearCreatedBy() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearCreatedBy()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *OAuthClientUpsertBulk) SetMetadata(v map[string]interface{}) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateMetadata() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *OAuthClientUpsertBulk) ClearMetadata() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *OAuthClientUpsertBulk) SetUpdatedAt(v time.Time) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateUpdatedAt() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *OAuthClientUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the OAuthClientCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for OAuthClientCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *OAuthClientUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

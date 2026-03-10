@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/loginattempt"
@@ -19,6 +21,7 @@ type LoginAttemptCreate struct {
 	config
 	mutation *LoginAttemptMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetTenantID sets the "tenant_id" field.
@@ -242,6 +245,7 @@ func (_c *LoginAttemptCreate) createSpec() (*LoginAttempt, *sqlgraph.CreateSpec)
 		_node = &LoginAttempt{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(loginattempt.Table, sqlgraph.NewFieldSpec(loginattempt.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -281,11 +285,397 @@ func (_c *LoginAttemptCreate) createSpec() (*LoginAttempt, *sqlgraph.CreateSpec)
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.LoginAttempt.Create().
+//		SetTenantID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.LoginAttemptUpsert) {
+//			SetTenantID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *LoginAttemptCreate) OnConflict(opts ...sql.ConflictOption) *LoginAttemptUpsertOne {
+	_c.conflict = opts
+	return &LoginAttemptUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.LoginAttempt.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *LoginAttemptCreate) OnConflictColumns(columns ...string) *LoginAttemptUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &LoginAttemptUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// LoginAttemptUpsertOne is the builder for "upsert"-ing
+	//  one LoginAttempt node.
+	LoginAttemptUpsertOne struct {
+		create *LoginAttemptCreate
+	}
+
+	// LoginAttemptUpsert is the "OnConflict" setter.
+	LoginAttemptUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetTenantID sets the "tenant_id" field.
+func (u *LoginAttemptUpsert) SetTenantID(v uuid.UUID) *LoginAttemptUpsert {
+	u.Set(loginattempt.FieldTenantID, v)
+	return u
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *LoginAttemptUpsert) UpdateTenantID() *LoginAttemptUpsert {
+	u.SetExcluded(loginattempt.FieldTenantID)
+	return u
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *LoginAttemptUpsert) ClearTenantID() *LoginAttemptUpsert {
+	u.SetNull(loginattempt.FieldTenantID)
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *LoginAttemptUpsert) SetUserID(v uuid.UUID) *LoginAttemptUpsert {
+	u.Set(loginattempt.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *LoginAttemptUpsert) UpdateUserID() *LoginAttemptUpsert {
+	u.SetExcluded(loginattempt.FieldUserID)
+	return u
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (u *LoginAttemptUpsert) ClearUserID() *LoginAttemptUpsert {
+	u.SetNull(loginattempt.FieldUserID)
+	return u
+}
+
+// SetEmail sets the "email" field.
+func (u *LoginAttemptUpsert) SetEmail(v string) *LoginAttemptUpsert {
+	u.Set(loginattempt.FieldEmail, v)
+	return u
+}
+
+// UpdateEmail sets the "email" field to the value that was provided on create.
+func (u *LoginAttemptUpsert) UpdateEmail() *LoginAttemptUpsert {
+	u.SetExcluded(loginattempt.FieldEmail)
+	return u
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *LoginAttemptUpsert) SetIPAddress(v string) *LoginAttemptUpsert {
+	u.Set(loginattempt.FieldIPAddress, v)
+	return u
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *LoginAttemptUpsert) UpdateIPAddress() *LoginAttemptUpsert {
+	u.SetExcluded(loginattempt.FieldIPAddress)
+	return u
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *LoginAttemptUpsert) ClearIPAddress() *LoginAttemptUpsert {
+	u.SetNull(loginattempt.FieldIPAddress)
+	return u
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *LoginAttemptUpsert) SetUserAgent(v string) *LoginAttemptUpsert {
+	u.Set(loginattempt.FieldUserAgent, v)
+	return u
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *LoginAttemptUpsert) UpdateUserAgent() *LoginAttemptUpsert {
+	u.SetExcluded(loginattempt.FieldUserAgent)
+	return u
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *LoginAttemptUpsert) ClearUserAgent() *LoginAttemptUpsert {
+	u.SetNull(loginattempt.FieldUserAgent)
+	return u
+}
+
+// SetSuccess sets the "success" field.
+func (u *LoginAttemptUpsert) SetSuccess(v bool) *LoginAttemptUpsert {
+	u.Set(loginattempt.FieldSuccess, v)
+	return u
+}
+
+// UpdateSuccess sets the "success" field to the value that was provided on create.
+func (u *LoginAttemptUpsert) UpdateSuccess() *LoginAttemptUpsert {
+	u.SetExcluded(loginattempt.FieldSuccess)
+	return u
+}
+
+// SetFailureReason sets the "failure_reason" field.
+func (u *LoginAttemptUpsert) SetFailureReason(v string) *LoginAttemptUpsert {
+	u.Set(loginattempt.FieldFailureReason, v)
+	return u
+}
+
+// UpdateFailureReason sets the "failure_reason" field to the value that was provided on create.
+func (u *LoginAttemptUpsert) UpdateFailureReason() *LoginAttemptUpsert {
+	u.SetExcluded(loginattempt.FieldFailureReason)
+	return u
+}
+
+// ClearFailureReason clears the value of the "failure_reason" field.
+func (u *LoginAttemptUpsert) ClearFailureReason() *LoginAttemptUpsert {
+	u.SetNull(loginattempt.FieldFailureReason)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.LoginAttempt.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(loginattempt.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *LoginAttemptUpsertOne) UpdateNewValues() *LoginAttemptUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(loginattempt.FieldID)
+		}
+		if _, exists := u.create.mutation.OccurredAt(); exists {
+			s.SetIgnore(loginattempt.FieldOccurredAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.LoginAttempt.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *LoginAttemptUpsertOne) Ignore() *LoginAttemptUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *LoginAttemptUpsertOne) DoNothing() *LoginAttemptUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the LoginAttemptCreate.OnConflict
+// documentation for more info.
+func (u *LoginAttemptUpsertOne) Update(set func(*LoginAttemptUpsert)) *LoginAttemptUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&LoginAttemptUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *LoginAttemptUpsertOne) SetTenantID(v uuid.UUID) *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *LoginAttemptUpsertOne) UpdateTenantID() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *LoginAttemptUpsertOne) ClearTenantID() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearTenantID()
+	})
+}
+
+// SetUserID sets the "user_id" field.
+func (u *LoginAttemptUpsertOne) SetUserID(v uuid.UUID) *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *LoginAttemptUpsertOne) UpdateUserID() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (u *LoginAttemptUpsertOne) ClearUserID() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearUserID()
+	})
+}
+
+// SetEmail sets the "email" field.
+func (u *LoginAttemptUpsertOne) SetEmail(v string) *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetEmail(v)
+	})
+}
+
+// UpdateEmail sets the "email" field to the value that was provided on create.
+func (u *LoginAttemptUpsertOne) UpdateEmail() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateEmail()
+	})
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *LoginAttemptUpsertOne) SetIPAddress(v string) *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetIPAddress(v)
+	})
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *LoginAttemptUpsertOne) UpdateIPAddress() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateIPAddress()
+	})
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *LoginAttemptUpsertOne) ClearIPAddress() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearIPAddress()
+	})
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *LoginAttemptUpsertOne) SetUserAgent(v string) *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetUserAgent(v)
+	})
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *LoginAttemptUpsertOne) UpdateUserAgent() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateUserAgent()
+	})
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *LoginAttemptUpsertOne) ClearUserAgent() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearUserAgent()
+	})
+}
+
+// SetSuccess sets the "success" field.
+func (u *LoginAttemptUpsertOne) SetSuccess(v bool) *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetSuccess(v)
+	})
+}
+
+// UpdateSuccess sets the "success" field to the value that was provided on create.
+func (u *LoginAttemptUpsertOne) UpdateSuccess() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateSuccess()
+	})
+}
+
+// SetFailureReason sets the "failure_reason" field.
+func (u *LoginAttemptUpsertOne) SetFailureReason(v string) *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetFailureReason(v)
+	})
+}
+
+// UpdateFailureReason sets the "failure_reason" field to the value that was provided on create.
+func (u *LoginAttemptUpsertOne) UpdateFailureReason() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateFailureReason()
+	})
+}
+
+// ClearFailureReason clears the value of the "failure_reason" field.
+func (u *LoginAttemptUpsertOne) ClearFailureReason() *LoginAttemptUpsertOne {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearFailureReason()
+	})
+}
+
+// Exec executes the query.
+func (u *LoginAttemptUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for LoginAttemptCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *LoginAttemptUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *LoginAttemptUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: LoginAttemptUpsertOne.ID is not supported by MySQL driver. Use LoginAttemptUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *LoginAttemptUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // LoginAttemptCreateBulk is the builder for creating many LoginAttempt entities in bulk.
 type LoginAttemptCreateBulk struct {
 	config
 	err      error
 	builders []*LoginAttemptCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the LoginAttempt entities in the database.
@@ -315,6 +705,7 @@ func (_c *LoginAttemptCreateBulk) Save(ctx context.Context) ([]*LoginAttempt, er
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -361,6 +752,256 @@ func (_c *LoginAttemptCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *LoginAttemptCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.LoginAttempt.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.LoginAttemptUpsert) {
+//			SetTenantID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *LoginAttemptCreateBulk) OnConflict(opts ...sql.ConflictOption) *LoginAttemptUpsertBulk {
+	_c.conflict = opts
+	return &LoginAttemptUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.LoginAttempt.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *LoginAttemptCreateBulk) OnConflictColumns(columns ...string) *LoginAttemptUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &LoginAttemptUpsertBulk{
+		create: _c,
+	}
+}
+
+// LoginAttemptUpsertBulk is the builder for "upsert"-ing
+// a bulk of LoginAttempt nodes.
+type LoginAttemptUpsertBulk struct {
+	create *LoginAttemptCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.LoginAttempt.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(loginattempt.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *LoginAttemptUpsertBulk) UpdateNewValues() *LoginAttemptUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(loginattempt.FieldID)
+			}
+			if _, exists := b.mutation.OccurredAt(); exists {
+				s.SetIgnore(loginattempt.FieldOccurredAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.LoginAttempt.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *LoginAttemptUpsertBulk) Ignore() *LoginAttemptUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *LoginAttemptUpsertBulk) DoNothing() *LoginAttemptUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the LoginAttemptCreateBulk.OnConflict
+// documentation for more info.
+func (u *LoginAttemptUpsertBulk) Update(set func(*LoginAttemptUpsert)) *LoginAttemptUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&LoginAttemptUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *LoginAttemptUpsertBulk) SetTenantID(v uuid.UUID) *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *LoginAttemptUpsertBulk) UpdateTenantID() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *LoginAttemptUpsertBulk) ClearTenantID() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearTenantID()
+	})
+}
+
+// SetUserID sets the "user_id" field.
+func (u *LoginAttemptUpsertBulk) SetUserID(v uuid.UUID) *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *LoginAttemptUpsertBulk) UpdateUserID() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (u *LoginAttemptUpsertBulk) ClearUserID() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearUserID()
+	})
+}
+
+// SetEmail sets the "email" field.
+func (u *LoginAttemptUpsertBulk) SetEmail(v string) *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetEmail(v)
+	})
+}
+
+// UpdateEmail sets the "email" field to the value that was provided on create.
+func (u *LoginAttemptUpsertBulk) UpdateEmail() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateEmail()
+	})
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *LoginAttemptUpsertBulk) SetIPAddress(v string) *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetIPAddress(v)
+	})
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *LoginAttemptUpsertBulk) UpdateIPAddress() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateIPAddress()
+	})
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *LoginAttemptUpsertBulk) ClearIPAddress() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearIPAddress()
+	})
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *LoginAttemptUpsertBulk) SetUserAgent(v string) *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetUserAgent(v)
+	})
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *LoginAttemptUpsertBulk) UpdateUserAgent() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateUserAgent()
+	})
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *LoginAttemptUpsertBulk) ClearUserAgent() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearUserAgent()
+	})
+}
+
+// SetSuccess sets the "success" field.
+func (u *LoginAttemptUpsertBulk) SetSuccess(v bool) *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetSuccess(v)
+	})
+}
+
+// UpdateSuccess sets the "success" field to the value that was provided on create.
+func (u *LoginAttemptUpsertBulk) UpdateSuccess() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateSuccess()
+	})
+}
+
+// SetFailureReason sets the "failure_reason" field.
+func (u *LoginAttemptUpsertBulk) SetFailureReason(v string) *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.SetFailureReason(v)
+	})
+}
+
+// UpdateFailureReason sets the "failure_reason" field to the value that was provided on create.
+func (u *LoginAttemptUpsertBulk) UpdateFailureReason() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.UpdateFailureReason()
+	})
+}
+
+// ClearFailureReason clears the value of the "failure_reason" field.
+func (u *LoginAttemptUpsertBulk) ClearFailureReason() *LoginAttemptUpsertBulk {
+	return u.Update(func(s *LoginAttemptUpsert) {
+		s.ClearFailureReason()
+	})
+}
+
+// Exec executes the query.
+func (u *LoginAttemptUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the LoginAttemptCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for LoginAttemptCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *LoginAttemptUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -20,6 +22,7 @@ type UserIdentityCreate struct {
 	config
 	mutation *UserIdentityMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetUserID sets the "user_id" field.
@@ -294,6 +297,7 @@ func (_c *UserIdentityCreate) createSpec() (*UserIdentity, *sqlgraph.CreateSpec)
 		_node = &UserIdentity{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(useridentity.Table, sqlgraph.NewFieldSpec(useridentity.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -362,11 +366,501 @@ func (_c *UserIdentityCreate) createSpec() (*UserIdentity, *sqlgraph.CreateSpec)
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.UserIdentity.Create().
+//		SetUserID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.UserIdentityUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *UserIdentityCreate) OnConflict(opts ...sql.ConflictOption) *UserIdentityUpsertOne {
+	_c.conflict = opts
+	return &UserIdentityUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.UserIdentity.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *UserIdentityCreate) OnConflictColumns(columns ...string) *UserIdentityUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &UserIdentityUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// UserIdentityUpsertOne is the builder for "upsert"-ing
+	//  one UserIdentity node.
+	UserIdentityUpsertOne struct {
+		create *UserIdentityCreate
+	}
+
+	// UserIdentityUpsert is the "OnConflict" setter.
+	UserIdentityUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUserID sets the "user_id" field.
+func (u *UserIdentityUpsert) SetUserID(v uuid.UUID) *UserIdentityUpsert {
+	u.Set(useridentity.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateUserID() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldUserID)
+	return u
+}
+
+// SetProvider sets the "provider" field.
+func (u *UserIdentityUpsert) SetProvider(v string) *UserIdentityUpsert {
+	u.Set(useridentity.FieldProvider, v)
+	return u
+}
+
+// UpdateProvider sets the "provider" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateProvider() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldProvider)
+	return u
+}
+
+// SetProviderSubject sets the "provider_subject" field.
+func (u *UserIdentityUpsert) SetProviderSubject(v string) *UserIdentityUpsert {
+	u.Set(useridentity.FieldProviderSubject, v)
+	return u
+}
+
+// UpdateProviderSubject sets the "provider_subject" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateProviderSubject() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldProviderSubject)
+	return u
+}
+
+// SetProviderEmail sets the "provider_email" field.
+func (u *UserIdentityUpsert) SetProviderEmail(v string) *UserIdentityUpsert {
+	u.Set(useridentity.FieldProviderEmail, v)
+	return u
+}
+
+// UpdateProviderEmail sets the "provider_email" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateProviderEmail() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldProviderEmail)
+	return u
+}
+
+// SetEmailVerified sets the "email_verified" field.
+func (u *UserIdentityUpsert) SetEmailVerified(v bool) *UserIdentityUpsert {
+	u.Set(useridentity.FieldEmailVerified, v)
+	return u
+}
+
+// UpdateEmailVerified sets the "email_verified" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateEmailVerified() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldEmailVerified)
+	return u
+}
+
+// SetAccessToken sets the "access_token" field.
+func (u *UserIdentityUpsert) SetAccessToken(v string) *UserIdentityUpsert {
+	u.Set(useridentity.FieldAccessToken, v)
+	return u
+}
+
+// UpdateAccessToken sets the "access_token" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateAccessToken() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldAccessToken)
+	return u
+}
+
+// ClearAccessToken clears the value of the "access_token" field.
+func (u *UserIdentityUpsert) ClearAccessToken() *UserIdentityUpsert {
+	u.SetNull(useridentity.FieldAccessToken)
+	return u
+}
+
+// SetRefreshToken sets the "refresh_token" field.
+func (u *UserIdentityUpsert) SetRefreshToken(v string) *UserIdentityUpsert {
+	u.Set(useridentity.FieldRefreshToken, v)
+	return u
+}
+
+// UpdateRefreshToken sets the "refresh_token" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateRefreshToken() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldRefreshToken)
+	return u
+}
+
+// ClearRefreshToken clears the value of the "refresh_token" field.
+func (u *UserIdentityUpsert) ClearRefreshToken() *UserIdentityUpsert {
+	u.SetNull(useridentity.FieldRefreshToken)
+	return u
+}
+
+// SetTokenExpiry sets the "token_expiry" field.
+func (u *UserIdentityUpsert) SetTokenExpiry(v time.Time) *UserIdentityUpsert {
+	u.Set(useridentity.FieldTokenExpiry, v)
+	return u
+}
+
+// UpdateTokenExpiry sets the "token_expiry" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateTokenExpiry() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldTokenExpiry)
+	return u
+}
+
+// ClearTokenExpiry clears the value of the "token_expiry" field.
+func (u *UserIdentityUpsert) ClearTokenExpiry() *UserIdentityUpsert {
+	u.SetNull(useridentity.FieldTokenExpiry)
+	return u
+}
+
+// SetScope sets the "scope" field.
+func (u *UserIdentityUpsert) SetScope(v string) *UserIdentityUpsert {
+	u.Set(useridentity.FieldScope, v)
+	return u
+}
+
+// UpdateScope sets the "scope" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateScope() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldScope)
+	return u
+}
+
+// ClearScope clears the value of the "scope" field.
+func (u *UserIdentityUpsert) ClearScope() *UserIdentityUpsert {
+	u.SetNull(useridentity.FieldScope)
+	return u
+}
+
+// SetProfile sets the "profile" field.
+func (u *UserIdentityUpsert) SetProfile(v map[string]interface{}) *UserIdentityUpsert {
+	u.Set(useridentity.FieldProfile, v)
+	return u
+}
+
+// UpdateProfile sets the "profile" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateProfile() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldProfile)
+	return u
+}
+
+// ClearProfile clears the value of the "profile" field.
+func (u *UserIdentityUpsert) ClearProfile() *UserIdentityUpsert {
+	u.SetNull(useridentity.FieldProfile)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *UserIdentityUpsert) SetUpdatedAt(v time.Time) *UserIdentityUpsert {
+	u.Set(useridentity.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *UserIdentityUpsert) UpdateUpdatedAt() *UserIdentityUpsert {
+	u.SetExcluded(useridentity.FieldUpdatedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.UserIdentity.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(useridentity.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *UserIdentityUpsertOne) UpdateNewValues() *UserIdentityUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(useridentity.FieldID)
+		}
+		if _, exists := u.create.mutation.LinkedAt(); exists {
+			s.SetIgnore(useridentity.FieldLinkedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.UserIdentity.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *UserIdentityUpsertOne) Ignore() *UserIdentityUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *UserIdentityUpsertOne) DoNothing() *UserIdentityUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the UserIdentityCreate.OnConflict
+// documentation for more info.
+func (u *UserIdentityUpsertOne) Update(set func(*UserIdentityUpsert)) *UserIdentityUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&UserIdentityUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *UserIdentityUpsertOne) SetUserID(v uuid.UUID) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateUserID() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetProvider sets the "provider" field.
+func (u *UserIdentityUpsertOne) SetProvider(v string) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetProvider(v)
+	})
+}
+
+// UpdateProvider sets the "provider" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateProvider() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateProvider()
+	})
+}
+
+// SetProviderSubject sets the "provider_subject" field.
+func (u *UserIdentityUpsertOne) SetProviderSubject(v string) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetProviderSubject(v)
+	})
+}
+
+// UpdateProviderSubject sets the "provider_subject" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateProviderSubject() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateProviderSubject()
+	})
+}
+
+// SetProviderEmail sets the "provider_email" field.
+func (u *UserIdentityUpsertOne) SetProviderEmail(v string) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetProviderEmail(v)
+	})
+}
+
+// UpdateProviderEmail sets the "provider_email" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateProviderEmail() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateProviderEmail()
+	})
+}
+
+// SetEmailVerified sets the "email_verified" field.
+func (u *UserIdentityUpsertOne) SetEmailVerified(v bool) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetEmailVerified(v)
+	})
+}
+
+// UpdateEmailVerified sets the "email_verified" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateEmailVerified() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateEmailVerified()
+	})
+}
+
+// SetAccessToken sets the "access_token" field.
+func (u *UserIdentityUpsertOne) SetAccessToken(v string) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetAccessToken(v)
+	})
+}
+
+// UpdateAccessToken sets the "access_token" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateAccessToken() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateAccessToken()
+	})
+}
+
+// ClearAccessToken clears the value of the "access_token" field.
+func (u *UserIdentityUpsertOne) ClearAccessToken() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearAccessToken()
+	})
+}
+
+// SetRefreshToken sets the "refresh_token" field.
+func (u *UserIdentityUpsertOne) SetRefreshToken(v string) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetRefreshToken(v)
+	})
+}
+
+// UpdateRefreshToken sets the "refresh_token" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateRefreshToken() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateRefreshToken()
+	})
+}
+
+// ClearRefreshToken clears the value of the "refresh_token" field.
+func (u *UserIdentityUpsertOne) ClearRefreshToken() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearRefreshToken()
+	})
+}
+
+// SetTokenExpiry sets the "token_expiry" field.
+func (u *UserIdentityUpsertOne) SetTokenExpiry(v time.Time) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetTokenExpiry(v)
+	})
+}
+
+// UpdateTokenExpiry sets the "token_expiry" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateTokenExpiry() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateTokenExpiry()
+	})
+}
+
+// ClearTokenExpiry clears the value of the "token_expiry" field.
+func (u *UserIdentityUpsertOne) ClearTokenExpiry() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearTokenExpiry()
+	})
+}
+
+// SetScope sets the "scope" field.
+func (u *UserIdentityUpsertOne) SetScope(v string) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetScope(v)
+	})
+}
+
+// UpdateScope sets the "scope" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateScope() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateScope()
+	})
+}
+
+// ClearScope clears the value of the "scope" field.
+func (u *UserIdentityUpsertOne) ClearScope() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearScope()
+	})
+}
+
+// SetProfile sets the "profile" field.
+func (u *UserIdentityUpsertOne) SetProfile(v map[string]interface{}) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetProfile(v)
+	})
+}
+
+// UpdateProfile sets the "profile" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateProfile() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateProfile()
+	})
+}
+
+// ClearProfile clears the value of the "profile" field.
+func (u *UserIdentityUpsertOne) ClearProfile() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearProfile()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *UserIdentityUpsertOne) SetUpdatedAt(v time.Time) *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *UserIdentityUpsertOne) UpdateUpdatedAt() *UserIdentityUpsertOne {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *UserIdentityUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for UserIdentityCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *UserIdentityUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *UserIdentityUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: UserIdentityUpsertOne.ID is not supported by MySQL driver. Use UserIdentityUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *UserIdentityUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // UserIdentityCreateBulk is the builder for creating many UserIdentity entities in bulk.
 type UserIdentityCreateBulk struct {
 	config
 	err      error
 	builders []*UserIdentityCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the UserIdentity entities in the database.
@@ -396,6 +890,7 @@ func (_c *UserIdentityCreateBulk) Save(ctx context.Context) ([]*UserIdentity, er
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -442,6 +937,312 @@ func (_c *UserIdentityCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *UserIdentityCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.UserIdentity.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.UserIdentityUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *UserIdentityCreateBulk) OnConflict(opts ...sql.ConflictOption) *UserIdentityUpsertBulk {
+	_c.conflict = opts
+	return &UserIdentityUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.UserIdentity.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *UserIdentityCreateBulk) OnConflictColumns(columns ...string) *UserIdentityUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &UserIdentityUpsertBulk{
+		create: _c,
+	}
+}
+
+// UserIdentityUpsertBulk is the builder for "upsert"-ing
+// a bulk of UserIdentity nodes.
+type UserIdentityUpsertBulk struct {
+	create *UserIdentityCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.UserIdentity.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(useridentity.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *UserIdentityUpsertBulk) UpdateNewValues() *UserIdentityUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(useridentity.FieldID)
+			}
+			if _, exists := b.mutation.LinkedAt(); exists {
+				s.SetIgnore(useridentity.FieldLinkedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.UserIdentity.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *UserIdentityUpsertBulk) Ignore() *UserIdentityUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *UserIdentityUpsertBulk) DoNothing() *UserIdentityUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the UserIdentityCreateBulk.OnConflict
+// documentation for more info.
+func (u *UserIdentityUpsertBulk) Update(set func(*UserIdentityUpsert)) *UserIdentityUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&UserIdentityUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *UserIdentityUpsertBulk) SetUserID(v uuid.UUID) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateUserID() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetProvider sets the "provider" field.
+func (u *UserIdentityUpsertBulk) SetProvider(v string) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetProvider(v)
+	})
+}
+
+// UpdateProvider sets the "provider" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateProvider() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateProvider()
+	})
+}
+
+// SetProviderSubject sets the "provider_subject" field.
+func (u *UserIdentityUpsertBulk) SetProviderSubject(v string) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetProviderSubject(v)
+	})
+}
+
+// UpdateProviderSubject sets the "provider_subject" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateProviderSubject() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateProviderSubject()
+	})
+}
+
+// SetProviderEmail sets the "provider_email" field.
+func (u *UserIdentityUpsertBulk) SetProviderEmail(v string) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetProviderEmail(v)
+	})
+}
+
+// UpdateProviderEmail sets the "provider_email" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateProviderEmail() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateProviderEmail()
+	})
+}
+
+// SetEmailVerified sets the "email_verified" field.
+func (u *UserIdentityUpsertBulk) SetEmailVerified(v bool) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetEmailVerified(v)
+	})
+}
+
+// UpdateEmailVerified sets the "email_verified" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateEmailVerified() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateEmailVerified()
+	})
+}
+
+// SetAccessToken sets the "access_token" field.
+func (u *UserIdentityUpsertBulk) SetAccessToken(v string) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetAccessToken(v)
+	})
+}
+
+// UpdateAccessToken sets the "access_token" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateAccessToken() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateAccessToken()
+	})
+}
+
+// ClearAccessToken clears the value of the "access_token" field.
+func (u *UserIdentityUpsertBulk) ClearAccessToken() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearAccessToken()
+	})
+}
+
+// SetRefreshToken sets the "refresh_token" field.
+func (u *UserIdentityUpsertBulk) SetRefreshToken(v string) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetRefreshToken(v)
+	})
+}
+
+// UpdateRefreshToken sets the "refresh_token" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateRefreshToken() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateRefreshToken()
+	})
+}
+
+// ClearRefreshToken clears the value of the "refresh_token" field.
+func (u *UserIdentityUpsertBulk) ClearRefreshToken() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearRefreshToken()
+	})
+}
+
+// SetTokenExpiry sets the "token_expiry" field.
+func (u *UserIdentityUpsertBulk) SetTokenExpiry(v time.Time) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetTokenExpiry(v)
+	})
+}
+
+// UpdateTokenExpiry sets the "token_expiry" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateTokenExpiry() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateTokenExpiry()
+	})
+}
+
+// ClearTokenExpiry clears the value of the "token_expiry" field.
+func (u *UserIdentityUpsertBulk) ClearTokenExpiry() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearTokenExpiry()
+	})
+}
+
+// SetScope sets the "scope" field.
+func (u *UserIdentityUpsertBulk) SetScope(v string) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetScope(v)
+	})
+}
+
+// UpdateScope sets the "scope" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateScope() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateScope()
+	})
+}
+
+// ClearScope clears the value of the "scope" field.
+func (u *UserIdentityUpsertBulk) ClearScope() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearScope()
+	})
+}
+
+// SetProfile sets the "profile" field.
+func (u *UserIdentityUpsertBulk) SetProfile(v map[string]interface{}) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetProfile(v)
+	})
+}
+
+// UpdateProfile sets the "profile" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateProfile() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateProfile()
+	})
+}
+
+// ClearProfile clears the value of the "profile" field.
+func (u *UserIdentityUpsertBulk) ClearProfile() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.ClearProfile()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *UserIdentityUpsertBulk) SetUpdatedAt(v time.Time) *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *UserIdentityUpsertBulk) UpdateUpdatedAt() *UserIdentityUpsertBulk {
+	return u.Update(func(s *UserIdentityUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *UserIdentityUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the UserIdentityCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for UserIdentityCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *UserIdentityUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

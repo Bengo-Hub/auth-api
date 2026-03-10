@@ -30,6 +30,7 @@ import (
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
 	googleprovider "github.com/bengobox/auth-api/internal/providers/google"
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
+	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -79,6 +80,7 @@ type Service struct {
 	github         *githubprovider.Provider
 	microsoft      *microsoftprovider.Provider
 	subscriptionCl *subscription.Client
+	integrations   *integrations.Service
 }
 
 // Dependencies aggregates constructor inputs.
@@ -94,6 +96,7 @@ type Dependencies struct {
 	GitHub             *githubprovider.Provider
 	Microsoft          *microsoftprovider.Provider
 	SubscriptionClient *subscription.Client
+	Integrations       *integrations.Service
 }
 
 // New initialises the auth service.
@@ -110,12 +113,20 @@ func New(deps Dependencies) *Service {
 		github:         deps.GitHub,
 		microsoft:      deps.Microsoft,
 		subscriptionCl: deps.SubscriptionClient,
+		integrations:   deps.Integrations,
 	}
 }
 
 // JTIRevoker abstracts a revocation store.
 type JTIRevoker interface {
 	Revoke(ctx context.Context, jti string, ttl time.Duration) error
+}
+
+// NewOrgInput carries new-organisation details when a user creates a new tenant during signup.
+type NewOrgInput struct {
+	Name     string
+	Slug     string
+	Metadata map[string]any
 }
 
 // RegisterInput captures registration payload.
@@ -127,6 +138,15 @@ type RegisterInput struct {
 	IPAddress  string
 	UserAgent  string
 	ClientID   string
+	// SelectedPlan is the subscription plan code chosen by the user in the signup wizard.
+	// Required for new org creation ("create_new") to bootstrap the tenant subscription.
+	// Accepted values: "STARTER" | "GROWTH" | "PROFESSIONAL" (or any valid plan code).
+	SelectedPlan string
+	// OrgAction: "join_existing" (default) or "create_new".
+	// When "create_new", NewOrg must be non-nil and the registering user
+	// is granted the "admin" role for the newly created organisation.
+	OrgAction string
+	NewOrg    *NewOrgInput
 }
 
 // LoginInput captures login payload.
@@ -193,15 +213,57 @@ type AuthResult struct {
 	Permissions           []string // Canonical permission codes; matches GET /me
 }
 
+// GetTenant returns a tenant by ID.
+func (s *Service) GetTenant(ctx context.Context, id uuid.UUID) (*ent.Tenant, error) {
+	return s.entClient.Tenant.Get(ctx, id)
+}
+
 // Register creates a new user and returns session tokens.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, error) {
 	if err := s.validatePassword(in.Password); err != nil {
 		return nil, err
 	}
-	tenantEntity, err := s.lookupTenant(ctx, in.TenantSlug)
-	if err != nil {
-		return nil, err
+
+	var (tenantEntity *ent.Tenant; err error)
+
+	if in.OrgAction == "create_new" && in.NewOrg != nil {
+		// Create a brand-new organisation; the registering user becomes its admin.
+		meta := coalesceMap(in.NewOrg.Metadata)
+		create := s.entClient.Tenant.Create().
+			SetName(in.NewOrg.Name).
+			SetSlug(in.NewOrg.Slug).
+			SetStatus("active")
+		if len(meta) > 0 {
+			create = create.SetMetadata(meta)
+		}
+		tenantEntity, err = create.Save(ctx)
+		if err != nil {
+			if ent.IsConstraintError(err) {
+				// Org already exists — try to look it up so we can join it instead.
+				tenantEntity, err = s.entClient.Tenant.Query().
+					Where(tenant.SlugEQ(in.NewOrg.Slug)).
+					Only(ctx)
+				if err != nil {
+					return nil, fmt.Errorf("org slug already taken: %w", err)
+				}
+			} else {
+				return nil, fmt.Errorf("create tenant: %w", err)
+			}
+		}
+		// Publish tenant.created event for downstream service sync.
+		s.publishEvent(ctx, tenantEntity.ID, "auth.tenant", tenantEntity.ID, "created", map[string]any{
+			"tenant_id":   tenantEntity.ID.String(),
+			"name":        tenantEntity.Name,
+			"slug":        tenantEntity.Slug,
+			"created_by": in.Email,
+		})
+	} else {
+		tenantEntity, err = s.GetTenantBySlug(ctx, in.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	hashed, err := s.hasher.Hash(in.Password)
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)
@@ -222,14 +284,19 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
+	// Assign role: admin when founding a new org, member when joining existing.
+	initialRole := "member"
+	if in.OrgAction == "create_new" {
+		initialRole = "admin"
+	}
+
 	_, err = s.entClient.TenantMembership.Create().
 		SetUserID(userEntity.ID).
 		SetTenantID(tenantEntity.ID).
-		SetRoles([]string{"member"}).
+		SetRoles([]string{initialRole}).
 		Save(ctx)
 	if err != nil {
 		if ent.IsConstraintError(err) {
-			// Membership already exists (duplicate insert), this is OK - log and continue
 			s.logger.Warn("tenant membership already exists", zap.String("user_id", userEntity.ID.String()), zap.String("tenant_id", tenantEntity.ID.String()))
 		} else {
 			return nil, fmt.Errorf("create tenant membership: %w", err)
@@ -246,6 +313,8 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		UserAgent:  in.UserAgent,
 		Context: map[string]any{
 			"tenant_slug": tenantEntity.Slug,
+			"org_action":  in.OrgAction,
+			"role":        initialRole,
 		},
 	})
 
@@ -257,7 +326,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		"phone":       profileStr(userEntity.Profile, "phone"),
 		"tenant_id":   tenantEntity.ID.String(),
 		"tenant_slug": tenantEntity.Slug,
-		"roles":       []string{"member"},
+		"roles":       []string{initialRole},
 		"method":      "email",
 	})
 
@@ -273,7 +342,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 
 // Login authenticates a user with email/password.
 func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error) {
-	tenantEntity, err := s.lookupTenant(ctx, in.TenantSlug)
+	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +477,7 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 	if s.google == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.lookupTenant(ctx, in.TenantSlug)
+	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
 	if err != nil {
 		return "", err
 	}
@@ -438,7 +507,11 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 		},
 	})
 
-	return s.google.AuthCodeURL(stateToken), nil
+	authURL, err := s.google.AuthCodeURL(ctx, stateToken)
+	if err != nil {
+		return "", err
+	}
+	return authURL, nil
 }
 
 // CompleteGoogleOAuth finalises Google OAuth callback and issues tokens.
@@ -455,7 +528,7 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 		return nil, ErrOAuthStateInvalid
 	}
 
-	tenantEntity, err := s.lookupTenant(ctx, payload.TenantSlug)
+	tenantEntity, err := s.GetTenantBySlug(ctx, payload.TenantSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +597,7 @@ func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (str
 	if s.github == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.lookupTenant(ctx, in.TenantSlug)
+	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
 	if err != nil {
 		return "", err
 	}
@@ -539,7 +612,7 @@ func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (str
 	if err != nil {
 		return "", fmt.Errorf("encode oauth state: %w", err)
 	}
-	return s.github.AuthCodeURL(stateToken), nil
+	return s.github.AuthCodeURL(ctx, stateToken)
 }
 
 // CompleteGitHubOAuth handles GitHub callback.
@@ -554,7 +627,7 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 	if err != nil {
 		return nil, ErrOAuthStateInvalid
 	}
-	tenantEntity, err := s.lookupTenant(ctx, payload.TenantSlug)
+	tenantEntity, err := s.GetTenantBySlug(ctx, payload.TenantSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -602,7 +675,7 @@ func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (
 	if s.microsoft == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.lookupTenant(ctx, in.TenantSlug)
+	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
 	if err != nil {
 		return "", err
 	}
@@ -617,7 +690,7 @@ func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (
 	if err != nil {
 		return "", fmt.Errorf("encode oauth state: %w", err)
 	}
-	return s.microsoft.AuthCodeURL(stateToken), nil
+	return s.microsoft.AuthCodeURL(ctx, stateToken)
 }
 
 // CompleteMicrosoftOAuth handles Microsoft callback.
@@ -632,7 +705,7 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 	if err != nil {
 		return nil, ErrOAuthStateInvalid
 	}
-	tenantEntity, err := s.lookupTenant(ctx, payload.TenantSlug)
+	tenantEntity, err := s.GetTenantBySlug(ctx, payload.TenantSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -681,7 +754,7 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 
 // RequestPasswordReset creates a reset token (would be emailed in production).
 func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequestInput) (string, error) {
-	tenantEntity, err := s.lookupTenant(ctx, in.TenantSlug)
+	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
 	if err != nil {
 		return "", err
 	}
@@ -1422,7 +1495,7 @@ func (s *Service) validatePassword(password string) error {
 	return nil
 }
 
-func (s *Service) lookupTenant(ctx context.Context, slug string) (*ent.Tenant, error) {
+func (s *Service) GetTenantBySlug(ctx context.Context, slug string) (*ent.Tenant, error) {
 	if slug == "" {
 		return nil, ErrTenantNotFound
 	}

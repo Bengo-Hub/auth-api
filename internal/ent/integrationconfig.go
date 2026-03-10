@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -18,13 +19,27 @@ type IntegrationConfig struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// TenantID holds the value of the "tenant_id" field.
+	// Tenant identifier. NULL = platform-level integration.
 	TenantID *uuid.UUID `json:"tenant_id,omitempty"`
-	// Service name e.g. google_oauth, slack_webhook
-	Service string `json:"service,omitempty"`
-	// Encrypted JSON configuration
-	ConfigData string `json:"-"`
-	// ID of the encryption key used
+	// Unique integration name e.g. google_oauth, paystack, slack
+	Name string `json:"name,omitempty"`
+	// Human-readable name
+	DisplayName string `json:"display_name,omitempty"`
+	// Description of the integration
+	Description string `json:"description,omitempty"`
+	// Base URL for the external service
+	BaseURL string `json:"base_url,omitempty"`
+	// AES-256-GCM encrypted JSON credentials
+	EncryptedCredentials string `json:"-"`
+	// Mapping of action names to endpoint paths
+	EndpointsJSON map[string]string `json:"endpoints_json,omitempty"`
+	// Whether this integration is currently active
+	IsActive bool `json:"is_active,omitempty"`
+	// Status: active, inactive, error, pending
+	Status string `json:"status,omitempty"`
+	// Environment: production, sandbox, test
+	Environment string `json:"environment,omitempty"`
+	// ID of the encryption key used (if using multiple keys)
 	KeyID string `json:"key_id,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
@@ -40,7 +55,11 @@ func (*IntegrationConfig) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case integrationconfig.FieldTenantID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case integrationconfig.FieldService, integrationconfig.FieldConfigData, integrationconfig.FieldKeyID:
+		case integrationconfig.FieldEndpointsJSON:
+			values[i] = new([]byte)
+		case integrationconfig.FieldIsActive:
+			values[i] = new(sql.NullBool)
+		case integrationconfig.FieldName, integrationconfig.FieldDisplayName, integrationconfig.FieldDescription, integrationconfig.FieldBaseURL, integrationconfig.FieldEncryptedCredentials, integrationconfig.FieldStatus, integrationconfig.FieldEnvironment, integrationconfig.FieldKeyID:
 			values[i] = new(sql.NullString)
 		case integrationconfig.FieldCreatedAt, integrationconfig.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -74,17 +93,61 @@ func (_m *IntegrationConfig) assignValues(columns []string, values []any) error 
 				_m.TenantID = new(uuid.UUID)
 				*_m.TenantID = *value.S.(*uuid.UUID)
 			}
-		case integrationconfig.FieldService:
+		case integrationconfig.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field service", values[i])
+				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
-				_m.Service = value.String
+				_m.Name = value.String
 			}
-		case integrationconfig.FieldConfigData:
+		case integrationconfig.FieldDisplayName:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field config_data", values[i])
+				return fmt.Errorf("unexpected type %T for field display_name", values[i])
 			} else if value.Valid {
-				_m.ConfigData = value.String
+				_m.DisplayName = value.String
+			}
+		case integrationconfig.FieldDescription:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field description", values[i])
+			} else if value.Valid {
+				_m.Description = value.String
+			}
+		case integrationconfig.FieldBaseURL:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field base_url", values[i])
+			} else if value.Valid {
+				_m.BaseURL = value.String
+			}
+		case integrationconfig.FieldEncryptedCredentials:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field encrypted_credentials", values[i])
+			} else if value.Valid {
+				_m.EncryptedCredentials = value.String
+			}
+		case integrationconfig.FieldEndpointsJSON:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field endpoints_json", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.EndpointsJSON); err != nil {
+					return fmt.Errorf("unmarshal field endpoints_json: %w", err)
+				}
+			}
+		case integrationconfig.FieldIsActive:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_active", values[i])
+			} else if value.Valid {
+				_m.IsActive = value.Bool
+			}
+		case integrationconfig.FieldStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field status", values[i])
+			} else if value.Valid {
+				_m.Status = value.String
+			}
+		case integrationconfig.FieldEnvironment:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field environment", values[i])
+			} else if value.Valid {
+				_m.Environment = value.String
 			}
 		case integrationconfig.FieldKeyID:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -145,10 +208,31 @@ func (_m *IntegrationConfig) String() string {
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
-	builder.WriteString("service=")
-	builder.WriteString(_m.Service)
+	builder.WriteString("name=")
+	builder.WriteString(_m.Name)
 	builder.WriteString(", ")
-	builder.WriteString("config_data=<sensitive>")
+	builder.WriteString("display_name=")
+	builder.WriteString(_m.DisplayName)
+	builder.WriteString(", ")
+	builder.WriteString("description=")
+	builder.WriteString(_m.Description)
+	builder.WriteString(", ")
+	builder.WriteString("base_url=")
+	builder.WriteString(_m.BaseURL)
+	builder.WriteString(", ")
+	builder.WriteString("encrypted_credentials=<sensitive>")
+	builder.WriteString(", ")
+	builder.WriteString("endpoints_json=")
+	builder.WriteString(fmt.Sprintf("%v", _m.EndpointsJSON))
+	builder.WriteString(", ")
+	builder.WriteString("is_active=")
+	builder.WriteString(fmt.Sprintf("%v", _m.IsActive))
+	builder.WriteString(", ")
+	builder.WriteString("status=")
+	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("environment=")
+	builder.WriteString(_m.Environment)
 	builder.WriteString(", ")
 	builder.WriteString("key_id=")
 	builder.WriteString(_m.KeyID)

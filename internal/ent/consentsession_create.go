@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/consentsession"
@@ -19,6 +21,7 @@ type ConsentSessionCreate struct {
 	config
 	mutation *ConsentSessionMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetUserID sets the "user_id" field.
@@ -235,6 +238,7 @@ func (_c *ConsentSessionCreate) createSpec() (*ConsentSession, *sqlgraph.CreateS
 		_node = &ConsentSession{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(consentsession.Table, sqlgraph.NewFieldSpec(consentsession.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -278,11 +282,410 @@ func (_c *ConsentSessionCreate) createSpec() (*ConsentSession, *sqlgraph.CreateS
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.ConsentSession.Create().
+//		SetUserID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.ConsentSessionUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *ConsentSessionCreate) OnConflict(opts ...sql.ConflictOption) *ConsentSessionUpsertOne {
+	_c.conflict = opts
+	return &ConsentSessionUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.ConsentSession.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *ConsentSessionCreate) OnConflictColumns(columns ...string) *ConsentSessionUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &ConsentSessionUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// ConsentSessionUpsertOne is the builder for "upsert"-ing
+	//  one ConsentSession node.
+	ConsentSessionUpsertOne struct {
+		create *ConsentSessionCreate
+	}
+
+	// ConsentSessionUpsert is the "OnConflict" setter.
+	ConsentSessionUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUserID sets the "user_id" field.
+func (u *ConsentSessionUpsert) SetUserID(v uuid.UUID) *ConsentSessionUpsert {
+	u.Set(consentsession.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *ConsentSessionUpsert) UpdateUserID() *ConsentSessionUpsert {
+	u.SetExcluded(consentsession.FieldUserID)
+	return u
+}
+
+// SetClientID sets the "client_id" field.
+func (u *ConsentSessionUpsert) SetClientID(v string) *ConsentSessionUpsert {
+	u.Set(consentsession.FieldClientID, v)
+	return u
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *ConsentSessionUpsert) UpdateClientID() *ConsentSessionUpsert {
+	u.SetExcluded(consentsession.FieldClientID)
+	return u
+}
+
+// SetGrantedScopes sets the "granted_scopes" field.
+func (u *ConsentSessionUpsert) SetGrantedScopes(v string) *ConsentSessionUpsert {
+	u.Set(consentsession.FieldGrantedScopes, v)
+	return u
+}
+
+// UpdateGrantedScopes sets the "granted_scopes" field to the value that was provided on create.
+func (u *ConsentSessionUpsert) UpdateGrantedScopes() *ConsentSessionUpsert {
+	u.SetExcluded(consentsession.FieldGrantedScopes)
+	return u
+}
+
+// SetGrantedClaims sets the "granted_claims" field.
+func (u *ConsentSessionUpsert) SetGrantedClaims(v map[string]interface{}) *ConsentSessionUpsert {
+	u.Set(consentsession.FieldGrantedClaims, v)
+	return u
+}
+
+// UpdateGrantedClaims sets the "granted_claims" field to the value that was provided on create.
+func (u *ConsentSessionUpsert) UpdateGrantedClaims() *ConsentSessionUpsert {
+	u.SetExcluded(consentsession.FieldGrantedClaims)
+	return u
+}
+
+// ClearGrantedClaims clears the value of the "granted_claims" field.
+func (u *ConsentSessionUpsert) ClearGrantedClaims() *ConsentSessionUpsert {
+	u.SetNull(consentsession.FieldGrantedClaims)
+	return u
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *ConsentSessionUpsert) SetExpiresAt(v time.Time) *ConsentSessionUpsert {
+	u.Set(consentsession.FieldExpiresAt, v)
+	return u
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *ConsentSessionUpsert) UpdateExpiresAt() *ConsentSessionUpsert {
+	u.SetExcluded(consentsession.FieldExpiresAt)
+	return u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *ConsentSessionUpsert) ClearExpiresAt() *ConsentSessionUpsert {
+	u.SetNull(consentsession.FieldExpiresAt)
+	return u
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (u *ConsentSessionUpsert) SetLastUsedAt(v time.Time) *ConsentSessionUpsert {
+	u.Set(consentsession.FieldLastUsedAt, v)
+	return u
+}
+
+// UpdateLastUsedAt sets the "last_used_at" field to the value that was provided on create.
+func (u *ConsentSessionUpsert) UpdateLastUsedAt() *ConsentSessionUpsert {
+	u.SetExcluded(consentsession.FieldLastUsedAt)
+	return u
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (u *ConsentSessionUpsert) ClearLastUsedAt() *ConsentSessionUpsert {
+	u.SetNull(consentsession.FieldLastUsedAt)
+	return u
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *ConsentSessionUpsert) SetMetadata(v map[string]interface{}) *ConsentSessionUpsert {
+	u.Set(consentsession.FieldMetadata, v)
+	return u
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *ConsentSessionUpsert) UpdateMetadata() *ConsentSessionUpsert {
+	u.SetExcluded(consentsession.FieldMetadata)
+	return u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *ConsentSessionUpsert) ClearMetadata() *ConsentSessionUpsert {
+	u.SetNull(consentsession.FieldMetadata)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *ConsentSessionUpsert) SetUpdatedAt(v time.Time) *ConsentSessionUpsert {
+	u.Set(consentsession.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *ConsentSessionUpsert) UpdateUpdatedAt() *ConsentSessionUpsert {
+	u.SetExcluded(consentsession.FieldUpdatedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.ConsentSession.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(consentsession.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *ConsentSessionUpsertOne) UpdateNewValues() *ConsentSessionUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(consentsession.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(consentsession.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.ConsentSession.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *ConsentSessionUpsertOne) Ignore() *ConsentSessionUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *ConsentSessionUpsertOne) DoNothing() *ConsentSessionUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the ConsentSessionCreate.OnConflict
+// documentation for more info.
+func (u *ConsentSessionUpsertOne) Update(set func(*ConsentSessionUpsert)) *ConsentSessionUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&ConsentSessionUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *ConsentSessionUpsertOne) SetUserID(v uuid.UUID) *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *ConsentSessionUpsertOne) UpdateUserID() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetClientID sets the "client_id" field.
+func (u *ConsentSessionUpsertOne) SetClientID(v string) *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetClientID(v)
+	})
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *ConsentSessionUpsertOne) UpdateClientID() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateClientID()
+	})
+}
+
+// SetGrantedScopes sets the "granted_scopes" field.
+func (u *ConsentSessionUpsertOne) SetGrantedScopes(v string) *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetGrantedScopes(v)
+	})
+}
+
+// UpdateGrantedScopes sets the "granted_scopes" field to the value that was provided on create.
+func (u *ConsentSessionUpsertOne) UpdateGrantedScopes() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateGrantedScopes()
+	})
+}
+
+// SetGrantedClaims sets the "granted_claims" field.
+func (u *ConsentSessionUpsertOne) SetGrantedClaims(v map[string]interface{}) *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetGrantedClaims(v)
+	})
+}
+
+// UpdateGrantedClaims sets the "granted_claims" field to the value that was provided on create.
+func (u *ConsentSessionUpsertOne) UpdateGrantedClaims() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateGrantedClaims()
+	})
+}
+
+// ClearGrantedClaims clears the value of the "granted_claims" field.
+func (u *ConsentSessionUpsertOne) ClearGrantedClaims() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.ClearGrantedClaims()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *ConsentSessionUpsertOne) SetExpiresAt(v time.Time) *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *ConsentSessionUpsertOne) UpdateExpiresAt() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *ConsentSessionUpsertOne) ClearExpiresAt() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.ClearExpiresAt()
+	})
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (u *ConsentSessionUpsertOne) SetLastUsedAt(v time.Time) *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetLastUsedAt(v)
+	})
+}
+
+// UpdateLastUsedAt sets the "last_used_at" field to the value that was provided on create.
+func (u *ConsentSessionUpsertOne) UpdateLastUsedAt() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateLastUsedAt()
+	})
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (u *ConsentSessionUpsertOne) ClearLastUsedAt() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.ClearLastUsedAt()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *ConsentSessionUpsertOne) SetMetadata(v map[string]interface{}) *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *ConsentSessionUpsertOne) UpdateMetadata() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *ConsentSessionUpsertOne) ClearMetadata() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *ConsentSessionUpsertOne) SetUpdatedAt(v time.Time) *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *ConsentSessionUpsertOne) UpdateUpdatedAt() *ConsentSessionUpsertOne {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *ConsentSessionUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for ConsentSessionCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *ConsentSessionUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *ConsentSessionUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: ConsentSessionUpsertOne.ID is not supported by MySQL driver. Use ConsentSessionUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *ConsentSessionUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // ConsentSessionCreateBulk is the builder for creating many ConsentSession entities in bulk.
 type ConsentSessionCreateBulk struct {
 	config
 	err      error
 	builders []*ConsentSessionCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the ConsentSession entities in the database.
@@ -312,6 +715,7 @@ func (_c *ConsentSessionCreateBulk) Save(ctx context.Context) ([]*ConsentSession
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -358,6 +762,263 @@ func (_c *ConsentSessionCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *ConsentSessionCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.ConsentSession.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.ConsentSessionUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *ConsentSessionCreateBulk) OnConflict(opts ...sql.ConflictOption) *ConsentSessionUpsertBulk {
+	_c.conflict = opts
+	return &ConsentSessionUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.ConsentSession.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *ConsentSessionCreateBulk) OnConflictColumns(columns ...string) *ConsentSessionUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &ConsentSessionUpsertBulk{
+		create: _c,
+	}
+}
+
+// ConsentSessionUpsertBulk is the builder for "upsert"-ing
+// a bulk of ConsentSession nodes.
+type ConsentSessionUpsertBulk struct {
+	create *ConsentSessionCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.ConsentSession.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(consentsession.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *ConsentSessionUpsertBulk) UpdateNewValues() *ConsentSessionUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(consentsession.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(consentsession.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.ConsentSession.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *ConsentSessionUpsertBulk) Ignore() *ConsentSessionUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *ConsentSessionUpsertBulk) DoNothing() *ConsentSessionUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the ConsentSessionCreateBulk.OnConflict
+// documentation for more info.
+func (u *ConsentSessionUpsertBulk) Update(set func(*ConsentSessionUpsert)) *ConsentSessionUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&ConsentSessionUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *ConsentSessionUpsertBulk) SetUserID(v uuid.UUID) *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *ConsentSessionUpsertBulk) UpdateUserID() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetClientID sets the "client_id" field.
+func (u *ConsentSessionUpsertBulk) SetClientID(v string) *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetClientID(v)
+	})
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *ConsentSessionUpsertBulk) UpdateClientID() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateClientID()
+	})
+}
+
+// SetGrantedScopes sets the "granted_scopes" field.
+func (u *ConsentSessionUpsertBulk) SetGrantedScopes(v string) *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetGrantedScopes(v)
+	})
+}
+
+// UpdateGrantedScopes sets the "granted_scopes" field to the value that was provided on create.
+func (u *ConsentSessionUpsertBulk) UpdateGrantedScopes() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateGrantedScopes()
+	})
+}
+
+// SetGrantedClaims sets the "granted_claims" field.
+func (u *ConsentSessionUpsertBulk) SetGrantedClaims(v map[string]interface{}) *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetGrantedClaims(v)
+	})
+}
+
+// UpdateGrantedClaims sets the "granted_claims" field to the value that was provided on create.
+func (u *ConsentSessionUpsertBulk) UpdateGrantedClaims() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateGrantedClaims()
+	})
+}
+
+// ClearGrantedClaims clears the value of the "granted_claims" field.
+func (u *ConsentSessionUpsertBulk) ClearGrantedClaims() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.ClearGrantedClaims()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *ConsentSessionUpsertBulk) SetExpiresAt(v time.Time) *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *ConsentSessionUpsertBulk) UpdateExpiresAt() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *ConsentSessionUpsertBulk) ClearExpiresAt() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.ClearExpiresAt()
+	})
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (u *ConsentSessionUpsertBulk) SetLastUsedAt(v time.Time) *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetLastUsedAt(v)
+	})
+}
+
+// UpdateLastUsedAt sets the "last_used_at" field to the value that was provided on create.
+func (u *ConsentSessionUpsertBulk) UpdateLastUsedAt() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateLastUsedAt()
+	})
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (u *ConsentSessionUpsertBulk) ClearLastUsedAt() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.ClearLastUsedAt()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *ConsentSessionUpsertBulk) SetMetadata(v map[string]interface{}) *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *ConsentSessionUpsertBulk) UpdateMetadata() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *ConsentSessionUpsertBulk) ClearMetadata() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *ConsentSessionUpsertBulk) SetUpdatedAt(v time.Time) *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *ConsentSessionUpsertBulk) UpdateUpdatedAt() *ConsentSessionUpsertBulk {
+	return u.Update(func(s *ConsentSessionUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *ConsentSessionUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the ConsentSessionCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for ConsentSessionCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *ConsentSessionUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

@@ -8,13 +8,13 @@ import (
 
 	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/ent"
-	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/services/entitlements"
+	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/usage"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/go-chi/chi/v5"
@@ -29,15 +29,17 @@ type AdminHandler struct {
 	entSvc *entitlements.Service
 	useSvc *usage.Service
 	tokens *token.Service
+	integrations *integrations.Service
 }
 
-func NewAdminHandler(entClient *ent.Client, tokens *token.Service, logger *zap.Logger) *AdminHandler {
+func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSvc *integrations.Service, logger *zap.Logger) *AdminHandler {
 	return &AdminHandler{
-		ent:    entClient,
-		logger: logger,
-		entSvc: entitlements.New(entClient),
-		useSvc: usage.New(entClient),
-		tokens: tokens,
+		ent:          entClient,
+		logger:       logger,
+		entSvc:       entitlements.New(entClient),
+		useSvc:       usage.New(entClient),
+		tokens:       tokens,
+		integrations: integrationSvc,
 	}
 }
 
@@ -439,18 +441,28 @@ func (h *AdminHandler) IncrementUsage(w http.ResponseWriter, r *http.Request) {
 
 // Integration Config endpoints
 type integrationConfigRequest struct {
-	TenantID   string                 `json:"tenant_id,omitempty"`
-	Service    string                 `json:"service"`
-	ConfigData map[string]interface{} `json:"config_data"`
+	TenantID            string            `json:"tenant_id,omitempty"`
+	Name                string            `json:"name"`
+	DisplayName         string            `json:"display_name"`
+	Description         string            `json:"description,omitempty"`
+	BaseURL             string            `json:"base_url,omitempty"`
+	Credentials         map[string]string `json:"credentials"`
+	Endpoints           map[string]string `json:"endpoints,omitempty"`
+	IsActive            bool              `json:"is_active"`
+	Environment         string            `json:"environment,omitempty"`
 }
 
 type integrationConfigResponse struct {
-	ID         string                 `json:"id"`
-	TenantID   *string                `json:"tenant_id,omitempty"`
-	Service    string                 `json:"service"`
-	ConfigData map[string]interface{} `json:"config_data,omitempty"`
-	CreatedAt  string                 `json:"created_at"`
-	UpdatedAt  string                 `json:"updated_at"`
+	ID          string            `json:"id"`
+	TenantID    *string           `json:"tenant_id,omitempty"`
+	Name        string            `json:"name"`
+	DisplayName string            `json:"display_name"`
+	Description string            `json:"description,omitempty"`
+	IsActive    bool              `json:"is_active"`
+	Status      string            `json:"status"`
+	Environment string            `json:"environment"`
+	CreatedAt   string            `json:"created_at"`
+	UpdatedAt   string            `json:"updated_at"`
 }
 
 func (h *AdminHandler) CreateIntegrationConfig(w http.ResponseWriter, r *http.Request) {
@@ -459,65 +471,29 @@ func (h *AdminHandler) CreateIntegrationConfig(w http.ResponseWriter, r *http.Re
 		return
 	}
 	var req integrationConfigRequest
-	if err := decodeJSON(r, &req); err != nil || req.Service == "" || req.ConfigData == nil {
+	if err := decodeJSON(r, &req); err != nil || req.Name == "" || req.Credentials == nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
 		return
 	}
 
-	// Serialize config data to JSON
-	configJSON, err := json.Marshal(req.ConfigData)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "invalid config data", nil)
-		return
-	}
-
-	// Encrypt config data (requires AUTH_SECURITY_ENCRYPTION_KEY environment variable)
-	// For now, store unencrypted until encryption key is configured
-	// In production, this should always encrypt
-	encryptedData := string(configJSON)
-	keyID := "plaintext" // TODO: Use actual key ID from config when encryption is enabled
-
-	create := h.ent.IntegrationConfig.Create().
-		SetService(req.Service).
-		SetConfigData(encryptedData).
-		SetKeyID(keyID)
-
+	var tenantID *uuid.UUID
 	if req.TenantID != "" {
-		tenantUUID, err := uuid.Parse(req.TenantID)
+		tid, err := uuid.Parse(req.TenantID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
 			return
 		}
-		create.SetTenantID(tenantUUID)
+		tenantID = &tid
 	}
 
-	config, err := create.Save(r.Context())
+	err := h.integrations.SaveConfig(r.Context(), tenantID, req.Name, req.DisplayName, req.Credentials)
 	if err != nil {
-		h.logger.Error("Failed to create integration config", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "could not create config", nil)
+		h.logger.Error("Failed to save integration config", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not save config", nil)
 		return
 	}
 
-	// Decrypt for response
-	var configData map[string]interface{}
-	if err := json.Unmarshal([]byte(config.ConfigData), &configData); err != nil {
-		h.logger.Warn("Failed to unmarshal config data", zap.Error(err))
-	}
-
-	var tenantIDStr *string
-	if config.TenantID != nil {
-		tid := config.TenantID.String()
-		tenantIDStr = &tid
-	}
-
-	writeJSON(w, http.StatusCreated, integrationConfigResponse{
-		ID:         config.ID.String(),
-		TenantID:   tenantIDStr,
-		Service:    config.Service,
-		ConfigData: configData,
-		CreatedAt:  config.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:  config.UpdatedAt.Format(time.RFC3339),
-	})
+	writeJSON(w, http.StatusCreated, map[string]string{"status": "ok"})
 }
 
 func (h *AdminHandler) GetIntegrationConfig(w http.ResponseWriter, r *http.Request) {
@@ -533,36 +509,33 @@ func (h *AdminHandler) GetIntegrationConfig(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	config, err := h.ent.IntegrationConfig.Get(r.Context(), id)
+	config, err := h.integrations.GetByID(r.Context(), id)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			writeError(w, http.StatusNotFound, "not_found", "config not found", nil)
 			return
 		}
-		h.logger.Error("Failed to get integration config", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get config", nil)
 		return
 	}
 
-	// Decrypt config data
-	var configData map[string]interface{}
-	if err := json.Unmarshal([]byte(config.ConfigData), &configData); err != nil {
-		h.logger.Warn("Failed to unmarshal config data", zap.Error(err))
-	}
-
-	var tenantIDStr *string
+	var tidStr *string
 	if config.TenantID != nil {
-		tid := config.TenantID.String()
-		tenantIDStr = &tid
+		s := config.TenantID.String()
+		tidStr = &s
 	}
 
 	writeJSON(w, http.StatusOK, integrationConfigResponse{
-		ID:         config.ID.String(),
-		TenantID:   tenantIDStr,
-		Service:    config.Service,
-		ConfigData: configData,
-		CreatedAt:  config.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:  config.UpdatedAt.Format(time.RFC3339),
+		ID:          config.ID.String(),
+		TenantID:    tidStr,
+		Name:        config.Name,
+		DisplayName: config.DisplayName,
+		Description: config.Description,
+		IsActive:    config.IsActive,
+		Status:      config.Status,
+		Environment: config.Environment,
+		CreatedAt:   config.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   config.UpdatedAt.Format(time.RFC3339),
 	})
 }
 
@@ -573,38 +546,37 @@ func (h *AdminHandler) ListIntegrationConfigs(w http.ResponseWriter, r *http.Req
 	}
 
 	tenantIDStr := r.URL.Query().Get("tenant_id")
-	query := h.ent.IntegrationConfig.Query()
-
+	var tenantID *uuid.UUID
 	if tenantIDStr != "" {
-		tenantID, err := uuid.Parse(tenantIDStr)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
-			return
+		tid, err := uuid.Parse(tenantIDStr)
+		if err == nil {
+			tenantID = &tid
 		}
-		query = query.Where(integrationconfig.TenantIDEQ(tenantID))
 	}
 
-	configs, err := query.All(r.Context())
+	configs, err := h.integrations.ListAll(r.Context(), tenantID)
 	if err != nil {
-		h.logger.Error("Failed to list integration configs", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to list configs", nil)
 		return
 	}
 
-	// Return list without decrypted data for security
-	var response []map[string]interface{}
-	for _, config := range configs {
-		item := map[string]interface{}{
-			"id":         config.ID.String(),
-			"service":    config.Service,
-			"key_id":     config.KeyID,
-			"created_at": config.CreatedAt.Format(time.RFC3339),
-			"updated_at": config.UpdatedAt.Format(time.RFC3339),
+	response := make([]integrationConfigResponse, 0)
+	for _, c := range configs {
+		var tidStr *string
+		if c.TenantID != nil {
+			s := c.TenantID.String()
+			tidStr = &s
 		}
-		if config.TenantID != nil {
-			item["tenant_id"] = config.TenantID.String()
-		}
-		response = append(response, item)
+		response = append(response, integrationConfigResponse{
+			ID:          c.ID.String(),
+			TenantID:    tidStr,
+			Name:        c.Name,
+			DisplayName: c.DisplayName,
+			IsActive:    c.IsActive,
+			Status:      c.Status,
+			CreatedAt:   c.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:   c.UpdatedAt.Format(time.RFC3339),
+		})
 	}
 
 	writeJSON(w, http.StatusOK, response)
@@ -623,17 +595,41 @@ func (h *AdminHandler) DeleteIntegrationConfig(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := h.ent.IntegrationConfig.DeleteOneID(id).Exec(r.Context()); err != nil {
-		if ent.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, "not_found", "config not found", nil)
-			return
-		}
-		h.logger.Error("Failed to delete integration config", zap.Error(err))
+	if err := h.integrations.Delete(r.Context(), id); err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete config", nil)
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (h *AdminHandler) UpdateIntegrationStatus(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid id", nil)
+		return
+	}
+
+	var req struct {
+		IsActive bool `json:"is_active"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
+		return
+	}
+
+	if err := h.integrations.UpdateStatus(r.Context(), id, req.IsActive); err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to update status", nil)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // Tenant Member Management Endpoints

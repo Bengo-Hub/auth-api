@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
@@ -20,6 +22,7 @@ type MFABackupCodeCreate struct {
 	config
 	mutation *MFABackupCodeMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetUserID sets the "user_id" field.
@@ -176,6 +179,7 @@ func (_c *MFABackupCodeCreate) createSpec() (*MFABackupCode, *sqlgraph.CreateSpe
 		_node = &MFABackupCode{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(mfabackupcode.Table, sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -212,11 +216,241 @@ func (_c *MFABackupCodeCreate) createSpec() (*MFABackupCode, *sqlgraph.CreateSpe
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.MFABackupCode.Create().
+//		SetUserID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.MFABackupCodeUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *MFABackupCodeCreate) OnConflict(opts ...sql.ConflictOption) *MFABackupCodeUpsertOne {
+	_c.conflict = opts
+	return &MFABackupCodeUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.MFABackupCode.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *MFABackupCodeCreate) OnConflictColumns(columns ...string) *MFABackupCodeUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &MFABackupCodeUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// MFABackupCodeUpsertOne is the builder for "upsert"-ing
+	//  one MFABackupCode node.
+	MFABackupCodeUpsertOne struct {
+		create *MFABackupCodeCreate
+	}
+
+	// MFABackupCodeUpsert is the "OnConflict" setter.
+	MFABackupCodeUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUserID sets the "user_id" field.
+func (u *MFABackupCodeUpsert) SetUserID(v uuid.UUID) *MFABackupCodeUpsert {
+	u.Set(mfabackupcode.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *MFABackupCodeUpsert) UpdateUserID() *MFABackupCodeUpsert {
+	u.SetExcluded(mfabackupcode.FieldUserID)
+	return u
+}
+
+// SetCodeHash sets the "code_hash" field.
+func (u *MFABackupCodeUpsert) SetCodeHash(v string) *MFABackupCodeUpsert {
+	u.Set(mfabackupcode.FieldCodeHash, v)
+	return u
+}
+
+// UpdateCodeHash sets the "code_hash" field to the value that was provided on create.
+func (u *MFABackupCodeUpsert) UpdateCodeHash() *MFABackupCodeUpsert {
+	u.SetExcluded(mfabackupcode.FieldCodeHash)
+	return u
+}
+
+// SetUsedAt sets the "used_at" field.
+func (u *MFABackupCodeUpsert) SetUsedAt(v time.Time) *MFABackupCodeUpsert {
+	u.Set(mfabackupcode.FieldUsedAt, v)
+	return u
+}
+
+// UpdateUsedAt sets the "used_at" field to the value that was provided on create.
+func (u *MFABackupCodeUpsert) UpdateUsedAt() *MFABackupCodeUpsert {
+	u.SetExcluded(mfabackupcode.FieldUsedAt)
+	return u
+}
+
+// ClearUsedAt clears the value of the "used_at" field.
+func (u *MFABackupCodeUpsert) ClearUsedAt() *MFABackupCodeUpsert {
+	u.SetNull(mfabackupcode.FieldUsedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.MFABackupCode.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(mfabackupcode.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *MFABackupCodeUpsertOne) UpdateNewValues() *MFABackupCodeUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(mfabackupcode.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(mfabackupcode.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.MFABackupCode.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *MFABackupCodeUpsertOne) Ignore() *MFABackupCodeUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *MFABackupCodeUpsertOne) DoNothing() *MFABackupCodeUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the MFABackupCodeCreate.OnConflict
+// documentation for more info.
+func (u *MFABackupCodeUpsertOne) Update(set func(*MFABackupCodeUpsert)) *MFABackupCodeUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&MFABackupCodeUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *MFABackupCodeUpsertOne) SetUserID(v uuid.UUID) *MFABackupCodeUpsertOne {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *MFABackupCodeUpsertOne) UpdateUserID() *MFABackupCodeUpsertOne {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetCodeHash sets the "code_hash" field.
+func (u *MFABackupCodeUpsertOne) SetCodeHash(v string) *MFABackupCodeUpsertOne {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.SetCodeHash(v)
+	})
+}
+
+// UpdateCodeHash sets the "code_hash" field to the value that was provided on create.
+func (u *MFABackupCodeUpsertOne) UpdateCodeHash() *MFABackupCodeUpsertOne {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.UpdateCodeHash()
+	})
+}
+
+// SetUsedAt sets the "used_at" field.
+func (u *MFABackupCodeUpsertOne) SetUsedAt(v time.Time) *MFABackupCodeUpsertOne {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.SetUsedAt(v)
+	})
+}
+
+// UpdateUsedAt sets the "used_at" field to the value that was provided on create.
+func (u *MFABackupCodeUpsertOne) UpdateUsedAt() *MFABackupCodeUpsertOne {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.UpdateUsedAt()
+	})
+}
+
+// ClearUsedAt clears the value of the "used_at" field.
+func (u *MFABackupCodeUpsertOne) ClearUsedAt() *MFABackupCodeUpsertOne {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.ClearUsedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *MFABackupCodeUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for MFABackupCodeCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *MFABackupCodeUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *MFABackupCodeUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: MFABackupCodeUpsertOne.ID is not supported by MySQL driver. Use MFABackupCodeUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *MFABackupCodeUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // MFABackupCodeCreateBulk is the builder for creating many MFABackupCode entities in bulk.
 type MFABackupCodeCreateBulk struct {
 	config
 	err      error
 	builders []*MFABackupCodeCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the MFABackupCode entities in the database.
@@ -246,6 +480,7 @@ func (_c *MFABackupCodeCreateBulk) Save(ctx context.Context) ([]*MFABackupCode, 
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -292,6 +527,172 @@ func (_c *MFABackupCodeCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *MFABackupCodeCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.MFABackupCode.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.MFABackupCodeUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *MFABackupCodeCreateBulk) OnConflict(opts ...sql.ConflictOption) *MFABackupCodeUpsertBulk {
+	_c.conflict = opts
+	return &MFABackupCodeUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.MFABackupCode.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *MFABackupCodeCreateBulk) OnConflictColumns(columns ...string) *MFABackupCodeUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &MFABackupCodeUpsertBulk{
+		create: _c,
+	}
+}
+
+// MFABackupCodeUpsertBulk is the builder for "upsert"-ing
+// a bulk of MFABackupCode nodes.
+type MFABackupCodeUpsertBulk struct {
+	create *MFABackupCodeCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.MFABackupCode.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(mfabackupcode.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *MFABackupCodeUpsertBulk) UpdateNewValues() *MFABackupCodeUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(mfabackupcode.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(mfabackupcode.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.MFABackupCode.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *MFABackupCodeUpsertBulk) Ignore() *MFABackupCodeUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *MFABackupCodeUpsertBulk) DoNothing() *MFABackupCodeUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the MFABackupCodeCreateBulk.OnConflict
+// documentation for more info.
+func (u *MFABackupCodeUpsertBulk) Update(set func(*MFABackupCodeUpsert)) *MFABackupCodeUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&MFABackupCodeUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *MFABackupCodeUpsertBulk) SetUserID(v uuid.UUID) *MFABackupCodeUpsertBulk {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *MFABackupCodeUpsertBulk) UpdateUserID() *MFABackupCodeUpsertBulk {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetCodeHash sets the "code_hash" field.
+func (u *MFABackupCodeUpsertBulk) SetCodeHash(v string) *MFABackupCodeUpsertBulk {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.SetCodeHash(v)
+	})
+}
+
+// UpdateCodeHash sets the "code_hash" field to the value that was provided on create.
+func (u *MFABackupCodeUpsertBulk) UpdateCodeHash() *MFABackupCodeUpsertBulk {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.UpdateCodeHash()
+	})
+}
+
+// SetUsedAt sets the "used_at" field.
+func (u *MFABackupCodeUpsertBulk) SetUsedAt(v time.Time) *MFABackupCodeUpsertBulk {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.SetUsedAt(v)
+	})
+}
+
+// UpdateUsedAt sets the "used_at" field to the value that was provided on create.
+func (u *MFABackupCodeUpsertBulk) UpdateUsedAt() *MFABackupCodeUpsertBulk {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.UpdateUsedAt()
+	})
+}
+
+// ClearUsedAt clears the value of the "used_at" field.
+func (u *MFABackupCodeUpsertBulk) ClearUsedAt() *MFABackupCodeUpsertBulk {
+	return u.Update(func(s *MFABackupCodeUpsert) {
+		s.ClearUsedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *MFABackupCodeUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the MFABackupCodeCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for MFABackupCodeCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *MFABackupCodeUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

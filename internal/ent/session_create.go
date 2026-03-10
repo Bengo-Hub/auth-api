@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -20,6 +22,7 @@ type SessionCreate struct {
 	config
 	mutation *SessionMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetUserID sets the "user_id" field.
@@ -345,6 +348,7 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 		_node = &Session{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(session.Table, sqlgraph.NewFieldSpec(session.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -425,11 +429,582 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.Session.Create().
+//		SetUserID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.SessionUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *SessionCreate) OnConflict(opts ...sql.ConflictOption) *SessionUpsertOne {
+	_c.conflict = opts
+	return &SessionUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.Session.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *SessionCreate) OnConflictColumns(columns ...string) *SessionUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &SessionUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// SessionUpsertOne is the builder for "upsert"-ing
+	//  one Session node.
+	SessionUpsertOne struct {
+		create *SessionCreate
+	}
+
+	// SessionUpsert is the "OnConflict" setter.
+	SessionUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUserID sets the "user_id" field.
+func (u *SessionUpsert) SetUserID(v uuid.UUID) *SessionUpsert {
+	u.Set(session.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateUserID() *SessionUpsert {
+	u.SetExcluded(session.FieldUserID)
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *SessionUpsert) SetTenantID(v uuid.UUID) *SessionUpsert {
+	u.Set(session.FieldTenantID, v)
+	return u
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateTenantID() *SessionUpsert {
+	u.SetExcluded(session.FieldTenantID)
+	return u
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *SessionUpsert) ClearTenantID() *SessionUpsert {
+	u.SetNull(session.FieldTenantID)
+	return u
+}
+
+// SetClientID sets the "client_id" field.
+func (u *SessionUpsert) SetClientID(v string) *SessionUpsert {
+	u.Set(session.FieldClientID, v)
+	return u
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateClientID() *SessionUpsert {
+	u.SetExcluded(session.FieldClientID)
+	return u
+}
+
+// ClearClientID clears the value of the "client_id" field.
+func (u *SessionUpsert) ClearClientID() *SessionUpsert {
+	u.SetNull(session.FieldClientID)
+	return u
+}
+
+// SetSessionType sets the "session_type" field.
+func (u *SessionUpsert) SetSessionType(v string) *SessionUpsert {
+	u.Set(session.FieldSessionType, v)
+	return u
+}
+
+// UpdateSessionType sets the "session_type" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateSessionType() *SessionUpsert {
+	u.SetExcluded(session.FieldSessionType)
+	return u
+}
+
+// SetStatus sets the "status" field.
+func (u *SessionUpsert) SetStatus(v string) *SessionUpsert {
+	u.Set(session.FieldStatus, v)
+	return u
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateStatus() *SessionUpsert {
+	u.SetExcluded(session.FieldStatus)
+	return u
+}
+
+// SetRefreshTokenHash sets the "refresh_token_hash" field.
+func (u *SessionUpsert) SetRefreshTokenHash(v string) *SessionUpsert {
+	u.Set(session.FieldRefreshTokenHash, v)
+	return u
+}
+
+// UpdateRefreshTokenHash sets the "refresh_token_hash" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateRefreshTokenHash() *SessionUpsert {
+	u.SetExcluded(session.FieldRefreshTokenHash)
+	return u
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *SessionUpsert) SetExpiresAt(v time.Time) *SessionUpsert {
+	u.Set(session.FieldExpiresAt, v)
+	return u
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateExpiresAt() *SessionUpsert {
+	u.SetExcluded(session.FieldExpiresAt)
+	return u
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (u *SessionUpsert) SetRevokedAt(v time.Time) *SessionUpsert {
+	u.Set(session.FieldRevokedAt, v)
+	return u
+}
+
+// UpdateRevokedAt sets the "revoked_at" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateRevokedAt() *SessionUpsert {
+	u.SetExcluded(session.FieldRevokedAt)
+	return u
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (u *SessionUpsert) ClearRevokedAt() *SessionUpsert {
+	u.SetNull(session.FieldRevokedAt)
+	return u
+}
+
+// SetRevocationReason sets the "revocation_reason" field.
+func (u *SessionUpsert) SetRevocationReason(v string) *SessionUpsert {
+	u.Set(session.FieldRevocationReason, v)
+	return u
+}
+
+// UpdateRevocationReason sets the "revocation_reason" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateRevocationReason() *SessionUpsert {
+	u.SetExcluded(session.FieldRevocationReason)
+	return u
+}
+
+// ClearRevocationReason clears the value of the "revocation_reason" field.
+func (u *SessionUpsert) ClearRevocationReason() *SessionUpsert {
+	u.SetNull(session.FieldRevocationReason)
+	return u
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *SessionUpsert) SetIPAddress(v string) *SessionUpsert {
+	u.Set(session.FieldIPAddress, v)
+	return u
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateIPAddress() *SessionUpsert {
+	u.SetExcluded(session.FieldIPAddress)
+	return u
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *SessionUpsert) ClearIPAddress() *SessionUpsert {
+	u.SetNull(session.FieldIPAddress)
+	return u
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *SessionUpsert) SetUserAgent(v string) *SessionUpsert {
+	u.Set(session.FieldUserAgent, v)
+	return u
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateUserAgent() *SessionUpsert {
+	u.SetExcluded(session.FieldUserAgent)
+	return u
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *SessionUpsert) ClearUserAgent() *SessionUpsert {
+	u.SetNull(session.FieldUserAgent)
+	return u
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *SessionUpsert) SetMetadata(v map[string]interface{}) *SessionUpsert {
+	u.Set(session.FieldMetadata, v)
+	return u
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateMetadata() *SessionUpsert {
+	u.SetExcluded(session.FieldMetadata)
+	return u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *SessionUpsert) ClearMetadata() *SessionUpsert {
+	u.SetNull(session.FieldMetadata)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *SessionUpsert) SetUpdatedAt(v time.Time) *SessionUpsert {
+	u.Set(session.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *SessionUpsert) UpdateUpdatedAt() *SessionUpsert {
+	u.SetExcluded(session.FieldUpdatedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.Session.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(session.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *SessionUpsertOne) UpdateNewValues() *SessionUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(session.FieldID)
+		}
+		if _, exists := u.create.mutation.IssuedAt(); exists {
+			s.SetIgnore(session.FieldIssuedAt)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(session.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.Session.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *SessionUpsertOne) Ignore() *SessionUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *SessionUpsertOne) DoNothing() *SessionUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the SessionCreate.OnConflict
+// documentation for more info.
+func (u *SessionUpsertOne) Update(set func(*SessionUpsert)) *SessionUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&SessionUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *SessionUpsertOne) SetUserID(v uuid.UUID) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateUserID() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *SessionUpsertOne) SetTenantID(v uuid.UUID) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateTenantID() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *SessionUpsertOne) ClearTenantID() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearTenantID()
+	})
+}
+
+// SetClientID sets the "client_id" field.
+func (u *SessionUpsertOne) SetClientID(v string) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetClientID(v)
+	})
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateClientID() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateClientID()
+	})
+}
+
+// ClearClientID clears the value of the "client_id" field.
+func (u *SessionUpsertOne) ClearClientID() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearClientID()
+	})
+}
+
+// SetSessionType sets the "session_type" field.
+func (u *SessionUpsertOne) SetSessionType(v string) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetSessionType(v)
+	})
+}
+
+// UpdateSessionType sets the "session_type" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateSessionType() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateSessionType()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *SessionUpsertOne) SetStatus(v string) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateStatus() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateStatus()
+	})
+}
+
+// SetRefreshTokenHash sets the "refresh_token_hash" field.
+func (u *SessionUpsertOne) SetRefreshTokenHash(v string) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetRefreshTokenHash(v)
+	})
+}
+
+// UpdateRefreshTokenHash sets the "refresh_token_hash" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateRefreshTokenHash() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateRefreshTokenHash()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *SessionUpsertOne) SetExpiresAt(v time.Time) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateExpiresAt() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (u *SessionUpsertOne) SetRevokedAt(v time.Time) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetRevokedAt(v)
+	})
+}
+
+// UpdateRevokedAt sets the "revoked_at" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateRevokedAt() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateRevokedAt()
+	})
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (u *SessionUpsertOne) ClearRevokedAt() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearRevokedAt()
+	})
+}
+
+// SetRevocationReason sets the "revocation_reason" field.
+func (u *SessionUpsertOne) SetRevocationReason(v string) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetRevocationReason(v)
+	})
+}
+
+// UpdateRevocationReason sets the "revocation_reason" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateRevocationReason() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateRevocationReason()
+	})
+}
+
+// ClearRevocationReason clears the value of the "revocation_reason" field.
+func (u *SessionUpsertOne) ClearRevocationReason() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearRevocationReason()
+	})
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *SessionUpsertOne) SetIPAddress(v string) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetIPAddress(v)
+	})
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateIPAddress() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateIPAddress()
+	})
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *SessionUpsertOne) ClearIPAddress() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearIPAddress()
+	})
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *SessionUpsertOne) SetUserAgent(v string) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetUserAgent(v)
+	})
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateUserAgent() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateUserAgent()
+	})
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *SessionUpsertOne) ClearUserAgent() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearUserAgent()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *SessionUpsertOne) SetMetadata(v map[string]interface{}) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateMetadata() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *SessionUpsertOne) ClearMetadata() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *SessionUpsertOne) SetUpdatedAt(v time.Time) *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *SessionUpsertOne) UpdateUpdatedAt() *SessionUpsertOne {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *SessionUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for SessionCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *SessionUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *SessionUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: SessionUpsertOne.ID is not supported by MySQL driver. Use SessionUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *SessionUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // SessionCreateBulk is the builder for creating many Session entities in bulk.
 type SessionCreateBulk struct {
 	config
 	err      error
 	builders []*SessionCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the Session entities in the database.
@@ -459,6 +1034,7 @@ func (_c *SessionCreateBulk) Save(ctx context.Context) ([]*Session, error) {
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -505,6 +1081,357 @@ func (_c *SessionCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *SessionCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.Session.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.SessionUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *SessionCreateBulk) OnConflict(opts ...sql.ConflictOption) *SessionUpsertBulk {
+	_c.conflict = opts
+	return &SessionUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.Session.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *SessionCreateBulk) OnConflictColumns(columns ...string) *SessionUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &SessionUpsertBulk{
+		create: _c,
+	}
+}
+
+// SessionUpsertBulk is the builder for "upsert"-ing
+// a bulk of Session nodes.
+type SessionUpsertBulk struct {
+	create *SessionCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.Session.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(session.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *SessionUpsertBulk) UpdateNewValues() *SessionUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(session.FieldID)
+			}
+			if _, exists := b.mutation.IssuedAt(); exists {
+				s.SetIgnore(session.FieldIssuedAt)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(session.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.Session.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *SessionUpsertBulk) Ignore() *SessionUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *SessionUpsertBulk) DoNothing() *SessionUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the SessionCreateBulk.OnConflict
+// documentation for more info.
+func (u *SessionUpsertBulk) Update(set func(*SessionUpsert)) *SessionUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&SessionUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *SessionUpsertBulk) SetUserID(v uuid.UUID) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateUserID() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *SessionUpsertBulk) SetTenantID(v uuid.UUID) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateTenantID() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *SessionUpsertBulk) ClearTenantID() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearTenantID()
+	})
+}
+
+// SetClientID sets the "client_id" field.
+func (u *SessionUpsertBulk) SetClientID(v string) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetClientID(v)
+	})
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateClientID() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateClientID()
+	})
+}
+
+// ClearClientID clears the value of the "client_id" field.
+func (u *SessionUpsertBulk) ClearClientID() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearClientID()
+	})
+}
+
+// SetSessionType sets the "session_type" field.
+func (u *SessionUpsertBulk) SetSessionType(v string) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetSessionType(v)
+	})
+}
+
+// UpdateSessionType sets the "session_type" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateSessionType() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateSessionType()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *SessionUpsertBulk) SetStatus(v string) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateStatus() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateStatus()
+	})
+}
+
+// SetRefreshTokenHash sets the "refresh_token_hash" field.
+func (u *SessionUpsertBulk) SetRefreshTokenHash(v string) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetRefreshTokenHash(v)
+	})
+}
+
+// UpdateRefreshTokenHash sets the "refresh_token_hash" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateRefreshTokenHash() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateRefreshTokenHash()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *SessionUpsertBulk) SetExpiresAt(v time.Time) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateExpiresAt() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (u *SessionUpsertBulk) SetRevokedAt(v time.Time) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetRevokedAt(v)
+	})
+}
+
+// UpdateRevokedAt sets the "revoked_at" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateRevokedAt() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateRevokedAt()
+	})
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (u *SessionUpsertBulk) ClearRevokedAt() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearRevokedAt()
+	})
+}
+
+// SetRevocationReason sets the "revocation_reason" field.
+func (u *SessionUpsertBulk) SetRevocationReason(v string) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetRevocationReason(v)
+	})
+}
+
+// UpdateRevocationReason sets the "revocation_reason" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateRevocationReason() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateRevocationReason()
+	})
+}
+
+// ClearRevocationReason clears the value of the "revocation_reason" field.
+func (u *SessionUpsertBulk) ClearRevocationReason() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearRevocationReason()
+	})
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *SessionUpsertBulk) SetIPAddress(v string) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetIPAddress(v)
+	})
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateIPAddress() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateIPAddress()
+	})
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *SessionUpsertBulk) ClearIPAddress() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearIPAddress()
+	})
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *SessionUpsertBulk) SetUserAgent(v string) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetUserAgent(v)
+	})
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateUserAgent() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateUserAgent()
+	})
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *SessionUpsertBulk) ClearUserAgent() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearUserAgent()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *SessionUpsertBulk) SetMetadata(v map[string]interface{}) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateMetadata() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *SessionUpsertBulk) ClearMetadata() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *SessionUpsertBulk) SetUpdatedAt(v time.Time) *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *SessionUpsertBulk) UpdateUpdatedAt() *SessionUpsertBulk {
+	return u.Update(func(s *SessionUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *SessionUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the SessionCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for SessionCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *SessionUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

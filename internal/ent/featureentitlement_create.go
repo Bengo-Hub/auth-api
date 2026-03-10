@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/featureentitlement"
@@ -19,6 +21,7 @@ type FeatureEntitlementCreate struct {
 	config
 	mutation *FeatureEntitlementMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetTenantID sets the "tenant_id" field.
@@ -215,6 +218,7 @@ func (_c *FeatureEntitlementCreate) createSpec() (*FeatureEntitlement, *sqlgraph
 		_node = &FeatureEntitlement{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(featureentitlement.Table, sqlgraph.NewFieldSpec(featureentitlement.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -250,11 +254,332 @@ func (_c *FeatureEntitlementCreate) createSpec() (*FeatureEntitlement, *sqlgraph
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.FeatureEntitlement.Create().
+//		SetTenantID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.FeatureEntitlementUpsert) {
+//			SetTenantID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *FeatureEntitlementCreate) OnConflict(opts ...sql.ConflictOption) *FeatureEntitlementUpsertOne {
+	_c.conflict = opts
+	return &FeatureEntitlementUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.FeatureEntitlement.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *FeatureEntitlementCreate) OnConflictColumns(columns ...string) *FeatureEntitlementUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &FeatureEntitlementUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// FeatureEntitlementUpsertOne is the builder for "upsert"-ing
+	//  one FeatureEntitlement node.
+	FeatureEntitlementUpsertOne struct {
+		create *FeatureEntitlementCreate
+	}
+
+	// FeatureEntitlementUpsert is the "OnConflict" setter.
+	FeatureEntitlementUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetTenantID sets the "tenant_id" field.
+func (u *FeatureEntitlementUpsert) SetTenantID(v uuid.UUID) *FeatureEntitlementUpsert {
+	u.Set(featureentitlement.FieldTenantID, v)
+	return u
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsert) UpdateTenantID() *FeatureEntitlementUpsert {
+	u.SetExcluded(featureentitlement.FieldTenantID)
+	return u
+}
+
+// SetFeatureCode sets the "feature_code" field.
+func (u *FeatureEntitlementUpsert) SetFeatureCode(v string) *FeatureEntitlementUpsert {
+	u.Set(featureentitlement.FieldFeatureCode, v)
+	return u
+}
+
+// UpdateFeatureCode sets the "feature_code" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsert) UpdateFeatureCode() *FeatureEntitlementUpsert {
+	u.SetExcluded(featureentitlement.FieldFeatureCode)
+	return u
+}
+
+// SetLimitJSON sets the "limit_json" field.
+func (u *FeatureEntitlementUpsert) SetLimitJSON(v map[string]interface{}) *FeatureEntitlementUpsert {
+	u.Set(featureentitlement.FieldLimitJSON, v)
+	return u
+}
+
+// UpdateLimitJSON sets the "limit_json" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsert) UpdateLimitJSON() *FeatureEntitlementUpsert {
+	u.SetExcluded(featureentitlement.FieldLimitJSON)
+	return u
+}
+
+// ClearLimitJSON clears the value of the "limit_json" field.
+func (u *FeatureEntitlementUpsert) ClearLimitJSON() *FeatureEntitlementUpsert {
+	u.SetNull(featureentitlement.FieldLimitJSON)
+	return u
+}
+
+// SetPlanSource sets the "plan_source" field.
+func (u *FeatureEntitlementUpsert) SetPlanSource(v string) *FeatureEntitlementUpsert {
+	u.Set(featureentitlement.FieldPlanSource, v)
+	return u
+}
+
+// UpdatePlanSource sets the "plan_source" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsert) UpdatePlanSource() *FeatureEntitlementUpsert {
+	u.SetExcluded(featureentitlement.FieldPlanSource)
+	return u
+}
+
+// SetSyncedAt sets the "synced_at" field.
+func (u *FeatureEntitlementUpsert) SetSyncedAt(v time.Time) *FeatureEntitlementUpsert {
+	u.Set(featureentitlement.FieldSyncedAt, v)
+	return u
+}
+
+// UpdateSyncedAt sets the "synced_at" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsert) UpdateSyncedAt() *FeatureEntitlementUpsert {
+	u.SetExcluded(featureentitlement.FieldSyncedAt)
+	return u
+}
+
+// ClearSyncedAt clears the value of the "synced_at" field.
+func (u *FeatureEntitlementUpsert) ClearSyncedAt() *FeatureEntitlementUpsert {
+	u.SetNull(featureentitlement.FieldSyncedAt)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *FeatureEntitlementUpsert) SetUpdatedAt(v time.Time) *FeatureEntitlementUpsert {
+	u.Set(featureentitlement.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsert) UpdateUpdatedAt() *FeatureEntitlementUpsert {
+	u.SetExcluded(featureentitlement.FieldUpdatedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.FeatureEntitlement.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(featureentitlement.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *FeatureEntitlementUpsertOne) UpdateNewValues() *FeatureEntitlementUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(featureentitlement.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(featureentitlement.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.FeatureEntitlement.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *FeatureEntitlementUpsertOne) Ignore() *FeatureEntitlementUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *FeatureEntitlementUpsertOne) DoNothing() *FeatureEntitlementUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the FeatureEntitlementCreate.OnConflict
+// documentation for more info.
+func (u *FeatureEntitlementUpsertOne) Update(set func(*FeatureEntitlementUpsert)) *FeatureEntitlementUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&FeatureEntitlementUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *FeatureEntitlementUpsertOne) SetTenantID(v uuid.UUID) *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertOne) UpdateTenantID() *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// SetFeatureCode sets the "feature_code" field.
+func (u *FeatureEntitlementUpsertOne) SetFeatureCode(v string) *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetFeatureCode(v)
+	})
+}
+
+// UpdateFeatureCode sets the "feature_code" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertOne) UpdateFeatureCode() *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateFeatureCode()
+	})
+}
+
+// SetLimitJSON sets the "limit_json" field.
+func (u *FeatureEntitlementUpsertOne) SetLimitJSON(v map[string]interface{}) *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetLimitJSON(v)
+	})
+}
+
+// UpdateLimitJSON sets the "limit_json" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertOne) UpdateLimitJSON() *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateLimitJSON()
+	})
+}
+
+// ClearLimitJSON clears the value of the "limit_json" field.
+func (u *FeatureEntitlementUpsertOne) ClearLimitJSON() *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.ClearLimitJSON()
+	})
+}
+
+// SetPlanSource sets the "plan_source" field.
+func (u *FeatureEntitlementUpsertOne) SetPlanSource(v string) *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetPlanSource(v)
+	})
+}
+
+// UpdatePlanSource sets the "plan_source" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertOne) UpdatePlanSource() *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdatePlanSource()
+	})
+}
+
+// SetSyncedAt sets the "synced_at" field.
+func (u *FeatureEntitlementUpsertOne) SetSyncedAt(v time.Time) *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetSyncedAt(v)
+	})
+}
+
+// UpdateSyncedAt sets the "synced_at" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertOne) UpdateSyncedAt() *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateSyncedAt()
+	})
+}
+
+// ClearSyncedAt clears the value of the "synced_at" field.
+func (u *FeatureEntitlementUpsertOne) ClearSyncedAt() *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.ClearSyncedAt()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *FeatureEntitlementUpsertOne) SetUpdatedAt(v time.Time) *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertOne) UpdateUpdatedAt() *FeatureEntitlementUpsertOne {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *FeatureEntitlementUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for FeatureEntitlementCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *FeatureEntitlementUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *FeatureEntitlementUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: FeatureEntitlementUpsertOne.ID is not supported by MySQL driver. Use FeatureEntitlementUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *FeatureEntitlementUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // FeatureEntitlementCreateBulk is the builder for creating many FeatureEntitlement entities in bulk.
 type FeatureEntitlementCreateBulk struct {
 	config
 	err      error
 	builders []*FeatureEntitlementCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the FeatureEntitlement entities in the database.
@@ -284,6 +609,7 @@ func (_c *FeatureEntitlementCreateBulk) Save(ctx context.Context) ([]*FeatureEnt
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -330,6 +656,221 @@ func (_c *FeatureEntitlementCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *FeatureEntitlementCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.FeatureEntitlement.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.FeatureEntitlementUpsert) {
+//			SetTenantID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *FeatureEntitlementCreateBulk) OnConflict(opts ...sql.ConflictOption) *FeatureEntitlementUpsertBulk {
+	_c.conflict = opts
+	return &FeatureEntitlementUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.FeatureEntitlement.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *FeatureEntitlementCreateBulk) OnConflictColumns(columns ...string) *FeatureEntitlementUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &FeatureEntitlementUpsertBulk{
+		create: _c,
+	}
+}
+
+// FeatureEntitlementUpsertBulk is the builder for "upsert"-ing
+// a bulk of FeatureEntitlement nodes.
+type FeatureEntitlementUpsertBulk struct {
+	create *FeatureEntitlementCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.FeatureEntitlement.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(featureentitlement.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *FeatureEntitlementUpsertBulk) UpdateNewValues() *FeatureEntitlementUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(featureentitlement.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(featureentitlement.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.FeatureEntitlement.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *FeatureEntitlementUpsertBulk) Ignore() *FeatureEntitlementUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *FeatureEntitlementUpsertBulk) DoNothing() *FeatureEntitlementUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the FeatureEntitlementCreateBulk.OnConflict
+// documentation for more info.
+func (u *FeatureEntitlementUpsertBulk) Update(set func(*FeatureEntitlementUpsert)) *FeatureEntitlementUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&FeatureEntitlementUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *FeatureEntitlementUpsertBulk) SetTenantID(v uuid.UUID) *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertBulk) UpdateTenantID() *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// SetFeatureCode sets the "feature_code" field.
+func (u *FeatureEntitlementUpsertBulk) SetFeatureCode(v string) *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetFeatureCode(v)
+	})
+}
+
+// UpdateFeatureCode sets the "feature_code" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertBulk) UpdateFeatureCode() *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateFeatureCode()
+	})
+}
+
+// SetLimitJSON sets the "limit_json" field.
+func (u *FeatureEntitlementUpsertBulk) SetLimitJSON(v map[string]interface{}) *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetLimitJSON(v)
+	})
+}
+
+// UpdateLimitJSON sets the "limit_json" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertBulk) UpdateLimitJSON() *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateLimitJSON()
+	})
+}
+
+// ClearLimitJSON clears the value of the "limit_json" field.
+func (u *FeatureEntitlementUpsertBulk) ClearLimitJSON() *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.ClearLimitJSON()
+	})
+}
+
+// SetPlanSource sets the "plan_source" field.
+func (u *FeatureEntitlementUpsertBulk) SetPlanSource(v string) *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetPlanSource(v)
+	})
+}
+
+// UpdatePlanSource sets the "plan_source" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertBulk) UpdatePlanSource() *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdatePlanSource()
+	})
+}
+
+// SetSyncedAt sets the "synced_at" field.
+func (u *FeatureEntitlementUpsertBulk) SetSyncedAt(v time.Time) *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetSyncedAt(v)
+	})
+}
+
+// UpdateSyncedAt sets the "synced_at" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertBulk) UpdateSyncedAt() *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateSyncedAt()
+	})
+}
+
+// ClearSyncedAt clears the value of the "synced_at" field.
+func (u *FeatureEntitlementUpsertBulk) ClearSyncedAt() *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.ClearSyncedAt()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *FeatureEntitlementUpsertBulk) SetUpdatedAt(v time.Time) *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *FeatureEntitlementUpsertBulk) UpdateUpdatedAt() *FeatureEntitlementUpsertBulk {
+	return u.Update(func(s *FeatureEntitlementUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *FeatureEntitlementUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the FeatureEntitlementCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for FeatureEntitlementCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *FeatureEntitlementUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
