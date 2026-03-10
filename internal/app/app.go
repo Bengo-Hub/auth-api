@@ -63,7 +63,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		return nil, err
 	}
 
-	integrationSvc := integrations.New(entClient, redisClient, cfg.Security.EncryptionKey)
+	integrationSvc := integrations.New(entClient, redisClient, cfg.Security.EncryptionKey, cfg.Token.Issuer)
 	if err := integrationSvc.Initialize(ctx); err != nil {
 		return nil, fmt.Errorf("initialize integrations library: %w", err)
 	}

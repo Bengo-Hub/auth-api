@@ -569,13 +569,26 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 		return nil
 	}
 	return map[string]any{
-		"id":         tenant.ID,
-		"name":       tenant.Name,
-		"slug":       tenant.Slug,
-		"status":     tenant.Status,
-		"metadata":   tenant.Metadata,
-		"created_at": tenant.CreatedAt,
-		"updated_at": tenant.UpdatedAt,
+		"id":                      tenant.ID,
+		"name":                    tenant.Name,
+		"slug":                    tenant.Slug,
+		"status":                  tenant.Status,
+		"contact_email":           tenant.ContactEmail,
+		"contact_phone":           tenant.ContactPhone,
+		"logo_url":                tenant.LogoURL,
+		"website":                 tenant.Website,
+		"country":                 tenant.Country,
+		"timezone":                tenant.Timezone,
+		"brand_colors":            tenant.BrandColors,
+		"org_size":                tenant.OrgSize,
+		"use_case":                tenant.UseCase,
+		"subscription_plan":       tenant.SubscriptionPlan,
+		"subscription_status":     tenant.SubscriptionStatus,
+		"subscription_expires_at": tenant.SubscriptionExpiresAt,
+		"tier_limits":             tenant.TierLimits,
+		"metadata":                tenant.Metadata,
+		"created_at":              tenant.CreatedAt,
+		"updated_at":              tenant.UpdatedAt,
 	}
 }
 

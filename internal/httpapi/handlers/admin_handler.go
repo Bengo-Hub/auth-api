@@ -238,11 +238,24 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 // PublicTenantResponse is the response for GET /api/v1/tenants/by-slug/{slug} (public, no auth).
 // Used by frontends for tenant auto-discovery and branding (name, slug, metadata.primary_color, etc.).
 type PublicTenantResponse struct {
-	ID       string         `json:"id"`
-	Name     string         `json:"name"`
-	Slug     string         `json:"slug"`
-	Status   string         `json:"status"`
-	Metadata map[string]any `json:"metadata,omitempty"`
+	ID                    string         `json:"id"`
+	Name                  string         `json:"name"`
+	Slug                  string         `json:"slug"`
+	Status                string         `json:"status"`
+	ContactEmail          *string        `json:"contact_email,omitempty"`
+	ContactPhone          *string        `json:"contact_phone,omitempty"`
+	LogoURL               *string        `json:"logo_url,omitempty"`
+	Website               *string        `json:"website,omitempty"`
+	Country               *string        `json:"country,omitempty"`
+	Timezone              *string        `json:"timezone,omitempty"`
+	BrandColors           map[string]any `json:"brand_colors,omitempty"`
+	OrgSize               *string        `json:"org_size,omitempty"`
+	UseCase               *string        `json:"use_case,omitempty"`
+	SubscriptionPlan      *string        `json:"subscription_plan,omitempty"`
+	SubscriptionStatus    *string        `json:"subscription_status,omitempty"`
+	SubscriptionExpiresAt *time.Time     `json:"subscription_expires_at,omitempty"`
+	TierLimits            map[string]any `json:"tier_limits,omitempty"`
+	Metadata              map[string]any `json:"metadata,omitempty"`
 }
 
 // GetTenantBySlugPublic retrieves a tenant by slug via public endpoint (for tenant auto-discovery and branding).
@@ -270,11 +283,24 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 		meta = make(map[string]interface{})
 	}
 	writeJSON(w, http.StatusOK, PublicTenantResponse{
-		ID:       t.ID.String(),
-		Name:     t.Name,
-		Slug:     t.Slug,
-		Status:   t.Status,
-		Metadata: meta,
+		ID:                    t.ID.String(),
+		Name:                  t.Name,
+		Slug:                  t.Slug,
+		Status:                t.Status,
+		ContactEmail:          t.ContactEmail,
+		ContactPhone:          t.ContactPhone,
+		LogoURL:               t.LogoURL,
+		Website:               t.Website,
+		Country:               t.Country,
+		Timezone:              t.Timezone,
+		BrandColors:           t.BrandColors,
+		OrgSize:               t.OrgSize,
+		UseCase:               t.UseCase,
+		SubscriptionPlan:      t.SubscriptionPlan,
+		SubscriptionStatus:    t.SubscriptionStatus,
+		SubscriptionExpiresAt: t.SubscriptionExpiresAt,
+		TierLimits:            t.TierLimits,
+		Metadata:              t.Metadata,
 	})
 }
 
