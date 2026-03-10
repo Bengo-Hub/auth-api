@@ -9,10 +9,10 @@ import (
 
 // Config aggregates all runtime settings.
 type Config struct {
-	App          AppConfig          `envPrefix:"AUTH_"`
-	HTTP         HTTPConfig         `envPrefix:"AUTH_HTTP_"`
-	Database     DatabaseConfig     `envPrefix:"AUTH_DB_"`
-	Redis        RedisConfig        `envPrefix:"AUTH_REDIS_"`
+	App          AppConfig          `envPrefix:""`
+	HTTP         HTTPConfig         `envPrefix:"HTTP_"`
+	Database     DatabaseConfig     `envPrefix:""`
+	Redis        RedisConfig        `envPrefix:"REDIS_"`
 	Token        TokenConfig        `envPrefix:"AUTH_TOKEN_"`
 	Security     SecurityConfig     `envPrefix:"AUTH_SECURITY_"`
 	Providers    ProvidersConfig    `envPrefix:"AUTH_PROVIDERS_"`
@@ -37,9 +37,9 @@ type SubscriptionConfig struct {
 }
 
 type AppConfig struct {
-	Environment string `env:"ENV" envDefault:"development"`
-	ServiceName string `env:"SERVICE_NAME" envDefault:"auth-api"`
-	AuthUIURL   string `env:"UI_URL" envDefault:"https://accounts.codevertexitsolutions.com"`
+	Environment string `env:"APP_ENV" envDefault:"development"`
+	ServiceName string `env:"APP_NAME" envDefault:"auth-api"`
+	AuthUIURL   string `env:"AUTH_UI_URL" envDefault:"https://accounts.codevertexitsolutions.com"`
 }
 
 type HTTPConfig struct {
@@ -55,11 +55,11 @@ type HTTPConfig struct {
 }
 
 type DatabaseConfig struct {
-	URL             string        `env:"URL"`
-	MaxOpenConns    int           `env:"MAX_OPEN_CONNS" envDefault:"20"`
-	MaxIdleConns    int           `env:"MAX_IDLE_CONNS" envDefault:"5"`
-	ConnMaxLifetime time.Duration `env:"CONN_MAX_LIFETIME" envDefault:"30m"`
-	RunMigrations   bool          `env:"RUN_MIGRATIONS" envDefault:"true"`
+	URL             string        `env:"POSTGRES_URL"`
+	MaxOpenConns    int           `env:"POSTGRES_MAX_OPEN_CONNS" envDefault:"20"`
+	MaxIdleConns    int           `env:"POSTGRES_MAX_IDLE_CONNS" envDefault:"5"`
+	ConnMaxLifetime time.Duration `env:"POSTGRES_CONN_MAX_LIFETIME" envDefault:"30m"`
+	RunMigrations   bool          `env:"POSTGRES_RUN_MIGRATIONS" envDefault:"true"`
 }
 
 type RedisConfig struct {
@@ -138,7 +138,7 @@ func Load() (*Config, error) {
 	}
 
 	if cfg.Database.URL == "" {
-		return nil, fmt.Errorf("AUTH_DB_URL is required")
+		return nil, fmt.Errorf("POSTGRES_URL is required")
 	}
 	if cfg.Token.PrivateKeyPath == "" || cfg.Token.PublicKeyPath == "" {
 		return nil, fmt.Errorf("AUTH_TOKEN_PRIVATE_KEY_PATH and AUTH_TOKEN_PUBLIC_KEY_PATH are required")
@@ -183,21 +183,21 @@ func Load() (*Config, error) {
 // Use this for migrations and setup scripts that don't need full config validation.
 func LoadDatabaseOnly() (DatabaseConfig, error) {
 	type dbOnlyConfig struct {
-		Database DatabaseConfig `envPrefix:"AUTH_DB_"`
+		Database DatabaseConfig `envPrefix:""`
 	}
 	cfg := &dbOnlyConfig{}
 	if err := env.Parse(cfg); err != nil {
 		return DatabaseConfig{}, fmt.Errorf("parse env: %w", err)
 	}
 	if cfg.Database.URL == "" {
-		return DatabaseConfig{}, fmt.Errorf("AUTH_DB_URL is required")
+		return DatabaseConfig{}, fmt.Errorf("POSTGRES_URL is required")
 	}
 	return cfg.Database, nil
 }
 
 // SeedConfig contains only what's needed for seeding (database + security for password hashing).
 type SeedConfig struct {
-	Database DatabaseConfig `envPrefix:"AUTH_DB_"`
+	Database DatabaseConfig `envPrefix:""`
 	Security SecurityConfig `envPrefix:"AUTH_SECURITY_"`
 }
 
@@ -208,7 +208,7 @@ func LoadForSeed() (*SeedConfig, error) {
 		return nil, fmt.Errorf("parse env: %w", err)
 	}
 	if cfg.Database.URL == "" {
-		return nil, fmt.Errorf("AUTH_DB_URL is required")
+		return nil, fmt.Errorf("POSTGRES_URL is required")
 	}
 	return cfg, nil
 }
