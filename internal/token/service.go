@@ -27,6 +27,7 @@ type Claims struct {
 	Roles       []string `json:"roles,omitempty"`       // User roles from TenantMembership (e.g., "superuser", "admin", "member")
 	Permissions []string `json:"permissions,omitempty"` // Canonical permission codes for RBAC (e.g., "catalog:view", "orders:read")
 	Email       string   `json:"email,omitempty"`
+	IsPlatformOwner bool `json:"is_platform_owner,omitempty"`
 
 	// Subscription claims (enriched from subscription-service)
 	SubscriptionPlan     string         `json:"sub_plan,omitempty"`     // Plan code (STARTER, GROWTH, PROFESSIONAL)
@@ -48,6 +49,7 @@ type AccessTokenInput struct {
 	Scopes      []string
 	Roles       []string // User roles from TenantMembership
 	Permissions []string // Canonical permission codes (e.g., catalog:view, orders:read)
+	IsPlatformOwner bool
 	Audience    []string
 
 	// Subscription data (optional, from subscription-service)
@@ -116,6 +118,7 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 		Roles:       input.Roles,
 		Permissions: input.Permissions,
 		Email:       input.Email,
+		IsPlatformOwner: input.IsPlatformOwner,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.cfg.Issuer,
 			IssuedAt:  jwt.NewNumericDate(now),

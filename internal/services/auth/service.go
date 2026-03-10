@@ -1080,6 +1080,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		Scopes:      effectiveScopes,
 		Roles:       roles,
 		Permissions: permissions,
+		IsPlatformOwner: tenantEntity != nil && tenantEntity.Slug == "codevertex",
 	}
 	if tenantEntity != nil {
 		tokenInput.TenantSlug = tenantEntity.Slug
