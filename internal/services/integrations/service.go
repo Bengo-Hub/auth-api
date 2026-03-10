@@ -11,6 +11,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"entgo.io/ent/dialect/sql"
 )
 
 // Service handles integration configurations with encrypted storage and caching.
@@ -65,7 +66,7 @@ func (s *Service) saveMasterKey(ctx context.Context, key string) error {
 		SetEncryptedCredentials(key). // Stored as-is in this special case
 		SetIsActive(true).
 		SetStatus("active").
-		OnConflict().
+		OnConflict(sql.ConflictColumns(integrationconfig.FieldTenantID, integrationconfig.FieldName)).
 		UpdateNewValues().
 		Exec(ctx)
 }
@@ -139,7 +140,7 @@ func (s *Service) SaveConfig(ctx context.Context, tenantID *uuid.UUID, name, dis
 		SetIsActive(true).
 		SetStatus("active").
 		SetNillableTenantID(tenantID).
-		OnConflict().
+		OnConflict(sql.ConflictColumns(integrationconfig.FieldTenantID, integrationconfig.FieldName)).
 		UpdateNewValues().
 		Exec(ctx)
 
