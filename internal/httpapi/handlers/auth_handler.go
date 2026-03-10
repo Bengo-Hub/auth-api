@@ -11,6 +11,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/services/auth"
+	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -25,6 +26,8 @@ type AuthService interface {
 	RequestPasswordReset(ctx context.Context, in auth.PasswordResetRequestInput) (string, error)
 	ConfirmPasswordReset(ctx context.Context, in auth.PasswordResetConfirmInput) error
 	GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error)
+	GetTenant(ctx context.Context, id uuid.UUID) (*ent.Tenant, error)
+	GetTenantBySlug(ctx context.Context, slug string) (*ent.Tenant, error)
 	GetUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) (roles []string, permissions []string, err error)
 	StartGoogleOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
 	CompleteGoogleOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
@@ -121,17 +124,53 @@ func (h *AuthHandler) LogoutGet(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "https://accounts.codevertexitsolutions.com", http.StatusFound)
 }
 
+func (h *AuthHandler) ListActiveIntegrations(w http.ResponseWriter, r *http.Request) {
+	tenantSlug := r.URL.Query().Get("tenant_slug")
+	var tenantID *uuid.UUID
+
+	if tenantSlug != "" {
+		tenant, err := h.service.GetTenantBySlug(r.Context(), tenantSlug)
+		if err == nil && tenant != nil {
+			tenantID = &tenant.ID
+		}
+	}
+
+	configs, err := h.integrations.ListActiveIntegrations(r.Context(), tenantID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to list integrations", nil)
+		return
+	}
+
+	type integrationInfo struct {
+		Name        string `json:"name"`
+		DisplayName string `json:"display_name"`
+		Icon        string `json:"icon,omitempty"`
+	}
+
+	response := make([]integrationInfo, 0)
+	for _, c := range configs {
+		response = append(response, integrationInfo{
+			Name:        c.Name,
+			DisplayName: c.DisplayName,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, response)
+}
+
 // AuthHandler exposes HTTP endpoints for authentication flows.
 type AuthHandler struct {
-	service AuthService
-	logger  *zap.Logger
+	service      AuthService
+	integrations *integrations.Service
+	logger       *zap.Logger
 }
 
 // NewAuthHandler constructs a handler.
-func NewAuthHandler(service AuthService, logger *zap.Logger) *AuthHandler {
+func NewAuthHandler(service AuthService, integrationSvc *integrations.Service, logger *zap.Logger) *AuthHandler {
 	return &AuthHandler{
-		service: service,
-		logger:  logger,
+		service:      service,
+		integrations: integrationSvc,
+		logger:       logger,
 	}
 }
 
@@ -143,14 +182,26 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var newOrg *auth.NewOrgInput
+	if req.NewOrg != nil {
+		newOrg = &auth.NewOrgInput{
+			Name:     req.NewOrg.Name,
+			Slug:     req.NewOrg.Slug,
+			Metadata: req.NewOrg.Metadata,
+		}
+	}
+
 	result, err := h.service.Register(r.Context(), auth.RegisterInput{
-		Email:      req.Email,
-		Password:   req.Password,
-		TenantSlug: req.TenantSlug,
-		Profile:    req.Profile,
-		IPAddress:  clientIP(r),
-		UserAgent:  userAgent(r),
-		ClientID:   req.ClientID,
+		Email:        req.Email,
+		Password:     req.Password,
+		TenantSlug:   req.TenantSlug,
+		Profile:      req.Profile,
+		IPAddress:    clientIP(r),
+		UserAgent:    userAgent(r),
+		ClientID:     req.ClientID,
+		SelectedPlan: req.SelectedPlan,
+		OrgAction:    req.OrgAction,
+		NewOrg:       newOrg,
 	})
 	if err != nil {
 		h.handleError(w, r, err)
@@ -392,7 +443,7 @@ func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, map[string]string{"status": "password_reset"})
 }
 
-// Me returns the authenticated user profile.
+// Me returns the authenticated user profile including the primary tenant object.
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
@@ -419,12 +470,32 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		roles = claims.Roles
 		permissions = nil
 	}
+
 	out := userViewFromEnt(userEntity)
 	if out == nil {
 		out = make(map[string]any)
 	}
 	out["roles"] = roles
 	out["permissions"] = permissions
+
+	// Resolve and embed the primary tenant as a nested object so frontend
+	// useAuth and test_sso_me_endpoint can read tenant.id / tenant.slug directly.
+	if userEntity.PrimaryTenantID != "" {
+		if tenantID, parseErr := uuid.Parse(userEntity.PrimaryTenantID); parseErr == nil {
+			if tenantEntity, tErr := h.service.GetTenant(r.Context(), tenantID); tErr == nil {
+				out["tenant"] = tenantViewFromEnt(tenantEntity)
+				out["tenant_id"] = tenantEntity.ID.String()
+				out["tenant_slug"] = tenantEntity.Slug
+				// Platform owner flag: Codevertex users have cross-tenant access.
+				if tenantEntity.Slug == "codevertex" {
+					out["is_platform_owner"] = true
+				}
+			} else {
+				h.logger.Warn("failed to load primary tenant in /me", zap.Error(tErr))
+			}
+		}
+	}
+
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -508,13 +579,29 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 	}
 }
 
-type registerRequest struct {
-	Email      string         `json:"email"`
-	Password   string         `json:"password"`
-	TenantSlug string         `json:"tenant_slug"`
-	Profile    map[string]any `json:"profile"`
-	ClientID   string         `json:"client_id"`
+type newOrgRequest struct {
+	Name     string         `json:"name"`
+	Slug     string         `json:"slug"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
+
+type registerRequest struct {
+	Email        string         `json:"email"`
+	Password     string         `json:"password"`
+	TenantSlug   string         `json:"tenant_slug"`
+	Profile      map[string]any `json:"profile"`
+	ClientID     string         `json:"client_id"`
+	// SelectedPlan is REQUIRED at registration time. The plan code (e.g. "STARTER", "GROWTH",
+	// "PROFESSIONAL") is recorded on the new tenant so subscription-api can create the trial
+	// subscription. The user MUST have selected a plan in the signup wizard before submitting.
+	SelectedPlan string         `json:"selected_plan,omitempty"`
+	// OrgAction is "join_existing" (default) or "create_new".
+	// When "create_new", NewOrg must be populated and the registering user
+	// becomes the tenant admin for the new organisation.
+	OrgAction    string         `json:"org_action,omitempty"`
+	NewOrg       *newOrgRequest `json:"new_org,omitempty"`
+}
+
 
 type loginRequest struct {
 	Email      string `json:"email"`
@@ -544,6 +631,23 @@ type googleOAuthStartRequest struct {
 	Flow        string `json:"flow"`
 	RedirectURI string `json:"redirect_uri"`
 }
+
+// oauthRegisterRequest is submitted by the signup wizard after an OAuth2 provider
+// redirected a new (unregistered) user to /signup with pre-filled details.
+// The oauth_token is a short-lived token issued by auth-api during the OAuth
+// callback to let the signup wizard prove the identity claim.
+type oauthRegisterRequest struct {
+	Email        string         `json:"email"`
+	OAuthProvider string        `json:"oauth_provider"` // e.g. "google", "github", "microsoft"
+	OAuthToken   string         `json:"oauth_token"`    // short-lived token from auth-api OAuth callback
+	TenantSlug   string         `json:"tenant_slug"`
+	Profile      map[string]any `json:"profile"`
+	ClientID     string         `json:"client_id"`
+	SelectedPlan string         `json:"selected_plan,omitempty"`
+	OrgAction    string         `json:"org_action,omitempty"`
+	NewOrg       *newOrgRequest `json:"new_org,omitempty"`
+}
+
 
 // ListSessions returns all active sessions for the authenticated user.
 func (h *AuthHandler) ListSessions(w http.ResponseWriter, r *http.Request) {

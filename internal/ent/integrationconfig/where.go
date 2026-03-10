@@ -60,14 +60,44 @@ func TenantID(v uuid.UUID) predicate.IntegrationConfig {
 	return predicate.IntegrationConfig(sql.FieldEQ(FieldTenantID, v))
 }
 
-// Service applies equality check predicate on the "service" field. It's identical to ServiceEQ.
-func Service(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldEQ(FieldService, v))
+// Name applies equality check predicate on the "name" field. It's identical to NameEQ.
+func Name(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldName, v))
 }
 
-// ConfigData applies equality check predicate on the "config_data" field. It's identical to ConfigDataEQ.
-func ConfigData(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldEQ(FieldConfigData, v))
+// DisplayName applies equality check predicate on the "display_name" field. It's identical to DisplayNameEQ.
+func DisplayName(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldDisplayName, v))
+}
+
+// Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
+func Description(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldDescription, v))
+}
+
+// BaseURL applies equality check predicate on the "base_url" field. It's identical to BaseURLEQ.
+func BaseURL(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldBaseURL, v))
+}
+
+// EncryptedCredentials applies equality check predicate on the "encrypted_credentials" field. It's identical to EncryptedCredentialsEQ.
+func EncryptedCredentials(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldEncryptedCredentials, v))
+}
+
+// IsActive applies equality check predicate on the "is_active" field. It's identical to IsActiveEQ.
+func IsActive(v bool) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldIsActive, v))
+}
+
+// Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
+func Status(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldStatus, v))
+}
+
+// Environment applies equality check predicate on the "environment" field. It's identical to EnvironmentEQ.
+func Environment(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldEnvironment, v))
 }
 
 // KeyID applies equality check predicate on the "key_id" field. It's identical to KeyIDEQ.
@@ -135,134 +165,499 @@ func TenantIDNotNil() predicate.IntegrationConfig {
 	return predicate.IntegrationConfig(sql.FieldNotNull(FieldTenantID))
 }
 
-// ServiceEQ applies the EQ predicate on the "service" field.
-func ServiceEQ(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldEQ(FieldService, v))
+// NameEQ applies the EQ predicate on the "name" field.
+func NameEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldName, v))
 }
 
-// ServiceNEQ applies the NEQ predicate on the "service" field.
-func ServiceNEQ(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldNEQ(FieldService, v))
+// NameNEQ applies the NEQ predicate on the "name" field.
+func NameNEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNEQ(FieldName, v))
 }
 
-// ServiceIn applies the In predicate on the "service" field.
-func ServiceIn(vs ...string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldIn(FieldService, vs...))
+// NameIn applies the In predicate on the "name" field.
+func NameIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIn(FieldName, vs...))
 }
 
-// ServiceNotIn applies the NotIn predicate on the "service" field.
-func ServiceNotIn(vs ...string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldNotIn(FieldService, vs...))
+// NameNotIn applies the NotIn predicate on the "name" field.
+func NameNotIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotIn(FieldName, vs...))
 }
 
-// ServiceGT applies the GT predicate on the "service" field.
-func ServiceGT(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldGT(FieldService, v))
+// NameGT applies the GT predicate on the "name" field.
+func NameGT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGT(FieldName, v))
 }
 
-// ServiceGTE applies the GTE predicate on the "service" field.
-func ServiceGTE(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldGTE(FieldService, v))
+// NameGTE applies the GTE predicate on the "name" field.
+func NameGTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGTE(FieldName, v))
 }
 
-// ServiceLT applies the LT predicate on the "service" field.
-func ServiceLT(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldLT(FieldService, v))
+// NameLT applies the LT predicate on the "name" field.
+func NameLT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLT(FieldName, v))
 }
 
-// ServiceLTE applies the LTE predicate on the "service" field.
-func ServiceLTE(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldLTE(FieldService, v))
+// NameLTE applies the LTE predicate on the "name" field.
+func NameLTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLTE(FieldName, v))
 }
 
-// ServiceContains applies the Contains predicate on the "service" field.
-func ServiceContains(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldContains(FieldService, v))
+// NameContains applies the Contains predicate on the "name" field.
+func NameContains(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContains(FieldName, v))
 }
 
-// ServiceHasPrefix applies the HasPrefix predicate on the "service" field.
-func ServiceHasPrefix(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldHasPrefix(FieldService, v))
+// NameHasPrefix applies the HasPrefix predicate on the "name" field.
+func NameHasPrefix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasPrefix(FieldName, v))
 }
 
-// ServiceHasSuffix applies the HasSuffix predicate on the "service" field.
-func ServiceHasSuffix(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldService, v))
+// NameHasSuffix applies the HasSuffix predicate on the "name" field.
+func NameHasSuffix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldName, v))
 }
 
-// ServiceEqualFold applies the EqualFold predicate on the "service" field.
-func ServiceEqualFold(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldEqualFold(FieldService, v))
+// NameEqualFold applies the EqualFold predicate on the "name" field.
+func NameEqualFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEqualFold(FieldName, v))
 }
 
-// ServiceContainsFold applies the ContainsFold predicate on the "service" field.
-func ServiceContainsFold(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldContainsFold(FieldService, v))
+// NameContainsFold applies the ContainsFold predicate on the "name" field.
+func NameContainsFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContainsFold(FieldName, v))
 }
 
-// ConfigDataEQ applies the EQ predicate on the "config_data" field.
-func ConfigDataEQ(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldEQ(FieldConfigData, v))
+// DisplayNameEQ applies the EQ predicate on the "display_name" field.
+func DisplayNameEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldDisplayName, v))
 }
 
-// ConfigDataNEQ applies the NEQ predicate on the "config_data" field.
-func ConfigDataNEQ(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldNEQ(FieldConfigData, v))
+// DisplayNameNEQ applies the NEQ predicate on the "display_name" field.
+func DisplayNameNEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNEQ(FieldDisplayName, v))
 }
 
-// ConfigDataIn applies the In predicate on the "config_data" field.
-func ConfigDataIn(vs ...string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldIn(FieldConfigData, vs...))
+// DisplayNameIn applies the In predicate on the "display_name" field.
+func DisplayNameIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIn(FieldDisplayName, vs...))
 }
 
-// ConfigDataNotIn applies the NotIn predicate on the "config_data" field.
-func ConfigDataNotIn(vs ...string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldNotIn(FieldConfigData, vs...))
+// DisplayNameNotIn applies the NotIn predicate on the "display_name" field.
+func DisplayNameNotIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotIn(FieldDisplayName, vs...))
 }
 
-// ConfigDataGT applies the GT predicate on the "config_data" field.
-func ConfigDataGT(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldGT(FieldConfigData, v))
+// DisplayNameGT applies the GT predicate on the "display_name" field.
+func DisplayNameGT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGT(FieldDisplayName, v))
 }
 
-// ConfigDataGTE applies the GTE predicate on the "config_data" field.
-func ConfigDataGTE(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldGTE(FieldConfigData, v))
+// DisplayNameGTE applies the GTE predicate on the "display_name" field.
+func DisplayNameGTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGTE(FieldDisplayName, v))
 }
 
-// ConfigDataLT applies the LT predicate on the "config_data" field.
-func ConfigDataLT(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldLT(FieldConfigData, v))
+// DisplayNameLT applies the LT predicate on the "display_name" field.
+func DisplayNameLT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLT(FieldDisplayName, v))
 }
 
-// ConfigDataLTE applies the LTE predicate on the "config_data" field.
-func ConfigDataLTE(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldLTE(FieldConfigData, v))
+// DisplayNameLTE applies the LTE predicate on the "display_name" field.
+func DisplayNameLTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLTE(FieldDisplayName, v))
 }
 
-// ConfigDataContains applies the Contains predicate on the "config_data" field.
-func ConfigDataContains(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldContains(FieldConfigData, v))
+// DisplayNameContains applies the Contains predicate on the "display_name" field.
+func DisplayNameContains(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContains(FieldDisplayName, v))
 }
 
-// ConfigDataHasPrefix applies the HasPrefix predicate on the "config_data" field.
-func ConfigDataHasPrefix(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldHasPrefix(FieldConfigData, v))
+// DisplayNameHasPrefix applies the HasPrefix predicate on the "display_name" field.
+func DisplayNameHasPrefix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasPrefix(FieldDisplayName, v))
 }
 
-// ConfigDataHasSuffix applies the HasSuffix predicate on the "config_data" field.
-func ConfigDataHasSuffix(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldConfigData, v))
+// DisplayNameHasSuffix applies the HasSuffix predicate on the "display_name" field.
+func DisplayNameHasSuffix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldDisplayName, v))
 }
 
-// ConfigDataEqualFold applies the EqualFold predicate on the "config_data" field.
-func ConfigDataEqualFold(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldEqualFold(FieldConfigData, v))
+// DisplayNameEqualFold applies the EqualFold predicate on the "display_name" field.
+func DisplayNameEqualFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEqualFold(FieldDisplayName, v))
 }
 
-// ConfigDataContainsFold applies the ContainsFold predicate on the "config_data" field.
-func ConfigDataContainsFold(v string) predicate.IntegrationConfig {
-	return predicate.IntegrationConfig(sql.FieldContainsFold(FieldConfigData, v))
+// DisplayNameContainsFold applies the ContainsFold predicate on the "display_name" field.
+func DisplayNameContainsFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContainsFold(FieldDisplayName, v))
+}
+
+// DescriptionEQ applies the EQ predicate on the "description" field.
+func DescriptionEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldDescription, v))
+}
+
+// DescriptionNEQ applies the NEQ predicate on the "description" field.
+func DescriptionNEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNEQ(FieldDescription, v))
+}
+
+// DescriptionIn applies the In predicate on the "description" field.
+func DescriptionIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIn(FieldDescription, vs...))
+}
+
+// DescriptionNotIn applies the NotIn predicate on the "description" field.
+func DescriptionNotIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotIn(FieldDescription, vs...))
+}
+
+// DescriptionGT applies the GT predicate on the "description" field.
+func DescriptionGT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGT(FieldDescription, v))
+}
+
+// DescriptionGTE applies the GTE predicate on the "description" field.
+func DescriptionGTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGTE(FieldDescription, v))
+}
+
+// DescriptionLT applies the LT predicate on the "description" field.
+func DescriptionLT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLT(FieldDescription, v))
+}
+
+// DescriptionLTE applies the LTE predicate on the "description" field.
+func DescriptionLTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLTE(FieldDescription, v))
+}
+
+// DescriptionContains applies the Contains predicate on the "description" field.
+func DescriptionContains(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContains(FieldDescription, v))
+}
+
+// DescriptionHasPrefix applies the HasPrefix predicate on the "description" field.
+func DescriptionHasPrefix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasPrefix(FieldDescription, v))
+}
+
+// DescriptionHasSuffix applies the HasSuffix predicate on the "description" field.
+func DescriptionHasSuffix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldDescription, v))
+}
+
+// DescriptionIsNil applies the IsNil predicate on the "description" field.
+func DescriptionIsNil() predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIsNull(FieldDescription))
+}
+
+// DescriptionNotNil applies the NotNil predicate on the "description" field.
+func DescriptionNotNil() predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotNull(FieldDescription))
+}
+
+// DescriptionEqualFold applies the EqualFold predicate on the "description" field.
+func DescriptionEqualFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEqualFold(FieldDescription, v))
+}
+
+// DescriptionContainsFold applies the ContainsFold predicate on the "description" field.
+func DescriptionContainsFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContainsFold(FieldDescription, v))
+}
+
+// BaseURLEQ applies the EQ predicate on the "base_url" field.
+func BaseURLEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldBaseURL, v))
+}
+
+// BaseURLNEQ applies the NEQ predicate on the "base_url" field.
+func BaseURLNEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNEQ(FieldBaseURL, v))
+}
+
+// BaseURLIn applies the In predicate on the "base_url" field.
+func BaseURLIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIn(FieldBaseURL, vs...))
+}
+
+// BaseURLNotIn applies the NotIn predicate on the "base_url" field.
+func BaseURLNotIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotIn(FieldBaseURL, vs...))
+}
+
+// BaseURLGT applies the GT predicate on the "base_url" field.
+func BaseURLGT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGT(FieldBaseURL, v))
+}
+
+// BaseURLGTE applies the GTE predicate on the "base_url" field.
+func BaseURLGTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGTE(FieldBaseURL, v))
+}
+
+// BaseURLLT applies the LT predicate on the "base_url" field.
+func BaseURLLT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLT(FieldBaseURL, v))
+}
+
+// BaseURLLTE applies the LTE predicate on the "base_url" field.
+func BaseURLLTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLTE(FieldBaseURL, v))
+}
+
+// BaseURLContains applies the Contains predicate on the "base_url" field.
+func BaseURLContains(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContains(FieldBaseURL, v))
+}
+
+// BaseURLHasPrefix applies the HasPrefix predicate on the "base_url" field.
+func BaseURLHasPrefix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasPrefix(FieldBaseURL, v))
+}
+
+// BaseURLHasSuffix applies the HasSuffix predicate on the "base_url" field.
+func BaseURLHasSuffix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldBaseURL, v))
+}
+
+// BaseURLIsNil applies the IsNil predicate on the "base_url" field.
+func BaseURLIsNil() predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIsNull(FieldBaseURL))
+}
+
+// BaseURLNotNil applies the NotNil predicate on the "base_url" field.
+func BaseURLNotNil() predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotNull(FieldBaseURL))
+}
+
+// BaseURLEqualFold applies the EqualFold predicate on the "base_url" field.
+func BaseURLEqualFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEqualFold(FieldBaseURL, v))
+}
+
+// BaseURLContainsFold applies the ContainsFold predicate on the "base_url" field.
+func BaseURLContainsFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContainsFold(FieldBaseURL, v))
+}
+
+// EncryptedCredentialsEQ applies the EQ predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsNEQ applies the NEQ predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsNEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNEQ(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsIn applies the In predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIn(FieldEncryptedCredentials, vs...))
+}
+
+// EncryptedCredentialsNotIn applies the NotIn predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsNotIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotIn(FieldEncryptedCredentials, vs...))
+}
+
+// EncryptedCredentialsGT applies the GT predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsGT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGT(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsGTE applies the GTE predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsGTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGTE(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsLT applies the LT predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsLT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLT(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsLTE applies the LTE predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsLTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLTE(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsContains applies the Contains predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsContains(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContains(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsHasPrefix applies the HasPrefix predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsHasPrefix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasPrefix(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsHasSuffix applies the HasSuffix predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsHasSuffix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsEqualFold applies the EqualFold predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsEqualFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEqualFold(FieldEncryptedCredentials, v))
+}
+
+// EncryptedCredentialsContainsFold applies the ContainsFold predicate on the "encrypted_credentials" field.
+func EncryptedCredentialsContainsFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContainsFold(FieldEncryptedCredentials, v))
+}
+
+// EndpointsJSONIsNil applies the IsNil predicate on the "endpoints_json" field.
+func EndpointsJSONIsNil() predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIsNull(FieldEndpointsJSON))
+}
+
+// EndpointsJSONNotNil applies the NotNil predicate on the "endpoints_json" field.
+func EndpointsJSONNotNil() predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotNull(FieldEndpointsJSON))
+}
+
+// IsActiveEQ applies the EQ predicate on the "is_active" field.
+func IsActiveEQ(v bool) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldIsActive, v))
+}
+
+// IsActiveNEQ applies the NEQ predicate on the "is_active" field.
+func IsActiveNEQ(v bool) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNEQ(FieldIsActive, v))
+}
+
+// StatusEQ applies the EQ predicate on the "status" field.
+func StatusEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldStatus, v))
+}
+
+// StatusNEQ applies the NEQ predicate on the "status" field.
+func StatusNEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNEQ(FieldStatus, v))
+}
+
+// StatusIn applies the In predicate on the "status" field.
+func StatusIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIn(FieldStatus, vs...))
+}
+
+// StatusNotIn applies the NotIn predicate on the "status" field.
+func StatusNotIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotIn(FieldStatus, vs...))
+}
+
+// StatusGT applies the GT predicate on the "status" field.
+func StatusGT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGT(FieldStatus, v))
+}
+
+// StatusGTE applies the GTE predicate on the "status" field.
+func StatusGTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGTE(FieldStatus, v))
+}
+
+// StatusLT applies the LT predicate on the "status" field.
+func StatusLT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLT(FieldStatus, v))
+}
+
+// StatusLTE applies the LTE predicate on the "status" field.
+func StatusLTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLTE(FieldStatus, v))
+}
+
+// StatusContains applies the Contains predicate on the "status" field.
+func StatusContains(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContains(FieldStatus, v))
+}
+
+// StatusHasPrefix applies the HasPrefix predicate on the "status" field.
+func StatusHasPrefix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasPrefix(FieldStatus, v))
+}
+
+// StatusHasSuffix applies the HasSuffix predicate on the "status" field.
+func StatusHasSuffix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldStatus, v))
+}
+
+// StatusEqualFold applies the EqualFold predicate on the "status" field.
+func StatusEqualFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEqualFold(FieldStatus, v))
+}
+
+// StatusContainsFold applies the ContainsFold predicate on the "status" field.
+func StatusContainsFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// EnvironmentEQ applies the EQ predicate on the "environment" field.
+func EnvironmentEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEQ(FieldEnvironment, v))
+}
+
+// EnvironmentNEQ applies the NEQ predicate on the "environment" field.
+func EnvironmentNEQ(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNEQ(FieldEnvironment, v))
+}
+
+// EnvironmentIn applies the In predicate on the "environment" field.
+func EnvironmentIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIn(FieldEnvironment, vs...))
+}
+
+// EnvironmentNotIn applies the NotIn predicate on the "environment" field.
+func EnvironmentNotIn(vs ...string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotIn(FieldEnvironment, vs...))
+}
+
+// EnvironmentGT applies the GT predicate on the "environment" field.
+func EnvironmentGT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGT(FieldEnvironment, v))
+}
+
+// EnvironmentGTE applies the GTE predicate on the "environment" field.
+func EnvironmentGTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldGTE(FieldEnvironment, v))
+}
+
+// EnvironmentLT applies the LT predicate on the "environment" field.
+func EnvironmentLT(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLT(FieldEnvironment, v))
+}
+
+// EnvironmentLTE applies the LTE predicate on the "environment" field.
+func EnvironmentLTE(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldLTE(FieldEnvironment, v))
+}
+
+// EnvironmentContains applies the Contains predicate on the "environment" field.
+func EnvironmentContains(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContains(FieldEnvironment, v))
+}
+
+// EnvironmentHasPrefix applies the HasPrefix predicate on the "environment" field.
+func EnvironmentHasPrefix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasPrefix(FieldEnvironment, v))
+}
+
+// EnvironmentHasSuffix applies the HasSuffix predicate on the "environment" field.
+func EnvironmentHasSuffix(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldEnvironment, v))
+}
+
+// EnvironmentEqualFold applies the EqualFold predicate on the "environment" field.
+func EnvironmentEqualFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldEqualFold(FieldEnvironment, v))
+}
+
+// EnvironmentContainsFold applies the ContainsFold predicate on the "environment" field.
+func EnvironmentContainsFold(v string) predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldContainsFold(FieldEnvironment, v))
 }
 
 // KeyIDEQ applies the EQ predicate on the "key_id" field.
@@ -318,6 +713,16 @@ func KeyIDHasPrefix(v string) predicate.IntegrationConfig {
 // KeyIDHasSuffix applies the HasSuffix predicate on the "key_id" field.
 func KeyIDHasSuffix(v string) predicate.IntegrationConfig {
 	return predicate.IntegrationConfig(sql.FieldHasSuffix(FieldKeyID, v))
+}
+
+// KeyIDIsNil applies the IsNil predicate on the "key_id" field.
+func KeyIDIsNil() predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldIsNull(FieldKeyID))
+}
+
+// KeyIDNotNil applies the NotNil predicate on the "key_id" field.
+func KeyIDNotNil() predicate.IntegrationConfig {
+	return predicate.IntegrationConfig(sql.FieldNotNull(FieldKeyID))
 }
 
 // KeyIDEqualFold applies the EqualFold predicate on the "key_id" field.

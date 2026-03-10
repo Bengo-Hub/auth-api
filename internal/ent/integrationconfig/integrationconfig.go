@@ -16,10 +16,24 @@ const (
 	FieldID = "id"
 	// FieldTenantID holds the string denoting the tenant_id field in the database.
 	FieldTenantID = "tenant_id"
-	// FieldService holds the string denoting the service field in the database.
-	FieldService = "service"
-	// FieldConfigData holds the string denoting the config_data field in the database.
-	FieldConfigData = "config_data"
+	// FieldName holds the string denoting the name field in the database.
+	FieldName = "name"
+	// FieldDisplayName holds the string denoting the display_name field in the database.
+	FieldDisplayName = "display_name"
+	// FieldDescription holds the string denoting the description field in the database.
+	FieldDescription = "description"
+	// FieldBaseURL holds the string denoting the base_url field in the database.
+	FieldBaseURL = "base_url"
+	// FieldEncryptedCredentials holds the string denoting the encrypted_credentials field in the database.
+	FieldEncryptedCredentials = "encrypted_credentials"
+	// FieldEndpointsJSON holds the string denoting the endpoints_json field in the database.
+	FieldEndpointsJSON = "endpoints_json"
+	// FieldIsActive holds the string denoting the is_active field in the database.
+	FieldIsActive = "is_active"
+	// FieldStatus holds the string denoting the status field in the database.
+	FieldStatus = "status"
+	// FieldEnvironment holds the string denoting the environment field in the database.
+	FieldEnvironment = "environment"
 	// FieldKeyID holds the string denoting the key_id field in the database.
 	FieldKeyID = "key_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -34,8 +48,15 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldTenantID,
-	FieldService,
-	FieldConfigData,
+	FieldName,
+	FieldDisplayName,
+	FieldDescription,
+	FieldBaseURL,
+	FieldEncryptedCredentials,
+	FieldEndpointsJSON,
+	FieldIsActive,
+	FieldStatus,
+	FieldEnvironment,
 	FieldKeyID,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -52,12 +73,18 @@ func ValidColumn(column string) bool {
 }
 
 var (
-	// ServiceValidator is a validator for the "service" field. It is called by the builders before save.
-	ServiceValidator func(string) error
-	// ConfigDataValidator is a validator for the "config_data" field. It is called by the builders before save.
-	ConfigDataValidator func(string) error
-	// KeyIDValidator is a validator for the "key_id" field. It is called by the builders before save.
-	KeyIDValidator func(string) error
+	// NameValidator is a validator for the "name" field. It is called by the builders before save.
+	NameValidator func(string) error
+	// DisplayNameValidator is a validator for the "display_name" field. It is called by the builders before save.
+	DisplayNameValidator func(string) error
+	// EncryptedCredentialsValidator is a validator for the "encrypted_credentials" field. It is called by the builders before save.
+	EncryptedCredentialsValidator func(string) error
+	// DefaultIsActive holds the default value on creation for the "is_active" field.
+	DefaultIsActive bool
+	// DefaultStatus holds the default value on creation for the "status" field.
+	DefaultStatus string
+	// DefaultEnvironment holds the default value on creation for the "environment" field.
+	DefaultEnvironment string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -81,14 +108,44 @@ func ByTenantID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTenantID, opts...).ToFunc()
 }
 
-// ByService orders the results by the service field.
-func ByService(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldService, opts...).ToFunc()
+// ByName orders the results by the name field.
+func ByName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldName, opts...).ToFunc()
 }
 
-// ByConfigData orders the results by the config_data field.
-func ByConfigData(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldConfigData, opts...).ToFunc()
+// ByDisplayName orders the results by the display_name field.
+func ByDisplayName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDisplayName, opts...).ToFunc()
+}
+
+// ByDescription orders the results by the description field.
+func ByDescription(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDescription, opts...).ToFunc()
+}
+
+// ByBaseURL orders the results by the base_url field.
+func ByBaseURL(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBaseURL, opts...).ToFunc()
+}
+
+// ByEncryptedCredentials orders the results by the encrypted_credentials field.
+func ByEncryptedCredentials(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEncryptedCredentials, opts...).ToFunc()
+}
+
+// ByIsActive orders the results by the is_active field.
+func ByIsActive(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsActive, opts...).ToFunc()
+}
+
+// ByStatus orders the results by the status field.
+func ByStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByEnvironment orders the results by the environment field.
+func ByEnvironment(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEnvironment, opts...).ToFunc()
 }
 
 // ByKeyID orders the results by the key_id field.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -99,6 +100,7 @@ func main() {
 			Slug: tenantEntity.Slug,
 		})
 	}
+
 
 	hasher := password.NewHasher(cfg.Security)
 
@@ -370,6 +372,53 @@ func main() {
 		}
 	}
 
+	// Seed staff users for each tenant (for testing order processing workflows)
+	log.Println("Seeding staff users for all tenants...")
+	for _, te := range tenantEntities {
+		staffEmail := fmt.Sprintf("staff@%s.com", te.Slug)
+		staffPassword := fmt.Sprintf("Staff%s2024!", te.Slug)
+		staffHash, _ := hasher.Hash(staffPassword)
+
+		staffUser, err := client.User.Create().
+			SetEmail(staffEmail).
+			SetPasswordHash(staffHash).
+			SetStatus("active").
+			SetPrimaryTenantID(te.ID.String()).
+			SetProfile(map[string]any{
+				"name":       fmt.Sprintf("%s Staff", te.Name),
+				"phone":      "+254700000003",
+				"created_by": "seed",
+				"role":       "staff",
+			}).
+			Save(ctx)
+		if err != nil {
+			staffUser, err = client.User.Query().Where(user.EmailEQ(staffEmail)).Only(ctx)
+			if err != nil {
+				log.Printf("  ⚠️  seed staff for %s: %v", te.Slug, err)
+			} else {
+				log.Printf("  ✓ Staff exists for %s: %s", te.Slug, staffEmail)
+			}
+		} else {
+			log.Printf("  ✓ Created staff for %s: %s", te.Slug, staffEmail)
+		}
+
+		if staffUser != nil {
+			exists, _ := client.TenantMembership.Query().
+				Where(
+					tenantmembership.UserID(staffUser.ID),
+					tenantmembership.TenantID(te.ID),
+				).Exist(ctx)
+			if !exists {
+				_, _ = client.TenantMembership.Create().
+					SetUserID(staffUser.ID).
+					SetTenantID(te.ID).
+					SetRoles([]string{"staff"}).
+					Save(ctx)
+				log.Printf("    ✓ Added staff role in %s", te.Slug)
+			}
+		}
+	}
+
 	// Seed permissions and role-permission mapping (MVP RBAC). Include canonical codes used by ordering-backend (catalog:view, catalog:manage).
 	log.Println("Seeding permissions and role-permission mapping...")
 	actions := []string{"add", "read", "read_own", "change", "change_own", "delete", "manage", "manage_own", "view"}
@@ -509,7 +558,56 @@ func main() {
 			},
 			Public: true,
 		},
+		// ── Additional Frontend Clients ───────────────────────────────────────
+		// Added: subscriptions-ui, treasury-ui, pos-frontend, auth-ui, logistics-ui
+		{
+			ID:   "subscriptions-ui",
+			Name: "BengoBox Subscriptions UI",
+			RedirectURIs: []string{
+				"https://subscriptions.codevertexitsolutions.com/auth/callback",
+				"http://localhost:3010/auth/callback",
+			},
+			Public: true,
+		},
+		{
+			ID:   "treasury-ui",
+			Name: "BengoBox Treasury UI",
+			RedirectURIs: []string{
+				"https://treasury.codevertexitsolutions.com/auth/callback",
+				"http://localhost:3011/auth/callback",
+			},
+			Public: true,
+		},
+		{
+			ID:   "pos-frontend",
+			Name: "BengoBox POS Frontend",
+			RedirectURIs: []string{
+				"https://pos.codevertexitsolutions.com/auth/callback",
+				"http://localhost:3012/auth/callback",
+			},
+			Public: true,
+		},
+		{
+			ID:   "logistics-ui",
+			Name: "BengoBox Logistics UI",
+			RedirectURIs: []string{
+				"https://logistics.codevertexitsolutions.com/auth/callback",
+				"http://localhost:3013/auth/callback",
+			},
+			Public: true,
+		},
+		{
+			ID:   "auth-ui",
+			Name: "BengoBox Auth UI (Platform Admin)",
+			RedirectURIs: []string{
+				"https://accounts.codevertexitsolutions.com/auth/callback",
+				"https://sso.codevertexitsolutions.com/auth/callback",
+				"http://localhost:3014/auth/callback",
+			},
+			Public: true,
+		},
 	}
+
 
 	for _, c := range oauthClients {
 		existing, queryErr := client.OAuthClient.Query().Where(oauthclient.ClientID(c.ID)).Only(ctx)

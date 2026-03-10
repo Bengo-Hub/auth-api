@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
@@ -20,6 +22,7 @@ type MFATOTPSecretCreate struct {
 	config
 	mutation *MFATOTPSecretMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetUserID sets the "user_id" field.
@@ -232,6 +235,7 @@ func (_c *MFATOTPSecretCreate) createSpec() (*MFATOTPSecret, *sqlgraph.CreateSpe
 		_node = &MFATOTPSecret{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(mfatotpsecret.Table, sqlgraph.NewFieldSpec(mfatotpsecret.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -280,11 +284,358 @@ func (_c *MFATOTPSecretCreate) createSpec() (*MFATOTPSecret, *sqlgraph.CreateSpe
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.MFATOTPSecret.Create().
+//		SetUserID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.MFATOTPSecretUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *MFATOTPSecretCreate) OnConflict(opts ...sql.ConflictOption) *MFATOTPSecretUpsertOne {
+	_c.conflict = opts
+	return &MFATOTPSecretUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.MFATOTPSecret.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *MFATOTPSecretCreate) OnConflictColumns(columns ...string) *MFATOTPSecretUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &MFATOTPSecretUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// MFATOTPSecretUpsertOne is the builder for "upsert"-ing
+	//  one MFATOTPSecret node.
+	MFATOTPSecretUpsertOne struct {
+		create *MFATOTPSecretCreate
+	}
+
+	// MFATOTPSecretUpsert is the "OnConflict" setter.
+	MFATOTPSecretUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUserID sets the "user_id" field.
+func (u *MFATOTPSecretUpsert) SetUserID(v uuid.UUID) *MFATOTPSecretUpsert {
+	u.Set(mfatotpsecret.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsert) UpdateUserID() *MFATOTPSecretUpsert {
+	u.SetExcluded(mfatotpsecret.FieldUserID)
+	return u
+}
+
+// SetSecret sets the "secret" field.
+func (u *MFATOTPSecretUpsert) SetSecret(v string) *MFATOTPSecretUpsert {
+	u.Set(mfatotpsecret.FieldSecret, v)
+	return u
+}
+
+// UpdateSecret sets the "secret" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsert) UpdateSecret() *MFATOTPSecretUpsert {
+	u.SetExcluded(mfatotpsecret.FieldSecret)
+	return u
+}
+
+// SetDigits sets the "digits" field.
+func (u *MFATOTPSecretUpsert) SetDigits(v int) *MFATOTPSecretUpsert {
+	u.Set(mfatotpsecret.FieldDigits, v)
+	return u
+}
+
+// UpdateDigits sets the "digits" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsert) UpdateDigits() *MFATOTPSecretUpsert {
+	u.SetExcluded(mfatotpsecret.FieldDigits)
+	return u
+}
+
+// AddDigits adds v to the "digits" field.
+func (u *MFATOTPSecretUpsert) AddDigits(v int) *MFATOTPSecretUpsert {
+	u.Add(mfatotpsecret.FieldDigits, v)
+	return u
+}
+
+// SetPeriod sets the "period" field.
+func (u *MFATOTPSecretUpsert) SetPeriod(v int) *MFATOTPSecretUpsert {
+	u.Set(mfatotpsecret.FieldPeriod, v)
+	return u
+}
+
+// UpdatePeriod sets the "period" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsert) UpdatePeriod() *MFATOTPSecretUpsert {
+	u.SetExcluded(mfatotpsecret.FieldPeriod)
+	return u
+}
+
+// AddPeriod adds v to the "period" field.
+func (u *MFATOTPSecretUpsert) AddPeriod(v int) *MFATOTPSecretUpsert {
+	u.Add(mfatotpsecret.FieldPeriod, v)
+	return u
+}
+
+// SetEnabledAt sets the "enabled_at" field.
+func (u *MFATOTPSecretUpsert) SetEnabledAt(v time.Time) *MFATOTPSecretUpsert {
+	u.Set(mfatotpsecret.FieldEnabledAt, v)
+	return u
+}
+
+// UpdateEnabledAt sets the "enabled_at" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsert) UpdateEnabledAt() *MFATOTPSecretUpsert {
+	u.SetExcluded(mfatotpsecret.FieldEnabledAt)
+	return u
+}
+
+// ClearEnabledAt clears the value of the "enabled_at" field.
+func (u *MFATOTPSecretUpsert) ClearEnabledAt() *MFATOTPSecretUpsert {
+	u.SetNull(mfatotpsecret.FieldEnabledAt)
+	return u
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (u *MFATOTPSecretUpsert) SetLastUsedAt(v time.Time) *MFATOTPSecretUpsert {
+	u.Set(mfatotpsecret.FieldLastUsedAt, v)
+	return u
+}
+
+// UpdateLastUsedAt sets the "last_used_at" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsert) UpdateLastUsedAt() *MFATOTPSecretUpsert {
+	u.SetExcluded(mfatotpsecret.FieldLastUsedAt)
+	return u
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (u *MFATOTPSecretUpsert) ClearLastUsedAt() *MFATOTPSecretUpsert {
+	u.SetNull(mfatotpsecret.FieldLastUsedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.MFATOTPSecret.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(mfatotpsecret.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *MFATOTPSecretUpsertOne) UpdateNewValues() *MFATOTPSecretUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(mfatotpsecret.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(mfatotpsecret.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.MFATOTPSecret.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *MFATOTPSecretUpsertOne) Ignore() *MFATOTPSecretUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *MFATOTPSecretUpsertOne) DoNothing() *MFATOTPSecretUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the MFATOTPSecretCreate.OnConflict
+// documentation for more info.
+func (u *MFATOTPSecretUpsertOne) Update(set func(*MFATOTPSecretUpsert)) *MFATOTPSecretUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&MFATOTPSecretUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *MFATOTPSecretUpsertOne) SetUserID(v uuid.UUID) *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertOne) UpdateUserID() *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetSecret sets the "secret" field.
+func (u *MFATOTPSecretUpsertOne) SetSecret(v string) *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetSecret(v)
+	})
+}
+
+// UpdateSecret sets the "secret" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertOne) UpdateSecret() *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateSecret()
+	})
+}
+
+// SetDigits sets the "digits" field.
+func (u *MFATOTPSecretUpsertOne) SetDigits(v int) *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetDigits(v)
+	})
+}
+
+// AddDigits adds v to the "digits" field.
+func (u *MFATOTPSecretUpsertOne) AddDigits(v int) *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.AddDigits(v)
+	})
+}
+
+// UpdateDigits sets the "digits" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertOne) UpdateDigits() *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateDigits()
+	})
+}
+
+// SetPeriod sets the "period" field.
+func (u *MFATOTPSecretUpsertOne) SetPeriod(v int) *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetPeriod(v)
+	})
+}
+
+// AddPeriod adds v to the "period" field.
+func (u *MFATOTPSecretUpsertOne) AddPeriod(v int) *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.AddPeriod(v)
+	})
+}
+
+// UpdatePeriod sets the "period" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertOne) UpdatePeriod() *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdatePeriod()
+	})
+}
+
+// SetEnabledAt sets the "enabled_at" field.
+func (u *MFATOTPSecretUpsertOne) SetEnabledAt(v time.Time) *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetEnabledAt(v)
+	})
+}
+
+// UpdateEnabledAt sets the "enabled_at" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertOne) UpdateEnabledAt() *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateEnabledAt()
+	})
+}
+
+// ClearEnabledAt clears the value of the "enabled_at" field.
+func (u *MFATOTPSecretUpsertOne) ClearEnabledAt() *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.ClearEnabledAt()
+	})
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (u *MFATOTPSecretUpsertOne) SetLastUsedAt(v time.Time) *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetLastUsedAt(v)
+	})
+}
+
+// UpdateLastUsedAt sets the "last_used_at" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertOne) UpdateLastUsedAt() *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateLastUsedAt()
+	})
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (u *MFATOTPSecretUpsertOne) ClearLastUsedAt() *MFATOTPSecretUpsertOne {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.ClearLastUsedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *MFATOTPSecretUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for MFATOTPSecretCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *MFATOTPSecretUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *MFATOTPSecretUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: MFATOTPSecretUpsertOne.ID is not supported by MySQL driver. Use MFATOTPSecretUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *MFATOTPSecretUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // MFATOTPSecretCreateBulk is the builder for creating many MFATOTPSecret entities in bulk.
 type MFATOTPSecretCreateBulk struct {
 	config
 	err      error
 	builders []*MFATOTPSecretCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the MFATOTPSecret entities in the database.
@@ -314,6 +665,7 @@ func (_c *MFATOTPSecretCreateBulk) Save(ctx context.Context) ([]*MFATOTPSecret, 
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -360,6 +712,235 @@ func (_c *MFATOTPSecretCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *MFATOTPSecretCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.MFATOTPSecret.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.MFATOTPSecretUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *MFATOTPSecretCreateBulk) OnConflict(opts ...sql.ConflictOption) *MFATOTPSecretUpsertBulk {
+	_c.conflict = opts
+	return &MFATOTPSecretUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.MFATOTPSecret.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *MFATOTPSecretCreateBulk) OnConflictColumns(columns ...string) *MFATOTPSecretUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &MFATOTPSecretUpsertBulk{
+		create: _c,
+	}
+}
+
+// MFATOTPSecretUpsertBulk is the builder for "upsert"-ing
+// a bulk of MFATOTPSecret nodes.
+type MFATOTPSecretUpsertBulk struct {
+	create *MFATOTPSecretCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.MFATOTPSecret.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(mfatotpsecret.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *MFATOTPSecretUpsertBulk) UpdateNewValues() *MFATOTPSecretUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(mfatotpsecret.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(mfatotpsecret.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.MFATOTPSecret.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *MFATOTPSecretUpsertBulk) Ignore() *MFATOTPSecretUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *MFATOTPSecretUpsertBulk) DoNothing() *MFATOTPSecretUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the MFATOTPSecretCreateBulk.OnConflict
+// documentation for more info.
+func (u *MFATOTPSecretUpsertBulk) Update(set func(*MFATOTPSecretUpsert)) *MFATOTPSecretUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&MFATOTPSecretUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *MFATOTPSecretUpsertBulk) SetUserID(v uuid.UUID) *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertBulk) UpdateUserID() *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetSecret sets the "secret" field.
+func (u *MFATOTPSecretUpsertBulk) SetSecret(v string) *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetSecret(v)
+	})
+}
+
+// UpdateSecret sets the "secret" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertBulk) UpdateSecret() *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateSecret()
+	})
+}
+
+// SetDigits sets the "digits" field.
+func (u *MFATOTPSecretUpsertBulk) SetDigits(v int) *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetDigits(v)
+	})
+}
+
+// AddDigits adds v to the "digits" field.
+func (u *MFATOTPSecretUpsertBulk) AddDigits(v int) *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.AddDigits(v)
+	})
+}
+
+// UpdateDigits sets the "digits" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertBulk) UpdateDigits() *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateDigits()
+	})
+}
+
+// SetPeriod sets the "period" field.
+func (u *MFATOTPSecretUpsertBulk) SetPeriod(v int) *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetPeriod(v)
+	})
+}
+
+// AddPeriod adds v to the "period" field.
+func (u *MFATOTPSecretUpsertBulk) AddPeriod(v int) *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.AddPeriod(v)
+	})
+}
+
+// UpdatePeriod sets the "period" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertBulk) UpdatePeriod() *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdatePeriod()
+	})
+}
+
+// SetEnabledAt sets the "enabled_at" field.
+func (u *MFATOTPSecretUpsertBulk) SetEnabledAt(v time.Time) *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetEnabledAt(v)
+	})
+}
+
+// UpdateEnabledAt sets the "enabled_at" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertBulk) UpdateEnabledAt() *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateEnabledAt()
+	})
+}
+
+// ClearEnabledAt clears the value of the "enabled_at" field.
+func (u *MFATOTPSecretUpsertBulk) ClearEnabledAt() *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.ClearEnabledAt()
+	})
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (u *MFATOTPSecretUpsertBulk) SetLastUsedAt(v time.Time) *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.SetLastUsedAt(v)
+	})
+}
+
+// UpdateLastUsedAt sets the "last_used_at" field to the value that was provided on create.
+func (u *MFATOTPSecretUpsertBulk) UpdateLastUsedAt() *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.UpdateLastUsedAt()
+	})
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (u *MFATOTPSecretUpsertBulk) ClearLastUsedAt() *MFATOTPSecretUpsertBulk {
+	return u.Update(func(s *MFATOTPSecretUpsert) {
+		s.ClearLastUsedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *MFATOTPSecretUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the MFATOTPSecretCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for MFATOTPSecretCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *MFATOTPSecretUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

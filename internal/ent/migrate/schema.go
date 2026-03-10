@@ -145,9 +145,16 @@ var (
 	IntegrationConfigsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "tenant_id", Type: field.TypeUUID, Nullable: true},
-		{Name: "service", Type: field.TypeString},
-		{Name: "config_data", Type: field.TypeString},
-		{Name: "key_id", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+		{Name: "display_name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "base_url", Type: field.TypeString, Nullable: true},
+		{Name: "encrypted_credentials", Type: field.TypeString, Size: 2147483647},
+		{Name: "endpoints_json", Type: field.TypeJSON, Nullable: true},
+		{Name: "is_active", Type: field.TypeBool, Default: true},
+		{Name: "status", Type: field.TypeString, Default: "active"},
+		{Name: "environment", Type: field.TypeString, Default: "production"},
+		{Name: "key_id", Type: field.TypeString, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 	}
@@ -158,9 +165,19 @@ var (
 		PrimaryKey: []*schema.Column{IntegrationConfigsColumns[0]},
 		Indexes: []*schema.Index{
 			{
-				Name:    "integrationconfig_tenant_id_service",
+				Name:    "integrationconfig_tenant_id_name",
 				Unique:  true,
 				Columns: []*schema.Column{IntegrationConfigsColumns[1], IntegrationConfigsColumns[2]},
+			},
+			{
+				Name:    "integrationconfig_name",
+				Unique:  false,
+				Columns: []*schema.Column{IntegrationConfigsColumns[2]},
+			},
+			{
+				Name:    "integrationconfig_is_active",
+				Unique:  false,
+				Columns: []*schema.Column{IntegrationConfigsColumns[8]},
 			},
 		},
 	}
@@ -428,6 +445,20 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "slug", Type: field.TypeString, Unique: true},
 		{Name: "status", Type: field.TypeString, Default: "active"},
+		{Name: "contact_email", Type: field.TypeString, Nullable: true},
+		{Name: "contact_phone", Type: field.TypeString, Nullable: true},
+		{Name: "logo_url", Type: field.TypeString, Nullable: true},
+		{Name: "website", Type: field.TypeString, Nullable: true},
+		{Name: "country", Type: field.TypeString, Nullable: true, Default: "KE"},
+		{Name: "timezone", Type: field.TypeString, Nullable: true, Default: "Africa/Nairobi"},
+		{Name: "brand_colors", Type: field.TypeJSON, Nullable: true},
+		{Name: "org_size", Type: field.TypeString, Nullable: true},
+		{Name: "use_case", Type: field.TypeString, Nullable: true},
+		{Name: "subscription_plan", Type: field.TypeString, Nullable: true},
+		{Name: "subscription_status", Type: field.TypeString, Nullable: true},
+		{Name: "subscription_expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "subscription_id", Type: field.TypeString, Nullable: true},
+		{Name: "tier_limits", Type: field.TypeJSON, Nullable: true},
 		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
@@ -437,6 +468,23 @@ var (
 		Name:       "tenants",
 		Columns:    TenantsColumns,
 		PrimaryKey: []*schema.Column{TenantsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "tenant_slug",
+				Unique:  true,
+				Columns: []*schema.Column{TenantsColumns[2]},
+			},
+			{
+				Name:    "tenant_status",
+				Unique:  false,
+				Columns: []*schema.Column{TenantsColumns[3]},
+			},
+			{
+				Name:    "tenant_subscription_plan",
+				Unique:  false,
+				Columns: []*schema.Column{TenantsColumns[13]},
+			},
+		},
 	}
 	// TenantMembershipsColumns holds the columns for the "tenant_memberships" table.
 	TenantMembershipsColumns = []*schema.Column{
