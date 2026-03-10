@@ -49,30 +49,138 @@ func (_u *IntegrationConfigUpdate) ClearTenantID() *IntegrationConfigUpdate {
 	return _u
 }
 
-// SetService sets the "service" field.
-func (_u *IntegrationConfigUpdate) SetService(v string) *IntegrationConfigUpdate {
-	_u.mutation.SetService(v)
+// SetName sets the "name" field.
+func (_u *IntegrationConfigUpdate) SetName(v string) *IntegrationConfigUpdate {
+	_u.mutation.SetName(v)
 	return _u
 }
 
-// SetNillableService sets the "service" field if the given value is not nil.
-func (_u *IntegrationConfigUpdate) SetNillableService(v *string) *IntegrationConfigUpdate {
+// SetNillableName sets the "name" field if the given value is not nil.
+func (_u *IntegrationConfigUpdate) SetNillableName(v *string) *IntegrationConfigUpdate {
 	if v != nil {
-		_u.SetService(*v)
+		_u.SetName(*v)
 	}
 	return _u
 }
 
-// SetConfigData sets the "config_data" field.
-func (_u *IntegrationConfigUpdate) SetConfigData(v string) *IntegrationConfigUpdate {
-	_u.mutation.SetConfigData(v)
+// SetDisplayName sets the "display_name" field.
+func (_u *IntegrationConfigUpdate) SetDisplayName(v string) *IntegrationConfigUpdate {
+	_u.mutation.SetDisplayName(v)
 	return _u
 }
 
-// SetNillableConfigData sets the "config_data" field if the given value is not nil.
-func (_u *IntegrationConfigUpdate) SetNillableConfigData(v *string) *IntegrationConfigUpdate {
+// SetNillableDisplayName sets the "display_name" field if the given value is not nil.
+func (_u *IntegrationConfigUpdate) SetNillableDisplayName(v *string) *IntegrationConfigUpdate {
 	if v != nil {
-		_u.SetConfigData(*v)
+		_u.SetDisplayName(*v)
+	}
+	return _u
+}
+
+// SetDescription sets the "description" field.
+func (_u *IntegrationConfigUpdate) SetDescription(v string) *IntegrationConfigUpdate {
+	_u.mutation.SetDescription(v)
+	return _u
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (_u *IntegrationConfigUpdate) SetNillableDescription(v *string) *IntegrationConfigUpdate {
+	if v != nil {
+		_u.SetDescription(*v)
+	}
+	return _u
+}
+
+// ClearDescription clears the value of the "description" field.
+func (_u *IntegrationConfigUpdate) ClearDescription() *IntegrationConfigUpdate {
+	_u.mutation.ClearDescription()
+	return _u
+}
+
+// SetBaseURL sets the "base_url" field.
+func (_u *IntegrationConfigUpdate) SetBaseURL(v string) *IntegrationConfigUpdate {
+	_u.mutation.SetBaseURL(v)
+	return _u
+}
+
+// SetNillableBaseURL sets the "base_url" field if the given value is not nil.
+func (_u *IntegrationConfigUpdate) SetNillableBaseURL(v *string) *IntegrationConfigUpdate {
+	if v != nil {
+		_u.SetBaseURL(*v)
+	}
+	return _u
+}
+
+// ClearBaseURL clears the value of the "base_url" field.
+func (_u *IntegrationConfigUpdate) ClearBaseURL() *IntegrationConfigUpdate {
+	_u.mutation.ClearBaseURL()
+	return _u
+}
+
+// SetEncryptedCredentials sets the "encrypted_credentials" field.
+func (_u *IntegrationConfigUpdate) SetEncryptedCredentials(v string) *IntegrationConfigUpdate {
+	_u.mutation.SetEncryptedCredentials(v)
+	return _u
+}
+
+// SetNillableEncryptedCredentials sets the "encrypted_credentials" field if the given value is not nil.
+func (_u *IntegrationConfigUpdate) SetNillableEncryptedCredentials(v *string) *IntegrationConfigUpdate {
+	if v != nil {
+		_u.SetEncryptedCredentials(*v)
+	}
+	return _u
+}
+
+// SetEndpointsJSON sets the "endpoints_json" field.
+func (_u *IntegrationConfigUpdate) SetEndpointsJSON(v map[string]string) *IntegrationConfigUpdate {
+	_u.mutation.SetEndpointsJSON(v)
+	return _u
+}
+
+// ClearEndpointsJSON clears the value of the "endpoints_json" field.
+func (_u *IntegrationConfigUpdate) ClearEndpointsJSON() *IntegrationConfigUpdate {
+	_u.mutation.ClearEndpointsJSON()
+	return _u
+}
+
+// SetIsActive sets the "is_active" field.
+func (_u *IntegrationConfigUpdate) SetIsActive(v bool) *IntegrationConfigUpdate {
+	_u.mutation.SetIsActive(v)
+	return _u
+}
+
+// SetNillableIsActive sets the "is_active" field if the given value is not nil.
+func (_u *IntegrationConfigUpdate) SetNillableIsActive(v *bool) *IntegrationConfigUpdate {
+	if v != nil {
+		_u.SetIsActive(*v)
+	}
+	return _u
+}
+
+// SetStatus sets the "status" field.
+func (_u *IntegrationConfigUpdate) SetStatus(v string) *IntegrationConfigUpdate {
+	_u.mutation.SetStatus(v)
+	return _u
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_u *IntegrationConfigUpdate) SetNillableStatus(v *string) *IntegrationConfigUpdate {
+	if v != nil {
+		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetEnvironment sets the "environment" field.
+func (_u *IntegrationConfigUpdate) SetEnvironment(v string) *IntegrationConfigUpdate {
+	_u.mutation.SetEnvironment(v)
+	return _u
+}
+
+// SetNillableEnvironment sets the "environment" field if the given value is not nil.
+func (_u *IntegrationConfigUpdate) SetNillableEnvironment(v *string) *IntegrationConfigUpdate {
+	if v != nil {
+		_u.SetEnvironment(*v)
 	}
 	return _u
 }
@@ -91,17 +199,9 @@ func (_u *IntegrationConfigUpdate) SetNillableKeyID(v *string) *IntegrationConfi
 	return _u
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (_u *IntegrationConfigUpdate) SetCreatedAt(v time.Time) *IntegrationConfigUpdate {
-	_u.mutation.SetCreatedAt(v)
-	return _u
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (_u *IntegrationConfigUpdate) SetNillableCreatedAt(v *time.Time) *IntegrationConfigUpdate {
-	if v != nil {
-		_u.SetCreatedAt(*v)
-	}
+// ClearKeyID clears the value of the "key_id" field.
+func (_u *IntegrationConfigUpdate) ClearKeyID() *IntegrationConfigUpdate {
+	_u.mutation.ClearKeyID()
 	return _u
 }
 
@@ -154,19 +254,19 @@ func (_u *IntegrationConfigUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *IntegrationConfigUpdate) check() error {
-	if v, ok := _u.mutation.Service(); ok {
-		if err := integrationconfig.ServiceValidator(v); err != nil {
-			return &ValidationError{Name: "service", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.service": %w`, err)}
+	if v, ok := _u.mutation.Name(); ok {
+		if err := integrationconfig.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.ConfigData(); ok {
-		if err := integrationconfig.ConfigDataValidator(v); err != nil {
-			return &ValidationError{Name: "config_data", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.config_data": %w`, err)}
+	if v, ok := _u.mutation.DisplayName(); ok {
+		if err := integrationconfig.DisplayNameValidator(v); err != nil {
+			return &ValidationError{Name: "display_name", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.display_name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.KeyID(); ok {
-		if err := integrationconfig.KeyIDValidator(v); err != nil {
-			return &ValidationError{Name: "key_id", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.key_id": %w`, err)}
+	if v, ok := _u.mutation.EncryptedCredentials(); ok {
+		if err := integrationconfig.EncryptedCredentialsValidator(v); err != nil {
+			return &ValidationError{Name: "encrypted_credentials", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.encrypted_credentials": %w`, err)}
 		}
 	}
 	return nil
@@ -190,17 +290,47 @@ func (_u *IntegrationConfigUpdate) sqlSave(ctx context.Context) (_node int, err 
 	if _u.mutation.TenantIDCleared() {
 		_spec.ClearField(integrationconfig.FieldTenantID, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.Service(); ok {
-		_spec.SetField(integrationconfig.FieldService, field.TypeString, value)
+	if value, ok := _u.mutation.Name(); ok {
+		_spec.SetField(integrationconfig.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.ConfigData(); ok {
-		_spec.SetField(integrationconfig.FieldConfigData, field.TypeString, value)
+	if value, ok := _u.mutation.DisplayName(); ok {
+		_spec.SetField(integrationconfig.FieldDisplayName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Description(); ok {
+		_spec.SetField(integrationconfig.FieldDescription, field.TypeString, value)
+	}
+	if _u.mutation.DescriptionCleared() {
+		_spec.ClearField(integrationconfig.FieldDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.BaseURL(); ok {
+		_spec.SetField(integrationconfig.FieldBaseURL, field.TypeString, value)
+	}
+	if _u.mutation.BaseURLCleared() {
+		_spec.ClearField(integrationconfig.FieldBaseURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.EncryptedCredentials(); ok {
+		_spec.SetField(integrationconfig.FieldEncryptedCredentials, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.EndpointsJSON(); ok {
+		_spec.SetField(integrationconfig.FieldEndpointsJSON, field.TypeJSON, value)
+	}
+	if _u.mutation.EndpointsJSONCleared() {
+		_spec.ClearField(integrationconfig.FieldEndpointsJSON, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.IsActive(); ok {
+		_spec.SetField(integrationconfig.FieldIsActive, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Status(); ok {
+		_spec.SetField(integrationconfig.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Environment(); ok {
+		_spec.SetField(integrationconfig.FieldEnvironment, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.KeyID(); ok {
 		_spec.SetField(integrationconfig.FieldKeyID, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.CreatedAt(); ok {
-		_spec.SetField(integrationconfig.FieldCreatedAt, field.TypeTime, value)
+	if _u.mutation.KeyIDCleared() {
+		_spec.ClearField(integrationconfig.FieldKeyID, field.TypeString)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(integrationconfig.FieldUpdatedAt, field.TypeTime, value)
@@ -245,30 +375,138 @@ func (_u *IntegrationConfigUpdateOne) ClearTenantID() *IntegrationConfigUpdateOn
 	return _u
 }
 
-// SetService sets the "service" field.
-func (_u *IntegrationConfigUpdateOne) SetService(v string) *IntegrationConfigUpdateOne {
-	_u.mutation.SetService(v)
+// SetName sets the "name" field.
+func (_u *IntegrationConfigUpdateOne) SetName(v string) *IntegrationConfigUpdateOne {
+	_u.mutation.SetName(v)
 	return _u
 }
 
-// SetNillableService sets the "service" field if the given value is not nil.
-func (_u *IntegrationConfigUpdateOne) SetNillableService(v *string) *IntegrationConfigUpdateOne {
+// SetNillableName sets the "name" field if the given value is not nil.
+func (_u *IntegrationConfigUpdateOne) SetNillableName(v *string) *IntegrationConfigUpdateOne {
 	if v != nil {
-		_u.SetService(*v)
+		_u.SetName(*v)
 	}
 	return _u
 }
 
-// SetConfigData sets the "config_data" field.
-func (_u *IntegrationConfigUpdateOne) SetConfigData(v string) *IntegrationConfigUpdateOne {
-	_u.mutation.SetConfigData(v)
+// SetDisplayName sets the "display_name" field.
+func (_u *IntegrationConfigUpdateOne) SetDisplayName(v string) *IntegrationConfigUpdateOne {
+	_u.mutation.SetDisplayName(v)
 	return _u
 }
 
-// SetNillableConfigData sets the "config_data" field if the given value is not nil.
-func (_u *IntegrationConfigUpdateOne) SetNillableConfigData(v *string) *IntegrationConfigUpdateOne {
+// SetNillableDisplayName sets the "display_name" field if the given value is not nil.
+func (_u *IntegrationConfigUpdateOne) SetNillableDisplayName(v *string) *IntegrationConfigUpdateOne {
 	if v != nil {
-		_u.SetConfigData(*v)
+		_u.SetDisplayName(*v)
+	}
+	return _u
+}
+
+// SetDescription sets the "description" field.
+func (_u *IntegrationConfigUpdateOne) SetDescription(v string) *IntegrationConfigUpdateOne {
+	_u.mutation.SetDescription(v)
+	return _u
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (_u *IntegrationConfigUpdateOne) SetNillableDescription(v *string) *IntegrationConfigUpdateOne {
+	if v != nil {
+		_u.SetDescription(*v)
+	}
+	return _u
+}
+
+// ClearDescription clears the value of the "description" field.
+func (_u *IntegrationConfigUpdateOne) ClearDescription() *IntegrationConfigUpdateOne {
+	_u.mutation.ClearDescription()
+	return _u
+}
+
+// SetBaseURL sets the "base_url" field.
+func (_u *IntegrationConfigUpdateOne) SetBaseURL(v string) *IntegrationConfigUpdateOne {
+	_u.mutation.SetBaseURL(v)
+	return _u
+}
+
+// SetNillableBaseURL sets the "base_url" field if the given value is not nil.
+func (_u *IntegrationConfigUpdateOne) SetNillableBaseURL(v *string) *IntegrationConfigUpdateOne {
+	if v != nil {
+		_u.SetBaseURL(*v)
+	}
+	return _u
+}
+
+// ClearBaseURL clears the value of the "base_url" field.
+func (_u *IntegrationConfigUpdateOne) ClearBaseURL() *IntegrationConfigUpdateOne {
+	_u.mutation.ClearBaseURL()
+	return _u
+}
+
+// SetEncryptedCredentials sets the "encrypted_credentials" field.
+func (_u *IntegrationConfigUpdateOne) SetEncryptedCredentials(v string) *IntegrationConfigUpdateOne {
+	_u.mutation.SetEncryptedCredentials(v)
+	return _u
+}
+
+// SetNillableEncryptedCredentials sets the "encrypted_credentials" field if the given value is not nil.
+func (_u *IntegrationConfigUpdateOne) SetNillableEncryptedCredentials(v *string) *IntegrationConfigUpdateOne {
+	if v != nil {
+		_u.SetEncryptedCredentials(*v)
+	}
+	return _u
+}
+
+// SetEndpointsJSON sets the "endpoints_json" field.
+func (_u *IntegrationConfigUpdateOne) SetEndpointsJSON(v map[string]string) *IntegrationConfigUpdateOne {
+	_u.mutation.SetEndpointsJSON(v)
+	return _u
+}
+
+// ClearEndpointsJSON clears the value of the "endpoints_json" field.
+func (_u *IntegrationConfigUpdateOne) ClearEndpointsJSON() *IntegrationConfigUpdateOne {
+	_u.mutation.ClearEndpointsJSON()
+	return _u
+}
+
+// SetIsActive sets the "is_active" field.
+func (_u *IntegrationConfigUpdateOne) SetIsActive(v bool) *IntegrationConfigUpdateOne {
+	_u.mutation.SetIsActive(v)
+	return _u
+}
+
+// SetNillableIsActive sets the "is_active" field if the given value is not nil.
+func (_u *IntegrationConfigUpdateOne) SetNillableIsActive(v *bool) *IntegrationConfigUpdateOne {
+	if v != nil {
+		_u.SetIsActive(*v)
+	}
+	return _u
+}
+
+// SetStatus sets the "status" field.
+func (_u *IntegrationConfigUpdateOne) SetStatus(v string) *IntegrationConfigUpdateOne {
+	_u.mutation.SetStatus(v)
+	return _u
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_u *IntegrationConfigUpdateOne) SetNillableStatus(v *string) *IntegrationConfigUpdateOne {
+	if v != nil {
+		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetEnvironment sets the "environment" field.
+func (_u *IntegrationConfigUpdateOne) SetEnvironment(v string) *IntegrationConfigUpdateOne {
+	_u.mutation.SetEnvironment(v)
+	return _u
+}
+
+// SetNillableEnvironment sets the "environment" field if the given value is not nil.
+func (_u *IntegrationConfigUpdateOne) SetNillableEnvironment(v *string) *IntegrationConfigUpdateOne {
+	if v != nil {
+		_u.SetEnvironment(*v)
 	}
 	return _u
 }
@@ -287,17 +525,9 @@ func (_u *IntegrationConfigUpdateOne) SetNillableKeyID(v *string) *IntegrationCo
 	return _u
 }
 
-// SetCreatedAt sets the "created_at" field.
-func (_u *IntegrationConfigUpdateOne) SetCreatedAt(v time.Time) *IntegrationConfigUpdateOne {
-	_u.mutation.SetCreatedAt(v)
-	return _u
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (_u *IntegrationConfigUpdateOne) SetNillableCreatedAt(v *time.Time) *IntegrationConfigUpdateOne {
-	if v != nil {
-		_u.SetCreatedAt(*v)
-	}
+// ClearKeyID clears the value of the "key_id" field.
+func (_u *IntegrationConfigUpdateOne) ClearKeyID() *IntegrationConfigUpdateOne {
+	_u.mutation.ClearKeyID()
 	return _u
 }
 
@@ -363,19 +593,19 @@ func (_u *IntegrationConfigUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *IntegrationConfigUpdateOne) check() error {
-	if v, ok := _u.mutation.Service(); ok {
-		if err := integrationconfig.ServiceValidator(v); err != nil {
-			return &ValidationError{Name: "service", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.service": %w`, err)}
+	if v, ok := _u.mutation.Name(); ok {
+		if err := integrationconfig.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.ConfigData(); ok {
-		if err := integrationconfig.ConfigDataValidator(v); err != nil {
-			return &ValidationError{Name: "config_data", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.config_data": %w`, err)}
+	if v, ok := _u.mutation.DisplayName(); ok {
+		if err := integrationconfig.DisplayNameValidator(v); err != nil {
+			return &ValidationError{Name: "display_name", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.display_name": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.KeyID(); ok {
-		if err := integrationconfig.KeyIDValidator(v); err != nil {
-			return &ValidationError{Name: "key_id", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.key_id": %w`, err)}
+	if v, ok := _u.mutation.EncryptedCredentials(); ok {
+		if err := integrationconfig.EncryptedCredentialsValidator(v); err != nil {
+			return &ValidationError{Name: "encrypted_credentials", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.encrypted_credentials": %w`, err)}
 		}
 	}
 	return nil
@@ -416,17 +646,47 @@ func (_u *IntegrationConfigUpdateOne) sqlSave(ctx context.Context) (_node *Integ
 	if _u.mutation.TenantIDCleared() {
 		_spec.ClearField(integrationconfig.FieldTenantID, field.TypeUUID)
 	}
-	if value, ok := _u.mutation.Service(); ok {
-		_spec.SetField(integrationconfig.FieldService, field.TypeString, value)
+	if value, ok := _u.mutation.Name(); ok {
+		_spec.SetField(integrationconfig.FieldName, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.ConfigData(); ok {
-		_spec.SetField(integrationconfig.FieldConfigData, field.TypeString, value)
+	if value, ok := _u.mutation.DisplayName(); ok {
+		_spec.SetField(integrationconfig.FieldDisplayName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Description(); ok {
+		_spec.SetField(integrationconfig.FieldDescription, field.TypeString, value)
+	}
+	if _u.mutation.DescriptionCleared() {
+		_spec.ClearField(integrationconfig.FieldDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.BaseURL(); ok {
+		_spec.SetField(integrationconfig.FieldBaseURL, field.TypeString, value)
+	}
+	if _u.mutation.BaseURLCleared() {
+		_spec.ClearField(integrationconfig.FieldBaseURL, field.TypeString)
+	}
+	if value, ok := _u.mutation.EncryptedCredentials(); ok {
+		_spec.SetField(integrationconfig.FieldEncryptedCredentials, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.EndpointsJSON(); ok {
+		_spec.SetField(integrationconfig.FieldEndpointsJSON, field.TypeJSON, value)
+	}
+	if _u.mutation.EndpointsJSONCleared() {
+		_spec.ClearField(integrationconfig.FieldEndpointsJSON, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.IsActive(); ok {
+		_spec.SetField(integrationconfig.FieldIsActive, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Status(); ok {
+		_spec.SetField(integrationconfig.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Environment(); ok {
+		_spec.SetField(integrationconfig.FieldEnvironment, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.KeyID(); ok {
 		_spec.SetField(integrationconfig.FieldKeyID, field.TypeString, value)
 	}
-	if value, ok := _u.mutation.CreatedAt(); ok {
-		_spec.SetField(integrationconfig.FieldCreatedAt, field.TypeTime, value)
+	if _u.mutation.KeyIDCleared() {
+		_spec.ClearField(integrationconfig.FieldKeyID, field.TypeString)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(integrationconfig.FieldUpdatedAt, field.TypeTime, value)

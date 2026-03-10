@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bengobox/auth-api/internal/config"
+	"github.com/bengobox/auth-api/internal/services/integrations"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -22,47 +22,55 @@ type Profile struct {
 
 // Provider wraps Google OAuth operations.
 type Provider struct {
-	cfg         config.GoogleProviderConfig
-	oauthConfig *oauth2.Config
+	integrations *integrations.Service
 }
 
-// New creates a Provider when Google OAuth is enabled. Returns nil if disabled.
-func New(cfg config.GoogleProviderConfig) (*Provider, error) {
-	if !cfg.Enabled {
-		return nil, nil
-	}
-	if cfg.ClientID == "" || cfg.ClientSecret == "" || cfg.RedirectURL == "" {
-		return nil, fmt.Errorf("google provider requires client id, secret, and redirect url")
-	}
-
+// New creates a Provider that resolves config dynamically.
+func New(integrationSvc *integrations.Service) (*Provider, error) {
 	return &Provider{
-		cfg: cfg,
-		oauthConfig: &oauth2.Config{
-			ClientID:     cfg.ClientID,
-			ClientSecret: cfg.ClientSecret,
-			RedirectURL:  cfg.RedirectURL,
-			Scopes: []string{
-				"openid",
-				"profile",
-				"email",
-			},
-			Endpoint: google.Endpoint,
-		},
+		integrations: integrationSvc,
 	}, nil
 }
 
-// AuthCodeURL constructs the Google authorization URL.
-func (p *Provider) AuthCodeURL(state string) string {
-	return p.oauthConfig.AuthCodeURL(
+func (p *Provider) getOAuthConfig(ctx context.Context) (*oauth2.Config, error) {
+	creds, err := p.integrations.GetDecryptedConfig(ctx, nil, "google")
+	if err != nil {
+		return nil, fmt.Errorf("google integration not configured or disabled: %w", err)
+	}
+
+	return &oauth2.Config{
+		ClientID:     creds["client_id"],
+		ClientSecret: creds["client_secret"],
+		RedirectURL:  creds["redirect_url"],
+		Scopes: []string{
+			"openid",
+			"profile",
+			"email",
+		},
+		Endpoint: google.Endpoint,
+	}, nil
+}
+
+// AuthCodeURL constructs the Google authorization URL dynamically.
+func (p *Provider) AuthCodeURL(ctx context.Context, state string) (string, error) {
+	oc, err := p.getOAuthConfig(ctx)
+	if err != nil {
+		return "", err
+	}
+	return oc.AuthCodeURL(
 		state,
 		oauth2.AccessTypeOffline,
 		oauth2.SetAuthURLParam("prompt", "consent"),
-	)
+	), nil
 }
 
-// Exchange swaps the authorization code for tokens.
+// Exchange swaps the authorization code for tokens dynamically.
 func (p *Provider) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
-	token, err := p.oauthConfig.Exchange(ctx, code)
+	oc, err := p.getOAuthConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	token, err := oc.Exchange(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("exchange google oauth code: %w", err)
 	}
@@ -71,7 +79,11 @@ func (p *Provider) Exchange(ctx context.Context, code string) (*oauth2.Token, er
 
 // FetchProfile obtains the Google user info using the provided token.
 func (p *Provider) FetchProfile(ctx context.Context, token *oauth2.Token) (*Profile, error) {
-	client := p.oauthConfig.Client(ctx, token)
+	oc, err := p.getOAuthConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	client := oc.Client(ctx, token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
 	if err != nil {
 		return nil, fmt.Errorf("fetch google profile: %w", err)

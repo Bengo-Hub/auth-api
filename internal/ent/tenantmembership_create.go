@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -21,6 +23,7 @@ type TenantMembershipCreate struct {
 	config
 	mutation *TenantMembershipMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetUserID sets the "user_id" field.
@@ -214,6 +217,7 @@ func (_c *TenantMembershipCreate) createSpec() (*TenantMembership, *sqlgraph.Cre
 		_node = &TenantMembership{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(tenantmembership.Table, sqlgraph.NewFieldSpec(tenantmembership.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -271,11 +275,293 @@ func (_c *TenantMembershipCreate) createSpec() (*TenantMembership, *sqlgraph.Cre
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.TenantMembership.Create().
+//		SetUserID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.TenantMembershipUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *TenantMembershipCreate) OnConflict(opts ...sql.ConflictOption) *TenantMembershipUpsertOne {
+	_c.conflict = opts
+	return &TenantMembershipUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.TenantMembership.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *TenantMembershipCreate) OnConflictColumns(columns ...string) *TenantMembershipUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &TenantMembershipUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// TenantMembershipUpsertOne is the builder for "upsert"-ing
+	//  one TenantMembership node.
+	TenantMembershipUpsertOne struct {
+		create *TenantMembershipCreate
+	}
+
+	// TenantMembershipUpsert is the "OnConflict" setter.
+	TenantMembershipUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUserID sets the "user_id" field.
+func (u *TenantMembershipUpsert) SetUserID(v uuid.UUID) *TenantMembershipUpsert {
+	u.Set(tenantmembership.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *TenantMembershipUpsert) UpdateUserID() *TenantMembershipUpsert {
+	u.SetExcluded(tenantmembership.FieldUserID)
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *TenantMembershipUpsert) SetTenantID(v uuid.UUID) *TenantMembershipUpsert {
+	u.Set(tenantmembership.FieldTenantID, v)
+	return u
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *TenantMembershipUpsert) UpdateTenantID() *TenantMembershipUpsert {
+	u.SetExcluded(tenantmembership.FieldTenantID)
+	return u
+}
+
+// SetRoles sets the "roles" field.
+func (u *TenantMembershipUpsert) SetRoles(v []string) *TenantMembershipUpsert {
+	u.Set(tenantmembership.FieldRoles, v)
+	return u
+}
+
+// UpdateRoles sets the "roles" field to the value that was provided on create.
+func (u *TenantMembershipUpsert) UpdateRoles() *TenantMembershipUpsert {
+	u.SetExcluded(tenantmembership.FieldRoles)
+	return u
+}
+
+// ClearRoles clears the value of the "roles" field.
+func (u *TenantMembershipUpsert) ClearRoles() *TenantMembershipUpsert {
+	u.SetNull(tenantmembership.FieldRoles)
+	return u
+}
+
+// SetStatus sets the "status" field.
+func (u *TenantMembershipUpsert) SetStatus(v string) *TenantMembershipUpsert {
+	u.Set(tenantmembership.FieldStatus, v)
+	return u
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *TenantMembershipUpsert) UpdateStatus() *TenantMembershipUpsert {
+	u.SetExcluded(tenantmembership.FieldStatus)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *TenantMembershipUpsert) SetUpdatedAt(v time.Time) *TenantMembershipUpsert {
+	u.Set(tenantmembership.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *TenantMembershipUpsert) UpdateUpdatedAt() *TenantMembershipUpsert {
+	u.SetExcluded(tenantmembership.FieldUpdatedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.TenantMembership.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(tenantmembership.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *TenantMembershipUpsertOne) UpdateNewValues() *TenantMembershipUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(tenantmembership.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(tenantmembership.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.TenantMembership.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *TenantMembershipUpsertOne) Ignore() *TenantMembershipUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *TenantMembershipUpsertOne) DoNothing() *TenantMembershipUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the TenantMembershipCreate.OnConflict
+// documentation for more info.
+func (u *TenantMembershipUpsertOne) Update(set func(*TenantMembershipUpsert)) *TenantMembershipUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&TenantMembershipUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *TenantMembershipUpsertOne) SetUserID(v uuid.UUID) *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *TenantMembershipUpsertOne) UpdateUserID() *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *TenantMembershipUpsertOne) SetTenantID(v uuid.UUID) *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *TenantMembershipUpsertOne) UpdateTenantID() *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// SetRoles sets the "roles" field.
+func (u *TenantMembershipUpsertOne) SetRoles(v []string) *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetRoles(v)
+	})
+}
+
+// UpdateRoles sets the "roles" field to the value that was provided on create.
+func (u *TenantMembershipUpsertOne) UpdateRoles() *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateRoles()
+	})
+}
+
+// ClearRoles clears the value of the "roles" field.
+func (u *TenantMembershipUpsertOne) ClearRoles() *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.ClearRoles()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *TenantMembershipUpsertOne) SetStatus(v string) *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *TenantMembershipUpsertOne) UpdateStatus() *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateStatus()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *TenantMembershipUpsertOne) SetUpdatedAt(v time.Time) *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *TenantMembershipUpsertOne) UpdateUpdatedAt() *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *TenantMembershipUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for TenantMembershipCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *TenantMembershipUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *TenantMembershipUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: TenantMembershipUpsertOne.ID is not supported by MySQL driver. Use TenantMembershipUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *TenantMembershipUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // TenantMembershipCreateBulk is the builder for creating many TenantMembership entities in bulk.
 type TenantMembershipCreateBulk struct {
 	config
 	err      error
 	builders []*TenantMembershipCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the TenantMembership entities in the database.
@@ -305,6 +591,7 @@ func (_c *TenantMembershipCreateBulk) Save(ctx context.Context) ([]*TenantMember
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -351,6 +638,200 @@ func (_c *TenantMembershipCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *TenantMembershipCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.TenantMembership.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.TenantMembershipUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *TenantMembershipCreateBulk) OnConflict(opts ...sql.ConflictOption) *TenantMembershipUpsertBulk {
+	_c.conflict = opts
+	return &TenantMembershipUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.TenantMembership.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *TenantMembershipCreateBulk) OnConflictColumns(columns ...string) *TenantMembershipUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &TenantMembershipUpsertBulk{
+		create: _c,
+	}
+}
+
+// TenantMembershipUpsertBulk is the builder for "upsert"-ing
+// a bulk of TenantMembership nodes.
+type TenantMembershipUpsertBulk struct {
+	create *TenantMembershipCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.TenantMembership.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(tenantmembership.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *TenantMembershipUpsertBulk) UpdateNewValues() *TenantMembershipUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(tenantmembership.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(tenantmembership.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.TenantMembership.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *TenantMembershipUpsertBulk) Ignore() *TenantMembershipUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *TenantMembershipUpsertBulk) DoNothing() *TenantMembershipUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the TenantMembershipCreateBulk.OnConflict
+// documentation for more info.
+func (u *TenantMembershipUpsertBulk) Update(set func(*TenantMembershipUpsert)) *TenantMembershipUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&TenantMembershipUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *TenantMembershipUpsertBulk) SetUserID(v uuid.UUID) *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *TenantMembershipUpsertBulk) UpdateUserID() *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *TenantMembershipUpsertBulk) SetTenantID(v uuid.UUID) *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *TenantMembershipUpsertBulk) UpdateTenantID() *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// SetRoles sets the "roles" field.
+func (u *TenantMembershipUpsertBulk) SetRoles(v []string) *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetRoles(v)
+	})
+}
+
+// UpdateRoles sets the "roles" field to the value that was provided on create.
+func (u *TenantMembershipUpsertBulk) UpdateRoles() *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateRoles()
+	})
+}
+
+// ClearRoles clears the value of the "roles" field.
+func (u *TenantMembershipUpsertBulk) ClearRoles() *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.ClearRoles()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *TenantMembershipUpsertBulk) SetStatus(v string) *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *TenantMembershipUpsertBulk) UpdateStatus() *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateStatus()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *TenantMembershipUpsertBulk) SetUpdatedAt(v time.Time) *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *TenantMembershipUpsertBulk) UpdateUpdatedAt() *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *TenantMembershipUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the TenantMembershipCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for TenantMembershipCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *TenantMembershipUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

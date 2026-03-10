@@ -18,22 +18,46 @@ type IntegrationConfig struct {
 func (IntegrationConfig) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", uuid.UUID{}).
-			Default(uuid.New),
+			Default(uuid.New).
+			Immutable(),
 		field.UUID("tenant_id", uuid.UUID{}).
 			Optional().
-			Nillable(), // Can be system-wide or tenant-specific
-		field.String("service").
+			Nillable().
+			Comment("Tenant identifier. NULL = platform-level integration."),
+		field.String("name").
 			NotEmpty().
-			Comment("Service name e.g. google_oauth, slack_webhook"),
-		field.String("config_data").
+			Comment("Unique integration name e.g. google_oauth, paystack, slack"),
+		field.String("display_name").
+			NotEmpty().
+			Comment("Human-readable name"),
+		field.String("description").
+			Optional().
+			Comment("Description of the integration"),
+		field.String("base_url").
+			Optional().
+			Comment("Base URL for the external service"),
+		field.Text("encrypted_credentials").
 			NotEmpty().
 			Sensitive().
-			Comment("Encrypted JSON configuration"),
+			Comment("AES-256-GCM encrypted JSON credentials"),
+		field.JSON("endpoints_json", map[string]string{}).
+			Optional().
+			Comment("Mapping of action names to endpoint paths"),
+		field.Bool("is_active").
+			Default(true).
+			Comment("Whether this integration is currently active"),
+		field.String("status").
+			Default("active").
+			Comment("Status: active, inactive, error, pending"),
+		field.String("environment").
+			Default("production").
+			Comment("Environment: production, sandbox, test"),
 		field.String("key_id").
-			NotEmpty().
-			Comment("ID of the encryption key used"),
+			Optional().
+			Comment("ID of the encryption key used (if using multiple keys)"),
 		field.Time("created_at").
-			Default(time.Now),
+			Default(time.Now).
+			Immutable(),
 		field.Time("updated_at").
 			Default(time.Now).
 			UpdateDefault(time.Now),
@@ -48,7 +72,9 @@ func (IntegrationConfig) Edges() []ent.Edge {
 // Indexes of the IntegrationConfig.
 func (IntegrationConfig) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("tenant_id", "service").
+		index.Fields("tenant_id", "name").
 			Unique(),
+		index.Fields("name"),
+		index.Fields("is_active"),
 	}
 }

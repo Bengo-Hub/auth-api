@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
@@ -19,6 +20,7 @@ type MFASettingsCreate struct {
 	config
 	mutation *MFASettingsMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetUserID sets the "user_id" field.
@@ -193,6 +195,7 @@ func (_c *MFASettingsCreate) createSpec() (*MFASettings, *sqlgraph.CreateSpec) {
 		_node = &MFASettings{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(mfasettings.Table, sqlgraph.NewFieldSpec(mfasettings.FieldID, field.TypeInt))
 	)
+	_spec.OnConflict = _c.conflict
 	if value, ok := _c.mutation.UserID(); ok {
 		_spec.SetField(mfasettings.FieldUserID, field.TypeUUID, value)
 		_node.UserID = value
@@ -220,11 +223,282 @@ func (_c *MFASettingsCreate) createSpec() (*MFASettings, *sqlgraph.CreateSpec) {
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.MFASettings.Create().
+//		SetUserID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.MFASettingsUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *MFASettingsCreate) OnConflict(opts ...sql.ConflictOption) *MFASettingsUpsertOne {
+	_c.conflict = opts
+	return &MFASettingsUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.MFASettings.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *MFASettingsCreate) OnConflictColumns(columns ...string) *MFASettingsUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &MFASettingsUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// MFASettingsUpsertOne is the builder for "upsert"-ing
+	//  one MFASettings node.
+	MFASettingsUpsertOne struct {
+		create *MFASettingsCreate
+	}
+
+	// MFASettingsUpsert is the "OnConflict" setter.
+	MFASettingsUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUserID sets the "user_id" field.
+func (u *MFASettingsUpsert) SetUserID(v uuid.UUID) *MFASettingsUpsert {
+	u.Set(mfasettings.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *MFASettingsUpsert) UpdateUserID() *MFASettingsUpsert {
+	u.SetExcluded(mfasettings.FieldUserID)
+	return u
+}
+
+// SetPrimaryMethod sets the "primary_method" field.
+func (u *MFASettingsUpsert) SetPrimaryMethod(v string) *MFASettingsUpsert {
+	u.Set(mfasettings.FieldPrimaryMethod, v)
+	return u
+}
+
+// UpdatePrimaryMethod sets the "primary_method" field to the value that was provided on create.
+func (u *MFASettingsUpsert) UpdatePrimaryMethod() *MFASettingsUpsert {
+	u.SetExcluded(mfasettings.FieldPrimaryMethod)
+	return u
+}
+
+// SetEnforcedAt sets the "enforced_at" field.
+func (u *MFASettingsUpsert) SetEnforcedAt(v time.Time) *MFASettingsUpsert {
+	u.Set(mfasettings.FieldEnforcedAt, v)
+	return u
+}
+
+// UpdateEnforcedAt sets the "enforced_at" field to the value that was provided on create.
+func (u *MFASettingsUpsert) UpdateEnforcedAt() *MFASettingsUpsert {
+	u.SetExcluded(mfasettings.FieldEnforcedAt)
+	return u
+}
+
+// ClearEnforcedAt clears the value of the "enforced_at" field.
+func (u *MFASettingsUpsert) ClearEnforcedAt() *MFASettingsUpsert {
+	u.SetNull(mfasettings.FieldEnforcedAt)
+	return u
+}
+
+// SetRecoveryChannel sets the "recovery_channel" field.
+func (u *MFASettingsUpsert) SetRecoveryChannel(v string) *MFASettingsUpsert {
+	u.Set(mfasettings.FieldRecoveryChannel, v)
+	return u
+}
+
+// UpdateRecoveryChannel sets the "recovery_channel" field to the value that was provided on create.
+func (u *MFASettingsUpsert) UpdateRecoveryChannel() *MFASettingsUpsert {
+	u.SetExcluded(mfasettings.FieldRecoveryChannel)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *MFASettingsUpsert) SetUpdatedAt(v time.Time) *MFASettingsUpsert {
+	u.Set(mfasettings.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *MFASettingsUpsert) UpdateUpdatedAt() *MFASettingsUpsert {
+	u.SetExcluded(mfasettings.FieldUpdatedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create.
+// Using this option is equivalent to using:
+//
+//	client.MFASettings.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *MFASettingsUpsertOne) UpdateNewValues() *MFASettingsUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(mfasettings.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.MFASettings.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *MFASettingsUpsertOne) Ignore() *MFASettingsUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *MFASettingsUpsertOne) DoNothing() *MFASettingsUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the MFASettingsCreate.OnConflict
+// documentation for more info.
+func (u *MFASettingsUpsertOne) Update(set func(*MFASettingsUpsert)) *MFASettingsUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&MFASettingsUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *MFASettingsUpsertOne) SetUserID(v uuid.UUID) *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *MFASettingsUpsertOne) UpdateUserID() *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetPrimaryMethod sets the "primary_method" field.
+func (u *MFASettingsUpsertOne) SetPrimaryMethod(v string) *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetPrimaryMethod(v)
+	})
+}
+
+// UpdatePrimaryMethod sets the "primary_method" field to the value that was provided on create.
+func (u *MFASettingsUpsertOne) UpdatePrimaryMethod() *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdatePrimaryMethod()
+	})
+}
+
+// SetEnforcedAt sets the "enforced_at" field.
+func (u *MFASettingsUpsertOne) SetEnforcedAt(v time.Time) *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetEnforcedAt(v)
+	})
+}
+
+// UpdateEnforcedAt sets the "enforced_at" field to the value that was provided on create.
+func (u *MFASettingsUpsertOne) UpdateEnforcedAt() *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdateEnforcedAt()
+	})
+}
+
+// ClearEnforcedAt clears the value of the "enforced_at" field.
+func (u *MFASettingsUpsertOne) ClearEnforcedAt() *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.ClearEnforcedAt()
+	})
+}
+
+// SetRecoveryChannel sets the "recovery_channel" field.
+func (u *MFASettingsUpsertOne) SetRecoveryChannel(v string) *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetRecoveryChannel(v)
+	})
+}
+
+// UpdateRecoveryChannel sets the "recovery_channel" field to the value that was provided on create.
+func (u *MFASettingsUpsertOne) UpdateRecoveryChannel() *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdateRecoveryChannel()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *MFASettingsUpsertOne) SetUpdatedAt(v time.Time) *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *MFASettingsUpsertOne) UpdateUpdatedAt() *MFASettingsUpsertOne {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *MFASettingsUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for MFASettingsCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *MFASettingsUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *MFASettingsUpsertOne) ID(ctx context.Context) (id int, err error) {
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *MFASettingsUpsertOne) IDX(ctx context.Context) int {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // MFASettingsCreateBulk is the builder for creating many MFASettings entities in bulk.
 type MFASettingsCreateBulk struct {
 	config
 	err      error
 	builders []*MFASettingsCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the MFASettings entities in the database.
@@ -254,6 +528,7 @@ func (_c *MFASettingsCreateBulk) Save(ctx context.Context) ([]*MFASettings, erro
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -304,6 +579,194 @@ func (_c *MFASettingsCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *MFASettingsCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.MFASettings.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.MFASettingsUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *MFASettingsCreateBulk) OnConflict(opts ...sql.ConflictOption) *MFASettingsUpsertBulk {
+	_c.conflict = opts
+	return &MFASettingsUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.MFASettings.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *MFASettingsCreateBulk) OnConflictColumns(columns ...string) *MFASettingsUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &MFASettingsUpsertBulk{
+		create: _c,
+	}
+}
+
+// MFASettingsUpsertBulk is the builder for "upsert"-ing
+// a bulk of MFASettings nodes.
+type MFASettingsUpsertBulk struct {
+	create *MFASettingsCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.MFASettings.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//		).
+//		Exec(ctx)
+func (u *MFASettingsUpsertBulk) UpdateNewValues() *MFASettingsUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(mfasettings.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.MFASettings.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *MFASettingsUpsertBulk) Ignore() *MFASettingsUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *MFASettingsUpsertBulk) DoNothing() *MFASettingsUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the MFASettingsCreateBulk.OnConflict
+// documentation for more info.
+func (u *MFASettingsUpsertBulk) Update(set func(*MFASettingsUpsert)) *MFASettingsUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&MFASettingsUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *MFASettingsUpsertBulk) SetUserID(v uuid.UUID) *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *MFASettingsUpsertBulk) UpdateUserID() *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetPrimaryMethod sets the "primary_method" field.
+func (u *MFASettingsUpsertBulk) SetPrimaryMethod(v string) *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetPrimaryMethod(v)
+	})
+}
+
+// UpdatePrimaryMethod sets the "primary_method" field to the value that was provided on create.
+func (u *MFASettingsUpsertBulk) UpdatePrimaryMethod() *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdatePrimaryMethod()
+	})
+}
+
+// SetEnforcedAt sets the "enforced_at" field.
+func (u *MFASettingsUpsertBulk) SetEnforcedAt(v time.Time) *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetEnforcedAt(v)
+	})
+}
+
+// UpdateEnforcedAt sets the "enforced_at" field to the value that was provided on create.
+func (u *MFASettingsUpsertBulk) UpdateEnforcedAt() *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdateEnforcedAt()
+	})
+}
+
+// ClearEnforcedAt clears the value of the "enforced_at" field.
+func (u *MFASettingsUpsertBulk) ClearEnforcedAt() *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.ClearEnforcedAt()
+	})
+}
+
+// SetRecoveryChannel sets the "recovery_channel" field.
+func (u *MFASettingsUpsertBulk) SetRecoveryChannel(v string) *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetRecoveryChannel(v)
+	})
+}
+
+// UpdateRecoveryChannel sets the "recovery_channel" field to the value that was provided on create.
+func (u *MFASettingsUpsertBulk) UpdateRecoveryChannel() *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdateRecoveryChannel()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *MFASettingsUpsertBulk) SetUpdatedAt(v time.Time) *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *MFASettingsUpsertBulk) UpdateUpdatedAt() *MFASettingsUpsertBulk {
+	return u.Update(func(s *MFASettingsUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *MFASettingsUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the MFASettingsCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for MFASettingsCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *MFASettingsUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

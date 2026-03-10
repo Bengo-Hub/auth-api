@@ -60,6 +60,7 @@ type AuthHandlers struct {
 	AdminGetIntegrationConfig    http.HandlerFunc
 	AdminListIntegrationConfigs  http.HandlerFunc
 	AdminDeleteIntegrationConfig http.HandlerFunc
+	AdminUpdateIntegrationStatus http.HandlerFunc
 	DeveloperListClients         http.HandlerFunc
 	DeveloperCreateClient        http.HandlerFunc
 	// API Key management and validation
@@ -76,6 +77,8 @@ type AuthHandlers struct {
 	ListTenantMembers  http.HandlerFunc
 	UpdateTenantMember http.HandlerFunc
 	RemoveTenantMember http.HandlerFunc
+	// Public integrations info
+	ListActiveIntegrations http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -161,6 +164,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.With(deps.RequireAuthHandler).Get("/userinfo", deps.AuthHandlers.UserInfo)
 		})
 		r.Route("/auth", func(r chi.Router) {
+			r.Get("/integrations/active", deps.AuthHandlers.ListActiveIntegrations)
 			r.Post("/register", deps.AuthHandlers.Register)
 			if deps.RateLimitLogin != nil {
 				r.With(deps.RateLimitLogin).Post("/login", deps.AuthHandlers.Login)
@@ -234,6 +238,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Post("/integrations", deps.AuthHandlers.AdminCreateIntegrationConfig)
 				r.Get("/integrations/{id}", deps.AuthHandlers.AdminGetIntegrationConfig)
 				r.Get("/integrations", deps.AuthHandlers.AdminListIntegrationConfigs)
+				r.Put("/integrations/{id}/status", deps.AuthHandlers.AdminUpdateIntegrationStatus)
 				r.Delete("/integrations/{id}", deps.AuthHandlers.AdminDeleteIntegrationConfig)
 				// API Key management (requires auth)
 				r.Post("/api-keys", deps.AuthHandlers.AdminCreateAPIKey)

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bengobox/auth-api/internal/config"
+	"github.com/bengobox/auth-api/internal/services/integrations"
 	"golang.org/x/oauth2"
 	githuboauth "golang.org/x/oauth2/github"
 )
@@ -26,36 +26,52 @@ type emailRecord struct {
 }
 
 type Provider struct {
-	cfg         config.GitHubProviderConfig
-	oauthConfig *oauth2.Config
+	integrations *integrations.Service
 }
 
-func New(cfg config.GitHubProviderConfig) (*Provider, error) {
-	if !cfg.Enabled {
-		return nil, nil
-	}
+func New(integrationSvc *integrations.Service) (*Provider, error) {
 	return &Provider{
-		cfg: cfg,
-		oauthConfig: &oauth2.Config{
-			ClientID:     cfg.ClientID,
-			ClientSecret: cfg.ClientSecret,
-			RedirectURL:  cfg.RedirectURL,
-			Scopes:       []string{"read:user", "user:email"},
-			Endpoint:     githuboauth.Endpoint,
-		},
+		integrations: integrationSvc,
 	}, nil
 }
 
-func (p *Provider) AuthCodeURL(state string) string {
-	return p.oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOnline)
+func (p *Provider) getOAuthConfig(ctx context.Context) (*oauth2.Config, error) {
+	creds, err := p.integrations.GetDecryptedConfig(ctx, nil, "github")
+	if err != nil {
+		return nil, fmt.Errorf("github integration not configured or disabled: %w", err)
+	}
+
+	return &oauth2.Config{
+		ClientID:     creds["client_id"],
+		ClientSecret: creds["client_secret"],
+		RedirectURL:  creds["redirect_url"],
+		Scopes:       []string{"read:user", "user:email"},
+		Endpoint:     githuboauth.Endpoint,
+	}, nil
+}
+
+func (p *Provider) AuthCodeURL(ctx context.Context, state string) (string, error) {
+	oc, err := p.getOAuthConfig(ctx)
+	if err != nil {
+		return "", err
+	}
+	return oc.AuthCodeURL(state, oauth2.AccessTypeOnline), nil
 }
 
 func (p *Provider) Exchange(ctx context.Context, code string) (*oauth2.Token, error) {
-	return p.oauthConfig.Exchange(ctx, code)
+	oc, err := p.getOAuthConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return oc.Exchange(ctx, code)
 }
 
 func (p *Provider) FetchProfile(ctx context.Context, token *oauth2.Token) (*Profile, error) {
-	client := p.oauthConfig.Client(ctx, token)
+	oc, err := p.getOAuthConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	client := oc.Client(ctx, token)
 	resp, err := client.Get("https://api.github.com/user")
 	if err != nil {
 		return nil, fmt.Errorf("github user: %w", err)

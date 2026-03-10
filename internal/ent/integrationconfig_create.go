@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
@@ -19,6 +21,7 @@ type IntegrationConfigCreate struct {
 	config
 	mutation *IntegrationConfigMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetTenantID sets the "tenant_id" field.
@@ -35,21 +38,111 @@ func (_c *IntegrationConfigCreate) SetNillableTenantID(v *uuid.UUID) *Integratio
 	return _c
 }
 
-// SetService sets the "service" field.
-func (_c *IntegrationConfigCreate) SetService(v string) *IntegrationConfigCreate {
-	_c.mutation.SetService(v)
+// SetName sets the "name" field.
+func (_c *IntegrationConfigCreate) SetName(v string) *IntegrationConfigCreate {
+	_c.mutation.SetName(v)
 	return _c
 }
 
-// SetConfigData sets the "config_data" field.
-func (_c *IntegrationConfigCreate) SetConfigData(v string) *IntegrationConfigCreate {
-	_c.mutation.SetConfigData(v)
+// SetDisplayName sets the "display_name" field.
+func (_c *IntegrationConfigCreate) SetDisplayName(v string) *IntegrationConfigCreate {
+	_c.mutation.SetDisplayName(v)
+	return _c
+}
+
+// SetDescription sets the "description" field.
+func (_c *IntegrationConfigCreate) SetDescription(v string) *IntegrationConfigCreate {
+	_c.mutation.SetDescription(v)
+	return _c
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (_c *IntegrationConfigCreate) SetNillableDescription(v *string) *IntegrationConfigCreate {
+	if v != nil {
+		_c.SetDescription(*v)
+	}
+	return _c
+}
+
+// SetBaseURL sets the "base_url" field.
+func (_c *IntegrationConfigCreate) SetBaseURL(v string) *IntegrationConfigCreate {
+	_c.mutation.SetBaseURL(v)
+	return _c
+}
+
+// SetNillableBaseURL sets the "base_url" field if the given value is not nil.
+func (_c *IntegrationConfigCreate) SetNillableBaseURL(v *string) *IntegrationConfigCreate {
+	if v != nil {
+		_c.SetBaseURL(*v)
+	}
+	return _c
+}
+
+// SetEncryptedCredentials sets the "encrypted_credentials" field.
+func (_c *IntegrationConfigCreate) SetEncryptedCredentials(v string) *IntegrationConfigCreate {
+	_c.mutation.SetEncryptedCredentials(v)
+	return _c
+}
+
+// SetEndpointsJSON sets the "endpoints_json" field.
+func (_c *IntegrationConfigCreate) SetEndpointsJSON(v map[string]string) *IntegrationConfigCreate {
+	_c.mutation.SetEndpointsJSON(v)
+	return _c
+}
+
+// SetIsActive sets the "is_active" field.
+func (_c *IntegrationConfigCreate) SetIsActive(v bool) *IntegrationConfigCreate {
+	_c.mutation.SetIsActive(v)
+	return _c
+}
+
+// SetNillableIsActive sets the "is_active" field if the given value is not nil.
+func (_c *IntegrationConfigCreate) SetNillableIsActive(v *bool) *IntegrationConfigCreate {
+	if v != nil {
+		_c.SetIsActive(*v)
+	}
+	return _c
+}
+
+// SetStatus sets the "status" field.
+func (_c *IntegrationConfigCreate) SetStatus(v string) *IntegrationConfigCreate {
+	_c.mutation.SetStatus(v)
+	return _c
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_c *IntegrationConfigCreate) SetNillableStatus(v *string) *IntegrationConfigCreate {
+	if v != nil {
+		_c.SetStatus(*v)
+	}
+	return _c
+}
+
+// SetEnvironment sets the "environment" field.
+func (_c *IntegrationConfigCreate) SetEnvironment(v string) *IntegrationConfigCreate {
+	_c.mutation.SetEnvironment(v)
+	return _c
+}
+
+// SetNillableEnvironment sets the "environment" field if the given value is not nil.
+func (_c *IntegrationConfigCreate) SetNillableEnvironment(v *string) *IntegrationConfigCreate {
+	if v != nil {
+		_c.SetEnvironment(*v)
+	}
 	return _c
 }
 
 // SetKeyID sets the "key_id" field.
 func (_c *IntegrationConfigCreate) SetKeyID(v string) *IntegrationConfigCreate {
 	_c.mutation.SetKeyID(v)
+	return _c
+}
+
+// SetNillableKeyID sets the "key_id" field if the given value is not nil.
+func (_c *IntegrationConfigCreate) SetNillableKeyID(v *string) *IntegrationConfigCreate {
+	if v != nil {
+		_c.SetKeyID(*v)
+	}
 	return _c
 }
 
@@ -130,6 +223,18 @@ func (_c *IntegrationConfigCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *IntegrationConfigCreate) defaults() {
+	if _, ok := _c.mutation.IsActive(); !ok {
+		v := integrationconfig.DefaultIsActive
+		_c.mutation.SetIsActive(v)
+	}
+	if _, ok := _c.mutation.Status(); !ok {
+		v := integrationconfig.DefaultStatus
+		_c.mutation.SetStatus(v)
+	}
+	if _, ok := _c.mutation.Environment(); !ok {
+		v := integrationconfig.DefaultEnvironment
+		_c.mutation.SetEnvironment(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := integrationconfig.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -146,29 +251,38 @@ func (_c *IntegrationConfigCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_c *IntegrationConfigCreate) check() error {
-	if _, ok := _c.mutation.Service(); !ok {
-		return &ValidationError{Name: "service", err: errors.New(`ent: missing required field "IntegrationConfig.service"`)}
+	if _, ok := _c.mutation.Name(); !ok {
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "IntegrationConfig.name"`)}
 	}
-	if v, ok := _c.mutation.Service(); ok {
-		if err := integrationconfig.ServiceValidator(v); err != nil {
-			return &ValidationError{Name: "service", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.service": %w`, err)}
+	if v, ok := _c.mutation.Name(); ok {
+		if err := integrationconfig.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.name": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.ConfigData(); !ok {
-		return &ValidationError{Name: "config_data", err: errors.New(`ent: missing required field "IntegrationConfig.config_data"`)}
+	if _, ok := _c.mutation.DisplayName(); !ok {
+		return &ValidationError{Name: "display_name", err: errors.New(`ent: missing required field "IntegrationConfig.display_name"`)}
 	}
-	if v, ok := _c.mutation.ConfigData(); ok {
-		if err := integrationconfig.ConfigDataValidator(v); err != nil {
-			return &ValidationError{Name: "config_data", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.config_data": %w`, err)}
+	if v, ok := _c.mutation.DisplayName(); ok {
+		if err := integrationconfig.DisplayNameValidator(v); err != nil {
+			return &ValidationError{Name: "display_name", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.display_name": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.KeyID(); !ok {
-		return &ValidationError{Name: "key_id", err: errors.New(`ent: missing required field "IntegrationConfig.key_id"`)}
+	if _, ok := _c.mutation.EncryptedCredentials(); !ok {
+		return &ValidationError{Name: "encrypted_credentials", err: errors.New(`ent: missing required field "IntegrationConfig.encrypted_credentials"`)}
 	}
-	if v, ok := _c.mutation.KeyID(); ok {
-		if err := integrationconfig.KeyIDValidator(v); err != nil {
-			return &ValidationError{Name: "key_id", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.key_id": %w`, err)}
+	if v, ok := _c.mutation.EncryptedCredentials(); ok {
+		if err := integrationconfig.EncryptedCredentialsValidator(v); err != nil {
+			return &ValidationError{Name: "encrypted_credentials", err: fmt.Errorf(`ent: validator failed for field "IntegrationConfig.encrypted_credentials": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.IsActive(); !ok {
+		return &ValidationError{Name: "is_active", err: errors.New(`ent: missing required field "IntegrationConfig.is_active"`)}
+	}
+	if _, ok := _c.mutation.Status(); !ok {
+		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "IntegrationConfig.status"`)}
+	}
+	if _, ok := _c.mutation.Environment(); !ok {
+		return &ValidationError{Name: "environment", err: errors.New(`ent: missing required field "IntegrationConfig.environment"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "IntegrationConfig.created_at"`)}
@@ -207,6 +321,7 @@ func (_c *IntegrationConfigCreate) createSpec() (*IntegrationConfig, *sqlgraph.C
 		_node = &IntegrationConfig{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(integrationconfig.Table, sqlgraph.NewFieldSpec(integrationconfig.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -215,13 +330,41 @@ func (_c *IntegrationConfigCreate) createSpec() (*IntegrationConfig, *sqlgraph.C
 		_spec.SetField(integrationconfig.FieldTenantID, field.TypeUUID, value)
 		_node.TenantID = &value
 	}
-	if value, ok := _c.mutation.Service(); ok {
-		_spec.SetField(integrationconfig.FieldService, field.TypeString, value)
-		_node.Service = value
+	if value, ok := _c.mutation.Name(); ok {
+		_spec.SetField(integrationconfig.FieldName, field.TypeString, value)
+		_node.Name = value
 	}
-	if value, ok := _c.mutation.ConfigData(); ok {
-		_spec.SetField(integrationconfig.FieldConfigData, field.TypeString, value)
-		_node.ConfigData = value
+	if value, ok := _c.mutation.DisplayName(); ok {
+		_spec.SetField(integrationconfig.FieldDisplayName, field.TypeString, value)
+		_node.DisplayName = value
+	}
+	if value, ok := _c.mutation.Description(); ok {
+		_spec.SetField(integrationconfig.FieldDescription, field.TypeString, value)
+		_node.Description = value
+	}
+	if value, ok := _c.mutation.BaseURL(); ok {
+		_spec.SetField(integrationconfig.FieldBaseURL, field.TypeString, value)
+		_node.BaseURL = value
+	}
+	if value, ok := _c.mutation.EncryptedCredentials(); ok {
+		_spec.SetField(integrationconfig.FieldEncryptedCredentials, field.TypeString, value)
+		_node.EncryptedCredentials = value
+	}
+	if value, ok := _c.mutation.EndpointsJSON(); ok {
+		_spec.SetField(integrationconfig.FieldEndpointsJSON, field.TypeJSON, value)
+		_node.EndpointsJSON = value
+	}
+	if value, ok := _c.mutation.IsActive(); ok {
+		_spec.SetField(integrationconfig.FieldIsActive, field.TypeBool, value)
+		_node.IsActive = value
+	}
+	if value, ok := _c.mutation.Status(); ok {
+		_spec.SetField(integrationconfig.FieldStatus, field.TypeString, value)
+		_node.Status = value
+	}
+	if value, ok := _c.mutation.Environment(); ok {
+		_spec.SetField(integrationconfig.FieldEnvironment, field.TypeString, value)
+		_node.Environment = value
 	}
 	if value, ok := _c.mutation.KeyID(); ok {
 		_spec.SetField(integrationconfig.FieldKeyID, field.TypeString, value)
@@ -238,11 +381,527 @@ func (_c *IntegrationConfigCreate) createSpec() (*IntegrationConfig, *sqlgraph.C
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.IntegrationConfig.Create().
+//		SetTenantID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.IntegrationConfigUpsert) {
+//			SetTenantID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *IntegrationConfigCreate) OnConflict(opts ...sql.ConflictOption) *IntegrationConfigUpsertOne {
+	_c.conflict = opts
+	return &IntegrationConfigUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.IntegrationConfig.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *IntegrationConfigCreate) OnConflictColumns(columns ...string) *IntegrationConfigUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &IntegrationConfigUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// IntegrationConfigUpsertOne is the builder for "upsert"-ing
+	//  one IntegrationConfig node.
+	IntegrationConfigUpsertOne struct {
+		create *IntegrationConfigCreate
+	}
+
+	// IntegrationConfigUpsert is the "OnConflict" setter.
+	IntegrationConfigUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetTenantID sets the "tenant_id" field.
+func (u *IntegrationConfigUpsert) SetTenantID(v uuid.UUID) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldTenantID, v)
+	return u
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateTenantID() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldTenantID)
+	return u
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *IntegrationConfigUpsert) ClearTenantID() *IntegrationConfigUpsert {
+	u.SetNull(integrationconfig.FieldTenantID)
+	return u
+}
+
+// SetName sets the "name" field.
+func (u *IntegrationConfigUpsert) SetName(v string) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldName, v)
+	return u
+}
+
+// UpdateName sets the "name" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateName() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldName)
+	return u
+}
+
+// SetDisplayName sets the "display_name" field.
+func (u *IntegrationConfigUpsert) SetDisplayName(v string) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldDisplayName, v)
+	return u
+}
+
+// UpdateDisplayName sets the "display_name" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateDisplayName() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldDisplayName)
+	return u
+}
+
+// SetDescription sets the "description" field.
+func (u *IntegrationConfigUpsert) SetDescription(v string) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldDescription, v)
+	return u
+}
+
+// UpdateDescription sets the "description" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateDescription() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldDescription)
+	return u
+}
+
+// ClearDescription clears the value of the "description" field.
+func (u *IntegrationConfigUpsert) ClearDescription() *IntegrationConfigUpsert {
+	u.SetNull(integrationconfig.FieldDescription)
+	return u
+}
+
+// SetBaseURL sets the "base_url" field.
+func (u *IntegrationConfigUpsert) SetBaseURL(v string) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldBaseURL, v)
+	return u
+}
+
+// UpdateBaseURL sets the "base_url" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateBaseURL() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldBaseURL)
+	return u
+}
+
+// ClearBaseURL clears the value of the "base_url" field.
+func (u *IntegrationConfigUpsert) ClearBaseURL() *IntegrationConfigUpsert {
+	u.SetNull(integrationconfig.FieldBaseURL)
+	return u
+}
+
+// SetEncryptedCredentials sets the "encrypted_credentials" field.
+func (u *IntegrationConfigUpsert) SetEncryptedCredentials(v string) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldEncryptedCredentials, v)
+	return u
+}
+
+// UpdateEncryptedCredentials sets the "encrypted_credentials" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateEncryptedCredentials() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldEncryptedCredentials)
+	return u
+}
+
+// SetEndpointsJSON sets the "endpoints_json" field.
+func (u *IntegrationConfigUpsert) SetEndpointsJSON(v map[string]string) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldEndpointsJSON, v)
+	return u
+}
+
+// UpdateEndpointsJSON sets the "endpoints_json" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateEndpointsJSON() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldEndpointsJSON)
+	return u
+}
+
+// ClearEndpointsJSON clears the value of the "endpoints_json" field.
+func (u *IntegrationConfigUpsert) ClearEndpointsJSON() *IntegrationConfigUpsert {
+	u.SetNull(integrationconfig.FieldEndpointsJSON)
+	return u
+}
+
+// SetIsActive sets the "is_active" field.
+func (u *IntegrationConfigUpsert) SetIsActive(v bool) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldIsActive, v)
+	return u
+}
+
+// UpdateIsActive sets the "is_active" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateIsActive() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldIsActive)
+	return u
+}
+
+// SetStatus sets the "status" field.
+func (u *IntegrationConfigUpsert) SetStatus(v string) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldStatus, v)
+	return u
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateStatus() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldStatus)
+	return u
+}
+
+// SetEnvironment sets the "environment" field.
+func (u *IntegrationConfigUpsert) SetEnvironment(v string) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldEnvironment, v)
+	return u
+}
+
+// UpdateEnvironment sets the "environment" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateEnvironment() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldEnvironment)
+	return u
+}
+
+// SetKeyID sets the "key_id" field.
+func (u *IntegrationConfigUpsert) SetKeyID(v string) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldKeyID, v)
+	return u
+}
+
+// UpdateKeyID sets the "key_id" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateKeyID() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldKeyID)
+	return u
+}
+
+// ClearKeyID clears the value of the "key_id" field.
+func (u *IntegrationConfigUpsert) ClearKeyID() *IntegrationConfigUpsert {
+	u.SetNull(integrationconfig.FieldKeyID)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *IntegrationConfigUpsert) SetUpdatedAt(v time.Time) *IntegrationConfigUpsert {
+	u.Set(integrationconfig.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *IntegrationConfigUpsert) UpdateUpdatedAt() *IntegrationConfigUpsert {
+	u.SetExcluded(integrationconfig.FieldUpdatedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.IntegrationConfig.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(integrationconfig.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *IntegrationConfigUpsertOne) UpdateNewValues() *IntegrationConfigUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(integrationconfig.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(integrationconfig.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.IntegrationConfig.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *IntegrationConfigUpsertOne) Ignore() *IntegrationConfigUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *IntegrationConfigUpsertOne) DoNothing() *IntegrationConfigUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the IntegrationConfigCreate.OnConflict
+// documentation for more info.
+func (u *IntegrationConfigUpsertOne) Update(set func(*IntegrationConfigUpsert)) *IntegrationConfigUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&IntegrationConfigUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *IntegrationConfigUpsertOne) SetTenantID(v uuid.UUID) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateTenantID() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *IntegrationConfigUpsertOne) ClearTenantID() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearTenantID()
+	})
+}
+
+// SetName sets the "name" field.
+func (u *IntegrationConfigUpsertOne) SetName(v string) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetName(v)
+	})
+}
+
+// UpdateName sets the "name" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateName() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateName()
+	})
+}
+
+// SetDisplayName sets the "display_name" field.
+func (u *IntegrationConfigUpsertOne) SetDisplayName(v string) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetDisplayName(v)
+	})
+}
+
+// UpdateDisplayName sets the "display_name" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateDisplayName() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateDisplayName()
+	})
+}
+
+// SetDescription sets the "description" field.
+func (u *IntegrationConfigUpsertOne) SetDescription(v string) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetDescription(v)
+	})
+}
+
+// UpdateDescription sets the "description" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateDescription() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateDescription()
+	})
+}
+
+// ClearDescription clears the value of the "description" field.
+func (u *IntegrationConfigUpsertOne) ClearDescription() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearDescription()
+	})
+}
+
+// SetBaseURL sets the "base_url" field.
+func (u *IntegrationConfigUpsertOne) SetBaseURL(v string) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetBaseURL(v)
+	})
+}
+
+// UpdateBaseURL sets the "base_url" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateBaseURL() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateBaseURL()
+	})
+}
+
+// ClearBaseURL clears the value of the "base_url" field.
+func (u *IntegrationConfigUpsertOne) ClearBaseURL() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearBaseURL()
+	})
+}
+
+// SetEncryptedCredentials sets the "encrypted_credentials" field.
+func (u *IntegrationConfigUpsertOne) SetEncryptedCredentials(v string) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetEncryptedCredentials(v)
+	})
+}
+
+// UpdateEncryptedCredentials sets the "encrypted_credentials" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateEncryptedCredentials() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateEncryptedCredentials()
+	})
+}
+
+// SetEndpointsJSON sets the "endpoints_json" field.
+func (u *IntegrationConfigUpsertOne) SetEndpointsJSON(v map[string]string) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetEndpointsJSON(v)
+	})
+}
+
+// UpdateEndpointsJSON sets the "endpoints_json" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateEndpointsJSON() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateEndpointsJSON()
+	})
+}
+
+// ClearEndpointsJSON clears the value of the "endpoints_json" field.
+func (u *IntegrationConfigUpsertOne) ClearEndpointsJSON() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearEndpointsJSON()
+	})
+}
+
+// SetIsActive sets the "is_active" field.
+func (u *IntegrationConfigUpsertOne) SetIsActive(v bool) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetIsActive(v)
+	})
+}
+
+// UpdateIsActive sets the "is_active" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateIsActive() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateIsActive()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *IntegrationConfigUpsertOne) SetStatus(v string) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateStatus() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateStatus()
+	})
+}
+
+// SetEnvironment sets the "environment" field.
+func (u *IntegrationConfigUpsertOne) SetEnvironment(v string) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetEnvironment(v)
+	})
+}
+
+// UpdateEnvironment sets the "environment" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateEnvironment() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateEnvironment()
+	})
+}
+
+// SetKeyID sets the "key_id" field.
+func (u *IntegrationConfigUpsertOne) SetKeyID(v string) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetKeyID(v)
+	})
+}
+
+// UpdateKeyID sets the "key_id" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateKeyID() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateKeyID()
+	})
+}
+
+// ClearKeyID clears the value of the "key_id" field.
+func (u *IntegrationConfigUpsertOne) ClearKeyID() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearKeyID()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *IntegrationConfigUpsertOne) SetUpdatedAt(v time.Time) *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertOne) UpdateUpdatedAt() *IntegrationConfigUpsertOne {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *IntegrationConfigUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for IntegrationConfigCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *IntegrationConfigUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *IntegrationConfigUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: IntegrationConfigUpsertOne.ID is not supported by MySQL driver. Use IntegrationConfigUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *IntegrationConfigUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // IntegrationConfigCreateBulk is the builder for creating many IntegrationConfig entities in bulk.
 type IntegrationConfigCreateBulk struct {
 	config
 	err      error
 	builders []*IntegrationConfigCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the IntegrationConfig entities in the database.
@@ -272,6 +931,7 @@ func (_c *IntegrationConfigCreateBulk) Save(ctx context.Context) ([]*Integration
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -318,6 +978,326 @@ func (_c *IntegrationConfigCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *IntegrationConfigCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.IntegrationConfig.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.IntegrationConfigUpsert) {
+//			SetTenantID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *IntegrationConfigCreateBulk) OnConflict(opts ...sql.ConflictOption) *IntegrationConfigUpsertBulk {
+	_c.conflict = opts
+	return &IntegrationConfigUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.IntegrationConfig.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *IntegrationConfigCreateBulk) OnConflictColumns(columns ...string) *IntegrationConfigUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &IntegrationConfigUpsertBulk{
+		create: _c,
+	}
+}
+
+// IntegrationConfigUpsertBulk is the builder for "upsert"-ing
+// a bulk of IntegrationConfig nodes.
+type IntegrationConfigUpsertBulk struct {
+	create *IntegrationConfigCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.IntegrationConfig.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(integrationconfig.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *IntegrationConfigUpsertBulk) UpdateNewValues() *IntegrationConfigUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(integrationconfig.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(integrationconfig.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.IntegrationConfig.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *IntegrationConfigUpsertBulk) Ignore() *IntegrationConfigUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *IntegrationConfigUpsertBulk) DoNothing() *IntegrationConfigUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the IntegrationConfigCreateBulk.OnConflict
+// documentation for more info.
+func (u *IntegrationConfigUpsertBulk) Update(set func(*IntegrationConfigUpsert)) *IntegrationConfigUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&IntegrationConfigUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *IntegrationConfigUpsertBulk) SetTenantID(v uuid.UUID) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateTenantID() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (u *IntegrationConfigUpsertBulk) ClearTenantID() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearTenantID()
+	})
+}
+
+// SetName sets the "name" field.
+func (u *IntegrationConfigUpsertBulk) SetName(v string) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetName(v)
+	})
+}
+
+// UpdateName sets the "name" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateName() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateName()
+	})
+}
+
+// SetDisplayName sets the "display_name" field.
+func (u *IntegrationConfigUpsertBulk) SetDisplayName(v string) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetDisplayName(v)
+	})
+}
+
+// UpdateDisplayName sets the "display_name" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateDisplayName() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateDisplayName()
+	})
+}
+
+// SetDescription sets the "description" field.
+func (u *IntegrationConfigUpsertBulk) SetDescription(v string) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetDescription(v)
+	})
+}
+
+// UpdateDescription sets the "description" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateDescription() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateDescription()
+	})
+}
+
+// ClearDescription clears the value of the "description" field.
+func (u *IntegrationConfigUpsertBulk) ClearDescription() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearDescription()
+	})
+}
+
+// SetBaseURL sets the "base_url" field.
+func (u *IntegrationConfigUpsertBulk) SetBaseURL(v string) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetBaseURL(v)
+	})
+}
+
+// UpdateBaseURL sets the "base_url" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateBaseURL() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateBaseURL()
+	})
+}
+
+// ClearBaseURL clears the value of the "base_url" field.
+func (u *IntegrationConfigUpsertBulk) ClearBaseURL() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearBaseURL()
+	})
+}
+
+// SetEncryptedCredentials sets the "encrypted_credentials" field.
+func (u *IntegrationConfigUpsertBulk) SetEncryptedCredentials(v string) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetEncryptedCredentials(v)
+	})
+}
+
+// UpdateEncryptedCredentials sets the "encrypted_credentials" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateEncryptedCredentials() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateEncryptedCredentials()
+	})
+}
+
+// SetEndpointsJSON sets the "endpoints_json" field.
+func (u *IntegrationConfigUpsertBulk) SetEndpointsJSON(v map[string]string) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetEndpointsJSON(v)
+	})
+}
+
+// UpdateEndpointsJSON sets the "endpoints_json" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateEndpointsJSON() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateEndpointsJSON()
+	})
+}
+
+// ClearEndpointsJSON clears the value of the "endpoints_json" field.
+func (u *IntegrationConfigUpsertBulk) ClearEndpointsJSON() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearEndpointsJSON()
+	})
+}
+
+// SetIsActive sets the "is_active" field.
+func (u *IntegrationConfigUpsertBulk) SetIsActive(v bool) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetIsActive(v)
+	})
+}
+
+// UpdateIsActive sets the "is_active" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateIsActive() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateIsActive()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *IntegrationConfigUpsertBulk) SetStatus(v string) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateStatus() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateStatus()
+	})
+}
+
+// SetEnvironment sets the "environment" field.
+func (u *IntegrationConfigUpsertBulk) SetEnvironment(v string) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetEnvironment(v)
+	})
+}
+
+// UpdateEnvironment sets the "environment" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateEnvironment() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateEnvironment()
+	})
+}
+
+// SetKeyID sets the "key_id" field.
+func (u *IntegrationConfigUpsertBulk) SetKeyID(v string) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetKeyID(v)
+	})
+}
+
+// UpdateKeyID sets the "key_id" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateKeyID() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateKeyID()
+	})
+}
+
+// ClearKeyID clears the value of the "key_id" field.
+func (u *IntegrationConfigUpsertBulk) ClearKeyID() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.ClearKeyID()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *IntegrationConfigUpsertBulk) SetUpdatedAt(v time.Time) *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *IntegrationConfigUpsertBulk) UpdateUpdatedAt() *IntegrationConfigUpsertBulk {
+	return u.Update(func(s *IntegrationConfigUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *IntegrationConfigUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the IntegrationConfigCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for IntegrationConfigCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *IntegrationConfigUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
