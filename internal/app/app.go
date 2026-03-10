@@ -24,6 +24,7 @@ import (
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
 	"github.com/bengobox/auth-api/internal/revocation"
 	"github.com/bengobox/auth-api/internal/services/auth"
+	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/mfa"
 	"github.com/bengobox/auth-api/internal/services/oidc"
 	"github.com/bengobox/auth-api/internal/token"
@@ -62,20 +63,25 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		return nil, err
 	}
 
+	integrationSvc := integrations.New(entClient, redisClient, cfg.Security.EncryptionKey)
+	if err := integrationSvc.Initialize(ctx); err != nil {
+		return nil, fmt.Errorf("initialize integrations library: %w", err)
+	}
+
 	tokenSvc, err := token.NewService(cfg.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	googleProvider, err := googleprovider.New(cfg.Providers.Google)
+	googleProvider, err := googleprovider.New(integrationSvc)
 	if err != nil {
 		return nil, err
 	}
-	githubProvider, err := githubprovider.New(cfg.Providers.GitHub)
+	githubProvider, err := githubprovider.New(integrationSvc)
 	if err != nil {
 		return nil, err
 	}
-	microsoftProvider, err := microsoftprovider.New(cfg.Providers.Microsoft)
+	microsoftProvider, err := microsoftprovider.New(integrationSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -129,9 +135,10 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		GitHub:             githubProvider,
 		Microsoft:          microsoftProvider,
 		SubscriptionClient: subClient,
+		Integrations:       integrationSvc,
 	})
 
-	authHandler := handlers.NewAuthHandler(authService, logger)
+	authHandler := handlers.NewAuthHandler(authService, integrationSvc, logger)
 	revocationStore := revocation.New(redisClient, cfg.Redis.Namespace)
 	authMiddleware := httpmiddleware.NewAuth(authService, revocationStore)
 	rateLimiter := httpmiddleware.NewRateLimiter(redisClient, cfg.Redis.Namespace)
@@ -139,7 +146,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	oidcHandler := handlers.NewOIDCHandlerWithRolesPermissions(cfg, oidcService, authMiddleware, tokenSvc, authService, logger)
 	mfaService := mfa.New(entClient, cfg.Token.Issuer)
 	mfaHandler := handlers.NewMFAHandler(mfaService, logger)
-	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, logger)
+	
+	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 
@@ -173,6 +181,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			ListSessions:                 authHandler.ListSessions,
 			RevokeSession:                authHandler.RevokeSession,
 			RevokeAllSessions:            authHandler.RevokeAllSessions,
+			ListActiveIntegrations:       authHandler.ListActiveIntegrations,
 			AdminUpsertEntitlement:       adminHandler.UpsertEntitlement,
 			AdminListEntitlements:        adminHandler.ListEntitlements,
 			AdminIncrementUsage:          adminHandler.IncrementUsage,
@@ -187,6 +196,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminGetIntegrationConfig:    adminHandler.GetIntegrationConfig,
 			AdminListIntegrationConfigs:  adminHandler.ListIntegrationConfigs,
 			AdminDeleteIntegrationConfig: adminHandler.DeleteIntegrationConfig,
+			AdminUpdateIntegrationStatus: adminHandler.UpdateIntegrationStatus,
 			// Tenant member management
 			AddTenantMember:       adminHandler.AddTenantMember,
 			ListTenantMembers:     adminHandler.ListTenantMembers,

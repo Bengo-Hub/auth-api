@@ -4882,19 +4882,26 @@ func (m *FeatureEntitlementMutation) ResetEdge(name string) error {
 // IntegrationConfigMutation represents an operation that mutates the IntegrationConfig nodes in the graph.
 type IntegrationConfigMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *uuid.UUID
-	tenant_id     *uuid.UUID
-	service       *string
-	config_data   *string
-	key_id        *string
-	created_at    *time.Time
-	updated_at    *time.Time
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*IntegrationConfig, error)
-	predicates    []predicate.IntegrationConfig
+	op                    Op
+	typ                   string
+	id                    *uuid.UUID
+	tenant_id             *uuid.UUID
+	name                  *string
+	display_name          *string
+	description           *string
+	base_url              *string
+	encrypted_credentials *string
+	endpoints_json        *map[string]string
+	is_active             *bool
+	status                *string
+	environment           *string
+	key_id                *string
+	created_at            *time.Time
+	updated_at            *time.Time
+	clearedFields         map[string]struct{}
+	done                  bool
+	oldValue              func(context.Context) (*IntegrationConfig, error)
+	predicates            []predicate.IntegrationConfig
 }
 
 var _ ent.Mutation = (*IntegrationConfigMutation)(nil)
@@ -5050,76 +5057,367 @@ func (m *IntegrationConfigMutation) ResetTenantID() {
 	delete(m.clearedFields, integrationconfig.FieldTenantID)
 }
 
-// SetService sets the "service" field.
-func (m *IntegrationConfigMutation) SetService(s string) {
-	m.service = &s
+// SetName sets the "name" field.
+func (m *IntegrationConfigMutation) SetName(s string) {
+	m.name = &s
 }
 
-// Service returns the value of the "service" field in the mutation.
-func (m *IntegrationConfigMutation) Service() (r string, exists bool) {
-	v := m.service
+// Name returns the value of the "name" field in the mutation.
+func (m *IntegrationConfigMutation) Name() (r string, exists bool) {
+	v := m.name
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldService returns the old "service" field's value of the IntegrationConfig entity.
+// OldName returns the old "name" field's value of the IntegrationConfig entity.
 // If the IntegrationConfig object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IntegrationConfigMutation) OldService(ctx context.Context) (v string, err error) {
+func (m *IntegrationConfigMutation) OldName(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldService is only allowed on UpdateOne operations")
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldService requires an ID field in the mutation")
+		return v, errors.New("OldName requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldService: %w", err)
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
 	}
-	return oldValue.Service, nil
+	return oldValue.Name, nil
 }
 
-// ResetService resets all changes to the "service" field.
-func (m *IntegrationConfigMutation) ResetService() {
-	m.service = nil
+// ResetName resets all changes to the "name" field.
+func (m *IntegrationConfigMutation) ResetName() {
+	m.name = nil
 }
 
-// SetConfigData sets the "config_data" field.
-func (m *IntegrationConfigMutation) SetConfigData(s string) {
-	m.config_data = &s
+// SetDisplayName sets the "display_name" field.
+func (m *IntegrationConfigMutation) SetDisplayName(s string) {
+	m.display_name = &s
 }
 
-// ConfigData returns the value of the "config_data" field in the mutation.
-func (m *IntegrationConfigMutation) ConfigData() (r string, exists bool) {
-	v := m.config_data
+// DisplayName returns the value of the "display_name" field in the mutation.
+func (m *IntegrationConfigMutation) DisplayName() (r string, exists bool) {
+	v := m.display_name
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldConfigData returns the old "config_data" field's value of the IntegrationConfig entity.
+// OldDisplayName returns the old "display_name" field's value of the IntegrationConfig entity.
 // If the IntegrationConfig object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *IntegrationConfigMutation) OldConfigData(ctx context.Context) (v string, err error) {
+func (m *IntegrationConfigMutation) OldDisplayName(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldConfigData is only allowed on UpdateOne operations")
+		return v, errors.New("OldDisplayName is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldConfigData requires an ID field in the mutation")
+		return v, errors.New("OldDisplayName requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldConfigData: %w", err)
+		return v, fmt.Errorf("querying old value for OldDisplayName: %w", err)
 	}
-	return oldValue.ConfigData, nil
+	return oldValue.DisplayName, nil
 }
 
-// ResetConfigData resets all changes to the "config_data" field.
-func (m *IntegrationConfigMutation) ResetConfigData() {
-	m.config_data = nil
+// ResetDisplayName resets all changes to the "display_name" field.
+func (m *IntegrationConfigMutation) ResetDisplayName() {
+	m.display_name = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *IntegrationConfigMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *IntegrationConfigMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the IntegrationConfig entity.
+// If the IntegrationConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IntegrationConfigMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *IntegrationConfigMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[integrationconfig.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *IntegrationConfigMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[integrationconfig.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *IntegrationConfigMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, integrationconfig.FieldDescription)
+}
+
+// SetBaseURL sets the "base_url" field.
+func (m *IntegrationConfigMutation) SetBaseURL(s string) {
+	m.base_url = &s
+}
+
+// BaseURL returns the value of the "base_url" field in the mutation.
+func (m *IntegrationConfigMutation) BaseURL() (r string, exists bool) {
+	v := m.base_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBaseURL returns the old "base_url" field's value of the IntegrationConfig entity.
+// If the IntegrationConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IntegrationConfigMutation) OldBaseURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBaseURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBaseURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBaseURL: %w", err)
+	}
+	return oldValue.BaseURL, nil
+}
+
+// ClearBaseURL clears the value of the "base_url" field.
+func (m *IntegrationConfigMutation) ClearBaseURL() {
+	m.base_url = nil
+	m.clearedFields[integrationconfig.FieldBaseURL] = struct{}{}
+}
+
+// BaseURLCleared returns if the "base_url" field was cleared in this mutation.
+func (m *IntegrationConfigMutation) BaseURLCleared() bool {
+	_, ok := m.clearedFields[integrationconfig.FieldBaseURL]
+	return ok
+}
+
+// ResetBaseURL resets all changes to the "base_url" field.
+func (m *IntegrationConfigMutation) ResetBaseURL() {
+	m.base_url = nil
+	delete(m.clearedFields, integrationconfig.FieldBaseURL)
+}
+
+// SetEncryptedCredentials sets the "encrypted_credentials" field.
+func (m *IntegrationConfigMutation) SetEncryptedCredentials(s string) {
+	m.encrypted_credentials = &s
+}
+
+// EncryptedCredentials returns the value of the "encrypted_credentials" field in the mutation.
+func (m *IntegrationConfigMutation) EncryptedCredentials() (r string, exists bool) {
+	v := m.encrypted_credentials
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEncryptedCredentials returns the old "encrypted_credentials" field's value of the IntegrationConfig entity.
+// If the IntegrationConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IntegrationConfigMutation) OldEncryptedCredentials(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEncryptedCredentials is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEncryptedCredentials requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEncryptedCredentials: %w", err)
+	}
+	return oldValue.EncryptedCredentials, nil
+}
+
+// ResetEncryptedCredentials resets all changes to the "encrypted_credentials" field.
+func (m *IntegrationConfigMutation) ResetEncryptedCredentials() {
+	m.encrypted_credentials = nil
+}
+
+// SetEndpointsJSON sets the "endpoints_json" field.
+func (m *IntegrationConfigMutation) SetEndpointsJSON(value map[string]string) {
+	m.endpoints_json = &value
+}
+
+// EndpointsJSON returns the value of the "endpoints_json" field in the mutation.
+func (m *IntegrationConfigMutation) EndpointsJSON() (r map[string]string, exists bool) {
+	v := m.endpoints_json
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndpointsJSON returns the old "endpoints_json" field's value of the IntegrationConfig entity.
+// If the IntegrationConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IntegrationConfigMutation) OldEndpointsJSON(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndpointsJSON is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndpointsJSON requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndpointsJSON: %w", err)
+	}
+	return oldValue.EndpointsJSON, nil
+}
+
+// ClearEndpointsJSON clears the value of the "endpoints_json" field.
+func (m *IntegrationConfigMutation) ClearEndpointsJSON() {
+	m.endpoints_json = nil
+	m.clearedFields[integrationconfig.FieldEndpointsJSON] = struct{}{}
+}
+
+// EndpointsJSONCleared returns if the "endpoints_json" field was cleared in this mutation.
+func (m *IntegrationConfigMutation) EndpointsJSONCleared() bool {
+	_, ok := m.clearedFields[integrationconfig.FieldEndpointsJSON]
+	return ok
+}
+
+// ResetEndpointsJSON resets all changes to the "endpoints_json" field.
+func (m *IntegrationConfigMutation) ResetEndpointsJSON() {
+	m.endpoints_json = nil
+	delete(m.clearedFields, integrationconfig.FieldEndpointsJSON)
+}
+
+// SetIsActive sets the "is_active" field.
+func (m *IntegrationConfigMutation) SetIsActive(b bool) {
+	m.is_active = &b
+}
+
+// IsActive returns the value of the "is_active" field in the mutation.
+func (m *IntegrationConfigMutation) IsActive() (r bool, exists bool) {
+	v := m.is_active
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsActive returns the old "is_active" field's value of the IntegrationConfig entity.
+// If the IntegrationConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IntegrationConfigMutation) OldIsActive(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsActive is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsActive requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsActive: %w", err)
+	}
+	return oldValue.IsActive, nil
+}
+
+// ResetIsActive resets all changes to the "is_active" field.
+func (m *IntegrationConfigMutation) ResetIsActive() {
+	m.is_active = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *IntegrationConfigMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *IntegrationConfigMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the IntegrationConfig entity.
+// If the IntegrationConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IntegrationConfigMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *IntegrationConfigMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetEnvironment sets the "environment" field.
+func (m *IntegrationConfigMutation) SetEnvironment(s string) {
+	m.environment = &s
+}
+
+// Environment returns the value of the "environment" field in the mutation.
+func (m *IntegrationConfigMutation) Environment() (r string, exists bool) {
+	v := m.environment
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnvironment returns the old "environment" field's value of the IntegrationConfig entity.
+// If the IntegrationConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IntegrationConfigMutation) OldEnvironment(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnvironment is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnvironment requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnvironment: %w", err)
+	}
+	return oldValue.Environment, nil
+}
+
+// ResetEnvironment resets all changes to the "environment" field.
+func (m *IntegrationConfigMutation) ResetEnvironment() {
+	m.environment = nil
 }
 
 // SetKeyID sets the "key_id" field.
@@ -5153,9 +5451,22 @@ func (m *IntegrationConfigMutation) OldKeyID(ctx context.Context) (v string, err
 	return oldValue.KeyID, nil
 }
 
+// ClearKeyID clears the value of the "key_id" field.
+func (m *IntegrationConfigMutation) ClearKeyID() {
+	m.key_id = nil
+	m.clearedFields[integrationconfig.FieldKeyID] = struct{}{}
+}
+
+// KeyIDCleared returns if the "key_id" field was cleared in this mutation.
+func (m *IntegrationConfigMutation) KeyIDCleared() bool {
+	_, ok := m.clearedFields[integrationconfig.FieldKeyID]
+	return ok
+}
+
 // ResetKeyID resets all changes to the "key_id" field.
 func (m *IntegrationConfigMutation) ResetKeyID() {
 	m.key_id = nil
+	delete(m.clearedFields, integrationconfig.FieldKeyID)
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -5264,15 +5575,36 @@ func (m *IntegrationConfigMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *IntegrationConfigMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 13)
 	if m.tenant_id != nil {
 		fields = append(fields, integrationconfig.FieldTenantID)
 	}
-	if m.service != nil {
-		fields = append(fields, integrationconfig.FieldService)
+	if m.name != nil {
+		fields = append(fields, integrationconfig.FieldName)
 	}
-	if m.config_data != nil {
-		fields = append(fields, integrationconfig.FieldConfigData)
+	if m.display_name != nil {
+		fields = append(fields, integrationconfig.FieldDisplayName)
+	}
+	if m.description != nil {
+		fields = append(fields, integrationconfig.FieldDescription)
+	}
+	if m.base_url != nil {
+		fields = append(fields, integrationconfig.FieldBaseURL)
+	}
+	if m.encrypted_credentials != nil {
+		fields = append(fields, integrationconfig.FieldEncryptedCredentials)
+	}
+	if m.endpoints_json != nil {
+		fields = append(fields, integrationconfig.FieldEndpointsJSON)
+	}
+	if m.is_active != nil {
+		fields = append(fields, integrationconfig.FieldIsActive)
+	}
+	if m.status != nil {
+		fields = append(fields, integrationconfig.FieldStatus)
+	}
+	if m.environment != nil {
+		fields = append(fields, integrationconfig.FieldEnvironment)
 	}
 	if m.key_id != nil {
 		fields = append(fields, integrationconfig.FieldKeyID)
@@ -5293,10 +5625,24 @@ func (m *IntegrationConfigMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case integrationconfig.FieldTenantID:
 		return m.TenantID()
-	case integrationconfig.FieldService:
-		return m.Service()
-	case integrationconfig.FieldConfigData:
-		return m.ConfigData()
+	case integrationconfig.FieldName:
+		return m.Name()
+	case integrationconfig.FieldDisplayName:
+		return m.DisplayName()
+	case integrationconfig.FieldDescription:
+		return m.Description()
+	case integrationconfig.FieldBaseURL:
+		return m.BaseURL()
+	case integrationconfig.FieldEncryptedCredentials:
+		return m.EncryptedCredentials()
+	case integrationconfig.FieldEndpointsJSON:
+		return m.EndpointsJSON()
+	case integrationconfig.FieldIsActive:
+		return m.IsActive()
+	case integrationconfig.FieldStatus:
+		return m.Status()
+	case integrationconfig.FieldEnvironment:
+		return m.Environment()
 	case integrationconfig.FieldKeyID:
 		return m.KeyID()
 	case integrationconfig.FieldCreatedAt:
@@ -5314,10 +5660,24 @@ func (m *IntegrationConfigMutation) OldField(ctx context.Context, name string) (
 	switch name {
 	case integrationconfig.FieldTenantID:
 		return m.OldTenantID(ctx)
-	case integrationconfig.FieldService:
-		return m.OldService(ctx)
-	case integrationconfig.FieldConfigData:
-		return m.OldConfigData(ctx)
+	case integrationconfig.FieldName:
+		return m.OldName(ctx)
+	case integrationconfig.FieldDisplayName:
+		return m.OldDisplayName(ctx)
+	case integrationconfig.FieldDescription:
+		return m.OldDescription(ctx)
+	case integrationconfig.FieldBaseURL:
+		return m.OldBaseURL(ctx)
+	case integrationconfig.FieldEncryptedCredentials:
+		return m.OldEncryptedCredentials(ctx)
+	case integrationconfig.FieldEndpointsJSON:
+		return m.OldEndpointsJSON(ctx)
+	case integrationconfig.FieldIsActive:
+		return m.OldIsActive(ctx)
+	case integrationconfig.FieldStatus:
+		return m.OldStatus(ctx)
+	case integrationconfig.FieldEnvironment:
+		return m.OldEnvironment(ctx)
 	case integrationconfig.FieldKeyID:
 		return m.OldKeyID(ctx)
 	case integrationconfig.FieldCreatedAt:
@@ -5340,19 +5700,68 @@ func (m *IntegrationConfigMutation) SetField(name string, value ent.Value) error
 		}
 		m.SetTenantID(v)
 		return nil
-	case integrationconfig.FieldService:
+	case integrationconfig.FieldName:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetService(v)
+		m.SetName(v)
 		return nil
-	case integrationconfig.FieldConfigData:
+	case integrationconfig.FieldDisplayName:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetConfigData(v)
+		m.SetDisplayName(v)
+		return nil
+	case integrationconfig.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case integrationconfig.FieldBaseURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBaseURL(v)
+		return nil
+	case integrationconfig.FieldEncryptedCredentials:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEncryptedCredentials(v)
+		return nil
+	case integrationconfig.FieldEndpointsJSON:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndpointsJSON(v)
+		return nil
+	case integrationconfig.FieldIsActive:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsActive(v)
+		return nil
+	case integrationconfig.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case integrationconfig.FieldEnvironment:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnvironment(v)
 		return nil
 	case integrationconfig.FieldKeyID:
 		v, ok := value.(string)
@@ -5408,6 +5817,18 @@ func (m *IntegrationConfigMutation) ClearedFields() []string {
 	if m.FieldCleared(integrationconfig.FieldTenantID) {
 		fields = append(fields, integrationconfig.FieldTenantID)
 	}
+	if m.FieldCleared(integrationconfig.FieldDescription) {
+		fields = append(fields, integrationconfig.FieldDescription)
+	}
+	if m.FieldCleared(integrationconfig.FieldBaseURL) {
+		fields = append(fields, integrationconfig.FieldBaseURL)
+	}
+	if m.FieldCleared(integrationconfig.FieldEndpointsJSON) {
+		fields = append(fields, integrationconfig.FieldEndpointsJSON)
+	}
+	if m.FieldCleared(integrationconfig.FieldKeyID) {
+		fields = append(fields, integrationconfig.FieldKeyID)
+	}
 	return fields
 }
 
@@ -5425,6 +5846,18 @@ func (m *IntegrationConfigMutation) ClearField(name string) error {
 	case integrationconfig.FieldTenantID:
 		m.ClearTenantID()
 		return nil
+	case integrationconfig.FieldDescription:
+		m.ClearDescription()
+		return nil
+	case integrationconfig.FieldBaseURL:
+		m.ClearBaseURL()
+		return nil
+	case integrationconfig.FieldEndpointsJSON:
+		m.ClearEndpointsJSON()
+		return nil
+	case integrationconfig.FieldKeyID:
+		m.ClearKeyID()
+		return nil
 	}
 	return fmt.Errorf("unknown IntegrationConfig nullable field %s", name)
 }
@@ -5436,11 +5869,32 @@ func (m *IntegrationConfigMutation) ResetField(name string) error {
 	case integrationconfig.FieldTenantID:
 		m.ResetTenantID()
 		return nil
-	case integrationconfig.FieldService:
-		m.ResetService()
+	case integrationconfig.FieldName:
+		m.ResetName()
 		return nil
-	case integrationconfig.FieldConfigData:
-		m.ResetConfigData()
+	case integrationconfig.FieldDisplayName:
+		m.ResetDisplayName()
+		return nil
+	case integrationconfig.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case integrationconfig.FieldBaseURL:
+		m.ResetBaseURL()
+		return nil
+	case integrationconfig.FieldEncryptedCredentials:
+		m.ResetEncryptedCredentials()
+		return nil
+	case integrationconfig.FieldEndpointsJSON:
+		m.ResetEndpointsJSON()
+		return nil
+	case integrationconfig.FieldIsActive:
+		m.ResetIsActive()
+		return nil
+	case integrationconfig.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case integrationconfig.FieldEnvironment:
+		m.ResetEnvironment()
 		return nil
 	case integrationconfig.FieldKeyID:
 		m.ResetKeyID()
@@ -13102,22 +13556,36 @@ func (m *SessionMutation) ResetEdge(name string) error {
 // TenantMutation represents an operation that mutates the Tenant nodes in the graph.
 type TenantMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *uuid.UUID
-	name               *string
-	slug               *string
-	status             *string
-	metadata           *map[string]interface{}
-	created_at         *time.Time
-	updated_at         *time.Time
-	clearedFields      map[string]struct{}
-	memberships        map[uuid.UUID]struct{}
-	removedmemberships map[uuid.UUID]struct{}
-	clearedmemberships bool
-	done               bool
-	oldValue           func(context.Context) (*Tenant, error)
-	predicates         []predicate.Tenant
+	op                      Op
+	typ                     string
+	id                      *uuid.UUID
+	name                    *string
+	slug                    *string
+	status                  *string
+	contact_email           *string
+	contact_phone           *string
+	logo_url                *string
+	website                 *string
+	country                 *string
+	timezone                *string
+	brand_colors            *map[string]interface{}
+	org_size                *string
+	use_case                *string
+	subscription_plan       *string
+	subscription_status     *string
+	subscription_expires_at *time.Time
+	subscription_id         *string
+	tier_limits             *map[string]interface{}
+	metadata                *map[string]interface{}
+	created_at              *time.Time
+	updated_at              *time.Time
+	clearedFields           map[string]struct{}
+	memberships             map[uuid.UUID]struct{}
+	removedmemberships      map[uuid.UUID]struct{}
+	clearedmemberships      bool
+	done                    bool
+	oldValue                func(context.Context) (*Tenant, error)
+	predicates              []predicate.Tenant
 }
 
 var _ ent.Mutation = (*TenantMutation)(nil)
@@ -13332,6 +13800,692 @@ func (m *TenantMutation) ResetStatus() {
 	m.status = nil
 }
 
+// SetContactEmail sets the "contact_email" field.
+func (m *TenantMutation) SetContactEmail(s string) {
+	m.contact_email = &s
+}
+
+// ContactEmail returns the value of the "contact_email" field in the mutation.
+func (m *TenantMutation) ContactEmail() (r string, exists bool) {
+	v := m.contact_email
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContactEmail returns the old "contact_email" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldContactEmail(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContactEmail is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContactEmail requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContactEmail: %w", err)
+	}
+	return oldValue.ContactEmail, nil
+}
+
+// ClearContactEmail clears the value of the "contact_email" field.
+func (m *TenantMutation) ClearContactEmail() {
+	m.contact_email = nil
+	m.clearedFields[tenant.FieldContactEmail] = struct{}{}
+}
+
+// ContactEmailCleared returns if the "contact_email" field was cleared in this mutation.
+func (m *TenantMutation) ContactEmailCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldContactEmail]
+	return ok
+}
+
+// ResetContactEmail resets all changes to the "contact_email" field.
+func (m *TenantMutation) ResetContactEmail() {
+	m.contact_email = nil
+	delete(m.clearedFields, tenant.FieldContactEmail)
+}
+
+// SetContactPhone sets the "contact_phone" field.
+func (m *TenantMutation) SetContactPhone(s string) {
+	m.contact_phone = &s
+}
+
+// ContactPhone returns the value of the "contact_phone" field in the mutation.
+func (m *TenantMutation) ContactPhone() (r string, exists bool) {
+	v := m.contact_phone
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContactPhone returns the old "contact_phone" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldContactPhone(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContactPhone is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContactPhone requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContactPhone: %w", err)
+	}
+	return oldValue.ContactPhone, nil
+}
+
+// ClearContactPhone clears the value of the "contact_phone" field.
+func (m *TenantMutation) ClearContactPhone() {
+	m.contact_phone = nil
+	m.clearedFields[tenant.FieldContactPhone] = struct{}{}
+}
+
+// ContactPhoneCleared returns if the "contact_phone" field was cleared in this mutation.
+func (m *TenantMutation) ContactPhoneCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldContactPhone]
+	return ok
+}
+
+// ResetContactPhone resets all changes to the "contact_phone" field.
+func (m *TenantMutation) ResetContactPhone() {
+	m.contact_phone = nil
+	delete(m.clearedFields, tenant.FieldContactPhone)
+}
+
+// SetLogoURL sets the "logo_url" field.
+func (m *TenantMutation) SetLogoURL(s string) {
+	m.logo_url = &s
+}
+
+// LogoURL returns the value of the "logo_url" field in the mutation.
+func (m *TenantMutation) LogoURL() (r string, exists bool) {
+	v := m.logo_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLogoURL returns the old "logo_url" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldLogoURL(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLogoURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLogoURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLogoURL: %w", err)
+	}
+	return oldValue.LogoURL, nil
+}
+
+// ClearLogoURL clears the value of the "logo_url" field.
+func (m *TenantMutation) ClearLogoURL() {
+	m.logo_url = nil
+	m.clearedFields[tenant.FieldLogoURL] = struct{}{}
+}
+
+// LogoURLCleared returns if the "logo_url" field was cleared in this mutation.
+func (m *TenantMutation) LogoURLCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldLogoURL]
+	return ok
+}
+
+// ResetLogoURL resets all changes to the "logo_url" field.
+func (m *TenantMutation) ResetLogoURL() {
+	m.logo_url = nil
+	delete(m.clearedFields, tenant.FieldLogoURL)
+}
+
+// SetWebsite sets the "website" field.
+func (m *TenantMutation) SetWebsite(s string) {
+	m.website = &s
+}
+
+// Website returns the value of the "website" field in the mutation.
+func (m *TenantMutation) Website() (r string, exists bool) {
+	v := m.website
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWebsite returns the old "website" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldWebsite(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWebsite is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWebsite requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWebsite: %w", err)
+	}
+	return oldValue.Website, nil
+}
+
+// ClearWebsite clears the value of the "website" field.
+func (m *TenantMutation) ClearWebsite() {
+	m.website = nil
+	m.clearedFields[tenant.FieldWebsite] = struct{}{}
+}
+
+// WebsiteCleared returns if the "website" field was cleared in this mutation.
+func (m *TenantMutation) WebsiteCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldWebsite]
+	return ok
+}
+
+// ResetWebsite resets all changes to the "website" field.
+func (m *TenantMutation) ResetWebsite() {
+	m.website = nil
+	delete(m.clearedFields, tenant.FieldWebsite)
+}
+
+// SetCountry sets the "country" field.
+func (m *TenantMutation) SetCountry(s string) {
+	m.country = &s
+}
+
+// Country returns the value of the "country" field in the mutation.
+func (m *TenantMutation) Country() (r string, exists bool) {
+	v := m.country
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCountry returns the old "country" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldCountry(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCountry is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCountry requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCountry: %w", err)
+	}
+	return oldValue.Country, nil
+}
+
+// ClearCountry clears the value of the "country" field.
+func (m *TenantMutation) ClearCountry() {
+	m.country = nil
+	m.clearedFields[tenant.FieldCountry] = struct{}{}
+}
+
+// CountryCleared returns if the "country" field was cleared in this mutation.
+func (m *TenantMutation) CountryCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldCountry]
+	return ok
+}
+
+// ResetCountry resets all changes to the "country" field.
+func (m *TenantMutation) ResetCountry() {
+	m.country = nil
+	delete(m.clearedFields, tenant.FieldCountry)
+}
+
+// SetTimezone sets the "timezone" field.
+func (m *TenantMutation) SetTimezone(s string) {
+	m.timezone = &s
+}
+
+// Timezone returns the value of the "timezone" field in the mutation.
+func (m *TenantMutation) Timezone() (r string, exists bool) {
+	v := m.timezone
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimezone returns the old "timezone" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldTimezone(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimezone is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimezone requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimezone: %w", err)
+	}
+	return oldValue.Timezone, nil
+}
+
+// ClearTimezone clears the value of the "timezone" field.
+func (m *TenantMutation) ClearTimezone() {
+	m.timezone = nil
+	m.clearedFields[tenant.FieldTimezone] = struct{}{}
+}
+
+// TimezoneCleared returns if the "timezone" field was cleared in this mutation.
+func (m *TenantMutation) TimezoneCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldTimezone]
+	return ok
+}
+
+// ResetTimezone resets all changes to the "timezone" field.
+func (m *TenantMutation) ResetTimezone() {
+	m.timezone = nil
+	delete(m.clearedFields, tenant.FieldTimezone)
+}
+
+// SetBrandColors sets the "brand_colors" field.
+func (m *TenantMutation) SetBrandColors(value map[string]interface{}) {
+	m.brand_colors = &value
+}
+
+// BrandColors returns the value of the "brand_colors" field in the mutation.
+func (m *TenantMutation) BrandColors() (r map[string]interface{}, exists bool) {
+	v := m.brand_colors
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBrandColors returns the old "brand_colors" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldBrandColors(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBrandColors is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBrandColors requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBrandColors: %w", err)
+	}
+	return oldValue.BrandColors, nil
+}
+
+// ClearBrandColors clears the value of the "brand_colors" field.
+func (m *TenantMutation) ClearBrandColors() {
+	m.brand_colors = nil
+	m.clearedFields[tenant.FieldBrandColors] = struct{}{}
+}
+
+// BrandColorsCleared returns if the "brand_colors" field was cleared in this mutation.
+func (m *TenantMutation) BrandColorsCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldBrandColors]
+	return ok
+}
+
+// ResetBrandColors resets all changes to the "brand_colors" field.
+func (m *TenantMutation) ResetBrandColors() {
+	m.brand_colors = nil
+	delete(m.clearedFields, tenant.FieldBrandColors)
+}
+
+// SetOrgSize sets the "org_size" field.
+func (m *TenantMutation) SetOrgSize(s string) {
+	m.org_size = &s
+}
+
+// OrgSize returns the value of the "org_size" field in the mutation.
+func (m *TenantMutation) OrgSize() (r string, exists bool) {
+	v := m.org_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrgSize returns the old "org_size" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldOrgSize(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrgSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrgSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrgSize: %w", err)
+	}
+	return oldValue.OrgSize, nil
+}
+
+// ClearOrgSize clears the value of the "org_size" field.
+func (m *TenantMutation) ClearOrgSize() {
+	m.org_size = nil
+	m.clearedFields[tenant.FieldOrgSize] = struct{}{}
+}
+
+// OrgSizeCleared returns if the "org_size" field was cleared in this mutation.
+func (m *TenantMutation) OrgSizeCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldOrgSize]
+	return ok
+}
+
+// ResetOrgSize resets all changes to the "org_size" field.
+func (m *TenantMutation) ResetOrgSize() {
+	m.org_size = nil
+	delete(m.clearedFields, tenant.FieldOrgSize)
+}
+
+// SetUseCase sets the "use_case" field.
+func (m *TenantMutation) SetUseCase(s string) {
+	m.use_case = &s
+}
+
+// UseCase returns the value of the "use_case" field in the mutation.
+func (m *TenantMutation) UseCase() (r string, exists bool) {
+	v := m.use_case
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUseCase returns the old "use_case" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldUseCase(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUseCase is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUseCase requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUseCase: %w", err)
+	}
+	return oldValue.UseCase, nil
+}
+
+// ClearUseCase clears the value of the "use_case" field.
+func (m *TenantMutation) ClearUseCase() {
+	m.use_case = nil
+	m.clearedFields[tenant.FieldUseCase] = struct{}{}
+}
+
+// UseCaseCleared returns if the "use_case" field was cleared in this mutation.
+func (m *TenantMutation) UseCaseCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldUseCase]
+	return ok
+}
+
+// ResetUseCase resets all changes to the "use_case" field.
+func (m *TenantMutation) ResetUseCase() {
+	m.use_case = nil
+	delete(m.clearedFields, tenant.FieldUseCase)
+}
+
+// SetSubscriptionPlan sets the "subscription_plan" field.
+func (m *TenantMutation) SetSubscriptionPlan(s string) {
+	m.subscription_plan = &s
+}
+
+// SubscriptionPlan returns the value of the "subscription_plan" field in the mutation.
+func (m *TenantMutation) SubscriptionPlan() (r string, exists bool) {
+	v := m.subscription_plan
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubscriptionPlan returns the old "subscription_plan" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldSubscriptionPlan(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubscriptionPlan is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubscriptionPlan requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubscriptionPlan: %w", err)
+	}
+	return oldValue.SubscriptionPlan, nil
+}
+
+// ClearSubscriptionPlan clears the value of the "subscription_plan" field.
+func (m *TenantMutation) ClearSubscriptionPlan() {
+	m.subscription_plan = nil
+	m.clearedFields[tenant.FieldSubscriptionPlan] = struct{}{}
+}
+
+// SubscriptionPlanCleared returns if the "subscription_plan" field was cleared in this mutation.
+func (m *TenantMutation) SubscriptionPlanCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldSubscriptionPlan]
+	return ok
+}
+
+// ResetSubscriptionPlan resets all changes to the "subscription_plan" field.
+func (m *TenantMutation) ResetSubscriptionPlan() {
+	m.subscription_plan = nil
+	delete(m.clearedFields, tenant.FieldSubscriptionPlan)
+}
+
+// SetSubscriptionStatus sets the "subscription_status" field.
+func (m *TenantMutation) SetSubscriptionStatus(s string) {
+	m.subscription_status = &s
+}
+
+// SubscriptionStatus returns the value of the "subscription_status" field in the mutation.
+func (m *TenantMutation) SubscriptionStatus() (r string, exists bool) {
+	v := m.subscription_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubscriptionStatus returns the old "subscription_status" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldSubscriptionStatus(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubscriptionStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubscriptionStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubscriptionStatus: %w", err)
+	}
+	return oldValue.SubscriptionStatus, nil
+}
+
+// ClearSubscriptionStatus clears the value of the "subscription_status" field.
+func (m *TenantMutation) ClearSubscriptionStatus() {
+	m.subscription_status = nil
+	m.clearedFields[tenant.FieldSubscriptionStatus] = struct{}{}
+}
+
+// SubscriptionStatusCleared returns if the "subscription_status" field was cleared in this mutation.
+func (m *TenantMutation) SubscriptionStatusCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldSubscriptionStatus]
+	return ok
+}
+
+// ResetSubscriptionStatus resets all changes to the "subscription_status" field.
+func (m *TenantMutation) ResetSubscriptionStatus() {
+	m.subscription_status = nil
+	delete(m.clearedFields, tenant.FieldSubscriptionStatus)
+}
+
+// SetSubscriptionExpiresAt sets the "subscription_expires_at" field.
+func (m *TenantMutation) SetSubscriptionExpiresAt(t time.Time) {
+	m.subscription_expires_at = &t
+}
+
+// SubscriptionExpiresAt returns the value of the "subscription_expires_at" field in the mutation.
+func (m *TenantMutation) SubscriptionExpiresAt() (r time.Time, exists bool) {
+	v := m.subscription_expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubscriptionExpiresAt returns the old "subscription_expires_at" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldSubscriptionExpiresAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubscriptionExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubscriptionExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubscriptionExpiresAt: %w", err)
+	}
+	return oldValue.SubscriptionExpiresAt, nil
+}
+
+// ClearSubscriptionExpiresAt clears the value of the "subscription_expires_at" field.
+func (m *TenantMutation) ClearSubscriptionExpiresAt() {
+	m.subscription_expires_at = nil
+	m.clearedFields[tenant.FieldSubscriptionExpiresAt] = struct{}{}
+}
+
+// SubscriptionExpiresAtCleared returns if the "subscription_expires_at" field was cleared in this mutation.
+func (m *TenantMutation) SubscriptionExpiresAtCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldSubscriptionExpiresAt]
+	return ok
+}
+
+// ResetSubscriptionExpiresAt resets all changes to the "subscription_expires_at" field.
+func (m *TenantMutation) ResetSubscriptionExpiresAt() {
+	m.subscription_expires_at = nil
+	delete(m.clearedFields, tenant.FieldSubscriptionExpiresAt)
+}
+
+// SetSubscriptionID sets the "subscription_id" field.
+func (m *TenantMutation) SetSubscriptionID(s string) {
+	m.subscription_id = &s
+}
+
+// SubscriptionID returns the value of the "subscription_id" field in the mutation.
+func (m *TenantMutation) SubscriptionID() (r string, exists bool) {
+	v := m.subscription_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubscriptionID returns the old "subscription_id" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldSubscriptionID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubscriptionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubscriptionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubscriptionID: %w", err)
+	}
+	return oldValue.SubscriptionID, nil
+}
+
+// ClearSubscriptionID clears the value of the "subscription_id" field.
+func (m *TenantMutation) ClearSubscriptionID() {
+	m.subscription_id = nil
+	m.clearedFields[tenant.FieldSubscriptionID] = struct{}{}
+}
+
+// SubscriptionIDCleared returns if the "subscription_id" field was cleared in this mutation.
+func (m *TenantMutation) SubscriptionIDCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldSubscriptionID]
+	return ok
+}
+
+// ResetSubscriptionID resets all changes to the "subscription_id" field.
+func (m *TenantMutation) ResetSubscriptionID() {
+	m.subscription_id = nil
+	delete(m.clearedFields, tenant.FieldSubscriptionID)
+}
+
+// SetTierLimits sets the "tier_limits" field.
+func (m *TenantMutation) SetTierLimits(value map[string]interface{}) {
+	m.tier_limits = &value
+}
+
+// TierLimits returns the value of the "tier_limits" field in the mutation.
+func (m *TenantMutation) TierLimits() (r map[string]interface{}, exists bool) {
+	v := m.tier_limits
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTierLimits returns the old "tier_limits" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldTierLimits(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTierLimits is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTierLimits requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTierLimits: %w", err)
+	}
+	return oldValue.TierLimits, nil
+}
+
+// ClearTierLimits clears the value of the "tier_limits" field.
+func (m *TenantMutation) ClearTierLimits() {
+	m.tier_limits = nil
+	m.clearedFields[tenant.FieldTierLimits] = struct{}{}
+}
+
+// TierLimitsCleared returns if the "tier_limits" field was cleared in this mutation.
+func (m *TenantMutation) TierLimitsCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldTierLimits]
+	return ok
+}
+
+// ResetTierLimits resets all changes to the "tier_limits" field.
+func (m *TenantMutation) ResetTierLimits() {
+	m.tier_limits = nil
+	delete(m.clearedFields, tenant.FieldTierLimits)
+}
+
 // SetMetadata sets the "metadata" field.
 func (m *TenantMutation) SetMetadata(value map[string]interface{}) {
 	m.metadata = &value
@@ -13541,7 +14695,7 @@ func (m *TenantMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TenantMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 20)
 	if m.name != nil {
 		fields = append(fields, tenant.FieldName)
 	}
@@ -13550,6 +14704,48 @@ func (m *TenantMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, tenant.FieldStatus)
+	}
+	if m.contact_email != nil {
+		fields = append(fields, tenant.FieldContactEmail)
+	}
+	if m.contact_phone != nil {
+		fields = append(fields, tenant.FieldContactPhone)
+	}
+	if m.logo_url != nil {
+		fields = append(fields, tenant.FieldLogoURL)
+	}
+	if m.website != nil {
+		fields = append(fields, tenant.FieldWebsite)
+	}
+	if m.country != nil {
+		fields = append(fields, tenant.FieldCountry)
+	}
+	if m.timezone != nil {
+		fields = append(fields, tenant.FieldTimezone)
+	}
+	if m.brand_colors != nil {
+		fields = append(fields, tenant.FieldBrandColors)
+	}
+	if m.org_size != nil {
+		fields = append(fields, tenant.FieldOrgSize)
+	}
+	if m.use_case != nil {
+		fields = append(fields, tenant.FieldUseCase)
+	}
+	if m.subscription_plan != nil {
+		fields = append(fields, tenant.FieldSubscriptionPlan)
+	}
+	if m.subscription_status != nil {
+		fields = append(fields, tenant.FieldSubscriptionStatus)
+	}
+	if m.subscription_expires_at != nil {
+		fields = append(fields, tenant.FieldSubscriptionExpiresAt)
+	}
+	if m.subscription_id != nil {
+		fields = append(fields, tenant.FieldSubscriptionID)
+	}
+	if m.tier_limits != nil {
+		fields = append(fields, tenant.FieldTierLimits)
 	}
 	if m.metadata != nil {
 		fields = append(fields, tenant.FieldMetadata)
@@ -13574,6 +14770,34 @@ func (m *TenantMutation) Field(name string) (ent.Value, bool) {
 		return m.Slug()
 	case tenant.FieldStatus:
 		return m.Status()
+	case tenant.FieldContactEmail:
+		return m.ContactEmail()
+	case tenant.FieldContactPhone:
+		return m.ContactPhone()
+	case tenant.FieldLogoURL:
+		return m.LogoURL()
+	case tenant.FieldWebsite:
+		return m.Website()
+	case tenant.FieldCountry:
+		return m.Country()
+	case tenant.FieldTimezone:
+		return m.Timezone()
+	case tenant.FieldBrandColors:
+		return m.BrandColors()
+	case tenant.FieldOrgSize:
+		return m.OrgSize()
+	case tenant.FieldUseCase:
+		return m.UseCase()
+	case tenant.FieldSubscriptionPlan:
+		return m.SubscriptionPlan()
+	case tenant.FieldSubscriptionStatus:
+		return m.SubscriptionStatus()
+	case tenant.FieldSubscriptionExpiresAt:
+		return m.SubscriptionExpiresAt()
+	case tenant.FieldSubscriptionID:
+		return m.SubscriptionID()
+	case tenant.FieldTierLimits:
+		return m.TierLimits()
 	case tenant.FieldMetadata:
 		return m.Metadata()
 	case tenant.FieldCreatedAt:
@@ -13595,6 +14819,34 @@ func (m *TenantMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldSlug(ctx)
 	case tenant.FieldStatus:
 		return m.OldStatus(ctx)
+	case tenant.FieldContactEmail:
+		return m.OldContactEmail(ctx)
+	case tenant.FieldContactPhone:
+		return m.OldContactPhone(ctx)
+	case tenant.FieldLogoURL:
+		return m.OldLogoURL(ctx)
+	case tenant.FieldWebsite:
+		return m.OldWebsite(ctx)
+	case tenant.FieldCountry:
+		return m.OldCountry(ctx)
+	case tenant.FieldTimezone:
+		return m.OldTimezone(ctx)
+	case tenant.FieldBrandColors:
+		return m.OldBrandColors(ctx)
+	case tenant.FieldOrgSize:
+		return m.OldOrgSize(ctx)
+	case tenant.FieldUseCase:
+		return m.OldUseCase(ctx)
+	case tenant.FieldSubscriptionPlan:
+		return m.OldSubscriptionPlan(ctx)
+	case tenant.FieldSubscriptionStatus:
+		return m.OldSubscriptionStatus(ctx)
+	case tenant.FieldSubscriptionExpiresAt:
+		return m.OldSubscriptionExpiresAt(ctx)
+	case tenant.FieldSubscriptionID:
+		return m.OldSubscriptionID(ctx)
+	case tenant.FieldTierLimits:
+		return m.OldTierLimits(ctx)
 	case tenant.FieldMetadata:
 		return m.OldMetadata(ctx)
 	case tenant.FieldCreatedAt:
@@ -13630,6 +14882,104 @@ func (m *TenantMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case tenant.FieldContactEmail:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContactEmail(v)
+		return nil
+	case tenant.FieldContactPhone:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContactPhone(v)
+		return nil
+	case tenant.FieldLogoURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLogoURL(v)
+		return nil
+	case tenant.FieldWebsite:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWebsite(v)
+		return nil
+	case tenant.FieldCountry:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCountry(v)
+		return nil
+	case tenant.FieldTimezone:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimezone(v)
+		return nil
+	case tenant.FieldBrandColors:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBrandColors(v)
+		return nil
+	case tenant.FieldOrgSize:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrgSize(v)
+		return nil
+	case tenant.FieldUseCase:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUseCase(v)
+		return nil
+	case tenant.FieldSubscriptionPlan:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubscriptionPlan(v)
+		return nil
+	case tenant.FieldSubscriptionStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubscriptionStatus(v)
+		return nil
+	case tenant.FieldSubscriptionExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubscriptionExpiresAt(v)
+		return nil
+	case tenant.FieldSubscriptionID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubscriptionID(v)
+		return nil
+	case tenant.FieldTierLimits:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTierLimits(v)
 		return nil
 	case tenant.FieldMetadata:
 		v, ok := value.(map[string]interface{})
@@ -13682,6 +15032,48 @@ func (m *TenantMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *TenantMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(tenant.FieldContactEmail) {
+		fields = append(fields, tenant.FieldContactEmail)
+	}
+	if m.FieldCleared(tenant.FieldContactPhone) {
+		fields = append(fields, tenant.FieldContactPhone)
+	}
+	if m.FieldCleared(tenant.FieldLogoURL) {
+		fields = append(fields, tenant.FieldLogoURL)
+	}
+	if m.FieldCleared(tenant.FieldWebsite) {
+		fields = append(fields, tenant.FieldWebsite)
+	}
+	if m.FieldCleared(tenant.FieldCountry) {
+		fields = append(fields, tenant.FieldCountry)
+	}
+	if m.FieldCleared(tenant.FieldTimezone) {
+		fields = append(fields, tenant.FieldTimezone)
+	}
+	if m.FieldCleared(tenant.FieldBrandColors) {
+		fields = append(fields, tenant.FieldBrandColors)
+	}
+	if m.FieldCleared(tenant.FieldOrgSize) {
+		fields = append(fields, tenant.FieldOrgSize)
+	}
+	if m.FieldCleared(tenant.FieldUseCase) {
+		fields = append(fields, tenant.FieldUseCase)
+	}
+	if m.FieldCleared(tenant.FieldSubscriptionPlan) {
+		fields = append(fields, tenant.FieldSubscriptionPlan)
+	}
+	if m.FieldCleared(tenant.FieldSubscriptionStatus) {
+		fields = append(fields, tenant.FieldSubscriptionStatus)
+	}
+	if m.FieldCleared(tenant.FieldSubscriptionExpiresAt) {
+		fields = append(fields, tenant.FieldSubscriptionExpiresAt)
+	}
+	if m.FieldCleared(tenant.FieldSubscriptionID) {
+		fields = append(fields, tenant.FieldSubscriptionID)
+	}
+	if m.FieldCleared(tenant.FieldTierLimits) {
+		fields = append(fields, tenant.FieldTierLimits)
+	}
 	if m.FieldCleared(tenant.FieldMetadata) {
 		fields = append(fields, tenant.FieldMetadata)
 	}
@@ -13699,6 +15091,48 @@ func (m *TenantMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *TenantMutation) ClearField(name string) error {
 	switch name {
+	case tenant.FieldContactEmail:
+		m.ClearContactEmail()
+		return nil
+	case tenant.FieldContactPhone:
+		m.ClearContactPhone()
+		return nil
+	case tenant.FieldLogoURL:
+		m.ClearLogoURL()
+		return nil
+	case tenant.FieldWebsite:
+		m.ClearWebsite()
+		return nil
+	case tenant.FieldCountry:
+		m.ClearCountry()
+		return nil
+	case tenant.FieldTimezone:
+		m.ClearTimezone()
+		return nil
+	case tenant.FieldBrandColors:
+		m.ClearBrandColors()
+		return nil
+	case tenant.FieldOrgSize:
+		m.ClearOrgSize()
+		return nil
+	case tenant.FieldUseCase:
+		m.ClearUseCase()
+		return nil
+	case tenant.FieldSubscriptionPlan:
+		m.ClearSubscriptionPlan()
+		return nil
+	case tenant.FieldSubscriptionStatus:
+		m.ClearSubscriptionStatus()
+		return nil
+	case tenant.FieldSubscriptionExpiresAt:
+		m.ClearSubscriptionExpiresAt()
+		return nil
+	case tenant.FieldSubscriptionID:
+		m.ClearSubscriptionID()
+		return nil
+	case tenant.FieldTierLimits:
+		m.ClearTierLimits()
+		return nil
 	case tenant.FieldMetadata:
 		m.ClearMetadata()
 		return nil
@@ -13718,6 +15152,48 @@ func (m *TenantMutation) ResetField(name string) error {
 		return nil
 	case tenant.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case tenant.FieldContactEmail:
+		m.ResetContactEmail()
+		return nil
+	case tenant.FieldContactPhone:
+		m.ResetContactPhone()
+		return nil
+	case tenant.FieldLogoURL:
+		m.ResetLogoURL()
+		return nil
+	case tenant.FieldWebsite:
+		m.ResetWebsite()
+		return nil
+	case tenant.FieldCountry:
+		m.ResetCountry()
+		return nil
+	case tenant.FieldTimezone:
+		m.ResetTimezone()
+		return nil
+	case tenant.FieldBrandColors:
+		m.ResetBrandColors()
+		return nil
+	case tenant.FieldOrgSize:
+		m.ResetOrgSize()
+		return nil
+	case tenant.FieldUseCase:
+		m.ResetUseCase()
+		return nil
+	case tenant.FieldSubscriptionPlan:
+		m.ResetSubscriptionPlan()
+		return nil
+	case tenant.FieldSubscriptionStatus:
+		m.ResetSubscriptionStatus()
+		return nil
+	case tenant.FieldSubscriptionExpiresAt:
+		m.ResetSubscriptionExpiresAt()
+		return nil
+	case tenant.FieldSubscriptionID:
+		m.ResetSubscriptionID()
+		return nil
+	case tenant.FieldTierLimits:
+		m.ResetTierLimits()
 		return nil
 	case tenant.FieldMetadata:
 		m.ResetMetadata()

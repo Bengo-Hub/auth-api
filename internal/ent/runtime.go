@@ -164,24 +164,36 @@ func init() {
 	featureentitlement.DefaultID = featureentitlementDescID.Default.(func() uuid.UUID)
 	integrationconfigFields := schema.IntegrationConfig{}.Fields()
 	_ = integrationconfigFields
-	// integrationconfigDescService is the schema descriptor for service field.
-	integrationconfigDescService := integrationconfigFields[2].Descriptor()
-	// integrationconfig.ServiceValidator is a validator for the "service" field. It is called by the builders before save.
-	integrationconfig.ServiceValidator = integrationconfigDescService.Validators[0].(func(string) error)
-	// integrationconfigDescConfigData is the schema descriptor for config_data field.
-	integrationconfigDescConfigData := integrationconfigFields[3].Descriptor()
-	// integrationconfig.ConfigDataValidator is a validator for the "config_data" field. It is called by the builders before save.
-	integrationconfig.ConfigDataValidator = integrationconfigDescConfigData.Validators[0].(func(string) error)
-	// integrationconfigDescKeyID is the schema descriptor for key_id field.
-	integrationconfigDescKeyID := integrationconfigFields[4].Descriptor()
-	// integrationconfig.KeyIDValidator is a validator for the "key_id" field. It is called by the builders before save.
-	integrationconfig.KeyIDValidator = integrationconfigDescKeyID.Validators[0].(func(string) error)
+	// integrationconfigDescName is the schema descriptor for name field.
+	integrationconfigDescName := integrationconfigFields[2].Descriptor()
+	// integrationconfig.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	integrationconfig.NameValidator = integrationconfigDescName.Validators[0].(func(string) error)
+	// integrationconfigDescDisplayName is the schema descriptor for display_name field.
+	integrationconfigDescDisplayName := integrationconfigFields[3].Descriptor()
+	// integrationconfig.DisplayNameValidator is a validator for the "display_name" field. It is called by the builders before save.
+	integrationconfig.DisplayNameValidator = integrationconfigDescDisplayName.Validators[0].(func(string) error)
+	// integrationconfigDescEncryptedCredentials is the schema descriptor for encrypted_credentials field.
+	integrationconfigDescEncryptedCredentials := integrationconfigFields[6].Descriptor()
+	// integrationconfig.EncryptedCredentialsValidator is a validator for the "encrypted_credentials" field. It is called by the builders before save.
+	integrationconfig.EncryptedCredentialsValidator = integrationconfigDescEncryptedCredentials.Validators[0].(func(string) error)
+	// integrationconfigDescIsActive is the schema descriptor for is_active field.
+	integrationconfigDescIsActive := integrationconfigFields[8].Descriptor()
+	// integrationconfig.DefaultIsActive holds the default value on creation for the is_active field.
+	integrationconfig.DefaultIsActive = integrationconfigDescIsActive.Default.(bool)
+	// integrationconfigDescStatus is the schema descriptor for status field.
+	integrationconfigDescStatus := integrationconfigFields[9].Descriptor()
+	// integrationconfig.DefaultStatus holds the default value on creation for the status field.
+	integrationconfig.DefaultStatus = integrationconfigDescStatus.Default.(string)
+	// integrationconfigDescEnvironment is the schema descriptor for environment field.
+	integrationconfigDescEnvironment := integrationconfigFields[10].Descriptor()
+	// integrationconfig.DefaultEnvironment holds the default value on creation for the environment field.
+	integrationconfig.DefaultEnvironment = integrationconfigDescEnvironment.Default.(string)
 	// integrationconfigDescCreatedAt is the schema descriptor for created_at field.
-	integrationconfigDescCreatedAt := integrationconfigFields[5].Descriptor()
+	integrationconfigDescCreatedAt := integrationconfigFields[12].Descriptor()
 	// integrationconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
 	integrationconfig.DefaultCreatedAt = integrationconfigDescCreatedAt.Default.(func() time.Time)
 	// integrationconfigDescUpdatedAt is the schema descriptor for updated_at field.
-	integrationconfigDescUpdatedAt := integrationconfigFields[6].Descriptor()
+	integrationconfigDescUpdatedAt := integrationconfigFields[13].Descriptor()
 	// integrationconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	integrationconfig.DefaultUpdatedAt = integrationconfigDescUpdatedAt.Default.(func() time.Time)
 	// integrationconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -394,12 +406,20 @@ func init() {
 	tenantDescStatus := tenantFields[3].Descriptor()
 	// tenant.DefaultStatus holds the default value on creation for the status field.
 	tenant.DefaultStatus = tenantDescStatus.Default.(string)
+	// tenantDescCountry is the schema descriptor for country field.
+	tenantDescCountry := tenantFields[8].Descriptor()
+	// tenant.DefaultCountry holds the default value on creation for the country field.
+	tenant.DefaultCountry = tenantDescCountry.Default.(string)
+	// tenantDescTimezone is the schema descriptor for timezone field.
+	tenantDescTimezone := tenantFields[9].Descriptor()
+	// tenant.DefaultTimezone holds the default value on creation for the timezone field.
+	tenant.DefaultTimezone = tenantDescTimezone.Default.(string)
 	// tenantDescCreatedAt is the schema descriptor for created_at field.
-	tenantDescCreatedAt := tenantFields[5].Descriptor()
+	tenantDescCreatedAt := tenantFields[19].Descriptor()
 	// tenant.DefaultCreatedAt holds the default value on creation for the created_at field.
 	tenant.DefaultCreatedAt = tenantDescCreatedAt.Default.(func() time.Time)
 	// tenantDescUpdatedAt is the schema descriptor for updated_at field.
-	tenantDescUpdatedAt := tenantFields[6].Descriptor()
+	tenantDescUpdatedAt := tenantFields[20].Descriptor()
 	// tenant.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	tenant.DefaultUpdatedAt = tenantDescUpdatedAt.Default.(func() time.Time)
 	// tenant.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

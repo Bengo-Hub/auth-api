@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/usagemetric"
@@ -19,6 +21,7 @@ type UsageMetricCreate struct {
 	config
 	mutation *UsageMetricMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetTenantID sets the "tenant_id" field.
@@ -253,6 +256,7 @@ func (_c *UsageMetricCreate) createSpec() (*UsageMetric, *sqlgraph.CreateSpec) {
 		_node = &UsageMetric{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(usagemetric.Table, sqlgraph.NewFieldSpec(usagemetric.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -292,11 +296,384 @@ func (_c *UsageMetricCreate) createSpec() (*UsageMetric, *sqlgraph.CreateSpec) {
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.UsageMetric.Create().
+//		SetTenantID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.UsageMetricUpsert) {
+//			SetTenantID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *UsageMetricCreate) OnConflict(opts ...sql.ConflictOption) *UsageMetricUpsertOne {
+	_c.conflict = opts
+	return &UsageMetricUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.UsageMetric.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *UsageMetricCreate) OnConflictColumns(columns ...string) *UsageMetricUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &UsageMetricUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// UsageMetricUpsertOne is the builder for "upsert"-ing
+	//  one UsageMetric node.
+	UsageMetricUpsertOne struct {
+		create *UsageMetricCreate
+	}
+
+	// UsageMetricUpsert is the "OnConflict" setter.
+	UsageMetricUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetTenantID sets the "tenant_id" field.
+func (u *UsageMetricUpsert) SetTenantID(v uuid.UUID) *UsageMetricUpsert {
+	u.Set(usagemetric.FieldTenantID, v)
+	return u
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *UsageMetricUpsert) UpdateTenantID() *UsageMetricUpsert {
+	u.SetExcluded(usagemetric.FieldTenantID)
+	return u
+}
+
+// SetMetricDate sets the "metric_date" field.
+func (u *UsageMetricUpsert) SetMetricDate(v time.Time) *UsageMetricUpsert {
+	u.Set(usagemetric.FieldMetricDate, v)
+	return u
+}
+
+// UpdateMetricDate sets the "metric_date" field to the value that was provided on create.
+func (u *UsageMetricUpsert) UpdateMetricDate() *UsageMetricUpsert {
+	u.SetExcluded(usagemetric.FieldMetricDate)
+	return u
+}
+
+// SetActiveUsers sets the "active_users" field.
+func (u *UsageMetricUpsert) SetActiveUsers(v int) *UsageMetricUpsert {
+	u.Set(usagemetric.FieldActiveUsers, v)
+	return u
+}
+
+// UpdateActiveUsers sets the "active_users" field to the value that was provided on create.
+func (u *UsageMetricUpsert) UpdateActiveUsers() *UsageMetricUpsert {
+	u.SetExcluded(usagemetric.FieldActiveUsers)
+	return u
+}
+
+// AddActiveUsers adds v to the "active_users" field.
+func (u *UsageMetricUpsert) AddActiveUsers(v int) *UsageMetricUpsert {
+	u.Add(usagemetric.FieldActiveUsers, v)
+	return u
+}
+
+// SetAuthTransactions sets the "auth_transactions" field.
+func (u *UsageMetricUpsert) SetAuthTransactions(v int) *UsageMetricUpsert {
+	u.Set(usagemetric.FieldAuthTransactions, v)
+	return u
+}
+
+// UpdateAuthTransactions sets the "auth_transactions" field to the value that was provided on create.
+func (u *UsageMetricUpsert) UpdateAuthTransactions() *UsageMetricUpsert {
+	u.SetExcluded(usagemetric.FieldAuthTransactions)
+	return u
+}
+
+// AddAuthTransactions adds v to the "auth_transactions" field.
+func (u *UsageMetricUpsert) AddAuthTransactions(v int) *UsageMetricUpsert {
+	u.Add(usagemetric.FieldAuthTransactions, v)
+	return u
+}
+
+// SetMfaPrompts sets the "mfa_prompts" field.
+func (u *UsageMetricUpsert) SetMfaPrompts(v int) *UsageMetricUpsert {
+	u.Set(usagemetric.FieldMfaPrompts, v)
+	return u
+}
+
+// UpdateMfaPrompts sets the "mfa_prompts" field to the value that was provided on create.
+func (u *UsageMetricUpsert) UpdateMfaPrompts() *UsageMetricUpsert {
+	u.SetExcluded(usagemetric.FieldMfaPrompts)
+	return u
+}
+
+// AddMfaPrompts adds v to the "mfa_prompts" field.
+func (u *UsageMetricUpsert) AddMfaPrompts(v int) *UsageMetricUpsert {
+	u.Add(usagemetric.FieldMfaPrompts, v)
+	return u
+}
+
+// SetMachineTokens sets the "machine_tokens" field.
+func (u *UsageMetricUpsert) SetMachineTokens(v int) *UsageMetricUpsert {
+	u.Set(usagemetric.FieldMachineTokens, v)
+	return u
+}
+
+// UpdateMachineTokens sets the "machine_tokens" field to the value that was provided on create.
+func (u *UsageMetricUpsert) UpdateMachineTokens() *UsageMetricUpsert {
+	u.SetExcluded(usagemetric.FieldMachineTokens)
+	return u
+}
+
+// AddMachineTokens adds v to the "machine_tokens" field.
+func (u *UsageMetricUpsert) AddMachineTokens(v int) *UsageMetricUpsert {
+	u.Add(usagemetric.FieldMachineTokens, v)
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *UsageMetricUpsert) SetUpdatedAt(v time.Time) *UsageMetricUpsert {
+	u.Set(usagemetric.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *UsageMetricUpsert) UpdateUpdatedAt() *UsageMetricUpsert {
+	u.SetExcluded(usagemetric.FieldUpdatedAt)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.UsageMetric.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(usagemetric.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *UsageMetricUpsertOne) UpdateNewValues() *UsageMetricUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(usagemetric.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(usagemetric.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.UsageMetric.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *UsageMetricUpsertOne) Ignore() *UsageMetricUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *UsageMetricUpsertOne) DoNothing() *UsageMetricUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the UsageMetricCreate.OnConflict
+// documentation for more info.
+func (u *UsageMetricUpsertOne) Update(set func(*UsageMetricUpsert)) *UsageMetricUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&UsageMetricUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *UsageMetricUpsertOne) SetTenantID(v uuid.UUID) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *UsageMetricUpsertOne) UpdateTenantID() *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// SetMetricDate sets the "metric_date" field.
+func (u *UsageMetricUpsertOne) SetMetricDate(v time.Time) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetMetricDate(v)
+	})
+}
+
+// UpdateMetricDate sets the "metric_date" field to the value that was provided on create.
+func (u *UsageMetricUpsertOne) UpdateMetricDate() *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateMetricDate()
+	})
+}
+
+// SetActiveUsers sets the "active_users" field.
+func (u *UsageMetricUpsertOne) SetActiveUsers(v int) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetActiveUsers(v)
+	})
+}
+
+// AddActiveUsers adds v to the "active_users" field.
+func (u *UsageMetricUpsertOne) AddActiveUsers(v int) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.AddActiveUsers(v)
+	})
+}
+
+// UpdateActiveUsers sets the "active_users" field to the value that was provided on create.
+func (u *UsageMetricUpsertOne) UpdateActiveUsers() *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateActiveUsers()
+	})
+}
+
+// SetAuthTransactions sets the "auth_transactions" field.
+func (u *UsageMetricUpsertOne) SetAuthTransactions(v int) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetAuthTransactions(v)
+	})
+}
+
+// AddAuthTransactions adds v to the "auth_transactions" field.
+func (u *UsageMetricUpsertOne) AddAuthTransactions(v int) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.AddAuthTransactions(v)
+	})
+}
+
+// UpdateAuthTransactions sets the "auth_transactions" field to the value that was provided on create.
+func (u *UsageMetricUpsertOne) UpdateAuthTransactions() *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateAuthTransactions()
+	})
+}
+
+// SetMfaPrompts sets the "mfa_prompts" field.
+func (u *UsageMetricUpsertOne) SetMfaPrompts(v int) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetMfaPrompts(v)
+	})
+}
+
+// AddMfaPrompts adds v to the "mfa_prompts" field.
+func (u *UsageMetricUpsertOne) AddMfaPrompts(v int) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.AddMfaPrompts(v)
+	})
+}
+
+// UpdateMfaPrompts sets the "mfa_prompts" field to the value that was provided on create.
+func (u *UsageMetricUpsertOne) UpdateMfaPrompts() *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateMfaPrompts()
+	})
+}
+
+// SetMachineTokens sets the "machine_tokens" field.
+func (u *UsageMetricUpsertOne) SetMachineTokens(v int) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetMachineTokens(v)
+	})
+}
+
+// AddMachineTokens adds v to the "machine_tokens" field.
+func (u *UsageMetricUpsertOne) AddMachineTokens(v int) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.AddMachineTokens(v)
+	})
+}
+
+// UpdateMachineTokens sets the "machine_tokens" field to the value that was provided on create.
+func (u *UsageMetricUpsertOne) UpdateMachineTokens() *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateMachineTokens()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *UsageMetricUpsertOne) SetUpdatedAt(v time.Time) *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *UsageMetricUpsertOne) UpdateUpdatedAt() *UsageMetricUpsertOne {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *UsageMetricUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for UsageMetricCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *UsageMetricUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *UsageMetricUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: UsageMetricUpsertOne.ID is not supported by MySQL driver. Use UsageMetricUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *UsageMetricUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // UsageMetricCreateBulk is the builder for creating many UsageMetric entities in bulk.
 type UsageMetricCreateBulk struct {
 	config
 	err      error
 	builders []*UsageMetricCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the UsageMetric entities in the database.
@@ -326,6 +703,7 @@ func (_c *UsageMetricCreateBulk) Save(ctx context.Context) ([]*UsageMetric, erro
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -372,6 +750,249 @@ func (_c *UsageMetricCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *UsageMetricCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.UsageMetric.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.UsageMetricUpsert) {
+//			SetTenantID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *UsageMetricCreateBulk) OnConflict(opts ...sql.ConflictOption) *UsageMetricUpsertBulk {
+	_c.conflict = opts
+	return &UsageMetricUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.UsageMetric.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *UsageMetricCreateBulk) OnConflictColumns(columns ...string) *UsageMetricUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &UsageMetricUpsertBulk{
+		create: _c,
+	}
+}
+
+// UsageMetricUpsertBulk is the builder for "upsert"-ing
+// a bulk of UsageMetric nodes.
+type UsageMetricUpsertBulk struct {
+	create *UsageMetricCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.UsageMetric.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(usagemetric.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *UsageMetricUpsertBulk) UpdateNewValues() *UsageMetricUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(usagemetric.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(usagemetric.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.UsageMetric.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *UsageMetricUpsertBulk) Ignore() *UsageMetricUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *UsageMetricUpsertBulk) DoNothing() *UsageMetricUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the UsageMetricCreateBulk.OnConflict
+// documentation for more info.
+func (u *UsageMetricUpsertBulk) Update(set func(*UsageMetricUpsert)) *UsageMetricUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&UsageMetricUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (u *UsageMetricUpsertBulk) SetTenantID(v uuid.UUID) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetTenantID(v)
+	})
+}
+
+// UpdateTenantID sets the "tenant_id" field to the value that was provided on create.
+func (u *UsageMetricUpsertBulk) UpdateTenantID() *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateTenantID()
+	})
+}
+
+// SetMetricDate sets the "metric_date" field.
+func (u *UsageMetricUpsertBulk) SetMetricDate(v time.Time) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetMetricDate(v)
+	})
+}
+
+// UpdateMetricDate sets the "metric_date" field to the value that was provided on create.
+func (u *UsageMetricUpsertBulk) UpdateMetricDate() *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateMetricDate()
+	})
+}
+
+// SetActiveUsers sets the "active_users" field.
+func (u *UsageMetricUpsertBulk) SetActiveUsers(v int) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetActiveUsers(v)
+	})
+}
+
+// AddActiveUsers adds v to the "active_users" field.
+func (u *UsageMetricUpsertBulk) AddActiveUsers(v int) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.AddActiveUsers(v)
+	})
+}
+
+// UpdateActiveUsers sets the "active_users" field to the value that was provided on create.
+func (u *UsageMetricUpsertBulk) UpdateActiveUsers() *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateActiveUsers()
+	})
+}
+
+// SetAuthTransactions sets the "auth_transactions" field.
+func (u *UsageMetricUpsertBulk) SetAuthTransactions(v int) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetAuthTransactions(v)
+	})
+}
+
+// AddAuthTransactions adds v to the "auth_transactions" field.
+func (u *UsageMetricUpsertBulk) AddAuthTransactions(v int) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.AddAuthTransactions(v)
+	})
+}
+
+// UpdateAuthTransactions sets the "auth_transactions" field to the value that was provided on create.
+func (u *UsageMetricUpsertBulk) UpdateAuthTransactions() *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateAuthTransactions()
+	})
+}
+
+// SetMfaPrompts sets the "mfa_prompts" field.
+func (u *UsageMetricUpsertBulk) SetMfaPrompts(v int) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetMfaPrompts(v)
+	})
+}
+
+// AddMfaPrompts adds v to the "mfa_prompts" field.
+func (u *UsageMetricUpsertBulk) AddMfaPrompts(v int) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.AddMfaPrompts(v)
+	})
+}
+
+// UpdateMfaPrompts sets the "mfa_prompts" field to the value that was provided on create.
+func (u *UsageMetricUpsertBulk) UpdateMfaPrompts() *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateMfaPrompts()
+	})
+}
+
+// SetMachineTokens sets the "machine_tokens" field.
+func (u *UsageMetricUpsertBulk) SetMachineTokens(v int) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetMachineTokens(v)
+	})
+}
+
+// AddMachineTokens adds v to the "machine_tokens" field.
+func (u *UsageMetricUpsertBulk) AddMachineTokens(v int) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.AddMachineTokens(v)
+	})
+}
+
+// UpdateMachineTokens sets the "machine_tokens" field to the value that was provided on create.
+func (u *UsageMetricUpsertBulk) UpdateMachineTokens() *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateMachineTokens()
+	})
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *UsageMetricUpsertBulk) SetUpdatedAt(v time.Time) *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *UsageMetricUpsertBulk) UpdateUpdatedAt() *UsageMetricUpsertBulk {
+	return u.Update(func(s *UsageMetricUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// Exec executes the query.
+func (u *UsageMetricUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the UsageMetricCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for UsageMetricCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *UsageMetricUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

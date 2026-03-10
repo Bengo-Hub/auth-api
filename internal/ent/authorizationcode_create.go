@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
@@ -20,6 +22,7 @@ type AuthorizationCodeCreate struct {
 	config
 	mutation *AuthorizationCodeMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetUserID sets the "user_id" field.
@@ -303,6 +306,7 @@ func (_c *AuthorizationCodeCreate) createSpec() (*AuthorizationCode, *sqlgraph.C
 		_node = &AuthorizationCode{config: _c.config}
 		_spec = sqlgraph.NewCreateSpec(authorizationcode.Table, sqlgraph.NewFieldSpec(authorizationcode.FieldID, field.TypeUUID))
 	)
+	_spec.OnConflict = _c.conflict
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -371,11 +375,439 @@ func (_c *AuthorizationCodeCreate) createSpec() (*AuthorizationCode, *sqlgraph.C
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.AuthorizationCode.Create().
+//		SetUserID(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.AuthorizationCodeUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *AuthorizationCodeCreate) OnConflict(opts ...sql.ConflictOption) *AuthorizationCodeUpsertOne {
+	_c.conflict = opts
+	return &AuthorizationCodeUpsertOne{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.AuthorizationCode.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *AuthorizationCodeCreate) OnConflictColumns(columns ...string) *AuthorizationCodeUpsertOne {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &AuthorizationCodeUpsertOne{
+		create: _c,
+	}
+}
+
+type (
+	// AuthorizationCodeUpsertOne is the builder for "upsert"-ing
+	//  one AuthorizationCode node.
+	AuthorizationCodeUpsertOne struct {
+		create *AuthorizationCodeCreate
+	}
+
+	// AuthorizationCodeUpsert is the "OnConflict" setter.
+	AuthorizationCodeUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUserID sets the "user_id" field.
+func (u *AuthorizationCodeUpsert) SetUserID(v uuid.UUID) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldUserID, v)
+	return u
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateUserID() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldUserID)
+	return u
+}
+
+// SetClientID sets the "client_id" field.
+func (u *AuthorizationCodeUpsert) SetClientID(v string) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldClientID, v)
+	return u
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateClientID() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldClientID)
+	return u
+}
+
+// SetRedirectURI sets the "redirect_uri" field.
+func (u *AuthorizationCodeUpsert) SetRedirectURI(v string) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldRedirectURI, v)
+	return u
+}
+
+// UpdateRedirectURI sets the "redirect_uri" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateRedirectURI() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldRedirectURI)
+	return u
+}
+
+// SetScope sets the "scope" field.
+func (u *AuthorizationCodeUpsert) SetScope(v string) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldScope, v)
+	return u
+}
+
+// UpdateScope sets the "scope" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateScope() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldScope)
+	return u
+}
+
+// SetCodeChallenge sets the "code_challenge" field.
+func (u *AuthorizationCodeUpsert) SetCodeChallenge(v string) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldCodeChallenge, v)
+	return u
+}
+
+// UpdateCodeChallenge sets the "code_challenge" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateCodeChallenge() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldCodeChallenge)
+	return u
+}
+
+// SetCodeChallengeMethod sets the "code_challenge_method" field.
+func (u *AuthorizationCodeUpsert) SetCodeChallengeMethod(v string) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldCodeChallengeMethod, v)
+	return u
+}
+
+// UpdateCodeChallengeMethod sets the "code_challenge_method" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateCodeChallengeMethod() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldCodeChallengeMethod)
+	return u
+}
+
+// SetNonce sets the "nonce" field.
+func (u *AuthorizationCodeUpsert) SetNonce(v string) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldNonce, v)
+	return u
+}
+
+// UpdateNonce sets the "nonce" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateNonce() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldNonce)
+	return u
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *AuthorizationCodeUpsert) SetExpiresAt(v time.Time) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldExpiresAt, v)
+	return u
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateExpiresAt() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldExpiresAt)
+	return u
+}
+
+// SetConsumedAt sets the "consumed_at" field.
+func (u *AuthorizationCodeUpsert) SetConsumedAt(v time.Time) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldConsumedAt, v)
+	return u
+}
+
+// UpdateConsumedAt sets the "consumed_at" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateConsumedAt() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldConsumedAt)
+	return u
+}
+
+// ClearConsumedAt clears the value of the "consumed_at" field.
+func (u *AuthorizationCodeUpsert) ClearConsumedAt() *AuthorizationCodeUpsert {
+	u.SetNull(authorizationcode.FieldConsumedAt)
+	return u
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *AuthorizationCodeUpsert) SetMetadata(v map[string]interface{}) *AuthorizationCodeUpsert {
+	u.Set(authorizationcode.FieldMetadata, v)
+	return u
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsert) UpdateMetadata() *AuthorizationCodeUpsert {
+	u.SetExcluded(authorizationcode.FieldMetadata)
+	return u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *AuthorizationCodeUpsert) ClearMetadata() *AuthorizationCodeUpsert {
+	u.SetNull(authorizationcode.FieldMetadata)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.AuthorizationCode.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(authorizationcode.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *AuthorizationCodeUpsertOne) UpdateNewValues() *AuthorizationCodeUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(authorizationcode.FieldID)
+		}
+		if _, exists := u.create.mutation.CodeHash(); exists {
+			s.SetIgnore(authorizationcode.FieldCodeHash)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(authorizationcode.FieldCreatedAt)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.AuthorizationCode.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *AuthorizationCodeUpsertOne) Ignore() *AuthorizationCodeUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *AuthorizationCodeUpsertOne) DoNothing() *AuthorizationCodeUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the AuthorizationCodeCreate.OnConflict
+// documentation for more info.
+func (u *AuthorizationCodeUpsertOne) Update(set func(*AuthorizationCodeUpsert)) *AuthorizationCodeUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&AuthorizationCodeUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *AuthorizationCodeUpsertOne) SetUserID(v uuid.UUID) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateUserID() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetClientID sets the "client_id" field.
+func (u *AuthorizationCodeUpsertOne) SetClientID(v string) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetClientID(v)
+	})
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateClientID() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateClientID()
+	})
+}
+
+// SetRedirectURI sets the "redirect_uri" field.
+func (u *AuthorizationCodeUpsertOne) SetRedirectURI(v string) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetRedirectURI(v)
+	})
+}
+
+// UpdateRedirectURI sets the "redirect_uri" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateRedirectURI() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateRedirectURI()
+	})
+}
+
+// SetScope sets the "scope" field.
+func (u *AuthorizationCodeUpsertOne) SetScope(v string) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetScope(v)
+	})
+}
+
+// UpdateScope sets the "scope" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateScope() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateScope()
+	})
+}
+
+// SetCodeChallenge sets the "code_challenge" field.
+func (u *AuthorizationCodeUpsertOne) SetCodeChallenge(v string) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetCodeChallenge(v)
+	})
+}
+
+// UpdateCodeChallenge sets the "code_challenge" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateCodeChallenge() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateCodeChallenge()
+	})
+}
+
+// SetCodeChallengeMethod sets the "code_challenge_method" field.
+func (u *AuthorizationCodeUpsertOne) SetCodeChallengeMethod(v string) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetCodeChallengeMethod(v)
+	})
+}
+
+// UpdateCodeChallengeMethod sets the "code_challenge_method" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateCodeChallengeMethod() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateCodeChallengeMethod()
+	})
+}
+
+// SetNonce sets the "nonce" field.
+func (u *AuthorizationCodeUpsertOne) SetNonce(v string) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetNonce(v)
+	})
+}
+
+// UpdateNonce sets the "nonce" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateNonce() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateNonce()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *AuthorizationCodeUpsertOne) SetExpiresAt(v time.Time) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateExpiresAt() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// SetConsumedAt sets the "consumed_at" field.
+func (u *AuthorizationCodeUpsertOne) SetConsumedAt(v time.Time) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetConsumedAt(v)
+	})
+}
+
+// UpdateConsumedAt sets the "consumed_at" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateConsumedAt() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateConsumedAt()
+	})
+}
+
+// ClearConsumedAt clears the value of the "consumed_at" field.
+func (u *AuthorizationCodeUpsertOne) ClearConsumedAt() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.ClearConsumedAt()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *AuthorizationCodeUpsertOne) SetMetadata(v map[string]interface{}) *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertOne) UpdateMetadata() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *AuthorizationCodeUpsertOne) ClearMetadata() *AuthorizationCodeUpsertOne {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// Exec executes the query.
+func (u *AuthorizationCodeUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for AuthorizationCodeCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *AuthorizationCodeUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *AuthorizationCodeUpsertOne) ID(ctx context.Context) (id uuid.UUID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: AuthorizationCodeUpsertOne.ID is not supported by MySQL driver. Use AuthorizationCodeUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *AuthorizationCodeUpsertOne) IDX(ctx context.Context) uuid.UUID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // AuthorizationCodeCreateBulk is the builder for creating many AuthorizationCode entities in bulk.
 type AuthorizationCodeCreateBulk struct {
 	config
 	err      error
 	builders []*AuthorizationCodeCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the AuthorizationCode entities in the database.
@@ -405,6 +837,7 @@ func (_c *AuthorizationCodeCreateBulk) Save(ctx context.Context) ([]*Authorizati
 					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = _c.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -451,6 +884,280 @@ func (_c *AuthorizationCodeCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (_c *AuthorizationCodeCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.AuthorizationCode.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.AuthorizationCodeUpsert) {
+//			SetUserID(v+v).
+//		}).
+//		Exec(ctx)
+func (_c *AuthorizationCodeCreateBulk) OnConflict(opts ...sql.ConflictOption) *AuthorizationCodeUpsertBulk {
+	_c.conflict = opts
+	return &AuthorizationCodeUpsertBulk{
+		create: _c,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.AuthorizationCode.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (_c *AuthorizationCodeCreateBulk) OnConflictColumns(columns ...string) *AuthorizationCodeUpsertBulk {
+	_c.conflict = append(_c.conflict, sql.ConflictColumns(columns...))
+	return &AuthorizationCodeUpsertBulk{
+		create: _c,
+	}
+}
+
+// AuthorizationCodeUpsertBulk is the builder for "upsert"-ing
+// a bulk of AuthorizationCode nodes.
+type AuthorizationCodeUpsertBulk struct {
+	create *AuthorizationCodeCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.AuthorizationCode.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(authorizationcode.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *AuthorizationCodeUpsertBulk) UpdateNewValues() *AuthorizationCodeUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(authorizationcode.FieldID)
+			}
+			if _, exists := b.mutation.CodeHash(); exists {
+				s.SetIgnore(authorizationcode.FieldCodeHash)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(authorizationcode.FieldCreatedAt)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.AuthorizationCode.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *AuthorizationCodeUpsertBulk) Ignore() *AuthorizationCodeUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *AuthorizationCodeUpsertBulk) DoNothing() *AuthorizationCodeUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the AuthorizationCodeCreateBulk.OnConflict
+// documentation for more info.
+func (u *AuthorizationCodeUpsertBulk) Update(set func(*AuthorizationCodeUpsert)) *AuthorizationCodeUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&AuthorizationCodeUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUserID sets the "user_id" field.
+func (u *AuthorizationCodeUpsertBulk) SetUserID(v uuid.UUID) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetUserID(v)
+	})
+}
+
+// UpdateUserID sets the "user_id" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateUserID() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateUserID()
+	})
+}
+
+// SetClientID sets the "client_id" field.
+func (u *AuthorizationCodeUpsertBulk) SetClientID(v string) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetClientID(v)
+	})
+}
+
+// UpdateClientID sets the "client_id" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateClientID() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateClientID()
+	})
+}
+
+// SetRedirectURI sets the "redirect_uri" field.
+func (u *AuthorizationCodeUpsertBulk) SetRedirectURI(v string) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetRedirectURI(v)
+	})
+}
+
+// UpdateRedirectURI sets the "redirect_uri" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateRedirectURI() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateRedirectURI()
+	})
+}
+
+// SetScope sets the "scope" field.
+func (u *AuthorizationCodeUpsertBulk) SetScope(v string) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetScope(v)
+	})
+}
+
+// UpdateScope sets the "scope" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateScope() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateScope()
+	})
+}
+
+// SetCodeChallenge sets the "code_challenge" field.
+func (u *AuthorizationCodeUpsertBulk) SetCodeChallenge(v string) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetCodeChallenge(v)
+	})
+}
+
+// UpdateCodeChallenge sets the "code_challenge" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateCodeChallenge() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateCodeChallenge()
+	})
+}
+
+// SetCodeChallengeMethod sets the "code_challenge_method" field.
+func (u *AuthorizationCodeUpsertBulk) SetCodeChallengeMethod(v string) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetCodeChallengeMethod(v)
+	})
+}
+
+// UpdateCodeChallengeMethod sets the "code_challenge_method" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateCodeChallengeMethod() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateCodeChallengeMethod()
+	})
+}
+
+// SetNonce sets the "nonce" field.
+func (u *AuthorizationCodeUpsertBulk) SetNonce(v string) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetNonce(v)
+	})
+}
+
+// UpdateNonce sets the "nonce" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateNonce() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateNonce()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *AuthorizationCodeUpsertBulk) SetExpiresAt(v time.Time) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateExpiresAt() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// SetConsumedAt sets the "consumed_at" field.
+func (u *AuthorizationCodeUpsertBulk) SetConsumedAt(v time.Time) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetConsumedAt(v)
+	})
+}
+
+// UpdateConsumedAt sets the "consumed_at" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateConsumedAt() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateConsumedAt()
+	})
+}
+
+// ClearConsumedAt clears the value of the "consumed_at" field.
+func (u *AuthorizationCodeUpsertBulk) ClearConsumedAt() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.ClearConsumedAt()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *AuthorizationCodeUpsertBulk) SetMetadata(v map[string]interface{}) *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *AuthorizationCodeUpsertBulk) UpdateMetadata() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *AuthorizationCodeUpsertBulk) ClearMetadata() *AuthorizationCodeUpsertBulk {
+	return u.Update(func(s *AuthorizationCodeUpsert) {
+		s.ClearMetadata()
+	})
+}
+
+// Exec executes the query.
+func (u *AuthorizationCodeUpsertBulk) Exec(ctx context.Context) error {
+	if u.create.err != nil {
+		return u.create.err
+	}
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the AuthorizationCodeCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for AuthorizationCodeCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *AuthorizationCodeUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

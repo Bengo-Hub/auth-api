@@ -9,6 +9,15 @@ import (
 	"io"
 )
 
+// GenerateRandomKey generates a random hex-encoded key of the specified bit size (e.g. 256).
+func GenerateRandomKey(bits int) (string, error) {
+	bytes := make([]byte, bits/8)
+	if _, err := io.ReadFull(rand.Reader, bytes); err != nil {
+		return "", fmt.Errorf("generate random key: %w", err)
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
 // Encrypt encrypts plain text string into a hex-encoded string using AES-GCM.
 func Encrypt(plainText string, keyHex string) (string, error) {
 	key, err := hex.DecodeString(keyHex)
