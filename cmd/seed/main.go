@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/database"
 	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/permission"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
@@ -45,9 +48,6 @@ func main() {
 	log.Println("Starting seed process...")
 
 	// Default tenants (align with notifications-api and all SSO-integrating services).
-	// 1. Codevertex = platform owner (not a business tenant; default super_admin scope).
-	// 2–5. Masterspace, Urban Loft, KURA, UltiChange = tenants with base domains.
-	// All tenants use DB-generated UUIDs (no SetID); tenant slug must be consistent across auth and all services.
 	tenants := []struct {
 		name            string
 		slug            string
@@ -101,14 +101,12 @@ func main() {
 		})
 	}
 
-
 	hasher := password.NewHasher(cfg.Security)
 
-	// Seed demo user with publicly safe credentials (for development/testing only)
-	// These credentials are intentionally public and should NEVER be used in production
+	// Seed demo user with publicly safe credentials
 	const (
 		demoEmail    = "demo@bengobox.dev"
-		demoPassword = "DemoUser2024!" // Safe to expose - demo account only
+		demoPassword = "DemoUser2024!"
 	)
 
 	demoHash, err := hasher.Hash(demoPassword)
@@ -137,9 +135,8 @@ func main() {
 		log.Printf("✓ Created demo user: %s", demoEmail)
 	}
 
-	// Add demo user membership to all tenants with 'member' role (not superuser)
+	// Add demo user membership to all tenants
 	for _, tenantEnt := range tenantEntities {
-		// Check if membership already exists to prevent duplicates
 		exists, err := client.TenantMembership.Query().
 			Where(
 				tenantmembership.UserID(demoUser.ID),
@@ -167,8 +164,7 @@ func main() {
 		}
 	}
 
-	// Seed platform owner / default super admin (full access across all services).
-	// Prefer SEED_SUPER_ADMIN_* then SEED_ADMIN_*; fallback to defaults when env not set.
+	// Seed platform owner / default super admin
 	adminEmail := os.Getenv("SEED_SUPER_ADMIN_EMAIL")
 	if adminEmail == "" {
 		adminEmail = os.Getenv("SEED_ADMIN_EMAIL")
@@ -208,7 +204,6 @@ func main() {
 
 		// Add superuser membership to all tenants
 		for _, tenantEnt := range tenantEntities {
-			// Check if membership already exists to prevent duplicates
 			exists, err := client.TenantMembership.Query().
 				Where(
 					tenantmembership.UserID(adminUser.ID),
@@ -235,12 +230,10 @@ func main() {
 				log.Printf("  ✓ Added superuser role in %s", tenantEnt.Slug)
 			}
 		}
-	} else {
-		log.Printf("⚠️  No admin credentials provided (set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD)")
 	}
 
 	// Seed tenant-specific admin for Urban Loft Cafe
-	urbanLoftTenant := tenantEntities[2] // "Urban Loft Cafe" / "urban-loft"
+	urbanLoftTenant := tenantEntities[2]
 	tenantAdminEmail := "admin@theurbanloftcafe.com"
 	tenantAdminPassword := "TenantAdmin2024!"
 	tenantAdminHash, _ := hasher.Hash(tenantAdminPassword)
@@ -286,93 +279,7 @@ func main() {
 		}
 	}
 
-	// Seed demo customer
-	customerEmail := "customer@demo.com"
-	customerPassword := "Customer2024!"
-	customerHash, _ := hasher.Hash(customerPassword)
-
-	customerUser, err := client.User.Create().
-		SetEmail(customerEmail).
-		SetPasswordHash(customerHash).
-		SetStatus("active").
-		SetPrimaryTenantID(urbanLoftTenant.ID.String()).
-		SetProfile(map[string]any{
-			"name":       "Demo Customer",
-			"phone":      "+254700000001",
-			"created_by": "seed",
-		}).
-		Save(ctx)
-	if err != nil {
-		customerUser, err = client.User.Query().Where(user.EmailEQ(customerEmail)).Only(ctx)
-		if err != nil {
-			log.Printf("⚠️  seed customer: %v", err)
-		} else {
-			log.Printf("✓ Customer exists: %s", customerEmail)
-		}
-	} else {
-		log.Printf("✓ Created customer: %s", customerEmail)
-	}
-
-	if customerUser != nil {
-		exists, _ := client.TenantMembership.Query().
-			Where(
-				tenantmembership.UserID(customerUser.ID),
-				tenantmembership.TenantID(urbanLoftTenant.ID),
-			).Exist(ctx)
-		if !exists {
-			_, _ = client.TenantMembership.Create().
-				SetUserID(customerUser.ID).
-				SetTenantID(urbanLoftTenant.ID).
-				SetRoles([]string{"member"}).
-				Save(ctx)
-			log.Printf("  ✓ Added member role in %s", urbanLoftTenant.Slug)
-		}
-	}
-
-	// Seed demo rider
-	riderEmail := "rider@demo.com"
-	riderPassword := "Rider2024!"
-	riderHash, _ := hasher.Hash(riderPassword)
-
-	riderUser, err := client.User.Create().
-		SetEmail(riderEmail).
-		SetPasswordHash(riderHash).
-		SetStatus("active").
-		SetPrimaryTenantID(urbanLoftTenant.ID.String()).
-		SetProfile(map[string]any{
-			"name":       "Demo Rider",
-			"phone":      "+254700000002",
-			"created_by": "seed",
-		}).
-		Save(ctx)
-	if err != nil {
-		riderUser, err = client.User.Query().Where(user.EmailEQ(riderEmail)).Only(ctx)
-		if err != nil {
-			log.Printf("⚠️  seed rider: %v", err)
-		} else {
-			log.Printf("✓ Rider exists: %s", riderEmail)
-		}
-	} else {
-		log.Printf("✓ Created rider: %s", riderEmail)
-	}
-
-	if riderUser != nil {
-		exists, _ := client.TenantMembership.Query().
-			Where(
-				tenantmembership.UserID(riderUser.ID),
-				tenantmembership.TenantID(urbanLoftTenant.ID),
-			).Exist(ctx)
-		if !exists {
-			_, _ = client.TenantMembership.Create().
-				SetUserID(riderUser.ID).
-				SetTenantID(urbanLoftTenant.ID).
-				SetRoles([]string{"member"}).
-				Save(ctx)
-			log.Printf("  ✓ Added member role in %s", urbanLoftTenant.Slug)
-		}
-	}
-
-	// Seed staff users for each tenant (for testing order processing workflows)
+	// Seed staff users for all tenants
 	log.Println("Seeding staff users for all tenants...")
 	for _, te := range tenantEntities {
 		staffEmail := fmt.Sprintf("staff@%s.com", te.Slug)
@@ -419,7 +326,7 @@ func main() {
 		}
 	}
 
-	// Seed permissions and role-permission mapping (MVP RBAC). Include canonical codes used by ordering-backend (catalog:view, catalog:manage).
+	// Seed permissions and role-permission mapping
 	log.Println("Seeding permissions and role-permission mapping...")
 	actions := []string{"add", "read", "read_own", "change", "change_own", "delete", "manage", "manage_own", "view"}
 	resources := []string{"orders", "menu", "users", "tenants", "riders", "inventory", "settings", "gateways", "catalog"}
@@ -443,7 +350,7 @@ func main() {
 			permissionIDs[code] = perm.ID
 		}
 	}
-	// Assign permissions to roles. Use canonical codes matching ordering-backend (catalog:view, catalog:manage).
+
 	rolePerms := map[string][]string{
 		"superuser": {},
 		"admin":     {},
@@ -480,27 +387,12 @@ func main() {
 		log.Printf("  ✓ Role %s: %d permissions", roleName, len(codes))
 	}
 
-	log.Printf("")
-	log.Printf("========================================")
-	log.Printf("✅ Seeding completed successfully!")
-	log.Printf("========================================")
-	log.Printf("Demo Account (safe to share):")
-	log.Printf("  Email: %s", demoEmail)
-	log.Printf("  Password: %s", demoPassword)
-	log.Printf("  Role: member (limited access)")
-	log.Printf("")
-	if adminEmail != "" {
-		log.Printf("Platform / Admin Account (from SEED_SUPER_ADMIN_* or SEED_ADMIN_*):")
-		log.Printf("  Email: %s", adminEmail)
-		log.Printf("  Role: superuser (platform owner scope)")
-	}
-	log.Printf("")
-	log.Printf("Tenants seeded: %d", len(tenants))
-	for _, te := range tenantEntities {
-		log.Printf("  - %s (%s)", te.Name, te.Slug)
+	// Seed platform-level integration configurations (social logins)
+	if err := seedIntegrations(ctx, client, cfg.Token.Issuer); err != nil {
+		log.Printf("⚠️  Failed to seed integrations: %v", err)
 	}
 
-	// Seed OAuth Clients (upsert — always update redirect_uris so seed stays authoritative)
+	// Seed OAuth Clients
 	log.Println("Seeding OAuth Clients...")
 	type oauthClientSpec struct {
 		ID           string
@@ -527,87 +419,16 @@ func main() {
 	}
 
 	oauthClients := []oauthClientSpec{
-		{
-			ID:           "notifications-ui",
-			Name:         "BengoBox Notifications UI",
-			RedirectURIs: notificationsRedirects,
-			Public:       true,
-		},
-		{
-			ID:           "ordering-ui",
-			Name:         "BengoBox Ordering UI",
-			RedirectURIs: orderingRedirects,
-			Public:       true,
-		},
-		{
-			ID:   "rider-app",
-			Name: "BengoBox Rider App",
-			RedirectURIs: []string{
-				"https://riderapp.codevertexitsolutions.com/auth/callback",
-				"https://rider.codevertexitsolutions.com/auth/callback",
-				"http://localhost:3002/auth/callback",
-			},
-			Public: true,
-		},
-		{
-			ID:   "cafe-website",
-			Name: "Urban Loft Cafe Website",
-			RedirectURIs: []string{
-				"https://theurbanloftcafe.com/auth/callback",
-				"http://localhost:3000/auth/callback",
-			},
-			Public: true,
-		},
-		// ── Additional Frontend Clients ───────────────────────────────────────
-		// Added: subscriptions-ui, treasury-ui, pos-frontend, auth-ui, logistics-ui
-		{
-			ID:   "subscriptions-ui",
-			Name: "BengoBox Subscriptions UI",
-			RedirectURIs: []string{
-				"https://subscriptions.codevertexitsolutions.com/auth/callback",
-				"http://localhost:3010/auth/callback",
-			},
-			Public: true,
-		},
-		{
-			ID:   "treasury-ui",
-			Name: "BengoBox Treasury UI",
-			RedirectURIs: []string{
-				"https://treasury.codevertexitsolutions.com/auth/callback",
-				"http://localhost:3011/auth/callback",
-			},
-			Public: true,
-		},
-		{
-			ID:   "pos-frontend",
-			Name: "BengoBox POS Frontend",
-			RedirectURIs: []string{
-				"https://pos.codevertexitsolutions.com/auth/callback",
-				"http://localhost:3012/auth/callback",
-			},
-			Public: true,
-		},
-		{
-			ID:   "logistics-ui",
-			Name: "BengoBox Logistics UI",
-			RedirectURIs: []string{
-				"https://logistics.codevertexitsolutions.com/auth/callback",
-				"http://localhost:3013/auth/callback",
-			},
-			Public: true,
-		},
-		{
-			ID:   "auth-ui",
-			Name: "BengoBox Auth UI (Platform Admin)",
-			RedirectURIs: []string{
-				"https://accounts.codevertexitsolutions.com/auth/callback",
-				"https://sso.codevertexitsolutions.com/auth/callback",
-				"http://localhost:3014/auth/callback",
-			},
-			Public: true,
-		},
+		{ID: "notifications-ui", Name: "BengoBox Notifications UI", RedirectURIs: notificationsRedirects, Public: true},
+		{ID: "ordering-ui", Name: "BengoBox Ordering UI", RedirectURIs: orderingRedirects, Public: true},
+		{ID: "rider-app", Name: "BengoBox Rider App", RedirectURIs: []string{"https://rider.codevertexitsolutions.com/auth/callback", "http://localhost:3002/auth/callback"}, Public: true},
+		{ID: "cafe-website", Name: "Urban Loft Cafe Website", RedirectURIs: []string{"https://theurbanloftcafe.com/auth/callback", "http://localhost:3000/auth/callback"}, Public: true},
+		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", RedirectURIs: []string{"https://subscriptions.codevertexitsolutions.com/auth/callback", "http://localhost:3010/auth/callback"}, Public: true},
+		{ID: "treasury-ui", Name: "BengoBox Treasury UI", RedirectURIs: []string{"https://treasury.codevertexitsolutions.com/auth/callback", "http://localhost:3011/auth/callback"}, Public: true},
+		{ID: "pos-frontend", Name: "BengoBox POS Frontend", RedirectURIs: []string{"https://pos.codevertexitsolutions.com/auth/callback", "http://localhost:3012/auth/callback"}, Public: true},
+		{ID: "logistics-ui", Name: "BengoBox Logistics UI", RedirectURIs: []string{"https://logistics.codevertexitsolutions.com/auth/callback", "http://localhost:3013/auth/callback"}, Public: true},
+		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", RedirectURIs: []string{"https://accounts.codevertexitsolutions.com/auth/callback", "https://sso.codevertexitsolutions.com/auth/callback", "http://localhost:3014/auth/callback"}, Public: true},
 	}
-
 
 	for _, c := range oauthClients {
 		existing, queryErr := client.OAuthClient.Query().Where(oauthclient.ClientID(c.ID)).Only(ctx)
@@ -617,7 +438,6 @@ func main() {
 		}
 
 		if existing != nil {
-			// Upsert: update redirect_uris so re-seeding fixes misconfigured clients
 			_, err = existing.Update().
 				SetName(c.Name).
 				SetRedirectUris(c.RedirectURIs).
@@ -646,8 +466,72 @@ func main() {
 		}
 	}
 
-	log.Printf("========================================")
-
+	log.Println("✅ Seeding completed successfully!")
 	_ = os.Setenv("SEEDED_AT", time.Now().Format(time.RFC3339))
-	_ = uuid.New()
+}
+
+func seedIntegrations(ctx context.Context, client *ent.Client, apiBaseURL string) error {
+	log.Println("Seeding platform integrations...")
+	oauthApps := []struct {
+		name        string
+		displayName string
+		description string
+	}{
+		{"google", "Google OAuth", "Google Social Login integration"},
+		{"github", "GitHub OAuth", "GitHub Social Login integration"},
+		{"microsoft", "Microsoft OAuth", "Microsoft Social Login integration"},
+	}
+
+	for _, app := range oauthApps {
+		clientID := os.Getenv(fmt.Sprintf("%s_CLIENT_ID", strings.ToUpper(app.name)))
+		if clientID == "" {
+			clientID = fmt.Sprintf("demo_%s_client_id", app.name)
+		}
+		clientSecret := os.Getenv(fmt.Sprintf("%s_CLIENT_SECRET", strings.ToUpper(app.name)))
+		if clientSecret == "" {
+			clientSecret = fmt.Sprintf("demo_%s_client_secret", app.name)
+		}
+
+		creds := map[string]string{
+			"client_id":     clientID,
+			"client_secret": clientSecret,
+		}
+		if apiBaseURL != "" {
+			creds["redirect_url"] = fmt.Sprintf("%s/api/v1/auth/oauth/%s/callback", strings.TrimRight(apiBaseURL, "/"), app.name)
+		}
+
+		credsJSON, _ := json.Marshal(creds)
+
+		exists, err := client.IntegrationConfig.Query().
+			Where(integrationconfig.Name(app.name), integrationconfig.TenantIDIsNil()).
+			Exist(ctx)
+		if err != nil {
+			log.Printf("  ⚠️  Error checking integration %s: %v", app.name, err)
+			continue
+		}
+
+		if exists {
+			_, err = client.IntegrationConfig.Update().
+				Where(integrationconfig.Name(app.name), integrationconfig.TenantIDIsNil()).
+				SetEncryptedCredentials(string(credsJSON)).
+				SetIsActive(true).
+				SetStatus("active").
+				Save(ctx)
+		} else {
+			err = client.IntegrationConfig.Create().
+				SetName(app.name).
+				SetDisplayName(app.displayName).
+				SetDescription(app.description).
+				SetEncryptedCredentials(string(credsJSON)).
+				SetIsActive(true).
+				SetStatus("active").
+				Exec(ctx)
+		}
+		if err != nil {
+			log.Printf("  ⚠️  Error seeding integration %s: %v", app.name, err)
+		} else {
+			log.Printf("  ✓ Seeded integration: %s", app.name)
+		}
+	}
+	return nil
 }
