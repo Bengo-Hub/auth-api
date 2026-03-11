@@ -152,11 +152,15 @@ fi
 # Ensure service secrets are up-to-date (handles standardized keys)
 if [[ -d "$DEVOPS_DIR" && -f "$DEVOPS_DIR/scripts/infrastructure/create-service-secrets.sh" ]]; then
   info "Updating secrets for ${APP_NAME} using devops-k8s script..."
+  # Export KUBECONFIG explicitly for bash subprocess to ensure kubectl works correctly
+  export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config}"
   SERVICE_NAME="$APP_NAME" \
   NAMESPACE="$NAMESPACE" \
   DB_NAME="$SERVICE_DB_NAME" \
   DB_USER="$SERVICE_DB_USER" \
   SECRET_NAME="$ENV_SECRET_NAME" \
+  POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}" \
+  REDIS_PASSWORD="${REDIS_PASSWORD:-}" \
   bash "$DEVOPS_DIR/scripts/infrastructure/create-service-secrets.sh" || warn "Secret sync failed"
 else
   warn "create-service-secrets.sh not available - using existing cluster secrets"
