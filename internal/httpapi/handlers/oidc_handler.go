@@ -128,7 +128,8 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_redirect", "redirect not allowed", nil)
 		return
 	}
-	// Generate code
+	// Generate code (include tenant from authorize URL so token exchange can prefer it)
+	tenantFromURL := q.Get("tenant")
 	codePlain := randomOIDCString(32)
 	_, err = h.oidc.CreateAuthorizationCode(
 		r.Context(),
@@ -140,6 +141,7 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		codePlain,
 		codeChallenge,
 		codeChallengeMethod,
+		tenantFromURL,
 	)
 	if err != nil {
 		reqID := middleware.GetReqID(r.Context())
@@ -186,12 +188,25 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	var roles []string
 	var tenantID *uuid.UUID
 	var tenantSlug string
+	// Prefer tenant from authorize URL (stored in code metadata) if user is a member
+	requestedSlug, _ := authCode.Metadata["tenant_slug"].(string)
 	for _, m := range memberships {
 		roles = append(roles, m.Roles...)
-		if tenantID == nil || (userEntity.PrimaryTenantID != "" && m.TenantID.String() == userEntity.PrimaryTenantID) {
+		if requestedSlug != "" && m.TenantSlug == requestedSlug {
 			tid := m.TenantID
 			tenantID = &tid
 			tenantSlug = m.TenantSlug
+			break
+		}
+	}
+	// Fallback: first or primary membership when no requested slug or user not member
+	if tenantID == nil {
+		for _, m := range memberships {
+			if tenantID == nil || (userEntity.PrimaryTenantID != "" && m.TenantID.String() == userEntity.PrimaryTenantID) {
+				tid := m.TenantID
+				tenantID = &tid
+				tenantSlug = m.TenantSlug
+			}
 		}
 	}
 

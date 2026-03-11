@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -160,17 +162,21 @@ func (h *AuthHandler) ListActiveIntegrations(w http.ResponseWriter, r *http.Requ
 
 // AuthHandler exposes HTTP endpoints for authentication flows.
 type AuthHandler struct {
-	service      AuthService
-	integrations *integrations.Service
-	logger       *zap.Logger
+	service        AuthService
+	integrations   *integrations.Service
+	logger         *zap.Logger
+	redis          *redis.Client
+	redisNamespace string
 }
 
-// NewAuthHandler constructs a handler.
-func NewAuthHandler(service AuthService, integrationSvc *integrations.Service, logger *zap.Logger) *AuthHandler {
+// NewAuthHandler constructs a handler. redis and redisNamespace are optional; when set, GET /auth/me responses are cached with TTL = token expiry.
+func NewAuthHandler(service AuthService, integrationSvc *integrations.Service, logger *zap.Logger, redis *redis.Client, redisNamespace string) *AuthHandler {
 	return &AuthHandler{
-		service:      service,
-		integrations: integrationSvc,
-		logger:       logger,
+		service:        service,
+		integrations:   integrationSvc,
+		logger:         logger,
+		redis:          redis,
+		redisNamespace: redisNamespace,
 	}
 }
 
@@ -444,6 +450,7 @@ func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Reques
 }
 
 // Me returns the authenticated user profile including the primary tenant object.
+// When Redis is configured, the response is cached by user ID with TTL = token expiry (or 24h) to reduce DB load.
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
@@ -455,6 +462,17 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id in token", nil)
 		return
+	}
+
+	cacheKey := ""
+	if h.redis != nil && h.redisNamespace != "" {
+		cacheKey = h.redisNamespace + ":auth:me:" + userID.String()
+		if cached, err := h.redis.Get(r.Context(), cacheKey).Bytes(); err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(cached)
+			return
+		}
 	}
 
 	userEntity, err := h.service.GetUser(r.Context(), userID)
@@ -496,6 +514,18 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if cacheKey != "" {
+		ttl := 24 * time.Hour
+		if claims.ExpiresAt != nil {
+			if d := time.Until(claims.ExpiresAt.Time); d > 0 {
+				ttl = d
+			}
+		}
+		if b, err := json.Marshal(out); err == nil && ttl > 0 {
+			_ = h.redis.Set(r.Context(), cacheKey, b, ttl).Err()
+		}
+	}
+
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -528,12 +558,10 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 	}
 }
 
+// toAuthResponse builds the login/register/refresh response. Roles and permissions are only at top level
+// to avoid duplicate keys (do not set them on user object).
 func (h *AuthHandler) toAuthResponse(result *auth.AuthResult) map[string]any {
 	userMap := userViewFromEnt(result.User)
-	if userMap != nil {
-		userMap["roles"] = result.Roles
-		userMap["permissions"] = result.Permissions
-	}
 	return map[string]any{
 		"access_token":       result.AccessToken,
 		"token_type":         "Bearer",
@@ -599,22 +627,21 @@ type newOrgRequest struct {
 }
 
 type registerRequest struct {
-	Email        string         `json:"email"`
-	Password     string         `json:"password"`
-	TenantSlug   string         `json:"tenant_slug"`
-	Profile      map[string]any `json:"profile"`
-	ClientID     string         `json:"client_id"`
+	Email      string         `json:"email"`
+	Password   string         `json:"password"`
+	TenantSlug string         `json:"tenant_slug"`
+	Profile    map[string]any `json:"profile"`
+	ClientID   string         `json:"client_id"`
 	// SelectedPlan is REQUIRED at registration time. The plan code (e.g. "STARTER", "GROWTH",
 	// "PROFESSIONAL") is recorded on the new tenant so subscription-api can create the trial
 	// subscription. The user MUST have selected a plan in the signup wizard before submitting.
-	SelectedPlan string         `json:"selected_plan,omitempty"`
+	SelectedPlan string `json:"selected_plan,omitempty"`
 	// OrgAction is "join_existing" (default) or "create_new".
 	// When "create_new", NewOrg must be populated and the registering user
 	// becomes the tenant admin for the new organisation.
-	OrgAction    string         `json:"org_action,omitempty"`
-	NewOrg       *newOrgRequest `json:"new_org,omitempty"`
+	OrgAction string         `json:"org_action,omitempty"`
+	NewOrg    *newOrgRequest `json:"new_org,omitempty"`
 }
-
 
 type loginRequest struct {
 	Email      string `json:"email"`
@@ -650,17 +677,16 @@ type googleOAuthStartRequest struct {
 // The oauth_token is a short-lived token issued by auth-api during the OAuth
 // callback to let the signup wizard prove the identity claim.
 type oauthRegisterRequest struct {
-	Email        string         `json:"email"`
-	OAuthProvider string        `json:"oauth_provider"` // e.g. "google", "github", "microsoft"
-	OAuthToken   string         `json:"oauth_token"`    // short-lived token from auth-api OAuth callback
-	TenantSlug   string         `json:"tenant_slug"`
-	Profile      map[string]any `json:"profile"`
-	ClientID     string         `json:"client_id"`
-	SelectedPlan string         `json:"selected_plan,omitempty"`
-	OrgAction    string         `json:"org_action,omitempty"`
-	NewOrg       *newOrgRequest `json:"new_org,omitempty"`
+	Email         string         `json:"email"`
+	OAuthProvider string         `json:"oauth_provider"` // e.g. "google", "github", "microsoft"
+	OAuthToken    string         `json:"oauth_token"`    // short-lived token from auth-api OAuth callback
+	TenantSlug    string         `json:"tenant_slug"`
+	Profile       map[string]any `json:"profile"`
+	ClientID      string         `json:"client_id"`
+	SelectedPlan  string         `json:"selected_plan,omitempty"`
+	OrgAction     string         `json:"org_action,omitempty"`
+	NewOrg        *newOrgRequest `json:"new_org,omitempty"`
 }
-
 
 // ListSessions returns all active sessions for the authenticated user.
 func (h *AuthHandler) ListSessions(w http.ResponseWriter, r *http.Request) {

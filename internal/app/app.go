@@ -138,7 +138,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		Integrations:       integrationSvc,
 	})
 
-	authHandler := handlers.NewAuthHandler(authService, integrationSvc, logger)
+	authHandler := handlers.NewAuthHandler(authService, integrationSvc, logger, redisClient, cfg.Redis.Namespace)
 	revocationStore := revocation.New(redisClient, cfg.Redis.Namespace)
 	authMiddleware := httpmiddleware.NewAuth(authService, revocationStore)
 	rateLimiter := httpmiddleware.NewRateLimiter(redisClient, cfg.Redis.Namespace)
@@ -146,7 +146,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	oidcHandler := handlers.NewOIDCHandlerWithRolesPermissions(cfg, oidcService, authMiddleware, tokenSvc, authService, logger)
 	mfaService := mfa.New(entClient, cfg.Token.Issuer)
 	mfaHandler := handlers.NewMFAHandler(mfaService, logger)
-	
+
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)

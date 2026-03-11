@@ -57,7 +57,9 @@ func (s *Service) ValidateRedirect(client *ent.OAuthClient, redirectURI string) 
 }
 
 // CreateAuthorizationCode creates and stores an auth code with PKCE details.
-func (s *Service) CreateAuthorizationCode(ctx context.Context, userID uuid.UUID, clientID, redirectURI, scope, nonce, code, codeChallenge, codeChallengeMethod string) (*ent.AuthorizationCode, error) {
+// tenantSlug is optional; when set (e.g. from authorize URL ?tenant=), it is stored in metadata
+// so token exchange can issue the token for that tenant if the user is a member.
+func (s *Service) CreateAuthorizationCode(ctx context.Context, userID uuid.UUID, clientID, redirectURI, scope, nonce, code, codeChallenge, codeChallengeMethod string, tenantSlug string) (*ent.AuthorizationCode, error) {
 	codeHash := sha256.Sum256([]byte(code))
 	builder := s.entClient.AuthorizationCode.Create().
 		SetUserID(userID).
@@ -69,6 +71,9 @@ func (s *Service) CreateAuthorizationCode(ctx context.Context, userID uuid.UUID,
 		SetCodeChallenge(codeChallenge).
 		SetCodeChallengeMethod(strings.ToLower(codeChallengeMethod)).
 		SetExpiresAt(time.Now().Add(5 * time.Minute))
+	if tenantSlug != "" {
+		builder = builder.SetMetadata(map[string]interface{}{"tenant_slug": tenantSlug})
+	}
 	return builder.Save(ctx)
 }
 
