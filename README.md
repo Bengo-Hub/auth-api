@@ -45,6 +45,10 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 - JWKS: `https://auth.codevertexitsolutions.com/api/v1/.well-known/jwks.json`
 - UserInfo: `https://auth.codevertexitsolutions.com/api/v1/userinfo`
 
+### Deploy (Kubernetes)
+
+- Migrate and seed run in the main container entrypoint (`scripts/entrypoint.sh`), not via an external Helm migrate hook. Each pod runs `auth-migrate` then `auth-seed` then the server on startup (idempotent).
+
 ### Configuration & Secrets
 
 - Copy `config/example.env` and adjust values or export them with your preferred secret manager.

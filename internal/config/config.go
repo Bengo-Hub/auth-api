@@ -144,37 +144,12 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("AUTH_TOKEN_PRIVATE_KEY_PATH and AUTH_TOKEN_PUBLIC_KEY_PATH are required")
 	}
 
-	if cfg.Providers.Google.Enabled {
-		if cfg.Providers.Google.ClientID == "" || cfg.Providers.Google.ClientSecret == "" || cfg.Providers.Google.RedirectURL == "" {
-			return nil, fmt.Errorf("google oauth requires CLIENT_ID, CLIENT_SECRET, and REDIRECT_URL")
-		}
-		if cfg.Security.OAuthStateSecret == "" {
-			return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when Google OAuth is enabled")
-		}
-	}
-	if cfg.Providers.GitHub.Enabled {
-		if cfg.Providers.GitHub.ClientID == "" || cfg.Providers.GitHub.ClientSecret == "" || cfg.Providers.GitHub.RedirectURL == "" {
-			return nil, fmt.Errorf("github oauth requires CLIENT_ID, CLIENT_SECRET, and REDIRECT_URL")
-		}
-		if cfg.Security.OAuthStateSecret == "" {
-			return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when GitHub OAuth is enabled")
-		}
-	}
-	if cfg.Providers.Microsoft.Enabled {
-		if cfg.Providers.Microsoft.ClientID == "" || cfg.Providers.Microsoft.ClientSecret == "" || cfg.Providers.Microsoft.RedirectURL == "" {
-			return nil, fmt.Errorf("microsoft oauth requires CLIENT_ID, CLIENT_SECRET, and REDIRECT_URL")
-		}
-		if cfg.Security.OAuthStateSecret == "" {
-			return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when Microsoft OAuth is enabled")
-		}
-	}
-	if cfg.Providers.Apple.Enabled {
-		if cfg.Providers.Apple.ClientID == "" || cfg.Providers.Apple.ClientSecret == "" || cfg.Providers.Apple.RedirectURL == "" {
-			return nil, fmt.Errorf("apple oauth requires CLIENT_ID, CLIENT_SECRET, and REDIRECT_URL")
-		}
-		if cfg.Security.OAuthStateSecret == "" {
-			return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when Apple OAuth is enabled")
-		}
+	// OAuth provider credentials are loaded from DB (integration_configs) at runtime, not from env.
+	// When any provider is enabled, only OAuthStateSecret is required (for CSRF protection).
+	oauthEnabled := cfg.Providers.Google.Enabled || cfg.Providers.GitHub.Enabled ||
+		cfg.Providers.Microsoft.Enabled || cfg.Providers.Apple.Enabled
+	if oauthEnabled && cfg.Security.OAuthStateSecret == "" {
+		return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when any OAuth provider is enabled")
 	}
 	return cfg, nil
 }
