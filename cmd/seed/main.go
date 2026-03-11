@@ -484,10 +484,19 @@ func seedIntegrations(ctx context.Context, client *ent.Client, apiBaseURL string
 
 	for _, app := range oauthApps {
 		clientID := os.Getenv(fmt.Sprintf("%s_CLIENT_ID", strings.ToUpper(app.name)))
+		clientSecret := os.Getenv(fmt.Sprintf("%s_CLIENT_SECRET", strings.ToUpper(app.name)))
+		// GitHub: accept GIT_APP_ID / GIT_APP_SECRET as alternative env names
+		if app.name == "github" {
+			if clientID == "" {
+				clientID = os.Getenv("GIT_APP_ID")
+			}
+			if clientSecret == "" {
+				clientSecret = os.Getenv("GIT_APP_SECRET")
+			}
+		}
 		if clientID == "" {
 			clientID = fmt.Sprintf("demo_%s_client_id", app.name)
 		}
-		clientSecret := os.Getenv(fmt.Sprintf("%s_CLIENT_SECRET", strings.ToUpper(app.name)))
 		if clientSecret == "" {
 			clientSecret = fmt.Sprintf("demo_%s_client_secret", app.name)
 		}
@@ -498,6 +507,14 @@ func seedIntegrations(ctx context.Context, client *ent.Client, apiBaseURL string
 		}
 		if apiBaseURL != "" {
 			creds["redirect_url"] = fmt.Sprintf("%s/api/v1/auth/oauth/%s/callback", strings.TrimRight(apiBaseURL, "/"), app.name)
+		}
+		// Microsoft: seed tenant_id for tenant-specific auth URL (default common)
+		if app.name == "microsoft" {
+			if t := os.Getenv("MICROSOFT_TENANT_ID"); t != "" {
+				creds["tenant_id"] = t
+			} else {
+				creds["tenant_id"] = "common"
+			}
 		}
 
 		credsJSON, _ := json.Marshal(creds)

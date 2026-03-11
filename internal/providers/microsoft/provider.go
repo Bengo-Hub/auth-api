@@ -9,10 +9,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var endpoint = oauth2.Endpoint{
-	AuthURL:  "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-	TokenURL: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-}
+const defaultTenant = "common"
 
 type Profile struct {
 	ID                string `json:"id"`
@@ -37,6 +34,16 @@ func (p *Provider) getOAuthConfig(ctx context.Context) (*oauth2.Config, error) {
 	creds, err := p.integrations.GetDecryptedConfig(ctx, nil, "microsoft")
 	if err != nil {
 		return nil, fmt.Errorf("microsoft integration not configured or disabled: %w", err)
+	}
+
+	tenant := creds["tenant_id"]
+	if tenant == "" {
+		tenant = defaultTenant
+	}
+	base := "https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0"
+	endpoint := oauth2.Endpoint{
+		AuthURL:  base + "/authorize",
+		TokenURL: base + "/token",
 	}
 
 	return &oauth2.Config{
