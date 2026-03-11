@@ -195,10 +195,11 @@ func LoadDatabaseOnly() (DatabaseConfig, error) {
 	return cfg.Database, nil
 }
 
-// SeedConfig contains only what's needed for seeding (database + security for password hashing).
+// SeedConfig contains only what's needed for seeding (database + security + token issuer).
 type SeedConfig struct {
 	Database DatabaseConfig `envPrefix:""`
 	Security SecurityConfig `envPrefix:"AUTH_SECURITY_"`
+	Token    TokenConfig    `envPrefix:"AUTH_TOKEN_"`
 }
 
 // LoadForSeed parses config needed for seeding without OAuth validation.
