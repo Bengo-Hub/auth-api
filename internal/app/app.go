@@ -187,6 +187,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminIncrementUsage:          adminHandler.IncrementUsage,
 			AdminCreateTenant:            adminHandler.CreateTenant,
 			AdminListTenants:             adminHandler.ListTenants,
+			AdminUpdateTenant:            adminHandler.UpdateTenant,
+			AdminDeleteTenant:            adminHandler.DeleteTenant,
 			AdminCreateClient:            adminHandler.CreateClient,
 			AdminListClients:             adminHandler.ListClients,
 			AdminRotateKeys:              adminHandler.RotateKeys,

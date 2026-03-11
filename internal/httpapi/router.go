@@ -48,6 +48,8 @@ type AuthHandlers struct {
 	MFAConsumeBackupCode         http.HandlerFunc
 	AdminCreateTenant            http.HandlerFunc
 	AdminListTenants             http.HandlerFunc
+	AdminUpdateTenant            http.HandlerFunc
+	AdminDeleteTenant            http.HandlerFunc
 	AdminCreateClient            http.HandlerFunc
 	AdminListClients             http.HandlerFunc
 	AdminUpsertEntitlement       http.HandlerFunc
@@ -223,11 +225,15 @@ func NewRouter(deps RouterDeps) http.Handler {
 				}
 				r.Post("/tenants", deps.AuthHandlers.AdminCreateTenant)
 				r.Get("/tenants", deps.AuthHandlers.AdminListTenants)
-				r.Route("/tenants/{tenant_id}/members", func(r chi.Router) {
-					r.Post("/", deps.AuthHandlers.AddTenantMember)
-					r.Get("/", deps.AuthHandlers.ListTenantMembers)
-					r.Put("/{user_id}", deps.AuthHandlers.UpdateTenantMember)
-					r.Delete("/{user_id}", deps.AuthHandlers.RemoveTenantMember)
+				r.Route("/tenants/{tenant_id}", func(r chi.Router) {
+					r.Put("/", deps.AuthHandlers.AdminUpdateTenant)
+					r.Delete("/", deps.AuthHandlers.AdminDeleteTenant)
+					r.Route("/members", func(r chi.Router) {
+						r.Post("/", deps.AuthHandlers.AddTenantMember)
+						r.Get("/", deps.AuthHandlers.ListTenantMembers)
+						r.Put("/{user_id}", deps.AuthHandlers.UpdateTenantMember)
+						r.Delete("/{user_id}", deps.AuthHandlers.RemoveTenantMember)
+					})
 				})
 				r.Post("/clients", deps.AuthHandlers.AdminCreateClient)
 				r.Get("/clients", deps.AuthHandlers.AdminListClients)

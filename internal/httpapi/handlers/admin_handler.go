@@ -317,6 +317,83 @@ func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
+func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	idStr := chi.URLParam(r, "tenant_id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid id", nil)
+		return
+	}
+
+	var req tenantRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
+		return
+	}
+
+	update := h.ent.Tenant.UpdateOneID(id)
+	if req.Name != "" {
+		update.SetName(req.Name)
+	}
+	if req.Slug != "" {
+		update.SetSlug(req.Slug)
+	}
+
+	// Update metadata if provided
+	if req.Metadata != nil || req.ContactEmail != "" || req.ContactPhone != "" {
+		existing, _ := h.ent.Tenant.Get(r.Context(), id)
+		metadata := make(map[string]interface{})
+		if existing != nil && existing.Metadata != nil {
+			metadata = existing.Metadata
+		}
+		if req.Metadata != nil {
+			for k, v := range req.Metadata {
+				metadata[k] = v
+			}
+		}
+		if req.ContactEmail != "" {
+			metadata["contact_email"] = req.ContactEmail
+		}
+		if req.ContactPhone != "" {
+			metadata["contact_phone"] = req.ContactPhone
+		}
+		update.SetMetadata(metadata)
+	}
+
+	t, err := update.Save(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to update tenant", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, t)
+}
+
+func (h *AdminHandler) DeleteTenant(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	idStr := chi.URLParam(r, "tenant_id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid id", nil)
+		return
+	}
+
+	// Soft delete by setting status to 'deleted' or actually deleting
+	// For now, let's just delete
+	err = h.ent.Tenant.DeleteOneID(id).Exec(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete tenant", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 // Clients
 type clientRequest struct {
 	ClientID     string   `json:"client_id"`
