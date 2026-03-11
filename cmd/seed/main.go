@@ -405,8 +405,14 @@ func main() {
 		tenantSlugs = append(tenantSlugs, te.Slug)
 	}
 
-	notificationsRedirects := []string{}
+	notificationsRedirects := []string{
+		"https://notifications.codevertexitsolutions.com/auth/callback",
+		"http://localhost:3000/auth/callback",
+	}
 	orderingRedirects := []string{}
+	subscriptionsRedirects := []string{}
+	treasuryRedirects := []string{}
+	posRedirects := []string{}
 	for _, slug := range tenantSlugs {
 		notificationsRedirects = append(notificationsRedirects,
 			"https://notifications.codevertexitsolutions.com/"+slug+"/auth/callback",
@@ -416,16 +422,33 @@ func main() {
 			"https://ordersapp.codevertexitsolutions.com/"+slug+"/auth/callback",
 			"http://localhost:3001/"+slug+"/auth/callback",
 		)
+		subscriptionsRedirects = append(subscriptionsRedirects,
+			"https://subscriptions.codevertexitsolutions.com/"+slug+"/auth/callback",
+			"http://localhost:3010/"+slug+"/auth/callback",
+		)
+		treasuryRedirects = append(treasuryRedirects,
+			"https://treasury.codevertexitsolutions.com/"+slug+"/auth/callback",
+			"http://localhost:3011/"+slug+"/auth/callback",
+		)
+		posRedirects = append(posRedirects,
+			"https://pos.codevertexitsolutions.com/"+slug+"/auth/callback",
+			"http://localhost:3012/"+slug+"/auth/callback",
+		)
 	}
+	// Also allow non-tenant callback for subscriptions/treasury/pos when used without org in path
+	subscriptionsRedirects = append(subscriptionsRedirects, "https://subscriptions.codevertexitsolutions.com/auth/callback", "http://localhost:3010/auth/callback")
+	treasuryRedirects = append(treasuryRedirects, "https://treasury.codevertexitsolutions.com/auth/callback", "http://localhost:3011/auth/callback")
+	posRedirects = append(posRedirects, "https://pos.codevertexitsolutions.com/auth/callback", "http://localhost:3012/auth/callback")
 
 	oauthClients := []oauthClientSpec{
 		{ID: "notifications-ui", Name: "BengoBox Notifications UI", RedirectURIs: notificationsRedirects, Public: true},
 		{ID: "ordering-ui", Name: "BengoBox Ordering UI", RedirectURIs: orderingRedirects, Public: true},
 		{ID: "rider-app", Name: "BengoBox Rider App", RedirectURIs: []string{"https://rider.codevertexitsolutions.com/auth/callback", "http://localhost:3002/auth/callback"}, Public: true},
 		{ID: "cafe-website", Name: "Urban Loft Cafe Website", RedirectURIs: []string{"https://theurbanloftcafe.com/auth/callback", "http://localhost:3000/auth/callback"}, Public: true},
-		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", RedirectURIs: []string{"https://subscriptions.codevertexitsolutions.com/auth/callback", "http://localhost:3010/auth/callback"}, Public: true},
-		{ID: "treasury-ui", Name: "BengoBox Treasury UI", RedirectURIs: []string{"https://treasury.codevertexitsolutions.com/auth/callback", "http://localhost:3011/auth/callback"}, Public: true},
-		{ID: "pos-frontend", Name: "BengoBox POS Frontend", RedirectURIs: []string{"https://pos.codevertexitsolutions.com/auth/callback", "http://localhost:3012/auth/callback"}, Public: true},
+		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", RedirectURIs: subscriptionsRedirects, Public: true},
+		{ID: "treasury-ui", Name: "BengoBox Treasury UI", RedirectURIs: treasuryRedirects, Public: true},
+		{ID: "pos-ui", Name: "BengoBox POS UI", RedirectURIs: posRedirects, Public: true},
+		{ID: "pos-frontend", Name: "BengoBox POS Frontend (legacy)", RedirectURIs: posRedirects, Public: true},
 		{ID: "logistics-ui", Name: "BengoBox Logistics UI", RedirectURIs: []string{"https://logistics.codevertexitsolutions.com/auth/callback", "http://localhost:3013/auth/callback"}, Public: true},
 		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", RedirectURIs: []string{"https://accounts.codevertexitsolutions.com/auth/callback", "https://sso.codevertexitsolutions.com/auth/callback", "http://localhost:3014/auth/callback"}, Public: true},
 	}

@@ -45,6 +45,11 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 - JWKS: `https://auth.codevertexitsolutions.com/api/v1/.well-known/jwks.json`
 - UserInfo: `https://auth.codevertexitsolutions.com/api/v1/userinfo`
 
+### Tenant in authorize URL and token
+
+- The **authorize** endpoint accepts an optional `tenant` query parameter (e.g. `?tenant=urban-loft`). When present, it is stored in the authorization code metadata and passed to the login page. On **token exchange**, if the user is a member of that tenant, the issued access and ID tokens carry that tenant's `tenant_id` and `tenant_slug`. This allows frontends to request a specific org context (e.g. default app tenant `urban-loft` or platform owner `codevertex`) so downstream Go backends receive the correct tenant in the JWT and can sync it locally (JIT) before handling requests.
+- **Default tenant** for app context (e.g. ordering, cafes) is `urban-loft`; `codevertex` is the platform owner tenant (elevated access and platform routes).
+
 ### Deploy (Kubernetes)
 
 - Migrate and seed run in the main container entrypoint (`scripts/entrypoint.sh`), not via an external Helm migrate hook. Each pod runs `auth-migrate` then `auth-seed` then the server on startup (idempotent).
@@ -125,7 +130,7 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 
 ## Integrations
 
-- **Food Delivery / POS / Logistics / Inventory:** validate JWTs, consume `userinfo`, introspect tokens when required. Tenant/outlet discovery webhooks emitted here ensure each service hydrates metadata on login (polling not required).
+- **Food Delivery / POS / Logistics / Inventory / Subscriptions / Notifications / Treasury:** validate JWTs, consume `userinfo`, introspect tokens when required. **Tenant sync:** Each Go backend maintains a local tenant table and uses a **JIT (just-in-time) tenant syncer**: when a request has `tenant_slug` in context (from JWT or URL), the service calls auth-api `GET /api/v1/tenants/by-slug/{slug}` and upserts the tenant locally before running business logic. This avoids "tenant not found" after SSO login. No separate tenant sync job is required; sync on first request is sufficient.
 - **Treasury:** receives metering events and returns feature entitlements for subscription plans.
 - **Notifications:** delivers OTP and security alerts.
 

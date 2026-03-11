@@ -15,7 +15,7 @@
 | HTTP | Chi router, shared-auth-client middleware |
 | ORM | Ent (auto-generated, `internal/ent`) |
 | Database | PostgreSQL 16 |
-| Cache | Redis 7 |
+| Cache | Redis 7 (rate limit, revocation, integration credentials; GET `/api/v1/auth/me` cached by user ID, TTL = token expiry) |
 | Events | NATS JetStream (stream: `auth`, subjects: `auth.*`) |
 | Observability | Zap logger, Prometheus `/metrics` |
 | Auth | Self-issued JWT (RS256, JWKS endpoint) |
@@ -116,6 +116,16 @@ Auth-api is the **central identity provider** for all BengoBox services. It impl
 - Tenant slug appears in URLs for downstream services (not in auth-api URLs directly)
 - JWT claims include `tenant_id`, `tenant_slug`, `roles`, `scopes`
 - Downstream services extract tenant context from JWT -- they never duplicate user/tenant tables
+
+### Downstream tenant sync (JIT)
+
+All Go backends (ordering-backend, notifications-api, subscriptions-api, treasury-api, pos-api, inventory-api, logistics-api) use a **uniform JIT (just-in-time) tenant sync** workflow:
+
+1. **Auth-api** is the source of truth for tenants and exposes `GET /api/v1/tenants/by-slug/{slug}` (public, no auth).
+2. When the **authorize** URL includes `?tenant=urban-loft` (or another slug), auth-api stores it in the authorization code metadata. On **token exchange**, if the user is a member of that tenant, the issued tokens carry that tenant's `tenant_id` and `tenant_slug`.
+3. Each downstream service has a **tenant syncer** that GETs the full tenant from auth-api by slug and upserts it into the service's local DB.
+4. On every request that has tenant context (from JWT or URL/header), a **middleware** (or equivalent) runs **before** business logic: if `tenant_slug` is present in context, call `SyncTenant(ctx, slug)`. This ensures the tenant exists locally and avoids "tenant not found" after SSO login.
+5. **Default tenant** for app context is `urban-loft`; **codevertex** is the platform owner tenant (elevated access and platform-scoped routes). No separate tenant sync job is required; sync on first request is sufficient.
 
 ---
 
