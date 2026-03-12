@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -150,6 +151,10 @@ func Load() (*Config, error) {
 		cfg.Providers.Microsoft.Enabled || cfg.Providers.Apple.Enabled
 	if oauthEnabled && cfg.Security.OAuthStateSecret == "" {
 		return nil, fmt.Errorf("AUTH_SECURITY_OAUTH_STATE_SECRET is required when any OAuth provider is enabled")
+	}
+	// Standardized NATS URL: accept EVENTS_NATS_URL when AUTH_EVENTS_NATS_URL is not set
+	if cfg.Events.NATSURL == "" {
+		cfg.Events.NATSURL = os.Getenv("EVENTS_NATS_URL")
 	}
 	return cfg, nil
 }
