@@ -16,7 +16,7 @@
 | ORM | Ent (auto-generated, `internal/ent`) |
 | Database | PostgreSQL 16 |
 | Cache | Redis 7 (rate limit, revocation, integration credentials; GET `/api/v1/auth/me` cached by user ID, TTL = token expiry) |
-| Events | NATS JetStream (stream: `auth`, subjects: `auth.*`) |
+| Events | NATS JetStream (stream: `auth`, subjects: `auth.*`); env: `EVENTS_NATS_URL` or `AUTH_EVENTS_NATS_URL` |
 | Observability | Zap logger, Prometheus `/metrics` |
 | Auth | Self-issued JWT (RS256, JWKS endpoint) |
 | Migrations | Ent auto-migrate (transitioning to Atlas versioned migrations) |
