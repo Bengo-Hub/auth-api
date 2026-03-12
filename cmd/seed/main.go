@@ -413,6 +413,7 @@ func main() {
 	subscriptionsRedirects := []string{}
 	treasuryRedirects := []string{}
 	posRedirects := []string{}
+	inventoryRedirects := []string{}
 	for _, slug := range tenantSlugs {
 		notificationsRedirects = append(notificationsRedirects,
 			"https://notifications.codevertexitsolutions.com/"+slug+"/auth/callback",
@@ -434,11 +435,16 @@ func main() {
 			"https://pos.codevertexitsolutions.com/"+slug+"/auth/callback",
 			"http://localhost:3012/"+slug+"/auth/callback",
 		)
+		inventoryRedirects = append(inventoryRedirects,
+			"https://inventory.codevertexitsolutions.com/"+slug+"/auth/callback",
+			"http://localhost:3015/"+slug+"/auth/callback",
+		)
 	}
-	// Also allow non-tenant callback for subscriptions/treasury/pos when used without org in path
+	// Also allow non-tenant callback for subscriptions/treasury/pos/inventory when used without org in path
 	subscriptionsRedirects = append(subscriptionsRedirects, "https://pricing.codevertexitsolutions.com/auth/callback", "http://localhost:3010/auth/callback")
 	treasuryRedirects = append(treasuryRedirects, "https://books.codevertexitsolutions.com/auth/callback", "http://localhost:3011/auth/callback")
 	posRedirects = append(posRedirects, "https://pos.codevertexitsolutions.com/auth/callback", "http://localhost:3012/auth/callback")
+	inventoryRedirects = append(inventoryRedirects, "https://inventory.codevertexitsolutions.com/auth/callback", "http://localhost:3015/auth/callback")
 
 	oauthClients := []oauthClientSpec{
 		{ID: "notifications-ui", Name: "BengoBox Notifications UI", RedirectURIs: notificationsRedirects, Public: true},
@@ -448,6 +454,7 @@ func main() {
 		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", RedirectURIs: subscriptionsRedirects, Public: true},
 		{ID: "treasury-ui", Name: "BengoBox Treasury UI", RedirectURIs: treasuryRedirects, Public: true},
 		{ID: "pos-ui", Name: "BengoBox POS UI", RedirectURIs: posRedirects, Public: true},
+		{ID: "inventory-ui", Name: "BengoBox Inventory UI", RedirectURIs: inventoryRedirects, Public: true},
 		{ID: "logistics-ui", Name: "BengoBox Logistics UI", RedirectURIs: []string{"https://logistics.codevertexitsolutions.com/auth/callback", "http://localhost:3013/auth/callback"}, Public: true},
 		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", RedirectURIs: []string{"https://accounts.codevertexitsolutions.com/auth/callback", "https://sso.codevertexitsolutions.com/auth/callback", "http://localhost:3014/auth/callback"}, Public: true},
 	}
