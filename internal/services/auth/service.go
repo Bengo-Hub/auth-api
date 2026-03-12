@@ -341,12 +341,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 }
 
 // Login authenticates a user with email/password.
+// If tenant_slug is not provided, the tenant is resolved from the user's primary_tenant_id in the DB
+// so that tenant users can log in directly from auth-ui without a tenant in the URL.
 func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error) {
-	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
-	if err != nil {
-		return nil, err
-	}
-
 	userEntity, err := s.entClient.User.Query().
 		Where(
 			user.EmailEQ(normalizeEmail(in.Email)),
@@ -357,6 +354,32 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 			return nil, ErrInvalidCredentials
 		}
 		return nil, fmt.Errorf("query user: %w", err)
+	}
+
+	var tenantEntity *ent.Tenant
+	if strings.TrimSpace(in.TenantSlug) != "" {
+		tenantEntity, err = s.GetTenantBySlug(ctx, in.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if userEntity.PrimaryTenantID == "" {
+			return nil, ErrInvalidCredentials
+		}
+		primaryTenantUUID, err := uuid.Parse(userEntity.PrimaryTenantID)
+		if err != nil {
+			return nil, ErrInvalidCredentials
+		}
+		tenantEntity, err = s.GetTenant(ctx, primaryTenantUUID)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return nil, ErrInvalidCredentials
+			}
+			return nil, fmt.Errorf("query tenant: %w", err)
+		}
+		if tenantEntity.Status != "active" {
+			return nil, ErrTenantInactive
+		}
 	}
 
 	// Ensure membership exists (use First instead of Only to handle duplicate memberships gracefully)

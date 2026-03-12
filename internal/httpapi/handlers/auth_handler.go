@@ -237,16 +237,20 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set session cookie for OIDC flows
-	http.SetCookie(w, &http.Cookie{
+	// Set session cookie for OIDC flows. Use Domain so auth-ui (accounts.*) can send it when calling sso.* (same parent domain).
+	cookie := &http.Cookie{
 		Name:     "bb_session",
 		Value:    result.AccessToken,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true, // Should be true in production
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(24 * time.Hour), // Adjust as needed
-	})
+		Expires:  time.Now().Add(24 * time.Hour),
+	}
+	if host := r.Host; host != "" && (strings.Contains(host, "codevertexitsolutions.com") || strings.HasSuffix(host, ".codevertexitsolutions.com")) {
+		cookie.Domain = ".codevertexitsolutions.com"
+	}
+	http.SetCookie(w, cookie)
 
 	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
 }
