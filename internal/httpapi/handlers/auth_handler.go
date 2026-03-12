@@ -69,11 +69,12 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clear session cookie
+	// Clear session cookie (Domain must match how it was set so browser clears it on .codevertexitsolutions.com)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "bb_session",
 		Value:    "",
 		Path:     "/",
+		Domain:   ".codevertexitsolutions.com",
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
@@ -101,11 +102,12 @@ var allowedLogoutRedirectHosts = []string{
 func (h *AuthHandler) LogoutGet(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.URL.Query().Get("post_logout_redirect_uri")
 
-	// Clear session cookie so the user is logged out on the auth domain
+	// Clear session cookie (Domain must match how it was set so browser clears it on .codevertexitsolutions.com)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "bb_session",
 		Value:    "",
 		Path:     "/",
+		Domain:   ".codevertexitsolutions.com",
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
