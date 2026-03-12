@@ -84,11 +84,15 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // allowedLogoutRedirectHosts are hosts we allow for post_logout_redirect_uri (open redirect protection).
+// Production domains from shared-docs/sso-integration-guide.md and auth-api cmd/seed.
 var allowedLogoutRedirectHosts = []string{
 	"theurbanloftcafe.com", "www.theurbanloftcafe.com",
 	"ordersapp.codevertexitsolutions.com",
 	"accounts.codevertexitsolutions.com", "sso.codevertexitsolutions.com",
 	"notifications.codevertexitsolutions.com", "books.codevertexitsolutions.com",
+	"pricing.codevertexitsolutions.com", "pos.codevertexitsolutions.com",
+	"inventory.codevertexitsolutions.com", "logistics.codevertexitsolutions.com",
+	"riderapp.codevertexitsolutions.com",
 	"localhost",
 }
 

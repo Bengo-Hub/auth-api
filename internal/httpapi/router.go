@@ -108,18 +108,21 @@ func NewRouter(deps RouterDeps) http.Handler {
 				origin == "https://auth.codevertex.local:4101" {
 				return true
 			}
-			// Allow production origins (explicit list)
+			// Allow production origins (explicit list; from shared-docs/sso-integration-guide.md and cmd/seed)
 			if origin == "https://accounts.codevertexitsolutions.com" ||
 				origin == "https://sso.codevertexitsolutions.com" ||
 				origin == "https://codevertexitsolutions.com" ||
-				origin == "https://orderapp.codevertexitsolutions.com" ||
 				origin == "https://ordersapp.codevertexitsolutions.com" ||
 				origin == "https://theurbanloftcafe.com" ||
 				origin == "https://notifications.codevertexitsolutions.com" ||
+				origin == "https://books.codevertexitsolutions.com" ||
+				origin == "https://pricing.codevertexitsolutions.com" ||
+				origin == "https://pos.codevertexitsolutions.com" ||
+				origin == "https://inventory.codevertexitsolutions.com" ||
 				origin == "https://logistics.codevertexitsolutions.com" ||
+				origin == "https://riderapp.codevertexitsolutions.com" ||
 				origin == "https://bengobox.codevertexitsolutions.com" ||
-				origin == "https://erp.codevertexitsolutions.com" ||
-				origin == "https://pos.codevertexitsolutions.com" {
+				origin == "https://erp.codevertexitsolutions.com" {
 				return true
 			}
 			// Allow any subdomain of codevertexitsolutions.com (https only)
