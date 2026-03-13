@@ -68,10 +68,15 @@ func main() {
 	}
 
 	for _, t := range tenants {
-		meta := map[string]any{"base_domain": t.baseDomain}
+		meta := map[string]any{
+			"base_domain": t.baseDomain,
+		}
 		if t.isPlatformOwner {
 			meta["is_platform_owner"] = true
 			meta["scope"] = "platform"
+			meta["brand_color_primary"] = "#5B1C4D"
+			meta["brand_color_secondary"] = "#ea8022"
+			meta["brand_logo_url"] = "/images/logo/codevertex.png"
 		}
 		tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ(t.slug)).Only(ctx)
 		if err != nil {
