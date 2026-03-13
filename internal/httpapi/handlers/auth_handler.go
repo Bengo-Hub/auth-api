@@ -243,6 +243,37 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cache the login result for /me optimization (TTL = token expiry or 24h)
+	if h.redis != nil && h.redisNamespace != "" {
+		cacheKey := h.redisNamespace + ":auth:me:" + result.User.ID.String()
+		ttl := 24 * time.Hour
+		if !result.AccessTokenExpiresAt.IsZero() {
+			if d := time.Until(result.AccessTokenExpiresAt); d > 0 {
+				ttl = d
+			}
+		}
+		
+		// Build the "me" view for the cache
+		out := userViewFromEnt(result.User)
+		if out == nil {
+			out = make(map[string]any)
+		}
+		out["roles"] = result.Roles
+		out["permissions"] = result.Permissions
+		if result.Tenant != nil {
+			out["tenant"] = tenantViewFromEnt(result.Tenant)
+			out["tenant_id"] = result.Tenant.ID.String()
+			out["tenant_slug"] = result.Tenant.Slug
+			if result.Tenant.Slug == "codevertex" {
+				out["is_platform_owner"] = true
+			}
+		}
+
+		if b, err := json.Marshal(out); err == nil && ttl > 0 {
+			_ = h.redis.Set(r.Context(), cacheKey, b, ttl).Err()
+		}
+	}
+
 	// Set session cookie for OIDC flows. Use Domain so auth-ui (accounts.*) can send it when calling sso.* (same parent domain).
 	cookie := &http.Cookie{
 		Name:     "bb_session",
@@ -606,6 +637,21 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 	if tenant == nil {
 		return nil
 	}
+
+	brandColors := tenant.BrandColors
+	if brandColors == nil || len(brandColors) == 0 {
+		brandColors = map[string]any{
+			"primary":   "#020617", // Slate 950
+			"secondary": "#334155", // Slate 700
+			"accent":    "#0ea5e9", // Sky 500
+		}
+	}
+
+	logoURL := tenant.LogoURL
+	if logoURL == nil || *logoURL == "" {
+		logoURL = strPtr("/images/logo/codevertex.png")
+	}
+
 	return map[string]any{
 		"id":                      tenant.ID,
 		"name":                    tenant.Name,
@@ -613,11 +659,11 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 		"status":                  tenant.Status,
 		"contact_email":           tenant.ContactEmail,
 		"contact_phone":           tenant.ContactPhone,
-		"logo_url":                tenant.LogoURL,
+		"logo_url":                logoURL,
 		"website":                 tenant.Website,
 		"country":                 tenant.Country,
 		"timezone":                tenant.Timezone,
-		"brand_colors":            tenant.BrandColors,
+		"brand_colors":            brandColors,
 		"org_size":                tenant.OrgSize,
 		"use_case":                tenant.UseCase,
 		"subscription_plan":       tenant.SubscriptionPlan,
@@ -628,6 +674,10 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 		"created_at":              tenant.CreatedAt,
 		"updated_at":              tenant.UpdatedAt,
 	}
+}
+
+func strPtr(s string) *string {
+	return &s
 }
 
 type newOrgRequest struct {

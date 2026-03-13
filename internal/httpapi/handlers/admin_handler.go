@@ -127,7 +127,10 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	create := h.ent.Tenant.Create().
 		SetName(req.Name).
 		SetSlug(req.Slug).
-		SetStatus("active")
+		SetStatus("active").
+		SetSubscriptionPlan("STARTER").
+		SetSubscriptionStatus("TRIAL").
+		SetSubscriptionExpiresAt(time.Now().AddDate(0, 0, 30)) // 30-day free trial
 
 	// If tenant ID is provided, use it (for cross-service tenant sync)
 	if req.ID != "" {
@@ -188,7 +191,10 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 	create := h.ent.Tenant.Create().
 		SetName(req.Name).
 		SetSlug(req.Slug).
-		SetStatus("active")
+		SetStatus("active").
+		SetSubscriptionPlan("STARTER").
+		SetSubscriptionStatus("TRIAL").
+		SetSubscriptionExpiresAt(time.Now().AddDate(0, 0, 30)) // 30-day free trial
 
 	// If tenant ID is provided, use it (for cross-service tenant sync with matching UUIDs)
 	if req.ID != "" {
@@ -309,8 +315,27 @@ func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
 		return
 	}
-	items, err := h.ent.Tenant.Query().Where(tenant.StatusEQ("active")).All(r.Context())
+
+	search := r.URL.Query().Get("search")
+	query := h.ent.Tenant.Query().Where(tenant.StatusEQ("active"))
+
+	if search != "" {
+		// Case-insensitive search on name, slug or ID
+		query = query.Where(
+			tenant.Or(
+				tenant.NameContainsFold(search),
+				tenant.SlugContainsFold(search),
+			),
+		)
+		// If it's a valid UUID, search by ID as well
+		if id, err := uuid.Parse(search); err == nil {
+			query = query.Where(tenant.IDEQ(id))
+		}
+	}
+
+	items, err := query.All(r.Context())
 	if err != nil {
+		h.logger.Error("failed to list tenants", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to list tenants", nil)
 		return
 	}

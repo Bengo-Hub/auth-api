@@ -1124,6 +1124,34 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 			tokenInput.SubscriptionFeatures = sub.Features
 			tokenInput.SubscriptionLimits = sub.Limits
 			tokenInput.SubscriptionExpires = &sub.CurrentPeriodEnd
+
+			// Enrich tenantEntity with subscription details for the AuthResult
+			if tenantEntity != nil {
+				tenantEntity.SubscriptionPlan = strPtr(sub.PlanCode)
+				tenantEntity.SubscriptionStatus = strPtr(sub.Status)
+				tenantEntity.SubscriptionExpiresAt = &sub.CurrentPeriodEnd
+				
+				// Map map[string]int to map[string]any for tier_limits
+				limits := make(map[string]any)
+				for k, v := range sub.Limits {
+					limits[k] = v
+				}
+				tenantEntity.TierLimits = limits
+			}
+		}
+	}
+
+	// Apply branding defaults if missing
+	if tenantEntity != nil {
+		if tenantEntity.LogoURL == nil || *tenantEntity.LogoURL == "" {
+			tenantEntity.LogoURL = strPtr("/images/logo/codevertex.png") // Platform owner default
+		}
+		if tenantEntity.BrandColors == nil || len(tenantEntity.BrandColors) == 0 {
+			tenantEntity.BrandColors = map[string]any{
+				"primary":   "#020617", // Slate 950
+				"secondary": "#334155", // Slate 700
+				"accent":    "#0ea5e9", // Sky 500
+			}
 		}
 	}
 
@@ -1629,4 +1657,8 @@ func profileStr(profile map[string]any, key string) string {
 		}
 	}
 	return ""
+}
+
+func strPtr(s string) *string {
+	return &s
 }
