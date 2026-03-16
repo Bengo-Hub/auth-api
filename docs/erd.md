@@ -83,10 +83,10 @@ Schema definitions are managed with Ent, and all tables are multi-tenant and aud
 - `session_tokens` link to `access_tokens` and `token_revocations` for revocation workflows.
 - Clients (`oauth_clients`) own redirect URIs, grant permissions, scopes, and can request consent from users.
 - Tenant policies and entitlements originate from `treasury-api`; changes trigger webhook notifications to dependent services.
-- **Entity Ownership**: This service owns all identity entities (users, tenants, outlets, sessions, OAuth clients, MFA). Downstream services (cafe-backend, POS, inventory, logistics, treasury, notifications) validate JWTs via JWKS and map `tenant_id`, `tenant_slug`, `user_id`, and global `roles` claims onto their local RBAC models. **Services never duplicate user or tenant tables**—they only store `user_id` and `tenant_id` references. Service-specific RBAC (POS cashier, logistics dispatcher) is owned by each service but references `user_id` from auth-service.
+- **Entity Ownership**: This service owns all identity entities (users, tenants, outlets, sessions, OAuth clients, MFA). Downstream services (ordering-backend, POS, inventory, logistics, treasury, notifications) validate JWTs via JWKS and map `tenant_id`, `tenant_slug`, `user_id`, and global `roles` claims onto their local RBAC models. **Services never duplicate user or tenant tables**—they only store `user_id` and `tenant_id` references. Service-specific RBAC (POS cashier, logistics dispatcher) is owned by each service but references `user_id` from auth-service.
 - Tenant/outlet discovery webhooks (`auth.tenant.synced`, `auth.outlet.synced`) ensure downstream services hydrate metadata before persisting domain data.
 - MFA challenges use notifications service for SMS/email delivery; push or app-based challenges integrate later.
-- See `docs/cross-service-entity-ownership.md` for complete entity ownership matrix.
+- See **shared-docs/CROSS-SERVICE-DATA-OWNERSHIP.md** for the canonical entity ownership matrix.
 
 ## Seed Data & Defaults
 

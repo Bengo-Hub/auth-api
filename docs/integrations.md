@@ -168,7 +168,7 @@ r.Use(authMiddleware.RequireAuth)
 
 ## Internal BengoBox Service Integrations
 
-### Cafe Backend
+### Ordering-Backend
 
 **Integration Type**: OAuth2/OIDC + Events + REST
 

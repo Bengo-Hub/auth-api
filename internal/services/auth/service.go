@@ -124,9 +124,11 @@ type JTIRevoker interface {
 
 // NewOrgInput carries new-organisation details when a user creates a new tenant during signup.
 type NewOrgInput struct {
-	Name     string
-	Slug     string
-	Metadata map[string]any
+	Name         string
+	Slug         string
+	UseCase      string
+	HQBranchName string
+	Metadata     map[string]any
 }
 
 // RegisterInput captures registration payload.
@@ -232,6 +234,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		create := s.entClient.Tenant.Create().
 			SetName(in.NewOrg.Name).
 			SetSlug(in.NewOrg.Slug).
+			SetUseCase(in.NewOrg.UseCase).
 			SetStatus("active")
 		if len(meta) > 0 {
 			create = create.SetMetadata(meta)
@@ -251,11 +254,65 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 			}
 		}
 		// Publish tenant.created event for downstream service sync.
+		// Provision live trial subscription from subscription-api.
+		plan := in.SelectedPlan
+		if plan == "" && s.subscriptionCl != nil {
+			// Pull default STARTER plan from subscription-api if none selected
+			p, err := s.subscriptionCl.GetPlanByCode(ctx, "STARTER")
+			if err != nil {
+				s.logger.Warn("failed to fetch default STARTER plan", zap.Error(err))
+			} else if p != nil {
+				plan = p.PlanCode
+			}
+		}
+
+		if plan != "" && s.subscriptionCl != nil {
+			sub, err := s.subscriptionCl.CreateTrialSubscription(ctx, tenantEntity.ID, plan)
+			if err != nil {
+				s.logger.Warn("failed to provision trial subscription",
+					zap.String("tenant_id", tenantEntity.ID.String()),
+					zap.String("plan", plan),
+					zap.Error(err),
+				)
+			} else {
+				// Update tenant with denormalized subscription data
+				_, err = s.entClient.Tenant.UpdateOne(tenantEntity).
+					SetSubscriptionID(sub.ID.String()).
+					SetSubscriptionPlan(sub.PlanCode).
+					SetSubscriptionStatus(sub.Status).
+					SetNillableSubscriptionExpiresAt(sub.TrialEndsAt).
+					Save(ctx)
+				if err != nil {
+					s.logger.Warn("failed to update tenant with subscription info",
+						zap.String("tenant_id", tenantEntity.ID.String()),
+						zap.Error(err),
+					)
+				}
+				// Refresh entity to ensure event has full data
+				tenantEntity, _ = s.entClient.Tenant.Get(ctx, tenantEntity.ID)
+			}
+		}
+
 		s.publishEvent(ctx, tenantEntity.ID, "auth.tenant", tenantEntity.ID, "created", map[string]any{
-			"tenant_id":   tenantEntity.ID.String(),
-			"name":        tenantEntity.Name,
-			"slug":        tenantEntity.Slug,
-			"created_by": in.Email,
+			"tenant_id":        tenantEntity.ID.String(),
+			"name":             tenantEntity.Name,
+			"slug":             tenantEntity.Slug,
+			"use_case":         tenantEntity.UseCase,
+			"subscription_id":  tenantEntity.SubscriptionID,
+			"selected_plan":    tenantEntity.SubscriptionPlan,
+			"created_by":       in.Email,
+		})
+
+		// Initialize Main/HQ branch
+		hqName := "Main/HQ"
+		if in.NewOrg.HQBranchName != "" {
+			hqName = in.NewOrg.HQBranchName
+		}
+		s.publishEvent(ctx, tenantEntity.ID, "auth.tenant.branch", tenantEntity.ID, "created", map[string]any{
+			"tenant_id":  tenantEntity.ID.String(),
+			"name":       hqName,
+			"is_default": true,
+			"use_case":   tenantEntity.UseCase,
 		})
 	} else {
 		tenantEntity, err = s.GetTenantBySlug(ctx, in.TenantSlug)

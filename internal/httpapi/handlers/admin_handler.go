@@ -17,6 +17,7 @@ import (
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/usage"
 	"github.com/bengobox/auth-api/internal/token"
+	subscriptionclient "github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -28,11 +29,12 @@ type AdminHandler struct {
 	logger *zap.Logger
 	entSvc *entitlements.Service
 	useSvc *usage.Service
-	tokens *token.Service
+	tokens       *token.Service
 	integrations *integrations.Service
+	subClient    *subscriptionclient.Client
 }
 
-func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSvc *integrations.Service, logger *zap.Logger) *AdminHandler {
+func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSvc *integrations.Service, subClient *subscriptionclient.Client, logger *zap.Logger) *AdminHandler {
 	return &AdminHandler{
 		ent:          entClient,
 		logger:       logger,
@@ -40,6 +42,7 @@ func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSv
 		useSvc:       usage.New(entClient),
 		tokens:       tokens,
 		integrations: integrationSvc,
+		subClient:    subClient,
 	}
 }
 
@@ -67,41 +70,46 @@ func (h *AdminHandler) requireAdmin(r *http.Request) bool {
 }
 
 // publishTenantEvent writes a tenant.created event to the outbox for async NATS publishing.
-func (h *AdminHandler) publishTenantEvent(ctx context.Context, tenantID uuid.UUID, name, slug, createdBy string) {
+func (h *AdminHandler) publishEvent(ctx context.Context, tenantID uuid.UUID, aggregateType string, aggregateID uuid.UUID, eventType string, data map[string]any) {
 	event := sharedevents.Event{
 		ID:            uuid.New(),
 		TenantID:      tenantID,
-		AggregateType: "auth.tenant",
-		AggregateID:   tenantID,
-		EventType:     "created",
-		Payload: map[string]any{
-			"tenant_id":  tenantID.String(),
-			"name":       name,
-			"slug":       slug,
-			"created_by": createdBy,
-		},
-		Timestamp: time.Now().UTC(),
-		Version:   "1.0",
+		AggregateType: aggregateType,
+		AggregateID:   aggregateID,
+		EventType:     eventType,
+		Payload:       data,
+		Timestamp:    time.Now().UTC(),
+		Version:      "1.0",
 	}
 
 	payload, err := json.Marshal(event)
 	if err != nil {
-		h.logger.Warn("failed to marshal tenant event", zap.Error(err))
+		h.logger.Warn("failed to marshal event", zap.Error(err), zap.String("event_type", eventType))
 		return
 	}
 
 	err = h.ent.OutboxEvent.Create().
 		SetTenantID(tenantID).
-		SetAggregateType("auth.tenant").
-		SetAggregateID(tenantID).
-		SetEventType("created").
+		SetAggregateType(aggregateType).
+		SetAggregateID(aggregateID).
+		SetEventType(eventType).
 		SetPayload(payload).
 		SetStatus(outboxevent.StatusPENDING).
 		SetAttempts(0).
 		Exec(ctx)
 	if err != nil {
-		h.logger.Warn("failed to write tenant outbox event", zap.Error(err))
+		h.logger.Warn("failed to write outbox event", zap.Error(err), zap.String("event_type", eventType))
 	}
+}
+
+func (h *AdminHandler) publishTenantEvent(ctx context.Context, tenantID uuid.UUID, name, slug, useCase, createdBy string) {
+	h.publishEvent(ctx, tenantID, "auth.tenant", tenantID, "created", map[string]any{
+		"tenant_id":  tenantID.String(),
+		"name":       name,
+		"slug":       slug,
+		"use_case":   useCase,
+		"created_by": createdBy,
+	})
 }
 
 // Tenants
@@ -109,9 +117,12 @@ type tenantRequest struct {
 	ID           string                 `json:"id,omitempty"` // Tenant UUID - must match across all services
 	Name         string                 `json:"name"`
 	Slug         string                 `json:"slug"`
+	UseCase      string                 `json:"use_case"`
 	ContactEmail string                 `json:"contact_email,omitempty"`
-	ContactPhone string                 `json:"contact_phone,omitempty"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	ContactPhone     string                 `json:"contact_phone,omitempty"`
+	SubscriptionPlan string                 `json:"subscription_plan,omitempty"`
+	HQBranchName     string                 `json:"hq_branch_name,omitempty"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty"`
 }
 
 func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
@@ -127,10 +138,8 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	create := h.ent.Tenant.Create().
 		SetName(req.Name).
 		SetSlug(req.Slug).
-		SetStatus("active").
-		SetSubscriptionPlan("STARTER").
-		SetSubscriptionStatus("TRIAL").
-		SetSubscriptionExpiresAt(time.Now().AddDate(0, 0, 30)) // 30-day free trial
+		SetUseCase(req.UseCase).
+		SetStatus("active")
 
 	// If tenant ID is provided, use it (for cross-service tenant sync)
 	if req.ID != "" {
@@ -163,13 +172,56 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Provision live trial subscription from subscription-api.
+	plan := req.SubscriptionPlan
+	if plan == "" && h.subClient != nil {
+		// Pull default STARTER plan from subscription-api if none specified
+		p, err := h.subClient.GetPlanByCode(r.Context(), "STARTER")
+		if err != nil {
+			h.logger.Warn("failed to fetch default STARTER plan", zap.Error(err))
+		} else if p != nil {
+			plan = p.PlanCode
+		}
+	}
+
+	if plan != "" && h.subClient != nil {
+		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan)
+		if err != nil {
+			h.logger.Warn("failed to provision trial subscription", zap.String("tenant_id", t.ID.String()), zap.Error(err))
+		} else {
+			// Update tenant with live subscription data
+			t, _ = h.ent.Tenant.UpdateOne(t).
+				SetSubscriptionID(sub.ID.String()).
+				SetSubscriptionPlan(sub.PlanCode).
+				SetSubscriptionStatus(sub.Status).
+				SetNillableSubscriptionExpiresAt(sub.TrialEndsAt).
+				Save(r.Context())
+		}
+	}
+
 	// Publish tenant.created event
 	claims, _ := authmiddleware.ClaimsFromContext(r.Context())
 	createdBy := ""
 	if claims != nil {
 		createdBy = claims.Subject
 	}
-	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, createdBy)
+	useCase := ""
+	if t.UseCase != nil {
+		useCase = *t.UseCase
+	}
+	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, useCase, createdBy)
+
+	// Initialize Main/HQ branch
+	hqName := "Main/HQ"
+	if req.HQBranchName != "" {
+		hqName = req.HQBranchName
+	}
+	h.publishEvent(r.Context(), t.ID, "auth.tenant.branch", t.ID, "created", map[string]any{
+		"tenant_id":  t.ID.String(),
+		"name":       hqName,
+		"is_default": true,
+		"use_case":   useCase,
+	})
 
 	writeJSON(w, http.StatusCreated, t)
 }
@@ -191,10 +243,8 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 	create := h.ent.Tenant.Create().
 		SetName(req.Name).
 		SetSlug(req.Slug).
-		SetStatus("active").
-		SetSubscriptionPlan("STARTER").
-		SetSubscriptionStatus("TRIAL").
-		SetSubscriptionExpiresAt(time.Now().AddDate(0, 0, 30)) // 30-day free trial
+		SetUseCase(req.UseCase).
+		SetStatus("active")
 
 	// If tenant ID is provided, use it (for cross-service tenant sync with matching UUIDs)
 	if req.ID != "" {
@@ -235,8 +285,50 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Provision live trial subscription from subscription-api.
+	plan := req.SubscriptionPlan
+	if plan == "" && h.subClient != nil {
+		// Pull default STARTER plan from subscription-api if none specified
+		p, err := h.subClient.GetPlanByCode(r.Context(), "STARTER")
+		if err != nil {
+			h.logger.Warn("failed to fetch default STARTER plan", zap.Error(err))
+		} else if p != nil {
+			plan = p.PlanCode
+		}
+	}
+
+	if plan != "" && h.subClient != nil {
+		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan)
+		if err != nil {
+			h.logger.Warn("failed to provision trial subscription", zap.String("tenant_id", t.ID.String()), zap.Error(err))
+		} else {
+			t, _ = h.ent.Tenant.UpdateOne(t).
+				SetSubscriptionID(sub.ID.String()).
+				SetSubscriptionPlan(sub.PlanCode).
+				SetSubscriptionStatus(sub.Status).
+				SetNillableSubscriptionExpiresAt(sub.TrialEndsAt).
+				Save(r.Context())
+		}
+	}
+
 	// Publish tenant.created event
-	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, "self-service")
+	useCase := ""
+	if t.UseCase != nil {
+		useCase = *t.UseCase
+	}
+	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, useCase, "self-service")
+
+	// Initialize Main/HQ branch
+	hqName := "Main/HQ"
+	if req.HQBranchName != "" {
+		hqName = req.HQBranchName
+	}
+	h.publishEvent(r.Context(), t.ID, "auth.tenant.branch", t.ID, "created", map[string]any{
+		"tenant_id":  t.ID.String(),
+		"name":       hqName,
+		"is_default": true,
+		"use_case":   useCase,
+	})
 
 	writeJSON(w, http.StatusCreated, t)
 }
@@ -284,11 +376,7 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get tenant", nil)
 		return
 	}
-	meta := t.Metadata
-	if meta == nil {
-		meta = make(map[string]interface{})
-	}
-	writeJSON(w, http.StatusOK, PublicTenantResponse{
+	resp := PublicTenantResponse{
 		ID:                    t.ID.String(),
 		Name:                  t.Name,
 		Slug:                  t.Slug,
@@ -301,13 +389,18 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 		Timezone:              t.Timezone,
 		BrandColors:           t.BrandColors,
 		OrgSize:               t.OrgSize,
-		UseCase:               t.UseCase,
 		SubscriptionPlan:      t.SubscriptionPlan,
 		SubscriptionStatus:    t.SubscriptionStatus,
 		SubscriptionExpiresAt: t.SubscriptionExpiresAt,
 		TierLimits:            t.TierLimits,
 		Metadata:              t.Metadata,
-	})
+	}
+
+	if t.UseCase != nil {
+		resp.UseCase = t.UseCase
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
