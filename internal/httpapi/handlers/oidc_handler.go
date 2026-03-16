@@ -241,7 +241,7 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		Scopes:      scopes,
 		Roles:       roles,
 		Permissions: permissions,
-		Audience:    []string{client.ClientID},
+		Audience:    []string{client.ClientID, h.cfg.Token.Audience},
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "mint access token failed", nil)

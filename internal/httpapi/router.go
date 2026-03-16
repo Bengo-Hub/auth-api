@@ -81,6 +81,8 @@ type AuthHandlers struct {
 	RemoveTenantMember http.HandlerFunc
 	// Public integrations info
 	ListActiveIntegrations http.HandlerFunc
+	// Use Case configuration
+	GetUseCaseConfig http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -170,6 +172,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 		})
 		r.Route("/auth", func(r chi.Router) {
 			r.Get("/integrations/active", deps.AuthHandlers.ListActiveIntegrations)
+			r.Get("/use-case/config", deps.AuthHandlers.GetUseCaseConfig)
 			r.Post("/register", deps.AuthHandlers.Register)
 			if deps.RateLimitLogin != nil {
 				r.With(deps.RateLimitLogin).Post("/login", deps.AuthHandlers.Login)

@@ -26,6 +26,7 @@ import (
 	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/mfa"
+	"github.com/bengobox/auth-api/internal/services/usecase"
 	"github.com/bengobox/auth-api/internal/services/oidc"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/nats-io/nats.go"
@@ -138,7 +139,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		Integrations:       integrationSvc,
 	})
 
-	authHandler := handlers.NewAuthHandler(authService, integrationSvc, logger, redisClient, cfg.Redis.Namespace)
+	usecaseSvc := usecase.NewService()
+	authHandler := handlers.NewAuthHandler(authService, integrationSvc, usecaseSvc, logger, redisClient, cfg.Redis.Namespace)
 	revocationStore := revocation.New(redisClient, cfg.Redis.Namespace)
 	authMiddleware := httpmiddleware.NewAuth(authService, revocationStore)
 	rateLimiter := httpmiddleware.NewRateLimiter(redisClient, cfg.Redis.Namespace)
@@ -147,7 +149,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	mfaService := mfa.New(entClient, cfg.Token.Issuer)
 	mfaHandler := handlers.NewMFAHandler(mfaService, logger)
 
-	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, logger)
+	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 

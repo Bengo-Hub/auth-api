@@ -13,6 +13,7 @@ import (
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/integrations"
+	"github.com/bengobox/auth-api/internal/services/usecase"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -40,6 +41,11 @@ type AuthService interface {
 	ListSessions(ctx context.Context, userID uuid.UUID) ([]*ent.Session, error)
 	RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error
+}
+
+// UseCaseService describes the use case logic capabilities.
+type UseCaseService interface {
+	ResolveConfig(ctx context.Context, useCase string) *usecase.Config
 }
 
 // Logout revokes the current session and token.
@@ -170,16 +176,18 @@ func (h *AuthHandler) ListActiveIntegrations(w http.ResponseWriter, r *http.Requ
 type AuthHandler struct {
 	service        AuthService
 	integrations   *integrations.Service
+	usecase        UseCaseService
 	logger         *zap.Logger
 	redis          *redis.Client
 	redisNamespace string
 }
 
 // NewAuthHandler constructs a handler. redis and redisNamespace are optional; when set, GET /auth/me responses are cached with TTL = token expiry.
-func NewAuthHandler(service AuthService, integrationSvc *integrations.Service, logger *zap.Logger, redis *redis.Client, redisNamespace string) *AuthHandler {
+func NewAuthHandler(service AuthService, integrationSvc *integrations.Service, usecaseSvc UseCaseService, logger *zap.Logger, redis *redis.Client, redisNamespace string) *AuthHandler {
 	return &AuthHandler{
 		service:        service,
 		integrations:   integrationSvc,
+		usecase:        usecaseSvc,
 		logger:         logger,
 		redis:          redis,
 		redisNamespace: redisNamespace,
@@ -197,9 +205,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var newOrg *auth.NewOrgInput
 	if req.NewOrg != nil {
 		newOrg = &auth.NewOrgInput{
-			Name:     req.NewOrg.Name,
-			Slug:     req.NewOrg.Slug,
-			Metadata: req.NewOrg.Metadata,
+			Name:         req.NewOrg.Name,
+			Slug:         req.NewOrg.Slug,
+			UseCase:      req.NewOrg.UseCase,
+			HQBranchName: req.NewOrg.HQBranchName,
+			Metadata:     req.NewOrg.Metadata,
 		}
 	}
 
@@ -570,6 +580,29 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// GetUseCaseConfig returns the configuration for a given use case or the current tenant's use case.
+func (h *AuthHandler) GetUseCaseConfig(w http.ResponseWriter, r *http.Request) {
+	useCase := r.URL.Query().Get("use_case")
+
+	// If no use_case provided, try to resolve from current tenant in context
+	if useCase == "" {
+		claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+		if ok && claims.TenantSlug != "" {
+			tenant, err := h.service.GetTenantBySlug(r.Context(), claims.TenantSlug)
+			if err == nil && tenant != nil && tenant.UseCase != nil {
+				useCase = *tenant.UseCase
+			}
+		}
+	}
+
+	if useCase == "" {
+		useCase = "other"
+	}
+
+	config := h.usecase.ResolveConfig(r.Context(), useCase)
+	writeJSON(w, http.StatusOK, config)
+}
+
 func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, auth.ErrInvalidCredentials):
@@ -681,9 +714,11 @@ func strPtr(s string) *string {
 }
 
 type newOrgRequest struct {
-	Name     string         `json:"name"`
-	Slug     string         `json:"slug"`
-	Metadata map[string]any `json:"metadata,omitempty"`
+	Name         string         `json:"name"`
+	Slug         string         `json:"slug"`
+	UseCase      string         `json:"use_case"`
+	HQBranchName string         `json:"hq_branch_name"` // e.g. "Main/HQ"
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 type registerRequest struct {
