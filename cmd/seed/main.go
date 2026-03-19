@@ -652,10 +652,36 @@ func seedPlatformAPIKey(ctx context.Context, client *ent.Client, platformTenantI
 		return fmt.Errorf("create platform API key: %w", err)
 	}
 
+	// Also store the plain key in integration_configs so auth-api can resolve it
+	// dynamically at runtime without a pod restart (superusers rotate via auth-ui).
+	// Stored as plain JSON here; the running app's integrations.Service will
+	// re-encrypt it on first SaveConfig call from auth-ui.
+	credsJSON, _ := json.Marshal(map[string]string{"key": plainKey})
+	icExists, _ := client.IntegrationConfig.Query().
+		Where(integrationconfig.Name("subscription_api_key"), integrationconfig.TenantIDIsNil()).
+		Exist(ctx)
+	var icErr error
+	if !icExists {
+		icErr = client.IntegrationConfig.Create().
+			SetName("subscription_api_key").
+			SetDisplayName("Subscription Service API Key").
+			SetDescription("Platform API key for auth-api → subscriptions-api S2S JWT enrichment. Rotate via auth-ui without pod restart.").
+			SetEncryptedCredentials(string(credsJSON)).
+			SetIsActive(true).
+			SetStatus("active").
+			Exec(ctx)
+	}
+	if icErr != nil {
+		// Non-fatal: app falls back to AUTH_SUBSCRIPTION_API_KEY env var
+		log.Printf("  ⚠️  Could not store key in integration_configs (app will use env fallback): %v", icErr)
+	} else {
+		log.Printf("  ✓ Platform API key stored in integration_configs as 'subscription_api_key'")
+	}
+
 	log.Printf("  ✅ Platform API key created!")
 	log.Printf("  ⚠️  IMPORTANT: Save this key — it will NOT be shown again:")
 	log.Printf("  PLATFORM_API_KEY=%s", plainKey)
-	log.Printf("  Set this in auth-api AND all services that call other services (e.g. AUTH_SUBSCRIPTION_API_KEY=<key>)")
+	log.Printf("  Set this in auth-api-secrets as PLATFORM_API_KEY for initial deployment.")
 	return nil
 }
 

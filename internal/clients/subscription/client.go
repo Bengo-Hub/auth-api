@@ -4,12 +4,17 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	serviceclient "github.com/Bengo-Hub/shared-service-client"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+// KeyProviderFunc is a function that returns the current API key.
+// It is called per-request so that key rotations take effect without restart.
+type KeyProviderFunc func(ctx context.Context) string
 
 // TenantSubscription represents the subscription data returned by subscription-service.
 type TenantSubscription struct {
@@ -42,16 +47,26 @@ type SubscriptionPlan struct {
 // Client communicates with subscription-service using circuit breaker pattern.
 type Client struct {
 	baseURL       string
-	apiKey        string
+	keyProvider   KeyProviderFunc // resolves API key at call time (supports rotation)
+	// Fallback static key (env var). Used when keyProvider is nil or returns "".
+	fallbackKey   string
 	serviceClient *serviceclient.Client
 	logger        *zap.Logger
+
+	// In-memory key cache: key provider may be expensive, cache for keyTTL.
+	mu          sync.Mutex
+	cachedKey   string
+	keyExpiry   time.Time
+	keyTTL      time.Duration
 }
 
 // Config holds client configuration.
 type Config struct {
-	BaseURL string
-	APIKey  string
-	Timeout time.Duration
+	BaseURL     string
+	APIKey      string          // static fallback (env var). Used when KeyProvider is nil or returns "".
+	KeyProvider KeyProviderFunc // optional dynamic key resolver (DB lookup)
+	Timeout     time.Duration
+	KeyCacheTTL time.Duration   // how long to cache the resolved key (default 5m)
 }
 
 // NewClient creates a new subscription service client with circuit breaker.
@@ -59,6 +74,10 @@ func NewClient(cfg Config, logger *zap.Logger) *Client {
 	timeout := cfg.Timeout
 	if timeout == 0 {
 		timeout = 5 * time.Second
+	}
+	cacheTTL := cfg.KeyCacheTTL
+	if cacheTTL == 0 {
+		cacheTTL = 5 * time.Minute
 	}
 
 	// Configure service client with circuit breaker
@@ -71,10 +90,37 @@ func NewClient(cfg Config, logger *zap.Logger) *Client {
 
 	return &Client{
 		baseURL:       cfg.BaseURL,
-		apiKey:        cfg.APIKey,
+		keyProvider:   cfg.KeyProvider,
+		fallbackKey:   cfg.APIKey,
 		serviceClient: serviceclient.New(scCfg),
 		logger:        logger.Named("subscription.client"),
+		keyTTL:        cacheTTL,
 	}
+}
+
+// resolveKey returns the current API key. Checks in-memory cache first,
+// then calls keyProvider (DB lookup), then falls back to static env key.
+func (c *Client) resolveKey(ctx context.Context) string {
+	if c.keyProvider == nil {
+		return c.fallbackKey
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.cachedKey != "" && time.Now().Before(c.keyExpiry) {
+		return c.cachedKey
+	}
+
+	key := c.keyProvider(ctx)
+	if key == "" {
+		key = c.fallbackKey
+	}
+	if key != "" {
+		c.cachedKey = key
+		c.keyExpiry = time.Now().Add(c.keyTTL)
+	}
+	return key
 }
 
 // GetTenantSubscription fetches subscription data for a tenant.
@@ -83,8 +129,8 @@ func (c *Client) GetTenantSubscription(ctx context.Context, tenantID uuid.UUID) 
 	path := fmt.Sprintf("/api/v1/tenants/%s/subscription", tenantID.String())
 
 	headers := make(map[string]string)
-	if c.apiKey != "" {
-		headers["X-API-Key"] = c.apiKey
+	if key := c.resolveKey(ctx); key != "" {
+		headers["X-API-Key"] = key
 	}
 
 	resp, err := c.serviceClient.Get(ctx, path, headers)
@@ -139,8 +185,8 @@ func (c *Client) CreateTrialSubscription(ctx context.Context, tenantID uuid.UUID
 	}
 
 	headers := make(map[string]string)
-	if c.apiKey != "" {
-		headers["X-API-Key"] = c.apiKey
+	if key := c.resolveKey(ctx); key != "" {
+		headers["X-API-Key"] = key
 	}
 	// For subscription-api, we should also pass the tenant context if required
 	headers["X-Tenant-ID"] = tenantID.String()
@@ -169,8 +215,8 @@ func (c *Client) GetPlanByCode(ctx context.Context, code string) (*SubscriptionP
 	path := fmt.Sprintf("/api/v1/plans/code/%s", code)
 
 	headers := make(map[string]string)
-	if c.apiKey != "" {
-		headers["X-API-Key"] = c.apiKey
+	if key := c.resolveKey(ctx); key != "" {
+		headers["X-API-Key"] = key
 	}
 
 	resp, err := c.serviceClient.Get(ctx, path, headers)
