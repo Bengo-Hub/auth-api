@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,6 +16,7 @@ import (
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/database"
 	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/apikey"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/permission"
@@ -59,6 +64,8 @@ func main() {
 		{"Urban Loft Cafe", "urban-loft", "theurbanloftcafe.com", false},
 		{"Kenya Urban Roads Authority (KURA)", "kura", "kura.go.ke", false},
 		{"UltiChange", "ultichange", "ultichange.org", false},
+		// TruLoad: commercial weighing tenant (private weighbridge operators)
+		{"TruLoad Commercial Weighing", "truload", "codevertexitsolutions.com", false},
 	}
 
 	var tenantEntities []*struct {
@@ -284,6 +291,55 @@ func main() {
 		}
 	}
 
+	// Seed demo admin for TruLoad commercial weighing tenant
+	// truload tenant is the last entry in the tenants slice
+	truloadTenant := tenantEntities[len(tenantEntities)-1] // "truload"
+	truloadAdminEmail := "admin@truload.codevertexitsolutions.com"
+	truloadAdminPassword := "ChangeMe123!"
+	truloadAdminHash, _ := hasher.Hash(truloadAdminPassword)
+
+	truloadAdmin, err := client.User.Create().
+		SetEmail(truloadAdminEmail).
+		SetPasswordHash(truloadAdminHash).
+		SetStatus("active").
+		SetPrimaryTenantID(truloadTenant.ID.String()).
+		SetProfile(map[string]any{
+			"name":       "TruLoad Demo Admin",
+			"phone":      "+254700000010",
+			"created_by": "seed",
+		}).
+		Save(ctx)
+	if err != nil {
+		truloadAdmin, err = client.User.Query().Where(user.EmailEQ(truloadAdminEmail)).Only(ctx)
+		if err != nil {
+			log.Printf("⚠️  seed truload admin: %v", err)
+		} else {
+			log.Printf("✓ TruLoad admin exists: %s", truloadAdminEmail)
+		}
+	} else {
+		log.Printf("✓ Created TruLoad admin: %s (password: %s)", truloadAdminEmail, truloadAdminPassword)
+	}
+
+	if truloadAdmin != nil {
+		exists, _ := client.TenantMembership.Query().
+			Where(
+				tenantmembership.UserID(truloadAdmin.ID),
+				tenantmembership.TenantID(truloadTenant.ID),
+			).Exist(ctx)
+		if !exists {
+			_, err = client.TenantMembership.Create().
+				SetUserID(truloadAdmin.ID).
+				SetTenantID(truloadTenant.ID).
+				SetRoles([]string{"admin"}).
+				Save(ctx)
+			if err != nil {
+				log.Printf("  ⚠️  Error creating truload admin membership: %v", err)
+			} else {
+				log.Printf("  ✓ Added admin role in %s", truloadTenant.Slug)
+			}
+		}
+	}
+
 	// Seed staff users for all tenants
 	log.Println("Seeding staff users for all tenants...")
 	for _, te := range tenantEntities {
@@ -420,6 +476,22 @@ func main() {
 	posRedirects := []string{}
 	inventoryRedirects := []string{}
 	logisticsRedirects := []string{}
+	// TruLoad: commercial weighbridge UI — uses truload.codevertexitsolutions.com
+	// Each commercial tenant org uses /{orgSlug}/auth/callback after SSO
+	truloadRedirects := []string{
+		"https://truload.codevertexitsolutions.com/auth/callback",
+		"http://localhost:3003/auth/callback",
+	}
+	// TruLoad org slugs are truload-backend Organization.Code values (e.g. "TRULOAD-DEMO")
+	// We seed the known commercial org slugs here; add more as tenants are onboarded.
+	truloadOrgSlugs := []string{"truload-demo"}
+	for _, orgSlug := range truloadOrgSlugs {
+		truloadRedirects = append(truloadRedirects,
+			"https://truload.codevertexitsolutions.com/"+orgSlug+"/auth/callback",
+			"http://localhost:3003/"+orgSlug+"/auth/callback",
+		)
+	}
+
 	for _, slug := range tenantSlugs {
 		notificationsRedirects = append(notificationsRedirects,
 			"https://notifications.codevertexitsolutions.com/"+slug+"/auth/callback",
@@ -468,6 +540,9 @@ func main() {
 		{ID: "inventory-ui", Name: "BengoBox Inventory UI", RedirectURIs: inventoryRedirects, Public: true},
 		{ID: "logistics-ui", Name: "BengoBox Logistics UI", RedirectURIs: logisticsRedirects, Public: true},
 		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", RedirectURIs: []string{"https://accounts.codevertexitsolutions.com/auth/callback", "https://sso.codevertexitsolutions.com/auth/callback", "http://localhost:3014/auth/callback"}, Public: true},
+		// TruLoad Weighbridge UI — PKCE public client for commercial weighing tenants
+		// Uses truload.codevertexitsolutions.com; enforcement tenants use local login (no SSO)
+		{ID: "truload-ui", Name: "TruLoad Weighbridge UI", RedirectURIs: truloadRedirects, Public: true},
 	}
 
 	for _, c := range oauthClients {
@@ -506,8 +581,82 @@ func main() {
 		}
 	}
 
+	// Seed platform API key for service-to-service integrations
+	// This key is used by other services (auth-api → subscriptions-api, etc.) for S2S calls.
+	// Set PLATFORM_API_KEY env var to use a specific key; otherwise one is generated and printed.
+	log.Println("Seeding platform API key...")
+	if err := seedPlatformAPIKey(ctx, client, tenantEntities[0].ID); err != nil {
+		log.Printf("⚠️  Failed to seed platform API key: %v", err)
+	}
+
 	log.Println("✅ Seeding completed successfully!")
 	_ = os.Setenv("SEEDED_AT", time.Now().Format(time.RFC3339))
+}
+
+func seedPlatformAPIKey(ctx context.Context, client *ent.Client, platformTenantID uuid.UUID) error {
+	const keyName = "platform-internal-service-key"
+
+	// Check if platform API key already exists
+	existingCount, err := client.APIKey.Query().
+		Where(
+			apikey.TenantIDEQ(platformTenantID),
+			apikey.ServiceEQ("platform"),
+			apikey.StatusEQ(apikey.StatusActive),
+		).
+		Count(ctx)
+	if err != nil {
+		return fmt.Errorf("check existing keys: %w", err)
+	}
+
+	if existingCount > 0 {
+		log.Printf("  ✓ Platform API key already exists")
+		return nil
+	}
+
+	// Generate a new API key or use one provided via env
+	var plainKey, keyPrefix, keyHash string
+
+	if envKey := os.Getenv("PLATFORM_API_KEY"); envKey != "" {
+		// Use the provided key
+		plainKey = envKey
+		if len(plainKey) >= 8 {
+			keyPrefix = plainKey[:8]
+		} else {
+			keyPrefix = plainKey
+		}
+		hashBytes := sha256.Sum256([]byte(plainKey))
+		keyHash = hex.EncodeToString(hashBytes[:])
+		log.Printf("  ℹ️  Using PLATFORM_API_KEY from environment")
+	} else {
+		// Generate a new key
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err != nil {
+			return fmt.Errorf("generate random bytes: %w", err)
+		}
+		plainKey = "bng_" + base64.URLEncoding.EncodeToString(b)
+		keyPrefix = plainKey[:8]
+		hashBytes := sha256.Sum256([]byte(plainKey))
+		keyHash = hex.EncodeToString(hashBytes[:])
+	}
+
+	_, err = client.APIKey.Create().
+		SetName(keyName).
+		SetKeyHash(keyHash).
+		SetKeyPrefix(keyPrefix).
+		SetTenantID(platformTenantID).
+		SetService("platform").
+		SetScopes([]string{"*"}).
+		SetStatus(apikey.StatusActive).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("create platform API key: %w", err)
+	}
+
+	log.Printf("  ✅ Platform API key created!")
+	log.Printf("  ⚠️  IMPORTANT: Save this key — it will NOT be shown again:")
+	log.Printf("  PLATFORM_API_KEY=%s", plainKey)
+	log.Printf("  Set this in auth-api AND all services that call other services (e.g. AUTH_SUBSCRIPTION_API_KEY=<key>)")
+	return nil
 }
 
 func seedIntegrations(ctx context.Context, client *ent.Client, apiBaseURL string) error {
