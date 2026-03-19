@@ -65,7 +65,7 @@ func main() {
 		{"Kenya Urban Roads Authority (KURA)", "kura", "kura.go.ke", false},
 		{"UltiChange", "ultichange", "ultichange.org", false},
 		// TruLoad: commercial weighing tenant (private weighbridge operators)
-		{"TruLoad Commercial Weighing", "truload", "codevertexitsolutions.com", false},
+		{"TruLoad", "truload", "codevertexitsolutions.com", false},
 	}
 
 	var tenantEntities []*struct {
@@ -478,17 +478,21 @@ func main() {
 	logisticsRedirects := []string{}
 	// TruLoad: commercial weighbridge UI — uses truload.codevertexitsolutions.com
 	// Each commercial tenant org uses /{orgSlug}/auth/callback after SSO
+	// localhost:3003 is the assigned dev port; localhost:3000 is the Next.js default
+	// (both are needed so local tests pass regardless of port configuration)
 	truloadRedirects := []string{
 		"https://truload.codevertexitsolutions.com/auth/callback",
 		"http://localhost:3003/auth/callback",
+		"http://localhost:3000/auth/callback",
 	}
 	// TruLoad org slugs are truload-backend Organization.Code values (e.g. "TRULOAD-DEMO")
 	// We seed the known commercial org slugs here; add more as tenants are onboarded.
-	truloadOrgSlugs := []string{"truload-demo"}
+	truloadOrgSlugs := []string{"truload-demo", "danka"}
 	for _, orgSlug := range truloadOrgSlugs {
 		truloadRedirects = append(truloadRedirects,
 			"https://truload.codevertexitsolutions.com/"+orgSlug+"/auth/callback",
 			"http://localhost:3003/"+orgSlug+"/auth/callback",
+			"http://localhost:3000/"+orgSlug+"/auth/callback",
 		)
 	}
 
@@ -542,7 +546,7 @@ func main() {
 		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", RedirectURIs: []string{"https://accounts.codevertexitsolutions.com/auth/callback", "https://sso.codevertexitsolutions.com/auth/callback", "http://localhost:3014/auth/callback"}, Public: true},
 		// TruLoad Weighbridge UI — PKCE public client for commercial weighing tenants
 		// Uses truload.codevertexitsolutions.com; enforcement tenants use local login (no SSO)
-		{ID: "truload-ui", Name: "TruLoad Weighbridge UI", RedirectURIs: truloadRedirects, Public: true},
+		{ID: "truload-ui", Name: "TruLoad UI", RedirectURIs: truloadRedirects, Public: true},
 	}
 
 	for _, c := range oauthClients {
