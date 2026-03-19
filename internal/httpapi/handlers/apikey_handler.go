@@ -11,6 +11,7 @@ import (
 
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/apikey"
+	"github.com/bengobox/auth-api/internal/ent/tenant"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -54,10 +55,12 @@ type CreateAPIKeyResponse struct {
 
 // ValidateAPIKeyResponse returns information about a valid API key.
 type ValidateAPIKeyResponse struct {
-	ClientID string   `json:"client_id"` // API key ID
-	TenantID string   `json:"tenant_id"`
-	Scopes   []string `json:"scopes"`
-	Service  string   `json:"service,omitempty"`
+	ClientID   string   `json:"client_id"` // API key ID
+	TenantID   string   `json:"tenant_id"`
+	TenantSlug string   `json:"tenant_slug"`
+	Scopes     []string `json:"scopes"`
+	Roles      []string `json:"roles"`
+	Service    string   `json:"service,omitempty"`
 }
 
 // generateAPIKey generates a cryptographically secure API key.
@@ -264,12 +267,28 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 			Save(r.Context())
 	}()
 
+	// Look up tenant slug for platform owner detection
+	tenantSlug := ""
+	if tenantEntity, err := h.ent.Tenant.Query().
+		Where(tenant.IDEQ(key.TenantID)).
+		Only(r.Context()); err == nil {
+		tenantSlug = tenantEntity.Slug
+	}
+
+	// Determine roles: service keys get superuser access, regular keys use stored scopes
+	roles := []string{}
+	if key.Service != "" {
+		roles = []string{"superuser"}
+	}
+
 	// Return validation response
 	writeJSON(w, http.StatusOK, ValidateAPIKeyResponse{
-		ClientID: key.ID.String(),
-		TenantID: key.TenantID.String(),
-		Scopes:   key.Scopes,
-		Service:  key.Service,
+		ClientID:   key.ID.String(),
+		TenantID:   key.TenantID.String(),
+		TenantSlug: tenantSlug,
+		Scopes:     key.Scopes,
+		Roles:      roles,
+		Service:    key.Service,
 	})
 }
 
