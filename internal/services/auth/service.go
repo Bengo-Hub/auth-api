@@ -398,14 +398,15 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 }
 
 // Login authenticates a user with email/password.
-// If tenant_slug is not provided, the tenant is resolved from the user's primary_tenant_id in the DB
-// so that tenant users can log in directly from auth-ui without a tenant in the URL.
+// If tenant_slug is not provided, the tenant is resolved from the user's primary_tenant_id in the DB.
+// If primary_tenant_id is not set or the tenant cannot be found, falls back to the user's first active
+// TenantMembership record — this allows direct auth-ui login without a service redirect.
 func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error) {
 	userEntity, err := s.entClient.User.Query().
 		Where(
 			user.EmailEQ(normalizeEmail(in.Email)),
 		).
-		Only(ctx)
+		First(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return nil, ErrInvalidCredentials
@@ -420,26 +421,44 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 			return nil, err
 		}
 	} else {
-		if userEntity.PrimaryTenantID == "" {
-			return nil, ErrInvalidCredentials
+		// Attempt 1: resolve from primary_tenant_id (fastest path).
+		if primaryID := strings.TrimSpace(userEntity.PrimaryTenantID); primaryID != "" {
+			if primaryTenantUUID, parseErr := uuid.Parse(primaryID); parseErr == nil {
+				if t, getErr := s.GetTenant(ctx, primaryTenantUUID); getErr == nil && t.Status == "active" {
+					tenantEntity = t
+				}
+			}
 		}
-		primaryTenantUUID, err := uuid.Parse(userEntity.PrimaryTenantID)
-		if err != nil {
-			return nil, ErrInvalidCredentials
-		}
-		tenantEntity, err = s.GetTenant(ctx, primaryTenantUUID)
-		if err != nil {
-			if ent.IsNotFound(err) {
+
+		// Attempt 2: resolve from the user's TenantMembership records when primary_tenant_id
+		// is unset, invalid, or points to an inactive/deleted tenant.
+		if tenantEntity == nil {
+			memberships, mErr := s.entClient.TenantMembership.Query().
+				Where(tenantmembership.UserID(userEntity.ID)).
+				WithTenant().
+				All(ctx)
+			if mErr != nil {
+				s.logger.Warn("login: failed to resolve tenant from memberships", zap.Error(mErr))
 				return nil, ErrInvalidCredentials
 			}
-			return nil, fmt.Errorf("query tenant: %w", err)
+			for _, m := range memberships {
+				if m.Edges.Tenant != nil && m.Edges.Tenant.Status == "active" {
+					tenantEntity = m.Edges.Tenant
+					// Back-fill primary_tenant_id so future logins skip this fallback.
+					_ = s.entClient.User.UpdateOneID(userEntity.ID).
+						SetPrimaryTenantID(tenantEntity.ID.String()).
+						Exec(ctx)
+					break
+				}
+			}
 		}
-		if tenantEntity.Status != "active" {
-			return nil, ErrTenantInactive
+
+		if tenantEntity == nil {
+			return nil, ErrTenantNotFound
 		}
 	}
 
-	// Ensure membership exists (use First instead of Only to handle duplicate memberships gracefully)
+	// Verify membership in the resolved tenant.
 	_, err = s.entClient.TenantMembership.Query().
 		Where(
 			tenantmembership.UserID(userEntity.ID),
