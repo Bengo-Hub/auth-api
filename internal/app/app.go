@@ -90,16 +90,33 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	hasher := password.NewHasher(cfg.Security)
 	auditor := audit.New(entClient, logger)
 
-	// Initialize subscription client for JWT enrichment (optional)
+	// Initialize subscription client for JWT enrichment (optional).
+	// The API key is resolved dynamically from integration_configs (DB, cached 5 min)
+	// so superusers can rotate it via auth-ui without restarting the pod.
+	// Falls back to AUTH_SUBSCRIPTION_API_KEY env var if not found in DB.
 	var subClient *subscriptionclient.Client
 	if cfg.Subscription.Enabled && cfg.Subscription.BaseURL != "" {
+		keyProvider := subscriptionclient.KeyProviderFunc(func(ctx context.Context) string {
+			creds, err := integrationSvc.GetDecryptedConfig(ctx, nil, "subscription_api_key")
+			if err != nil {
+				// Not yet in DB, decryption failed (seeder stores plain JSON until
+				// superuser saves via auth-ui which re-encrypts), or other error.
+				// Fall through to env var fallback.
+				return ""
+			}
+			return creds["key"]
+		})
+		// Warm the cache on startup: if the key isn't in DB yet (seeder not run),
+		// we'll fall back to env var — logged below at first use, not here.
 		subClient = subscriptionclient.NewClient(subscriptionclient.Config{
-			BaseURL: cfg.Subscription.BaseURL,
-			APIKey:  cfg.Subscription.APIKey,
-			Timeout: cfg.Subscription.Timeout,
+			BaseURL:     cfg.Subscription.BaseURL,
+			APIKey:      cfg.Subscription.APIKey, // static fallback from env
+			KeyProvider: keyProvider,
+			Timeout:     cfg.Subscription.Timeout,
 		}, logger)
 		logger.Info("subscription client initialized",
 			zap.String("base_url", cfg.Subscription.BaseURL),
+			zap.Bool("dynamic_key", true),
 		)
 	}
 

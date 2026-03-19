@@ -103,9 +103,15 @@ func (s *Service) GetDecryptedConfig(ctx context.Context, tenantID *uuid.UUID, n
 		return nil, fmt.Errorf("integration %s is disabled", name)
 	}
 
-	// 3. Decrypt
+	// 3. Decrypt (AES-GCM encrypted by SaveConfig / auth-ui)
 	decrypted, err := crypto.Decrypt(config.EncryptedCredentials, s.encryptionKey)
 	if err != nil {
+		// Fallback: seeder stores credentials as plain JSON before the first
+		// auth-ui save re-encrypts them. Accept plain JSON transparently.
+		var rawCreds map[string]string
+		if jsonErr := json.Unmarshal([]byte(config.EncryptedCredentials), &rawCreds); jsonErr == nil {
+			return rawCreds, nil
+		}
 		return nil, fmt.Errorf("decrypt credentials for %s: %w", name, err)
 	}
 
