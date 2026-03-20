@@ -17,13 +17,17 @@ import (
 func main() {
 	_ = godotenv.Load()
 
-	dbURL := os.Getenv("AUTH_DB_URL")
+	// Standardized: POSTGRES_URL (matches config.go DatabaseConfig env tag)
+	// Legacy fallbacks kept for backward compatibility with older values.yaml
+	dbURL := os.Getenv("POSTGRES_URL")
 	if dbURL == "" {
-		// Fallback to AUTH_POSTGRES_URL
+		dbURL = os.Getenv("AUTH_DB_URL")
+	}
+	if dbURL == "" {
 		dbURL = os.Getenv("AUTH_POSTGRES_URL")
 	}
 	if dbURL == "" {
-		log.Fatal("AUTH_DB_URL or AUTH_POSTGRES_URL is required")
+		log.Fatal("POSTGRES_URL is required (set via Kubernetes secret or .env)")
 	}
 
 	// Parse the URL to get the database name
