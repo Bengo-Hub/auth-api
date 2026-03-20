@@ -128,8 +128,47 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_redirect", "redirect not allowed", nil)
 		return
 	}
-	// Generate code (include tenant from authorize URL so token exchange can prefer it)
+	// Validate that user is a member of the requested tenant
 	tenantFromURL := q.Get("tenant")
+	if tenantFromURL != "" {
+		userID := parseUUID(claims.Subject)
+		memberships, err := h.oidc.GetUserMemberships(r.Context(), userID)
+		if err != nil {
+			reqID := middleware.GetReqID(r.Context())
+			h.logger.Error("failed to fetch user memberships", zap.String("request_id", reqID), zap.Error(err))
+			writeError(w, http.StatusInternalServerError, "server_error", "failed to verify tenant membership", map[string]any{"request_id": reqID})
+			return
+		}
+		isMember := false
+		for _, m := range memberships {
+			if m.TenantSlug == tenantFromURL {
+				isMember = true
+				break
+			}
+		}
+		if !isMember {
+			h.logger.Warn("user not a member of requested tenant",
+				zap.String("user_id", claims.Subject),
+				zap.String("tenant", tenantFromURL))
+			// Redirect back with error so the client can handle it
+			if redirectURI != "" {
+				u, _ := url.Parse(redirectURI)
+				params := u.Query()
+				params.Set("error", "access_denied")
+				params.Set("error_description", "You are not a member of the requested tenant")
+				if state != "" {
+					params.Set("state", state)
+				}
+				u.RawQuery = params.Encode()
+				http.Redirect(w, r, u.String(), http.StatusFound)
+				return
+			}
+			writeError(w, http.StatusForbidden, "access_denied", "You are not a member of the requested tenant", nil)
+			return
+		}
+	}
+
+	// Generate code (include tenant from authorize URL so token exchange can prefer it)
 	codePlain := randomOIDCString(32)
 	_, err = h.oidc.CreateAuthorizationCode(
 		r.Context(),
@@ -188,7 +227,7 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	var roles []string
 	var tenantID *uuid.UUID
 	var tenantSlug string
-	// Prefer tenant from authorize URL (stored in code metadata) if user is a member
+	// Collect all roles and resolve requested tenant
 	requestedSlug, _ := authCode.Metadata["tenant_slug"].(string)
 	for _, m := range memberships {
 		roles = append(roles, m.Roles...)
@@ -196,10 +235,17 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 			tid := m.TenantID
 			tenantID = &tid
 			tenantSlug = m.TenantSlug
-			break
 		}
 	}
-	// Fallback: first or primary membership when no requested slug or user not member
+	// If a specific tenant was requested but user is not a member, reject the token exchange
+	if requestedSlug != "" && tenantID == nil {
+		h.logger.Warn("token exchange denied: user not a member of requested tenant",
+			zap.String("user_id", userEntity.ID.String()),
+			zap.String("requested_tenant", requestedSlug))
+		writeError(w, http.StatusForbidden, "access_denied", "user is not a member of the requested tenant", nil)
+		return
+	}
+	// Fallback: first or primary membership when no specific tenant was requested
 	if tenantID == nil {
 		for _, m := range memberships {
 			if tenantID == nil || (userEntity.PrimaryTenantID != "" && m.TenantID.String() == userEntity.PrimaryTenantID) {
