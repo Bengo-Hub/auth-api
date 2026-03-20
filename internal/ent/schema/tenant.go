@@ -77,7 +77,10 @@ func (Tenant) Fields() []ent.Field {
 		field.String("use_case").
 			Optional().
 			Nillable().
-			Comment("Primary business use case: hospitality | retail | quick_service | manufacturing | warehousing | services | e_commerce | other"),
+			Comment("Primary business use case (legacy single value). Use use_cases for multi-select."),
+		field.JSON("use_cases", []string{}).
+			Optional().
+			Comment("Business use cases (multi-select): hospitality, retail, e_commerce, quick_service, food_delivery, grocery, manufacturing, warehousing, logistics, weighbridge, services, pharmacy, other"),
 
 		// ── Subscription Tier Cache ────────────────────────────────────────────
 		// Denormalized from subscription-api for fast JWT enrichment and auth checks.

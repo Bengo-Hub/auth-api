@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -241,6 +242,24 @@ func (_u *TenantUpdate) SetNillableUseCase(v *string) *TenantUpdate {
 // ClearUseCase clears the value of the "use_case" field.
 func (_u *TenantUpdate) ClearUseCase() *TenantUpdate {
 	_u.mutation.ClearUseCase()
+	return _u
+}
+
+// SetUseCases sets the "use_cases" field.
+func (_u *TenantUpdate) SetUseCases(v []string) *TenantUpdate {
+	_u.mutation.SetUseCases(v)
+	return _u
+}
+
+// AppendUseCases appends value to the "use_cases" field.
+func (_u *TenantUpdate) AppendUseCases(v []string) *TenantUpdate {
+	_u.mutation.AppendUseCases(v)
+	return _u
+}
+
+// ClearUseCases clears the value of the "use_cases" field.
+func (_u *TenantUpdate) ClearUseCases() *TenantUpdate {
+	_u.mutation.ClearUseCases()
 	return _u
 }
 
@@ -520,6 +539,17 @@ func (_u *TenantUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.UseCaseCleared() {
 		_spec.ClearField(tenant.FieldUseCase, field.TypeString)
+	}
+	if value, ok := _u.mutation.UseCases(); ok {
+		_spec.SetField(tenant.FieldUseCases, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedUseCases(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, tenant.FieldUseCases, value)
+		})
+	}
+	if _u.mutation.UseCasesCleared() {
+		_spec.ClearField(tenant.FieldUseCases, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.SubscriptionPlan(); ok {
 		_spec.SetField(tenant.FieldSubscriptionPlan, field.TypeString, value)
@@ -839,6 +869,24 @@ func (_u *TenantUpdateOne) ClearUseCase() *TenantUpdateOne {
 	return _u
 }
 
+// SetUseCases sets the "use_cases" field.
+func (_u *TenantUpdateOne) SetUseCases(v []string) *TenantUpdateOne {
+	_u.mutation.SetUseCases(v)
+	return _u
+}
+
+// AppendUseCases appends value to the "use_cases" field.
+func (_u *TenantUpdateOne) AppendUseCases(v []string) *TenantUpdateOne {
+	_u.mutation.AppendUseCases(v)
+	return _u
+}
+
+// ClearUseCases clears the value of the "use_cases" field.
+func (_u *TenantUpdateOne) ClearUseCases() *TenantUpdateOne {
+	_u.mutation.ClearUseCases()
+	return _u
+}
+
 // SetSubscriptionPlan sets the "subscription_plan" field.
 func (_u *TenantUpdateOne) SetSubscriptionPlan(v string) *TenantUpdateOne {
 	_u.mutation.SetSubscriptionPlan(v)
@@ -1145,6 +1193,17 @@ func (_u *TenantUpdateOne) sqlSave(ctx context.Context) (_node *Tenant, err erro
 	}
 	if _u.mutation.UseCaseCleared() {
 		_spec.ClearField(tenant.FieldUseCase, field.TypeString)
+	}
+	if value, ok := _u.mutation.UseCases(); ok {
+		_spec.SetField(tenant.FieldUseCases, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedUseCases(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, tenant.FieldUseCases, value)
+		})
+	}
+	if _u.mutation.UseCasesCleared() {
+		_spec.ClearField(tenant.FieldUseCases, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.SubscriptionPlan(); ok {
 		_spec.SetField(tenant.FieldSubscriptionPlan, field.TypeString, value)

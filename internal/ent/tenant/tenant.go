@@ -39,6 +39,8 @@ const (
 	FieldOrgSize = "org_size"
 	// FieldUseCase holds the string denoting the use_case field in the database.
 	FieldUseCase = "use_case"
+	// FieldUseCases holds the string denoting the use_cases field in the database.
+	FieldUseCases = "use_cases"
 	// FieldSubscriptionPlan holds the string denoting the subscription_plan field in the database.
 	FieldSubscriptionPlan = "subscription_plan"
 	// FieldSubscriptionStatus holds the string denoting the subscription_status field in the database.
@@ -83,6 +85,7 @@ var Columns = []string{
 	FieldBrandColors,
 	FieldOrgSize,
 	FieldUseCase,
+	FieldUseCases,
 	FieldSubscriptionPlan,
 	FieldSubscriptionStatus,
 	FieldSubscriptionExpiresAt,

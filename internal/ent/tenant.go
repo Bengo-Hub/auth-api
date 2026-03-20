@@ -41,8 +41,10 @@ type Tenant struct {
 	BrandColors map[string]interface{} `json:"brand_colors,omitempty"`
 	// Staff count band: 1-5 | 6-20 | 21-100 | 100+
 	OrgSize *string `json:"org_size,omitempty"`
-	// Primary business use case: food_delivery | logistics | cafe_restaurant | retail | other
+	// Primary business use case (legacy single value). Use use_cases for multi-select.
 	UseCase *string `json:"use_case,omitempty"`
+	// Business use cases (multi-select): hospitality, retail, e_commerce, quick_service, food_delivery, grocery, manufacturing, warehousing, logistics, weighbridge, services, pharmacy, other
+	UseCases []string `json:"use_cases,omitempty"`
 	// Active plan code: STARTER | GROWTH | PROFESSIONAL (denormalized from subscription-api)
 	SubscriptionPlan *string `json:"subscription_plan,omitempty"`
 	// ACTIVE | TRIAL | EXPIRED | CANCELLED (denormalized from subscription-api)
@@ -88,7 +90,7 @@ func (*Tenant) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case tenant.FieldBrandColors, tenant.FieldTierLimits, tenant.FieldMetadata:
+		case tenant.FieldBrandColors, tenant.FieldUseCases, tenant.FieldTierLimits, tenant.FieldMetadata:
 			values[i] = new([]byte)
 		case tenant.FieldName, tenant.FieldSlug, tenant.FieldStatus, tenant.FieldContactEmail, tenant.FieldContactPhone, tenant.FieldLogoURL, tenant.FieldWebsite, tenant.FieldCountry, tenant.FieldTimezone, tenant.FieldOrgSize, tenant.FieldUseCase, tenant.FieldSubscriptionPlan, tenant.FieldSubscriptionStatus, tenant.FieldSubscriptionID:
 			values[i] = new(sql.NullString)
@@ -198,6 +200,14 @@ func (_m *Tenant) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.UseCase = new(string)
 				*_m.UseCase = value.String
+			}
+		case tenant.FieldUseCases:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field use_cases", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.UseCases); err != nil {
+					return fmt.Errorf("unmarshal field use_cases: %w", err)
+				}
 			}
 		case tenant.FieldSubscriptionPlan:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -347,6 +357,9 @@ func (_m *Tenant) String() string {
 		builder.WriteString("use_case=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	builder.WriteString("use_cases=")
+	builder.WriteString(fmt.Sprintf("%v", _m.UseCases))
 	builder.WriteString(", ")
 	if v := _m.SubscriptionPlan; v != nil {
 		builder.WriteString("subscription_plan=")

@@ -169,6 +169,12 @@ func (_c *TenantCreate) SetNillableUseCase(v *string) *TenantCreate {
 	return _c
 }
 
+// SetUseCases sets the "use_cases" field.
+func (_c *TenantCreate) SetUseCases(v []string) *TenantCreate {
+	_c.mutation.SetUseCases(v)
+	return _c
+}
+
 // SetSubscriptionPlan sets the "subscription_plan" field.
 func (_c *TenantCreate) SetSubscriptionPlan(v string) *TenantCreate {
 	_c.mutation.SetSubscriptionPlan(v)
@@ -466,6 +472,10 @@ func (_c *TenantCreate) createSpec() (*Tenant, *sqlgraph.CreateSpec) {
 		_spec.SetField(tenant.FieldUseCase, field.TypeString, value)
 		_node.UseCase = &value
 	}
+	if value, ok := _c.mutation.UseCases(); ok {
+		_spec.SetField(tenant.FieldUseCases, field.TypeJSON, value)
+		_node.UseCases = value
+	}
 	if value, ok := _c.mutation.SubscriptionPlan(); ok {
 		_spec.SetField(tenant.FieldSubscriptionPlan, field.TypeString, value)
 		_node.SubscriptionPlan = &value
@@ -761,6 +771,24 @@ func (u *TenantUpsert) UpdateUseCase() *TenantUpsert {
 // ClearUseCase clears the value of the "use_case" field.
 func (u *TenantUpsert) ClearUseCase() *TenantUpsert {
 	u.SetNull(tenant.FieldUseCase)
+	return u
+}
+
+// SetUseCases sets the "use_cases" field.
+func (u *TenantUpsert) SetUseCases(v []string) *TenantUpsert {
+	u.Set(tenant.FieldUseCases, v)
+	return u
+}
+
+// UpdateUseCases sets the "use_cases" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateUseCases() *TenantUpsert {
+	u.SetExcluded(tenant.FieldUseCases)
+	return u
+}
+
+// ClearUseCases clears the value of the "use_cases" field.
+func (u *TenantUpsert) ClearUseCases() *TenantUpsert {
+	u.SetNull(tenant.FieldUseCases)
 	return u
 }
 
@@ -1163,6 +1191,27 @@ func (u *TenantUpsertOne) UpdateUseCase() *TenantUpsertOne {
 func (u *TenantUpsertOne) ClearUseCase() *TenantUpsertOne {
 	return u.Update(func(s *TenantUpsert) {
 		s.ClearUseCase()
+	})
+}
+
+// SetUseCases sets the "use_cases" field.
+func (u *TenantUpsertOne) SetUseCases(v []string) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetUseCases(v)
+	})
+}
+
+// UpdateUseCases sets the "use_cases" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateUseCases() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateUseCases()
+	})
+}
+
+// ClearUseCases clears the value of the "use_cases" field.
+func (u *TenantUpsertOne) ClearUseCases() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearUseCases()
 	})
 }
 
@@ -1752,6 +1801,27 @@ func (u *TenantUpsertBulk) UpdateUseCase() *TenantUpsertBulk {
 func (u *TenantUpsertBulk) ClearUseCase() *TenantUpsertBulk {
 	return u.Update(func(s *TenantUpsert) {
 		s.ClearUseCase()
+	})
+}
+
+// SetUseCases sets the "use_cases" field.
+func (u *TenantUpsertBulk) SetUseCases(v []string) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetUseCases(v)
+	})
+}
+
+// UpdateUseCases sets the "use_cases" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateUseCases() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateUseCases()
+	})
+}
+
+// ClearUseCases clears the value of the "use_cases" field.
+func (u *TenantUpsertBulk) ClearUseCases() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearUseCases()
 	})
 }
 

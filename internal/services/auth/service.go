@@ -126,7 +126,8 @@ type JTIRevoker interface {
 type NewOrgInput struct {
 	Name         string
 	Slug         string
-	UseCase      string
+	UseCase      string   // Legacy single value (kept for backward compat)
+	UseCases     []string // Multi-select use cases
 	HQBranchName string
 	Metadata     map[string]any
 }
@@ -231,10 +232,16 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 	if in.OrgAction == "create_new" && in.NewOrg != nil {
 		// Create a brand-new organisation; the registering user becomes its admin.
 		meta := coalesceMap(in.NewOrg.Metadata)
+		// Determine primary use case: first from UseCases array, fallback to UseCase string
+		primaryUseCase := in.NewOrg.UseCase
+		if primaryUseCase == "" && len(in.NewOrg.UseCases) > 0 {
+			primaryUseCase = in.NewOrg.UseCases[0]
+		}
 		create := s.entClient.Tenant.Create().
 			SetName(in.NewOrg.Name).
 			SetSlug(in.NewOrg.Slug).
-			SetUseCase(in.NewOrg.UseCase).
+			SetUseCase(primaryUseCase).
+			SetUseCases(in.NewOrg.UseCases).
 			SetStatus("active")
 		if len(meta) > 0 {
 			create = create.SetMetadata(meta)
@@ -254,19 +261,13 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 			}
 		}
 		// Publish tenant.created event for downstream service sync.
-		// Provision live trial subscription from subscription-api.
-		plan := in.SelectedPlan
-		if plan == "" && s.subscriptionCl != nil {
-			// Pull default STARTER plan from subscription-api if none selected
-			p, err := s.subscriptionCl.GetPlanByCode(ctx, "STARTER")
-			if err != nil {
-				s.logger.Warn("failed to fetch default STARTER plan", zap.Error(err))
-			} else if p != nil {
-				plan = p.PlanCode
-			}
+		// Auto-assign STARTER plan with free trial for all new tenants.
+		plan := "STARTER"
+		if in.SelectedPlan != "" {
+			plan = in.SelectedPlan
 		}
 
-		if plan != "" && s.subscriptionCl != nil {
+		if s.subscriptionCl != nil {
 			sub, err := s.subscriptionCl.CreateTrialSubscription(ctx, tenantEntity.ID, plan)
 			if err != nil {
 				s.logger.Warn("failed to provision trial subscription",

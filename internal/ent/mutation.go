@@ -13571,6 +13571,8 @@ type TenantMutation struct {
 	brand_colors            *map[string]interface{}
 	org_size                *string
 	use_case                *string
+	use_cases               *[]string
+	appenduse_cases         []string
 	subscription_plan       *string
 	subscription_status     *string
 	subscription_expires_at *time.Time
@@ -14241,6 +14243,71 @@ func (m *TenantMutation) ResetUseCase() {
 	delete(m.clearedFields, tenant.FieldUseCase)
 }
 
+// SetUseCases sets the "use_cases" field.
+func (m *TenantMutation) SetUseCases(s []string) {
+	m.use_cases = &s
+	m.appenduse_cases = nil
+}
+
+// UseCases returns the value of the "use_cases" field in the mutation.
+func (m *TenantMutation) UseCases() (r []string, exists bool) {
+	v := m.use_cases
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUseCases returns the old "use_cases" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldUseCases(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUseCases is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUseCases requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUseCases: %w", err)
+	}
+	return oldValue.UseCases, nil
+}
+
+// AppendUseCases adds s to the "use_cases" field.
+func (m *TenantMutation) AppendUseCases(s []string) {
+	m.appenduse_cases = append(m.appenduse_cases, s...)
+}
+
+// AppendedUseCases returns the list of values that were appended to the "use_cases" field in this mutation.
+func (m *TenantMutation) AppendedUseCases() ([]string, bool) {
+	if len(m.appenduse_cases) == 0 {
+		return nil, false
+	}
+	return m.appenduse_cases, true
+}
+
+// ClearUseCases clears the value of the "use_cases" field.
+func (m *TenantMutation) ClearUseCases() {
+	m.use_cases = nil
+	m.appenduse_cases = nil
+	m.clearedFields[tenant.FieldUseCases] = struct{}{}
+}
+
+// UseCasesCleared returns if the "use_cases" field was cleared in this mutation.
+func (m *TenantMutation) UseCasesCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldUseCases]
+	return ok
+}
+
+// ResetUseCases resets all changes to the "use_cases" field.
+func (m *TenantMutation) ResetUseCases() {
+	m.use_cases = nil
+	m.appenduse_cases = nil
+	delete(m.clearedFields, tenant.FieldUseCases)
+}
+
 // SetSubscriptionPlan sets the "subscription_plan" field.
 func (m *TenantMutation) SetSubscriptionPlan(s string) {
 	m.subscription_plan = &s
@@ -14695,7 +14762,7 @@ func (m *TenantMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TenantMutation) Fields() []string {
-	fields := make([]string, 0, 20)
+	fields := make([]string, 0, 21)
 	if m.name != nil {
 		fields = append(fields, tenant.FieldName)
 	}
@@ -14731,6 +14798,9 @@ func (m *TenantMutation) Fields() []string {
 	}
 	if m.use_case != nil {
 		fields = append(fields, tenant.FieldUseCase)
+	}
+	if m.use_cases != nil {
+		fields = append(fields, tenant.FieldUseCases)
 	}
 	if m.subscription_plan != nil {
 		fields = append(fields, tenant.FieldSubscriptionPlan)
@@ -14788,6 +14858,8 @@ func (m *TenantMutation) Field(name string) (ent.Value, bool) {
 		return m.OrgSize()
 	case tenant.FieldUseCase:
 		return m.UseCase()
+	case tenant.FieldUseCases:
+		return m.UseCases()
 	case tenant.FieldSubscriptionPlan:
 		return m.SubscriptionPlan()
 	case tenant.FieldSubscriptionStatus:
@@ -14837,6 +14909,8 @@ func (m *TenantMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldOrgSize(ctx)
 	case tenant.FieldUseCase:
 		return m.OldUseCase(ctx)
+	case tenant.FieldUseCases:
+		return m.OldUseCases(ctx)
 	case tenant.FieldSubscriptionPlan:
 		return m.OldSubscriptionPlan(ctx)
 	case tenant.FieldSubscriptionStatus:
@@ -14945,6 +15019,13 @@ func (m *TenantMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetUseCase(v)
+		return nil
+	case tenant.FieldUseCases:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUseCases(v)
 		return nil
 	case tenant.FieldSubscriptionPlan:
 		v, ok := value.(string)
@@ -15059,6 +15140,9 @@ func (m *TenantMutation) ClearedFields() []string {
 	if m.FieldCleared(tenant.FieldUseCase) {
 		fields = append(fields, tenant.FieldUseCase)
 	}
+	if m.FieldCleared(tenant.FieldUseCases) {
+		fields = append(fields, tenant.FieldUseCases)
+	}
 	if m.FieldCleared(tenant.FieldSubscriptionPlan) {
 		fields = append(fields, tenant.FieldSubscriptionPlan)
 	}
@@ -15117,6 +15201,9 @@ func (m *TenantMutation) ClearField(name string) error {
 		return nil
 	case tenant.FieldUseCase:
 		m.ClearUseCase()
+		return nil
+	case tenant.FieldUseCases:
+		m.ClearUseCases()
 		return nil
 	case tenant.FieldSubscriptionPlan:
 		m.ClearSubscriptionPlan()
@@ -15179,6 +15266,9 @@ func (m *TenantMutation) ResetField(name string) error {
 		return nil
 	case tenant.FieldUseCase:
 		m.ResetUseCase()
+		return nil
+	case tenant.FieldUseCases:
+		m.ResetUseCases()
 		return nil
 	case tenant.FieldSubscriptionPlan:
 		m.ResetSubscriptionPlan()

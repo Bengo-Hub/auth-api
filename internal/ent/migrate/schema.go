@@ -454,6 +454,7 @@ var (
 		{Name: "brand_colors", Type: field.TypeJSON, Nullable: true},
 		{Name: "org_size", Type: field.TypeString, Nullable: true},
 		{Name: "use_case", Type: field.TypeString, Nullable: true},
+		{Name: "use_cases", Type: field.TypeJSON, Nullable: true},
 		{Name: "subscription_plan", Type: field.TypeString, Nullable: true},
 		{Name: "subscription_status", Type: field.TypeString, Nullable: true},
 		{Name: "subscription_expires_at", Type: field.TypeTime, Nullable: true},
@@ -482,7 +483,7 @@ var (
 			{
 				Name:    "tenant_subscription_plan",
 				Unique:  false,
-				Columns: []*schema.Column{TenantsColumns[13]},
+				Columns: []*schema.Column{TenantsColumns[14]},
 			},
 		},
 	}
