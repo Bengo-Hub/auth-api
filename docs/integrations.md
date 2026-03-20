@@ -38,6 +38,14 @@ The Auth Service is the central identity provider for all BengoBox services. Thi
 - `GET /.well-known/openid-configuration` - Discovery document
 - `GET /.well-known/jwks.json` - Public keys for JWT validation
 
+### 1.1. Tenant Membership Validation (March 20, 2026)
+
+The `/authorize` endpoint now validates that the authenticated user has a `TenantMembership` for the requested `?tenant=` slug before issuing an authorization code. If the user is not a member of the requested tenant:
+- Redirects back to the client with `error=access_denied&error_description=...` (OAuth2 standard error redirect)
+- Returns 403 if no redirect URI is available
+
+The `/token` endpoint also validates tenant membership when a specific tenant was requested in the authorization code metadata. Returns `access_denied` instead of silently falling back to another tenant.
+
 ### 2. JWT Validation Pattern
 
 **Use Case**: Services validating tokens on each request
