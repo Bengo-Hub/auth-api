@@ -208,6 +208,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			Name:         req.NewOrg.Name,
 			Slug:         req.NewOrg.Slug,
 			UseCase:      req.NewOrg.UseCase,
+			UseCases:     req.NewOrg.UseCases,
 			HQBranchName: req.NewOrg.HQBranchName,
 			Metadata:     req.NewOrg.Metadata,
 		}
@@ -716,7 +717,8 @@ func strPtr(s string) *string {
 type newOrgRequest struct {
 	Name         string         `json:"name"`
 	Slug         string         `json:"slug"`
-	UseCase      string         `json:"use_case"`
+	UseCase      string         `json:"use_case"`       // Legacy single value
+	UseCases     []string       `json:"use_cases"`      // Multi-select use cases
 	HQBranchName string         `json:"hq_branch_name"` // e.g. "Main/HQ"
 	Metadata     map[string]any `json:"metadata,omitempty"`
 }

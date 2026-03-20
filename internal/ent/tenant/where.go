@@ -946,6 +946,16 @@ func UseCaseContainsFold(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldContainsFold(FieldUseCase, v))
 }
 
+// UseCasesIsNil applies the IsNil predicate on the "use_cases" field.
+func UseCasesIsNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldIsNull(FieldUseCases))
+}
+
+// UseCasesNotNil applies the NotNil predicate on the "use_cases" field.
+func UseCasesNotNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotNull(FieldUseCases))
+}
+
 // SubscriptionPlanEQ applies the EQ predicate on the "subscription_plan" field.
 func SubscriptionPlanEQ(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldSubscriptionPlan, v))

@@ -58,14 +58,15 @@ func main() {
 		slug            string
 		baseDomain      string
 		isPlatformOwner bool
+		useCases        []string
 	}{
-		{"CodeVertex", "codevertex", "codevertexitsolutions.com", true},
-		{"Masterspace Solutions", "mss", "masterspace.co.ke", false},
-		{"Urban Loft Cafe", "urban-loft", "theurbanloftcafe.com", false},
-		{"Kenya Urban Roads Authority (KURA)", "kura", "kura.go.ke", false},
-		{"UltiChange", "ultichange", "ultichange.org", false},
+		{"CodeVertex", "codevertex", "codevertexitsolutions.com", true, nil},
+		{"Masterspace Solutions", "mss", "masterspace.co.ke", false, []string{"services"}},
+		{"Urban Loft Cafe", "urban-loft", "theurbanloftcafe.com", false, []string{"hospitality"}},
+		{"Kenya Urban Roads Authority (KURA)", "kura", "kura.go.ke", false, []string{"logistics"}},
+		{"UltiChange", "ultichange", "ultichange.org", false, []string{"services", "e_commerce"}},
 		// TruLoad: commercial weighing tenant (private weighbridge operators)
-		{"TruLoad", "truload", "codevertexitsolutions.com", false},
+		{"TruLoad", "truload", "codevertexitsolutions.com", false, []string{"weighbridge", "logistics"}},
 	}
 
 	var tenantEntities []*struct {
@@ -87,18 +88,25 @@ func main() {
 		}
 		tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ(t.slug)).Only(ctx)
 		if err != nil {
-			tenantEntity, err = client.Tenant.Create().
+			create := client.Tenant.Create().
 				SetName(t.name).
 				SetSlug(t.slug).
 				SetStatus("active").
-				SetMetadata(meta).
-				Save(ctx)
+				SetMetadata(meta)
+			if len(t.useCases) > 0 {
+				create = create.SetUseCase(t.useCases[0]).SetUseCases(t.useCases)
+			}
+			tenantEntity, err = create.Save(ctx)
 			if err != nil {
 				log.Fatalf("create tenant %s: %v", t.slug, err)
 			}
 			log.Printf("✓ Created tenant: %s (%s) base_domain=%s", t.name, t.slug, t.baseDomain)
 		} else {
-			_, _ = tenantEntity.Update().SetMetadata(meta).Save(ctx)
+			upd := tenantEntity.Update().SetMetadata(meta)
+			if len(t.useCases) > 0 {
+				upd = upd.SetUseCase(t.useCases[0]).SetUseCases(t.useCases)
+			}
+			_, _ = upd.Save(ctx)
 			log.Printf("✓ Tenant exists: %s (%s)", t.name, t.slug)
 		}
 
