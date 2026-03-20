@@ -12,6 +12,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
+	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/services/entitlements"
 	"github.com/bengobox/auth-api/internal/services/integrations"
@@ -963,9 +964,29 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Collect user IDs for batch lookup
+	userIDs := make([]uuid.UUID, 0, len(members))
+	for _, m := range members {
+		userIDs = append(userIDs, m.UserID)
+	}
+
+	// Batch fetch user details (email, profile) to avoid N+1 queries
+	userMap := make(map[uuid.UUID]*ent.User)
+	if len(userIDs) > 0 {
+		users, uErr := h.ent.User.Query().
+			Where(user.IDIn(userIDs...)).
+			All(r.Context())
+		if uErr != nil {
+			h.logger.Warn("Failed to batch-fetch users for member list", zap.Error(uErr))
+		}
+		for _, u := range users {
+			userMap[u.ID] = u
+		}
+	}
+
 	response := make([]map[string]interface{}, 0)
 	for _, member := range members {
-		response = append(response, map[string]interface{}{
+		entry := map[string]interface{}{
 			"id":         member.ID.String(),
 			"user_id":    member.UserID.String(),
 			"tenant_id":  member.TenantID.String(),
@@ -973,7 +994,19 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 			"status":     member.Status,
 			"created_at": member.CreatedAt.Format(time.RFC3339),
 			"updated_at": member.UpdatedAt.Format(time.RFC3339),
-		})
+		}
+		// Enrich with user details if available
+		if u, ok := userMap[member.UserID]; ok {
+			entry["email"] = u.Email
+			if u.Profile != nil {
+				if name, ok := u.Profile["name"]; ok {
+					entry["name"] = name
+				} else if fullName, ok := u.Profile["full_name"]; ok {
+					entry["name"] = fullName
+				}
+			}
+		}
+		response = append(response, entry)
 	}
 
 	writeJSON(w, http.StatusOK, response)
