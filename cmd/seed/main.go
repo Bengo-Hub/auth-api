@@ -397,8 +397,8 @@ func main() {
 
 	// Seed permissions and role-permission mapping
 	log.Println("Seeding permissions and role-permission mapping...")
-	actions := []string{"add", "read", "read_own", "change", "change_own", "delete", "manage", "manage_own", "view"}
-	resources := []string{"orders", "menu", "users", "tenants", "riders", "inventory", "settings", "gateways", "catalog"}
+	actions := []string{"add", "read", "read_own", "change", "change_own", "delete", "manage", "manage_own", "view", "dispatch", "refund", "export", "update"}
+	resources := []string{"orders", "catalog", "users", "tenants", "riders", "inventory", "settings", "gateways", "logistics", "analytics", "promotions", "support", "profile", "preferences", "notifications", "payments", "loyalty", "compliance", "zones"}
 	permissionIDs := make(map[string]int)
 	for _, res := range resources {
 		for _, act := range actions {
@@ -421,11 +421,33 @@ func main() {
 	}
 
 	rolePerms := map[string][]string{
-		"superuser": {},
-		"admin":     {},
-		"staff":     {"orders:read", "orders:change", "orders:add", "menu:read", "menu:change", "menu:add", "catalog:view", "catalog:manage", "riders:read", "inventory:read", "inventory:change"},
-		"member":    {"orders:read_own", "orders:change_own", "orders:add", "menu:read", "catalog:view"},
-		"rider":     {"riders:read_own", "riders:change_own", "orders:read"},
+		"superuser": {}, // all permissions (populated below)
+		"admin":     {}, // all permissions (populated below)
+		"staff": {
+			"orders:add", "orders:read", "orders:change", "orders:manage",
+			"catalog:read", "catalog:add", "catalog:change", "catalog:manage", "catalog:view",
+			"riders:read",
+			"inventory:read", "inventory:change",
+			"loyalty:read",
+			"notifications:read",
+			"support:read",
+			"profile:update",
+			"preferences:update",
+		},
+		"member": {
+			"orders:read_own", "orders:change_own", "orders:add",
+			"catalog:read", "catalog:view",
+			"loyalty:read",
+			"profile:update",
+			"preferences:update",
+		},
+		"rider": {
+			"riders:read_own", "riders:change_own",
+			"orders:read",
+			"logistics:read", "logistics:dispatch",
+			"profile:update",
+			"preferences:update",
+		},
 	}
 	for roleName, codes := range rolePerms {
 		if len(codes) == 0 {
