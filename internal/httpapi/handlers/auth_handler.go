@@ -80,7 +80,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		Name:     "bb_session",
 		Value:    "",
 		Path:     "/",
-		Domain:   ".codevertexitsolutions.com",
+		Domain:   h.cookieDomain,
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
@@ -90,17 +90,13 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
-// allowedLogoutRedirectHosts are hosts we allow for post_logout_redirect_uri (open redirect protection).
-// Production domains from shared-docs/sso-integration-guide.md and auth-api cmd/seed.
-var allowedLogoutRedirectHosts = []string{
-	"theurbanloftcafe.com", "www.theurbanloftcafe.com",
-	"ordersapp.codevertexitsolutions.com",
-	"accounts.codevertexitsolutions.com", "sso.codevertexitsolutions.com",
-	"notifications.codevertexitsolutions.com", "books.codevertexitsolutions.com",
-	"pricing.codevertexitsolutions.com", "pos.codevertexitsolutions.com",
-	"inventory.codevertexitsolutions.com", "logistics.codevertexitsolutions.com",
-	"riderapp.codevertexitsolutions.com",
-	"localhost",
+// allowedLogoutRedirectHosts returns hosts allowed for post_logout_redirect_uri.
+// Configured via AUTH_SECURITY_LOGOUT_REDIRECT_HOSTS env var; falls back to handler's config.
+func (h *AuthHandler) allowedLogoutRedirectHosts() []string {
+	if len(h.logoutRedirectHosts) > 0 {
+		return h.logoutRedirectHosts
+	}
+	return []string{"localhost"}
 }
 
 // LogoutGet handles GET /auth/logout?post_logout_redirect_uri=... for browser redirect-based logout (e.g. from cafe-website).
@@ -113,7 +109,7 @@ func (h *AuthHandler) LogoutGet(w http.ResponseWriter, r *http.Request) {
 		Name:     "bb_session",
 		Value:    "",
 		Path:     "/",
-		Domain:   ".codevertexitsolutions.com",
+		Domain:   h.cookieDomain,
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
@@ -125,7 +121,7 @@ func (h *AuthHandler) LogoutGet(w http.ResponseWriter, r *http.Request) {
 		u, err := url.Parse(redirectURI)
 		if err == nil && u.Scheme != "" && (u.Scheme == "https" || u.Scheme == "http" && strings.HasPrefix(u.Host, "localhost")) {
 			host := strings.ToLower(strings.TrimPrefix(u.Host, "www."))
-			for _, allowed := range allowedLogoutRedirectHosts {
+			for _, allowed := range h.allowedLogoutRedirectHosts() {
 				if host == allowed || strings.HasSuffix(host, "."+allowed) {
 					http.Redirect(w, r, redirectURI, http.StatusFound)
 					return
@@ -174,23 +170,30 @@ func (h *AuthHandler) ListActiveIntegrations(w http.ResponseWriter, r *http.Requ
 
 // AuthHandler exposes HTTP endpoints for authentication flows.
 type AuthHandler struct {
-	service        AuthService
-	integrations   *integrations.Service
-	usecase        UseCaseService
-	logger         *zap.Logger
-	redis          *redis.Client
-	redisNamespace string
+	service             AuthService
+	integrations        *integrations.Service
+	usecase             UseCaseService
+	logger              *zap.Logger
+	redis               *redis.Client
+	redisNamespace      string
+	cookieDomain        string
+	logoutRedirectHosts []string
 }
 
 // NewAuthHandler constructs a handler. redis and redisNamespace are optional; when set, GET /auth/me responses are cached with TTL = token expiry.
-func NewAuthHandler(service AuthService, integrationSvc *integrations.Service, usecaseSvc UseCaseService, logger *zap.Logger, redis *redis.Client, redisNamespace string) *AuthHandler {
+func NewAuthHandler(service AuthService, integrationSvc *integrations.Service, usecaseSvc UseCaseService, logger *zap.Logger, redis *redis.Client, redisNamespace string, cookieDomain string, logoutRedirectHosts []string) *AuthHandler {
+	if cookieDomain == "" {
+		cookieDomain = ".codevertexitsolutions.com"
+	}
 	return &AuthHandler{
-		service:        service,
-		integrations:   integrationSvc,
-		usecase:        usecaseSvc,
-		logger:         logger,
-		redis:          redis,
-		redisNamespace: redisNamespace,
+		service:             service,
+		integrations:        integrationSvc,
+		usecase:             usecaseSvc,
+		logger:              logger,
+		redis:               redis,
+		redisNamespace:      redisNamespace,
+		cookieDomain:        cookieDomain,
+		logoutRedirectHosts: logoutRedirectHosts,
 	}
 }
 
