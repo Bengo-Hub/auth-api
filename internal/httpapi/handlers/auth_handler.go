@@ -288,10 +288,23 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Set session cookie for OIDC flows. Use Domain so auth-ui (accounts.*) can send it when calling sso.* (same parent domain).
+	// Set session cookie for OIDC flows. Store only the session ID (36 bytes)
+	// in the cookie — the full JWT (can be >4KB for admin users with many
+	// permissions) is kept in Redis. The auth middleware resolves session ID → JWT.
+	sessionRef := result.SessionID.String()
+	if h.redis != nil && h.redisNamespace != "" {
+		sessionKey := h.redisNamespace + ":session_token:" + sessionRef
+		ttl := 24 * time.Hour
+		if !result.AccessTokenExpiresAt.IsZero() {
+			if d := time.Until(result.AccessTokenExpiresAt); d > 0 {
+				ttl = d
+			}
+		}
+		_ = h.redis.Set(r.Context(), sessionKey, result.AccessToken, ttl).Err()
+	}
 	cookie := &http.Cookie{
 		Name:     "bb_session",
-		Value:    result.AccessToken,
+		Value:    sessionRef,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,

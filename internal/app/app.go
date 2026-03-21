@@ -160,6 +160,9 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	authHandler := handlers.NewAuthHandler(authService, integrationSvc, usecaseSvc, logger, redisClient, cfg.Redis.Namespace, cfg.Security.CookieDomain, cfg.Security.LogoutRedirectHosts)
 	revocationStore := revocation.New(redisClient, cfg.Redis.Namespace)
 	authMiddleware := httpmiddleware.NewAuth(authService, revocationStore)
+	// Enable session cookie resolution: bb_session cookies now contain a session
+	// UUID instead of the full JWT (admin tokens exceed browser 4KB cookie limit).
+	authMiddleware.SetSessionResolver(httpmiddleware.NewRedisSessionResolver(redisClient, cfg.Redis.Namespace))
 	rateLimiter := httpmiddleware.NewRateLimiter(redisClient, cfg.Redis.Namespace)
 	oidcService := oidc.New(entClient, tokenSvc, cfg)
 	oidcHandler := handlers.NewOIDCHandlerWithRolesPermissions(cfg, oidcService, authMiddleware, tokenSvc, authService, logger)
