@@ -157,7 +157,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	})
 
 	usecaseSvc := usecase.NewService()
-	authHandler := handlers.NewAuthHandler(authService, integrationSvc, usecaseSvc, logger, redisClient, cfg.Redis.Namespace)
+	authHandler := handlers.NewAuthHandler(authService, integrationSvc, usecaseSvc, logger, redisClient, cfg.Redis.Namespace, cfg.Security.CookieDomain, cfg.Security.LogoutRedirectHosts)
 	revocationStore := revocation.New(redisClient, cfg.Redis.Namespace)
 	authMiddleware := httpmiddleware.NewAuth(authService, revocationStore)
 	rateLimiter := httpmiddleware.NewRateLimiter(redisClient, cfg.Redis.Namespace)

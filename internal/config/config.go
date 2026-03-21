@@ -83,13 +83,15 @@ type TokenConfig struct {
 }
 
 type SecurityConfig struct {
-	PasswordMinLength int    `env:"PASSWORD_MIN_LENGTH" envDefault:"12"`
-	Argon2Time        uint32 `env:"ARGON2_TIME" envDefault:"3"`
-	Argon2Memory      uint32 `env:"ARGON2_MEMORY" envDefault:"65536"`
-	Argon2Threads     uint8  `env:"ARGON2_THREADS" envDefault:"2"`
-	Argon2KeyLength   uint32 `env:"ARGON2_KEY_LENGTH" envDefault:"32"`
-	OAuthStateSecret  string `env:"OAUTH_STATE_SECRET"`
-	EncryptionKey     string `env:"ENCRYPTION_KEY"` // 32-byte hex string or raw key
+	PasswordMinLength   int      `env:"PASSWORD_MIN_LENGTH" envDefault:"12"`
+	Argon2Time          uint32   `env:"ARGON2_TIME" envDefault:"3"`
+	Argon2Memory        uint32   `env:"ARGON2_MEMORY" envDefault:"65536"`
+	Argon2Threads       uint8    `env:"ARGON2_THREADS" envDefault:"2"`
+	Argon2KeyLength     uint32   `env:"ARGON2_KEY_LENGTH" envDefault:"32"`
+	OAuthStateSecret    string   `env:"OAUTH_STATE_SECRET"`
+	EncryptionKey       string   `env:"ENCRYPTION_KEY"`                                                                                       // 32-byte hex string or raw key
+	CookieDomain        string   `env:"COOKIE_DOMAIN" envDefault:".codevertexitsolutions.com"`                                                // Domain for session cookies
+	LogoutRedirectHosts []string `env:"LOGOUT_REDIRECT_HOSTS" envSeparator:"," envDefault:"theurbanloftcafe.com,ordersapp.codevertexitsolutions.com,accounts.codevertexitsolutions.com,sso.codevertexitsolutions.com,notifications.codevertexitsolutions.com,books.codevertexitsolutions.com,pricing.codevertexitsolutions.com,pos.codevertexitsolutions.com,inventory.codevertexitsolutions.com,logistics.codevertexitsolutions.com,riderapp.codevertexitsolutions.com,localhost"`
 }
 
 type ProvidersConfig struct {
