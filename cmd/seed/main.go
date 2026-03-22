@@ -53,20 +53,63 @@ func main() {
 	log.Println("Starting seed process...")
 
 	// Default tenants (align with notifications-api and all SSO-integrating services).
+	// Media base URL for tenant logos — points to the SSO/accounts CDN host.
+	const mediaBase = "https://accounts.codevertexitsolutions.com"
+
 	tenants := []struct {
 		name            string
 		slug            string
 		baseDomain      string
 		isPlatformOwner bool
 		useCases        []string
+		logoURL         string
+		website         string
+		contactEmail    string
+		contactPhone    string
+		brandColors     map[string]any
 	}{
-		{"CodeVertex", "codevertex", "codevertexitsolutions.com", true, nil},
-		{"Masterspace Solutions", "mss", "masterspace.co.ke", false, []string{"services"}},
-		{"Urban Loft Cafe", "urban-loft", "theurbanloftcafe.com", false, []string{"hospitality"}},
-		{"Kenya Urban Roads Authority (KURA)", "kura", "kura.go.ke", false, []string{"logistics"}},
-		{"UltiChange", "ultichange", "ultichange.org", false, []string{"services", "e_commerce"}},
-		// TruLoad: commercial weighing tenant (private weighbridge operators)
-		{"TruLoad", "truload", "codevertexitsolutions.com", false, []string{"weighbridge", "logistics"}},
+		{
+			name: "CodeVertex", slug: "codevertex", baseDomain: "codevertexitsolutions.com",
+			isPlatformOwner: true, useCases: nil,
+			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://codevertexitsolutions.com",
+			contactEmail: "support@codevertexitsolutions.com", contactPhone: "+254 743 793 901",
+			brandColors: map[string]any{"primary": "#5B1C4D", "secondary": "#ea8022", "accent": "#f36a0c"},
+		},
+		{
+			name: "Masterspace Solutions", slug: "mss", baseDomain: "masterspace.co.ke",
+			useCases: []string{"services"},
+			logoURL: mediaBase + "/images/logo/mss.png", website: "https://masterspace.co.ke",
+			contactEmail: "info@masterspace.co.ke",
+			brandColors: map[string]any{"primary": "#1e3a5f", "secondary": "#4a90d9", "accent": "#f0ad4e"},
+		},
+		{
+			name: "Urban Loft Cafe", slug: "urban-loft", baseDomain: "theurbanloftcafe.com",
+			useCases: []string{"hospitality"},
+			logoURL: mediaBase + "/images/logo/urban-loft.png", website: "https://theurbanloftcafe.com",
+			contactEmail: "info@theurbanloftcafe.com",
+			brandColors: map[string]any{"primary": "#6b2a1b", "secondary": "#f36a0c", "accent": "#ea8022"},
+		},
+		{
+			name: "Kenya Urban Roads Authority (KURA)", slug: "kura", baseDomain: "kura.go.ke",
+			useCases: []string{"logistics"},
+			logoURL: mediaBase + "/images/logo/kura.png", website: "https://kura.go.ke",
+			contactEmail: "info@kura.go.ke",
+			brandColors: map[string]any{"primary": "#006633", "secondary": "#bb0000", "accent": "#000000"},
+		},
+		{
+			name: "UltiChange", slug: "ultichange", baseDomain: "ultichange.org",
+			useCases: []string{"services", "e_commerce"},
+			logoURL: mediaBase + "/images/logo/ultichange.png", website: "https://ultichange.org",
+			contactEmail: "info@ultichange.org",
+			brandColors: map[string]any{"primary": "#2d3436", "secondary": "#0984e3", "accent": "#00cec9"},
+		},
+		{
+			name: "TruLoad", slug: "truload", baseDomain: "codevertexitsolutions.com",
+			useCases: []string{"weighbridge", "logistics"},
+			logoURL: mediaBase + "/images/logo/truload.png", website: "https://truload.codevertexitsolutions.com",
+			contactEmail: "truload@codevertexitsolutions.com",
+			brandColors: map[string]any{"primary": "#1a237e", "secondary": "#ff6f00", "accent": "#00c853"},
+		},
 	}
 
 	var tenantEntities []*struct {
@@ -82,9 +125,6 @@ func main() {
 		if t.isPlatformOwner {
 			meta["is_platform_owner"] = true
 			meta["scope"] = "platform"
-			meta["brand_color_primary"] = "#5B1C4D"
-			meta["brand_color_secondary"] = "#ea8022"
-			meta["brand_logo_url"] = "/images/logo/codevertex.png"
 		}
 		tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ(t.slug)).Only(ctx)
 		if err != nil {
@@ -92,7 +132,18 @@ func main() {
 				SetName(t.name).
 				SetSlug(t.slug).
 				SetStatus("active").
-				SetMetadata(meta)
+				SetMetadata(meta).
+				SetNillableLogoURL(&t.logoURL).
+				SetBrandColors(t.brandColors)
+			if t.website != "" {
+				create = create.SetNillableWebsite(&t.website)
+			}
+			if t.contactEmail != "" {
+				create = create.SetNillableContactEmail(&t.contactEmail)
+			}
+			if t.contactPhone != "" {
+				create = create.SetNillableContactPhone(&t.contactPhone)
+			}
 			if len(t.useCases) > 0 {
 				create = create.SetUseCase(t.useCases[0]).SetUseCases(t.useCases)
 			}
@@ -102,12 +153,24 @@ func main() {
 			}
 			log.Printf("✓ Created tenant: %s (%s) base_domain=%s", t.name, t.slug, t.baseDomain)
 		} else {
-			upd := tenantEntity.Update().SetMetadata(meta)
+			upd := tenantEntity.Update().
+				SetMetadata(meta).
+				SetNillableLogoURL(&t.logoURL).
+				SetBrandColors(t.brandColors)
+			if t.website != "" {
+				upd = upd.SetNillableWebsite(&t.website)
+			}
+			if t.contactEmail != "" {
+				upd = upd.SetNillableContactEmail(&t.contactEmail)
+			}
+			if t.contactPhone != "" {
+				upd = upd.SetNillableContactPhone(&t.contactPhone)
+			}
 			if len(t.useCases) > 0 {
 				upd = upd.SetUseCase(t.useCases[0]).SetUseCases(t.useCases)
 			}
 			_, _ = upd.Save(ctx)
-			log.Printf("✓ Tenant exists: %s (%s)", t.name, t.slug)
+			log.Printf("✓ Tenant exists (updated): %s (%s)", t.name, t.slug)
 		}
 
 		tenantEntities = append(tenantEntities, &struct {
