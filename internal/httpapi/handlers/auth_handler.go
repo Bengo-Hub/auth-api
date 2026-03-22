@@ -622,6 +622,18 @@ func (h *AuthHandler) GetUseCaseConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err error) {
+	// Check for TenantMismatchError first (it's a struct error, not a sentinel).
+	var mismatchErr *auth.TenantMismatchError
+	if errors.As(err, &mismatchErr) {
+		writeError(w, http.StatusForbidden, "tenant_mismatch",
+			"you do not have access to the requested organisation",
+			map[string]any{
+				"requested_tenant": mismatchErr.RequestedSlug,
+				"user_tenants":     mismatchErr.UserTenants,
+			})
+		return
+	}
+
 	switch {
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password", nil)

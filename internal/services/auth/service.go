@@ -60,6 +60,25 @@ var (
 	ErrTenantInactive = errors.New("tenant is not active")
 )
 
+// TenantMismatchError is returned when a user's credentials are valid but they
+// are not a member of the requested tenant. It carries the user's actual tenants
+// so the frontend can suggest switching.
+type TenantMismatchError struct {
+	RequestedSlug string
+	UserTenants   []TenantInfo
+}
+
+// TenantInfo is a minimal tenant descriptor returned in mismatch errors.
+type TenantInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+func (e *TenantMismatchError) Error() string {
+	return "user is not a member of the requested tenant"
+}
+
 const (
 	oauthStateTTL         = 10 * time.Minute // 10 minutes
 	googleProviderName    = "google"
@@ -467,6 +486,13 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		}
 	}
 
+	// Verify password BEFORE membership check. This ensures we never reveal
+	// tenant membership information to someone who doesn't know the password.
+	if err := s.hasher.Compare(userEntity.PasswordHash, in.Password); err != nil {
+		s.recordLoginAttempt(ctx, tenantEntity.ID, userEntity.ID, in.Email, false, "password_mismatch", in.IPAddress, in.UserAgent)
+		return nil, ErrInvalidCredentials
+	}
+
 	// Verify membership in the resolved tenant.
 	_, err = s.entClient.TenantMembership.Query().
 		Where(
@@ -476,14 +502,36 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		First(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
+			// Password was correct but user is not a member of the requested tenant.
+			// When a tenant_slug was explicitly provided (e.g. from a service redirect),
+			// return the user's actual tenants so the frontend can suggest switching.
+			if strings.TrimSpace(in.TenantSlug) != "" {
+				memberships, mErr := s.entClient.TenantMembership.Query().
+					Where(tenantmembership.UserID(userEntity.ID)).
+					WithTenant().
+					All(ctx)
+				if mErr == nil && len(memberships) > 0 {
+					var tenants []TenantInfo
+					for _, m := range memberships {
+						if m.Edges.Tenant != nil && m.Edges.Tenant.Status == "active" {
+							tenants = append(tenants, TenantInfo{
+								ID:   m.Edges.Tenant.ID.String(),
+								Name: m.Edges.Tenant.Name,
+								Slug: m.Edges.Tenant.Slug,
+							})
+						}
+					}
+					if len(tenants) > 0 {
+						return nil, &TenantMismatchError{
+							RequestedSlug: in.TenantSlug,
+							UserTenants:   tenants,
+						}
+					}
+				}
+			}
 			return nil, ErrInvalidCredentials
 		}
 		return nil, fmt.Errorf("verify membership: %w", err)
-	}
-
-	if err := s.hasher.Compare(userEntity.PasswordHash, in.Password); err != nil {
-		s.recordLoginAttempt(ctx, tenantEntity.ID, userEntity.ID, in.Email, false, "password_mismatch", in.IPAddress, in.UserAgent)
-		return nil, ErrInvalidCredentials
 	}
 
 	s.recordLoginAttempt(ctx, tenantEntity.ID, userEntity.ID, in.Email, true, "", in.IPAddress, in.UserAgent)
