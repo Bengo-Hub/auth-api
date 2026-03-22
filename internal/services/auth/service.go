@@ -964,6 +964,12 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 		UserAgent:  in.UserAgent,
 	})
 
+	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "password_reset.requested", map[string]any{
+		"user_id":  userEntity.ID.String(),
+		"email":    userEntity.Email,
+		"tenant_id": tenantEntity.ID.String(),
+	})
+
 	return tokenPlain, nil
 }
 
@@ -1014,6 +1020,12 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, in PasswordResetConf
 		Resource:   "user",
 		ResourceID: resetToken.Edges.User.ID.String(),
 	})
+
+	s.publishEvent(ctx, uuid.Nil, "auth.user", resetToken.Edges.User.ID, "password_reset.completed", map[string]any{
+		"user_id": resetToken.Edges.User.ID.String(),
+		"email":   resetToken.Edges.User.Email,
+	})
+
 	return nil
 }
 
