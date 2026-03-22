@@ -704,15 +704,15 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 	brandColors := tenant.BrandColors
 	if brandColors == nil || len(brandColors) == 0 {
 		brandColors = map[string]any{
-			"primary":   "#020617", // Slate 950
-			"secondary": "#334155", // Slate 700
-			"accent":    "#0ea5e9", // Sky 500
+			"primary":   "#5B1C4D",
+			"secondary": "#ea8022",
+			"accent":    "#f36a0c",
 		}
 	}
 
 	logoURL := tenant.LogoURL
 	if logoURL == nil || *logoURL == "" {
-		logoURL = strPtr("/images/logo/codevertex.png")
+		logoURL = strPtr("https://accounts.codevertexitsolutions.com/images/logo/codevertex.png")
 	}
 
 	return map[string]any{
@@ -720,20 +720,15 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 		"name":                    tenant.Name,
 		"slug":                    tenant.Slug,
 		"status":                  tenant.Status,
-		"contact_email":           tenant.ContactEmail,
-		"contact_phone":           tenant.ContactPhone,
 		"logo_url":                logoURL,
+		"brand_colors":            brandColors,
+		"contact_email":           tenant.ContactEmail,
 		"website":                 tenant.Website,
 		"country":                 tenant.Country,
 		"timezone":                tenant.Timezone,
-		"brand_colors":            brandColors,
-		"org_size":                tenant.OrgSize,
-		"use_case":                tenant.UseCase,
 		"subscription_plan":       tenant.SubscriptionPlan,
 		"subscription_status":     tenant.SubscriptionStatus,
 		"subscription_expires_at": tenant.SubscriptionExpiresAt,
-		"tier_limits":             tenant.TierLimits,
-		"metadata":                tenant.Metadata,
 		"created_at":              tenant.CreatedAt,
 		"updated_at":              tenant.UpdatedAt,
 	}
