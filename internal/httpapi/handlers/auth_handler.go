@@ -228,6 +228,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		SelectedPlan: req.SelectedPlan,
 		OrgAction:    req.OrgAction,
 		NewOrg:       newOrg,
+		Role:         req.Role,
 	})
 	if err != nil {
 		h.handleError(w, r, err)
@@ -754,6 +755,8 @@ type registerRequest struct {
 	// becomes the tenant admin for the new organisation.
 	OrgAction string         `json:"org_action,omitempty"`
 	NewOrg    *newOrgRequest `json:"new_org,omitempty"`
+	// Role is an optional role hint for pre-invited users (e.g. "driver" for fleet invitations).
+	Role string `json:"role,omitempty"`
 }
 
 type loginRequest struct {

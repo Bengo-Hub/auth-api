@@ -150,6 +150,11 @@ type RegisterInput struct {
 	// is granted the "admin" role for the newly created organisation.
 	OrgAction string
 	NewOrg    *NewOrgInput
+	// Role is an optional role hint for the initial TenantMembership.
+	// Used when the registering user was pre-invited with a specific role
+	// (e.g. "driver" for fleet invitations). If empty, defaults to "admin"
+	// for new orgs or "member" for existing orgs.
+	Role string
 }
 
 // LoginInput captures login payload.
@@ -343,8 +348,11 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 	}
 
 	// Assign role: admin when founding a new org, member when joining existing.
+	// If a specific role was requested (e.g. "driver" from fleet invitation), use it.
 	initialRole := "member"
-	if in.OrgAction == "create_new" {
+	if in.Role != "" {
+		initialRole = in.Role
+	} else if in.OrgAction == "create_new" {
 		initialRole = "admin"
 	}
 
