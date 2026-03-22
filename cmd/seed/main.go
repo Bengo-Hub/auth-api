@@ -78,7 +78,7 @@ func main() {
 		{
 			name: "Masterspace Solutions", slug: "mss", baseDomain: "masterspace.co.ke",
 			useCases: []string{"services"},
-			logoURL: mediaBase + "/images/logo/mss.png", website: "https://masterspace.co.ke",
+			logoURL: mediaBase + "/images/logo/mss.jpeg", website: "https://masterspace.co.ke",
 			contactEmail: "info@masterspace.co.ke",
 			brandColors: map[string]any{"primary": "#1e3a5f", "secondary": "#4a90d9", "accent": "#f0ad4e"},
 		},
@@ -99,14 +99,14 @@ func main() {
 		{
 			name: "UltiChange", slug: "ultichange", baseDomain: "ultichange.org",
 			useCases: []string{"services", "e_commerce"},
-			logoURL: mediaBase + "/images/logo/ultichange.png", website: "https://ultichange.org",
+			logoURL: mediaBase + "/images/logo/ultichange.svg", website: "https://ultichange.org",
 			contactEmail: "info@ultichange.org",
 			brandColors: map[string]any{"primary": "#2d3436", "secondary": "#0984e3", "accent": "#00cec9"},
 		},
 		{
 			name: "TruLoad", slug: "truload", baseDomain: "codevertexitsolutions.com",
 			useCases: []string{"weighbridge", "logistics"},
-			logoURL: mediaBase + "/images/logo/truload.png", website: "https://truload.codevertexitsolutions.com",
+			logoURL: mediaBase + "/images/logo/truload.svg", website: "https://truload.codevertexitsolutions.com",
 			contactEmail: "truload@codevertexitsolutions.com",
 			brandColors: map[string]any{"primary": "#1a237e", "secondary": "#ff6f00", "accent": "#00c853"},
 		},
