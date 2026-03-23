@@ -965,9 +965,11 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 	})
 
 	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "password_reset.requested", map[string]any{
-		"user_id":  userEntity.ID.String(),
-		"email":    userEntity.Email,
-		"tenant_id": tenantEntity.ID.String(),
+		"user_id":    userEntity.ID.String(),
+		"email":      userEntity.Email,
+		"full_name":  profileStr(userEntity.Profile, "name"),
+		"tenant_id":  tenantEntity.ID.String(),
+		"reset_link": fmt.Sprintf("https://accounts.codevertexitsolutions.com/reset-password?token=%s", tokenPlain),
 	})
 
 	return tokenPlain, nil
