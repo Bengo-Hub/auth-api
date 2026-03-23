@@ -16,6 +16,7 @@ import (
 	"github.com/bengobox/auth-api/internal/httpapi"
 	"github.com/bengobox/auth-api/internal/httpapi/handlers"
 	httpmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	eventslib "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/modules/outbox"
 	"github.com/bengobox/auth-api/internal/password"
 	platformevents "github.com/bengobox/auth-api/internal/platform/events"
@@ -132,7 +133,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			zap.String("url", cfg.Events.NATSURL),
 		)
 
-		outboxRepo := outbox.NewEntRepository(entClient, sqlDB)
+		outboxRepo := eventslib.NewSQLOutboxRepository(sqlDB)
 		outboxNatsPublisher := platformevents.NewOutboxPublisher(natsConn, logger)
 		outboxPub = outbox.NewPublisher(outboxRepo, outboxNatsPublisher, logger, outbox.PublisherConfig{
 			BatchSize:  cfg.Events.OutboxBatchSize,

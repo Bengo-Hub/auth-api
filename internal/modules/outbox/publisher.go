@@ -2,7 +2,6 @@ package outbox
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"time"
 
@@ -11,13 +10,16 @@ import (
 )
 
 // EventPublisher is the interface for publishing events to a message broker.
+// Auth-api uses plain NATS (not JetStream) so this adapter is needed.
 type EventPublisher interface {
 	Publish(ctx context.Context, event *events.Event) error
 }
 
-// Publisher polls the outbox and publishes events to a message broker.
+// Publisher polls the outbox and publishes events via plain NATS.
+// This is auth-specific because auth-api publishes via conn.Publish (not JetStream)
+// for backward compatibility with consumers using nc.Subscribe.
 type Publisher struct {
-	repo       *EntRepository
+	repo       events.OutboxRepository
 	publisher  EventPublisher
 	logger     *zap.Logger
 	batchSize  int
@@ -34,7 +36,7 @@ type PublisherConfig struct {
 }
 
 // NewPublisher creates a new outbox publisher.
-func NewPublisher(repo *EntRepository, publisher EventPublisher, logger *zap.Logger, cfg PublisherConfig) *Publisher {
+func NewPublisher(repo events.OutboxRepository, publisher EventPublisher, logger *zap.Logger, cfg PublisherConfig) *Publisher {
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = 100
 	}
@@ -99,45 +101,28 @@ func (p *Publisher) poll(ctx context.Context) {
 		return
 	}
 
-	p.logger.Debug("processing outbox records", zap.Int("count", len(records)))
-
 	for _, record := range records {
-		if err := p.publishRecord(ctx, record); err != nil {
+		event, err := events.FromJSON(record.Payload)
+		if err != nil {
+			p.logger.Warn("invalid outbox payload, marking failed",
+				zap.String("id", record.ID.String()), zap.Error(err))
+			_ = p.repo.MarkAsFailed(ctx, record.ID, err.Error(), time.Now())
+			continue
+		}
+
+		if err := p.publisher.Publish(ctx, event); err != nil {
 			p.logger.Warn("failed to publish record",
 				zap.String("id", record.ID.String()),
 				zap.String("event_type", record.EventType),
 				zap.Error(err),
 			)
-			if markErr := p.repo.MarkAsFailed(ctx, record.ID, err.Error(), time.Now()); markErr != nil {
-				p.logger.Error("failed to mark record as failed",
-					zap.String("id", record.ID.String()),
-					zap.Error(markErr),
-				)
-			}
+			_ = p.repo.MarkAsFailed(ctx, record.ID, err.Error(), time.Now())
 			continue
 		}
 
 		if err := p.repo.MarkAsPublished(ctx, record.ID, time.Now()); err != nil {
 			p.logger.Error("failed to mark record as published",
-				zap.String("id", record.ID.String()),
-				zap.Error(err),
-			)
+				zap.String("id", record.ID.String()), zap.Error(err))
 		}
 	}
-}
-
-func (p *Publisher) publishRecord(ctx context.Context, record *events.OutboxRecord) error {
-	var event events.Event
-	if err := json.Unmarshal(record.Payload, &event); err != nil {
-		event = events.Event{
-			ID:            record.ID,
-			TenantID:      record.TenantID,
-			AggregateType: record.AggregateType,
-			AggregateID:   record.AggregateID,
-			EventType:     record.EventType,
-			Timestamp:     record.CreatedAt,
-		}
-	}
-
-	return p.publisher.Publish(ctx, &event)
 }
