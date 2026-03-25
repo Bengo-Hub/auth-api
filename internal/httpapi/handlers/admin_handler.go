@@ -14,6 +14,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/entitlements"
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/usage"
@@ -223,6 +224,14 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		"is_default": true,
 		"use_case":   useCase,
 	})
+
+	// Auto-register redirect URIs for the new tenant slug on all OAuth clients.
+	if err := auth.AppendTenantRedirectURIs(r.Context(), h.ent, t.Slug); err != nil {
+		h.logger.Warn("failed to append tenant redirect URIs",
+			zap.String("tenant_slug", t.Slug),
+			zap.Error(err),
+		)
+	}
 
 	writeJSON(w, http.StatusCreated, t)
 }
@@ -561,6 +570,91 @@ func (h *AdminHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, items)
+}
+
+// GetClient returns a single OAuth client by ID.
+func (h *AdminHandler) GetClient(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "client_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid client id", nil)
+		return
+	}
+	c, err := h.ent.OAuthClient.Get(r.Context(), id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "client not found", nil)
+		} else {
+			writeError(w, http.StatusInternalServerError, "server_error", "failed to get client", nil)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
+}
+
+// UpdateClient updates an existing OAuth client.
+func (h *AdminHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "client_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid client id", nil)
+		return
+	}
+	var req clientRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
+		return
+	}
+	update := h.ent.OAuthClient.UpdateOneID(id)
+	if req.Name != "" {
+		update = update.SetName(req.Name)
+	}
+	if req.RedirectURIs != nil {
+		update = update.SetRedirectUris(req.RedirectURIs)
+	}
+	if req.Scopes != nil {
+		update = update.SetAllowedScopes(req.Scopes)
+	}
+	update = update.SetPublic(req.Public)
+	c, err := update.Save(r.Context())
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "client not found", nil)
+		} else {
+			writeError(w, http.StatusInternalServerError, "server_error", "failed to update client", nil)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
+}
+
+// DeleteClient deletes an OAuth client by ID.
+func (h *AdminHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "client_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid client id", nil)
+		return
+	}
+	err = h.ent.OAuthClient.DeleteOneID(id).Exec(r.Context())
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "client not found", nil)
+		} else {
+			writeError(w, http.StatusInternalServerError, "server_error", "failed to delete client", nil)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 // Key rotation
