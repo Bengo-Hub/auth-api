@@ -45,7 +45,7 @@ type AppConfig struct {
 
 type HTTPConfig struct {
 	Host              string        `env:"HOST" envDefault:"0.0.0.0"`
-	Port              int           `env:"PORT" envDefault:"4101"`
+	Port              int           `env:"PORT" envDefault:"4000"`
 	ReadTimeout       time.Duration `env:"READ_TIMEOUT" envDefault:"5s"`
 	WriteTimeout      time.Duration `env:"WRITE_TIMEOUT" envDefault:"10s"`
 	IdleTimeout       time.Duration `env:"IDLE_TIMEOUT" envDefault:"120s"`
