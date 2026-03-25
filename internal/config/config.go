@@ -19,6 +19,17 @@ type Config struct {
 	Providers    ProvidersConfig    `envPrefix:"AUTH_PROVIDERS_"`
 	Subscription SubscriptionConfig `envPrefix:"AUTH_SUBSCRIPTION_"`
 	Events       EventsConfig       `envPrefix:"AUTH_EVENTS_"`
+	Backup       BackupConfig       `envPrefix:"BACKUP_"`
+}
+
+// BackupConfig points to the internal backup-server that serves PostgreSQL backup files.
+// Platform admins can list and download backups via the /api/v1/platform/backups endpoint.
+type BackupConfig struct {
+	// Internal URL of the backup-server nginx service (ClusterIP, not exposed externally).
+	// In K8s: http://backup-server.infra.svc.cluster.local
+	ServiceURL string `env:"SERVICE_URL" envDefault:"http://backup-server.infra.svc.cluster.local"`
+	// Whether the backup download feature is enabled.
+	Enabled bool `env:"ENABLED" envDefault:"true"`
 }
 
 // EventsConfig holds NATS and outbox publisher settings.
@@ -31,7 +42,7 @@ type EventsConfig struct {
 
 // SubscriptionConfig holds settings for subscription-service integration.
 type SubscriptionConfig struct {
-	BaseURL string        `env:"BASE_URL" envDefault:"http://localhost:4103"`
+	BaseURL string        `env:"BASE_URL" envDefault:"http://localhost:4008"`
 	APIKey  string        `env:"API_KEY"`
 	Timeout time.Duration `env:"TIMEOUT" envDefault:"5s"`
 	Enabled bool          `env:"ENABLED" envDefault:"true"`

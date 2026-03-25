@@ -52,6 +52,9 @@ type AuthHandlers struct {
 	AdminDeleteTenant            http.HandlerFunc
 	AdminCreateClient            http.HandlerFunc
 	AdminListClients             http.HandlerFunc
+	AdminGetClient               http.HandlerFunc
+	AdminUpdateClient            http.HandlerFunc
+	AdminDeleteClient            http.HandlerFunc
 	AdminUpsertEntitlement       http.HandlerFunc
 	AdminListEntitlements        http.HandlerFunc
 	AdminIncrementUsage          http.HandlerFunc
@@ -83,6 +86,9 @@ type AuthHandlers struct {
 	ListActiveIntegrations http.HandlerFunc
 	// Use Case configuration
 	GetUseCaseConfig http.HandlerFunc
+	// Platform backup management
+	ListBackups    http.HandlerFunc
+	DownloadBackup http.HandlerFunc
 }
 
 // NewRouter wires HTTP routes.
@@ -243,6 +249,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 				})
 				r.Post("/clients", deps.AuthHandlers.AdminCreateClient)
 				r.Get("/clients", deps.AuthHandlers.AdminListClients)
+				r.Route("/clients/{client_id}", func(r chi.Router) {
+					r.Get("/", deps.AuthHandlers.AdminGetClient)
+					r.Patch("/", deps.AuthHandlers.AdminUpdateClient)
+					r.Delete("/", deps.AuthHandlers.AdminDeleteClient)
+				})
 				r.Post("/entitlements", deps.AuthHandlers.AdminUpsertEntitlement)
 				r.Get("/entitlements", deps.AuthHandlers.AdminListEntitlements)
 				r.Post("/usage/increment", deps.AuthHandlers.AdminIncrementUsage)
@@ -256,6 +267,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Post("/api-keys", deps.AuthHandlers.AdminCreateAPIKey)
 				r.Get("/api-keys", deps.AuthHandlers.AdminListAPIKeys)
 				r.Delete("/api-keys/{id}", deps.AuthHandlers.AdminRevokeAPIKey)
+				// Platform backup management (platform admins only)
+				r.Get("/backups", deps.AuthHandlers.ListBackups)
+				r.Get("/backups/{filename}", deps.AuthHandlers.DownloadBackup)
 			})
 		})
 		r.Route("/developer", func(r chi.Router) {
