@@ -559,87 +559,70 @@ func main() {
 		tenantSlugs = append(tenantSlugs, te.Slug)
 	}
 
-	notificationsRedirects := []string{
-		"https://notifications.codevertexitsolutions.com/auth/callback",
-		"http://localhost:3000/auth/callback",
+	// clientProductionHosts maps each OAuth client to its production hostname.
+	// Used for building redirect URIs: production uses HTTPS with the hostname,
+	// local dev always uses http://localhost:3000 (standardized port for all frontends).
+	type clientDef struct {
+		ID             string
+		Name           string
+		ProductionHost string // e.g. "books.codevertexitsolutions.com"
+		Public         bool
 	}
-	orderingRedirects := []string{}
-	subscriptionsRedirects := []string{}
-	treasuryRedirects := []string{}
-	posRedirects := []string{}
-	inventoryRedirects := []string{}
-	logisticsRedirects := []string{}
-	// TruLoad: commercial weighbridge UI — uses truload.codevertexitsolutions.com
-	// Each commercial tenant org uses /{orgSlug}/auth/callback after SSO
-	// localhost:3003 is the assigned dev port; localhost:3000 is the Next.js default
-	// (both are needed so local tests pass regardless of port configuration)
-	truloadRedirects := []string{
-		"https://truload.codevertexitsolutions.com/auth/callback",
-		"http://localhost:3003/auth/callback",
-		"http://localhost:3000/auth/callback",
-	}
-	// TruLoad org slugs are truload-backend Organization.Code values (e.g. "TRULOAD-DEMO")
-	// We seed the known commercial org slugs here; add more as tenants are onboarded.
-	truloadOrgSlugs := []string{"truload-demo", "danka"}
-	for _, orgSlug := range truloadOrgSlugs {
-		truloadRedirects = append(truloadRedirects,
-			"https://truload.codevertexitsolutions.com/"+orgSlug+"/auth/callback",
-			"http://localhost:3003/"+orgSlug+"/auth/callback",
-			"http://localhost:3000/"+orgSlug+"/auth/callback",
-		)
+	clients := []clientDef{
+		{ID: "notifications-ui", Name: "BengoBox Notifications UI", ProductionHost: "notifications.codevertexitsolutions.com", Public: true},
+		{ID: "ordering-ui", Name: "BengoBox Ordering UI", ProductionHost: "ordersapp.codevertexitsolutions.com", Public: true},
+		{ID: "rider-app", Name: "BengoBox Rider App", ProductionHost: "riderapp.codevertexitsolutions.com", Public: true},
+		{ID: "cafe-website", Name: "Urban Loft Cafe Website", ProductionHost: "theurbanloftcafe.com", Public: true},
+		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", ProductionHost: "pricing.codevertexitsolutions.com", Public: true},
+		{ID: "treasury-ui", Name: "BengoBox Treasury UI", ProductionHost: "books.codevertexitsolutions.com", Public: true},
+		{ID: "pos-ui", Name: "BengoBox POS UI", ProductionHost: "pos.codevertexitsolutions.com", Public: true},
+		{ID: "inventory-ui", Name: "BengoBox Inventory UI", ProductionHost: "inventory.codevertexitsolutions.com", Public: true},
+		{ID: "logistics-ui", Name: "BengoBox Logistics UI", ProductionHost: "logistics.codevertexitsolutions.com", Public: true},
+		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexitsolutions.com", Public: true},
+		{ID: "truload-ui", Name: "TruLoad UI", ProductionHost: "truload.codevertexitsolutions.com", Public: true},
 	}
 
-	for _, slug := range tenantSlugs {
-		notificationsRedirects = append(notificationsRedirects,
-			"https://notifications.codevertexitsolutions.com/"+slug+"/auth/callback",
-			"http://localhost:3000/"+slug+"/auth/callback",
-		)
-		orderingRedirects = append(orderingRedirects,
-			"https://ordersapp.codevertexitsolutions.com/"+slug+"/auth/callback",
-			"http://localhost:3001/"+slug+"/auth/callback",
-		)
-		subscriptionsRedirects = append(subscriptionsRedirects,
-			"https://pricing.codevertexitsolutions.com/"+slug+"/auth/callback",
-			"http://localhost:3010/"+slug+"/auth/callback",
-		)
-		treasuryRedirects = append(treasuryRedirects,
-			"https://books.codevertexitsolutions.com/"+slug+"/auth/callback",
-			"http://localhost:3011/"+slug+"/auth/callback",
-		)
-		posRedirects = append(posRedirects,
-			"https://pos.codevertexitsolutions.com/"+slug+"/auth/callback",
-			"http://localhost:3012/"+slug+"/auth/callback",
-		)
-		inventoryRedirects = append(inventoryRedirects,
-			"https://inventory.codevertexitsolutions.com/"+slug+"/auth/callback",
-			"http://localhost:3015/"+slug+"/auth/callback",
-		)
-		logisticsRedirects = append(logisticsRedirects,
-			"https://logistics.codevertexitsolutions.com/"+slug+"/auth/callback",
-			"http://localhost:3013/"+slug+"/auth/callback",
-		)
-	}
-	// Also allow non-tenant callback for subscriptions/treasury/pos/inventory/logistics when used without org in path
-	subscriptionsRedirects = append(subscriptionsRedirects, "https://pricing.codevertexitsolutions.com/auth/callback", "http://localhost:3010/auth/callback")
-	treasuryRedirects = append(treasuryRedirects, "https://books.codevertexitsolutions.com/auth/callback", "http://localhost:3011/auth/callback")
-	posRedirects = append(posRedirects, "https://pos.codevertexitsolutions.com/auth/callback", "http://localhost:3012/auth/callback")
-	inventoryRedirects = append(inventoryRedirects, "https://inventory.codevertexitsolutions.com/auth/callback", "http://localhost:3015/auth/callback")
-	logisticsRedirects = append(logisticsRedirects, "https://logistics.codevertexitsolutions.com/auth/callback", "http://localhost:3013/auth/callback")
+	// Collect all tenant slugs (seeded tenants + TruLoad org slugs).
+	allSlugs := append(tenantSlugs, "truload-demo", "danka")
 
-	oauthClients := []oauthClientSpec{
-		{ID: "notifications-ui", Name: "BengoBox Notifications UI", RedirectURIs: notificationsRedirects, Public: true},
-		{ID: "ordering-ui", Name: "BengoBox Ordering UI", RedirectURIs: orderingRedirects, Public: true},
-		{ID: "rider-app", Name: "BengoBox Rider App", RedirectURIs: []string{"https://riderapp.codevertexitsolutions.com/auth/callback", "http://localhost:3002/auth/callback"}, Public: true},
-		{ID: "cafe-website", Name: "Urban Loft Cafe Website", RedirectURIs: []string{"https://theurbanloftcafe.com/auth/callback", "http://localhost:3000/auth/callback"}, Public: true},
-		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", RedirectURIs: subscriptionsRedirects, Public: true},
-		{ID: "treasury-ui", Name: "BengoBox Treasury UI", RedirectURIs: treasuryRedirects, Public: true},
-		{ID: "pos-ui", Name: "BengoBox POS UI", RedirectURIs: posRedirects, Public: true},
-		{ID: "inventory-ui", Name: "BengoBox Inventory UI", RedirectURIs: inventoryRedirects, Public: true},
-		{ID: "logistics-ui", Name: "BengoBox Logistics UI", RedirectURIs: logisticsRedirects, Public: true},
-		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", RedirectURIs: []string{"https://accounts.codevertexitsolutions.com/auth/callback", "https://sso.codevertexitsolutions.com/auth/callback", "http://localhost:3014/auth/callback"}, Public: true},
-		// TruLoad Weighbridge UI — PKCE public client for commercial weighing tenants
-		// Uses truload.codevertexitsolutions.com; enforcement tenants use local login (no SSO)
-		{ID: "truload-ui", Name: "TruLoad UI", RedirectURIs: truloadRedirects, Public: true},
+	// buildRedirects generates the full redirect URI list for a client.
+	// Each client gets: base production callback, base localhost callback,
+	// plus per-tenant-slug variants of both.
+	buildRedirects := func(productionHost string) []string {
+		seen := map[string]bool{}
+		var uris []string
+		add := func(u string) {
+			if !seen[u] {
+				seen[u] = true
+				uris = append(uris, u)
+			}
+		}
+		// Non-tenant (base) callbacks
+		add("https://" + productionHost + "/auth/callback")
+		add("http://localhost:3000/auth/callback")
+		// Per-tenant callbacks
+		for _, slug := range allSlugs {
+			add("https://" + productionHost + "/" + slug + "/auth/callback")
+			add("http://localhost:3000/" + slug + "/auth/callback")
+		}
+		return uris
+	}
+
+	// auth-ui also needs the SSO domain as a redirect
+	authUIExtra := []string{"https://sso.codevertexitsolutions.com/auth/callback"}
+
+	oauthClients := make([]oauthClientSpec, 0, len(clients))
+	for _, c := range clients {
+		uris := buildRedirects(c.ProductionHost)
+		if c.ID == "auth-ui" {
+			uris = append(uris, authUIExtra...)
+		}
+		oauthClients = append(oauthClients, oauthClientSpec{
+			ID:           c.ID,
+			Name:         c.Name,
+			RedirectURIs: uris,
+			Public:       c.Public,
+		})
 	}
 
 	for _, c := range oauthClients {

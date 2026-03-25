@@ -3,6 +3,7 @@ package oidc
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -97,11 +98,10 @@ func (s *Service) ExchangeCode(ctx context.Context, codePlain, clientID, redirec
 	if !strings.EqualFold(code.RedirectURI, redirectURI) {
 		return nil, nil, nil, fmt.Errorf("redirect mismatch")
 	}
-	// PKCE validation when code challenge present
+	// PKCE validation when code challenge present (RFC 7636 S256)
 	if code.CodeChallenge != "" {
-		// S256 required by spec when present
 		verifierHash := sha256.Sum256([]byte(codeVerifier))
-		encoded := base64URLEncode(verifierHash[:])
+		encoded := base64.RawURLEncoding.EncodeToString(verifierHash[:])
 		if !strings.EqualFold(encoded, code.CodeChallenge) {
 			return nil, nil, nil, fmt.Errorf("pkce verification failed")
 		}
@@ -273,22 +273,3 @@ func firstProfileString(profile map[string]any, key, fallback string) string {
 	return fallback
 }
 
-func base64URLEncode(b []byte) string {
-	const encodeURL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-	var result strings.Builder
-	var val uint
-	var valb int
-	for _, c := range b {
-		val = (val << 8) | uint(c)
-		valb += 8
-		for valb >= 6 {
-			result.WriteByte(encodeURL[(val>>(uint(valb)-6))&0x3F])
-			valb -= 6
-		}
-	}
-	if valb > 0 {
-		result.WriteByte(encodeURL[(val<<(6-uint(valb)))&0x3F])
-	}
-	// no padding
-	return result.String()
-}

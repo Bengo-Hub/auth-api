@@ -21,6 +21,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
+	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -339,6 +340,15 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 			"is_default": true,
 			"use_case":   tenantEntity.UseCase,
 		})
+
+		// Auto-register redirect URIs for the new tenant slug on all OAuth clients
+		// so the tenant can immediately log in to all frontend apps.
+		if err := AppendTenantRedirectURIs(ctx, s.entClient, tenantEntity.Slug); err != nil {
+			s.logger.Warn("failed to append tenant redirect URIs",
+				zap.String("tenant_slug", tenantEntity.Slug),
+				zap.Error(err),
+			)
+		}
 	} else {
 		tenantEntity, err = s.GetTenantBySlug(ctx, in.TenantSlug)
 		if err != nil {
@@ -1034,6 +1044,20 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, in PasswordResetConf
 // GetUser returns user by id.
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error) {
 	return s.entClient.User.Get(ctx, id)
+}
+
+// IsMFAEnabled checks if the user has an active TOTP secret with enabled_at set.
+func (s *Service) IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error) {
+	exists, err := s.entClient.MFATOTPSecret.Query().
+		Where(
+			mfatotpsecret.UserID(userID),
+			mfatotpsecret.EnabledAtNotNil(),
+		).
+		Exist(ctx)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 // GetUserRolesAndPermissions returns the list of role names and permission codes for the user (from all tenant memberships).

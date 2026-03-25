@@ -16,6 +16,7 @@ import (
 	"github.com/bengobox/auth-api/internal/services/usecase"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/pquerna/otp/totp"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -41,6 +42,7 @@ type AuthService interface {
 	ListSessions(ctx context.Context, userID uuid.UUID) ([]*ent.Session, error)
 	RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error
+	IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 // UseCaseService describes the use case logic capabilities.
@@ -258,6 +260,31 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// MFA enforcement: if TOTP is enabled, require code before issuing tokens.
+	// When totp_code is not provided, return mfa_required so the frontend
+	// can show the TOTP input and re-submit with the code included.
+	if mfaEnabled, _ := h.service.IsMFAEnabled(r.Context(), result.User.ID); mfaEnabled {
+		if req.TOTPCode == "" {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"mfa_required": true,
+				"mfa_method":   "totp",
+				"user_id":      result.User.ID.String(),
+			})
+			return
+		}
+		// Validate the provided TOTP code via the MFA service.
+		// The MFA service is accessed through the auth service's entClient.
+		totpRec, totpErr := result.User.QueryMfaTotp().Only(r.Context())
+		if totpErr != nil {
+			writeError(w, http.StatusInternalServerError, "server_error", "failed to load TOTP config", nil)
+			return
+		}
+		if !totp.Validate(req.TOTPCode, totpRec.Secret) {
+			writeError(w, http.StatusUnauthorized, "invalid_totp", "invalid TOTP code", nil)
+			return
+		}
+	}
+
 	// Cache the login result for /me optimization (TTL = token expiry or 24h)
 	if h.redis != nil && h.redisNamespace != "" {
 		cacheKey := h.redisNamespace + ":auth:me:" + result.User.ID.String()
@@ -275,6 +302,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		}
 		out["roles"] = result.Roles
 		out["permissions"] = result.Permissions
+		if mfaOn, _ := h.service.IsMFAEnabled(r.Context(), result.User.ID); mfaOn {
+			out["mfa_enabled"] = true
+		} else {
+			out["mfa_enabled"] = false
+		}
 		if result.Tenant != nil {
 			out["tenant"] = tenantViewFromEnt(result.Tenant)
 			out["tenant_id"] = result.Tenant.ID.String()
@@ -565,6 +597,11 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	out["roles"] = roles
 	out["permissions"] = permissions
 
+	// MFA status
+	if mfaEnabled, err := h.service.IsMFAEnabled(r.Context(), userID); err == nil {
+		out["mfa_enabled"] = mfaEnabled
+	}
+
 	// Resolve and embed the primary tenant as a nested object so frontend
 	// useAuth and test_sso_me_endpoint can read tenant.id / tenant.slug directly.
 	if userEntity.PrimaryTenantID != "" {
@@ -771,6 +808,7 @@ type loginRequest struct {
 	Password   string `json:"password"`
 	TenantSlug string `json:"tenant_slug"`
 	ClientID   string `json:"client_id"`
+	TOTPCode   string `json:"totp_code,omitempty"`
 }
 
 type refreshRequest struct {
