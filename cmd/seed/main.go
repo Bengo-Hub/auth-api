@@ -186,11 +186,12 @@ func main() {
 
 	hasher := password.NewHasher(cfg.Security)
 
-	// Seed demo user with publicly safe credentials
-	const (
-		demoEmail    = "demo@bengobox.dev"
-		demoPassword = "DemoUser2024!"
-	)
+	// Seed demo user
+	demoEmail := "demo@bengobox.dev"
+	demoPassword := os.Getenv("SEED_DEMO_PASSWORD")
+	if demoPassword == "" {
+		demoPassword = "DemoUser2024!" // default for local dev; override via env in production
+	}
 
 	demoHash, err := hasher.Hash(demoPassword)
 	if err != nil {
@@ -260,7 +261,8 @@ func main() {
 		adminPassword = os.Getenv("SEED_ADMIN_PASSWORD")
 	}
 	if adminPassword == "" {
-		adminPassword = "ChangeMe123!"
+		log.Println("⚠️  No SEED_SUPER_ADMIN_PASSWORD or SEED_ADMIN_PASSWORD set — using default seed password")
+		adminPassword = "ChangeMe123!" // default for local dev; override via env in production
 	}
 
 	if adminEmail != "" && adminPassword != "" {
@@ -318,7 +320,10 @@ func main() {
 	// Seed tenant-specific admin for Urban Loft Cafe
 	urbanLoftTenant := tenantEntities[2]
 	tenantAdminEmail := "admin@theurbanloftcafe.com"
-	tenantAdminPassword := "TenantAdmin2024!"
+	tenantAdminPassword := os.Getenv("SEED_TENANT_ADMIN_PASSWORD")
+	if tenantAdminPassword == "" {
+		tenantAdminPassword = "TenantAdmin2024!" // default for local dev; override via env in production
+	}
 	tenantAdminHash, _ := hasher.Hash(tenantAdminPassword)
 
 	tenantAdmin, err := client.User.Create().
@@ -366,7 +371,10 @@ func main() {
 	// truload tenant is the last entry in the tenants slice
 	truloadTenant := tenantEntities[len(tenantEntities)-1] // "truload"
 	truloadAdminEmail := "admin@truload.codevertexitsolutions.com"
-	truloadAdminPassword := "ChangeMe123!"
+	truloadAdminPassword := os.Getenv("SEED_TRULOAD_ADMIN_PASSWORD")
+	if truloadAdminPassword == "" {
+		truloadAdminPassword = "ChangeMe123!" // default for local dev; override via env in production
+	}
 	truloadAdminHash, _ := hasher.Hash(truloadAdminPassword)
 
 	truloadAdmin, err := client.User.Create().
@@ -388,7 +396,7 @@ func main() {
 			log.Printf("✓ TruLoad admin exists: %s", truloadAdminEmail)
 		}
 	} else {
-		log.Printf("✓ Created TruLoad admin: %s (password: %s)", truloadAdminEmail, truloadAdminPassword)
+		log.Printf("✓ Created TruLoad admin: %s", truloadAdminEmail)
 	}
 
 	if truloadAdmin != nil {
@@ -415,7 +423,10 @@ func main() {
 	log.Println("Seeding staff users for all tenants...")
 	for _, te := range tenantEntities {
 		staffEmail := fmt.Sprintf("staff@%s.com", te.Slug)
-		staffPassword := fmt.Sprintf("Staff%s2024!", te.Slug)
+		staffPassword := os.Getenv("SEED_STAFF_PASSWORD")
+		if staffPassword == "" {
+			staffPassword = fmt.Sprintf("Staff%s2024!", te.Slug) // default for local dev
+		}
 		staffHash, _ := hasher.Hash(staffPassword)
 
 		staffUser, err := client.User.Create().

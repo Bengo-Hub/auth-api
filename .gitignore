@@ -33,3 +33,9 @@
 /config/certs/*.pem
 /config/certs/*.key
 
+# Kubernetes secrets
+KubeSecrets/
+
+# PEM files
+*.pem
+
