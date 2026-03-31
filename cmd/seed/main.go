@@ -470,19 +470,102 @@ func main() {
 	}
 
 	// Seed permissions and role-permission mapping
-	log.Println("Seeding permissions and role-permission mapping...")
-	actions := []string{"add", "read", "read_own", "change", "change_own", "delete", "manage", "manage_own", "view", "dispatch", "refund", "export", "update"}
-	resources := []string{"orders", "catalog", "users", "tenants", "riders", "inventory", "settings", "gateways", "logistics", "analytics", "promotions", "support", "profile", "preferences", "notifications", "payments", "loyalty", "compliance", "zones"}
+	// Uses Django-style format: {service}.{module}.{action}
+	// Standard actions: add, view, view_own, change, change_own, delete, delete_own, manage, manage_own
+	// See: shared-docs/TRINITY-AUTHORIZATION-PATTERN.md
+	log.Println("Seeding permissions (Django-style: service.module.action)...")
+
+	// All service permissions in {service}.{module}.{action} format
+	servicePerms := map[string][]string{
+		// Ordering service
+		"ordering": {
+			"ordering.orders.add", "ordering.orders.view", "ordering.orders.view_own",
+			"ordering.orders.change", "ordering.orders.change_own", "ordering.orders.delete",
+			"ordering.orders.manage", "ordering.orders.manage_own",
+			"ordering.catalog.add", "ordering.catalog.view", "ordering.catalog.change",
+			"ordering.catalog.delete", "ordering.catalog.manage",
+			"ordering.outlets.add", "ordering.outlets.view", "ordering.outlets.change",
+			"ordering.outlets.delete", "ordering.outlets.manage",
+			"ordering.promotions.add", "ordering.promotions.view", "ordering.promotions.change",
+			"ordering.promotions.delete", "ordering.promotions.manage",
+			"ordering.analytics.view", "ordering.analytics.manage",
+			"ordering.config.view", "ordering.config.manage",
+			"ordering.users.view", "ordering.users.manage",
+		},
+		// Inventory service
+		"inventory": {
+			"inventory.items.add", "inventory.items.view", "inventory.items.change",
+			"inventory.items.delete", "inventory.items.manage",
+			"inventory.categories.add", "inventory.categories.view", "inventory.categories.change",
+			"inventory.categories.delete", "inventory.categories.manage",
+			"inventory.warehouses.add", "inventory.warehouses.view", "inventory.warehouses.change",
+			"inventory.warehouses.delete", "inventory.warehouses.manage",
+			"inventory.stock.add", "inventory.stock.view", "inventory.stock.change",
+			"inventory.stock.manage",
+			"inventory.recipes.add", "inventory.recipes.view", "inventory.recipes.change",
+			"inventory.recipes.delete", "inventory.recipes.manage",
+			"inventory.units.add", "inventory.units.view", "inventory.units.change",
+			"inventory.units.manage",
+			"inventory.config.view", "inventory.config.manage",
+			"inventory.users.view", "inventory.users.manage",
+		},
+		// Logistics service
+		"logistics": {
+			"logistics.tasks.add", "logistics.tasks.view", "logistics.tasks.view_own",
+			"logistics.tasks.change", "logistics.tasks.change_own",
+			"logistics.tasks.delete", "logistics.tasks.manage", "logistics.tasks.manage_own",
+			"logistics.fleet.add", "logistics.fleet.view", "logistics.fleet.change",
+			"logistics.fleet.delete", "logistics.fleet.manage",
+			"logistics.vehicles.add", "logistics.vehicles.view", "logistics.vehicles.change",
+			"logistics.vehicles.delete", "logistics.vehicles.manage",
+			"logistics.zones.add", "logistics.zones.view", "logistics.zones.change",
+			"logistics.zones.delete", "logistics.zones.manage",
+			"logistics.earnings.view", "logistics.earnings.manage",
+			"logistics.config.view", "logistics.config.manage",
+			"logistics.users.view", "logistics.users.manage",
+		},
+		// Treasury / Finance service
+		"treasury": {
+			"treasury.payments.add", "treasury.payments.view", "treasury.payments.view_own",
+			"treasury.payments.change", "treasury.payments.manage",
+			"treasury.transactions.view", "treasury.transactions.view_own",
+			"treasury.transactions.manage",
+			"treasury.ledger.view", "treasury.ledger.manage",
+			"treasury.gateways.add", "treasury.gateways.view", "treasury.gateways.change",
+			"treasury.gateways.manage",
+			"treasury.config.view", "treasury.config.manage",
+			"treasury.users.view", "treasury.users.manage",
+		},
+		// Auth service (platform-level)
+		"auth": {
+			"auth.users.add", "auth.users.view", "auth.users.view_own",
+			"auth.users.change", "auth.users.change_own", "auth.users.delete",
+			"auth.users.manage", "auth.users.manage_own",
+			"auth.tenants.add", "auth.tenants.view", "auth.tenants.change",
+			"auth.tenants.delete", "auth.tenants.manage",
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
+			"auth.notifications.view", "auth.notifications.manage",
+		},
+	}
+
 	permissionIDs := make(map[string]int)
-	for _, res := range resources {
-		for _, act := range actions {
-			code := res + ":" + act
+	for svc, codes := range servicePerms {
+		for _, code := range codes {
 			perm, err := client.Permission.Query().Where(permission.CodeEQ(code)).Only(ctx)
 			if err != nil {
+				// Extract module and action from {service}.{module}.{action}
+				parts := strings.SplitN(code, ".", 3)
+				resource := svc
+				action := code
+				if len(parts) == 3 {
+					resource = parts[1]
+					action = parts[2]
+				}
 				perm, err = client.Permission.Create().
 					SetCode(code).
-					SetResource(res).
-					SetAction(act).
+					SetResource(resource).
+					SetAction(action).
 					Save(ctx)
 				if err != nil {
 					log.Printf("  ⚠️  Error creating permission %s: %v", code, err)
@@ -498,29 +581,36 @@ func main() {
 		"superuser": {}, // all permissions (populated below)
 		"admin":     {}, // all permissions (populated below)
 		"staff": {
-			"orders:add", "orders:read", "orders:change", "orders:manage",
-			"catalog:read", "catalog:add", "catalog:change", "catalog:manage", "catalog:view",
-			"riders:read",
-			"inventory:read", "inventory:change",
-			"loyalty:read",
-			"notifications:read",
-			"support:read",
-			"profile:update",
-			"preferences:update",
+			// Ordering
+			"ordering.orders.add", "ordering.orders.view", "ordering.orders.change", "ordering.orders.manage",
+			"ordering.catalog.view", "ordering.catalog.add", "ordering.catalog.change", "ordering.catalog.manage",
+			"ordering.analytics.view",
+			// Inventory
+			"inventory.items.view", "inventory.items.change",
+			"inventory.stock.view", "inventory.stock.change",
+			"inventory.recipes.view",
+			// Logistics
+			"logistics.fleet.view",
+			// Treasury
+			"treasury.payments.view", "treasury.transactions.view",
+			// Auth
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
+			"auth.notifications.view",
 		},
 		"member": {
-			"orders:read_own", "orders:change_own", "orders:add",
-			"catalog:read", "catalog:view",
-			"loyalty:read",
-			"profile:update",
-			"preferences:update",
+			"ordering.orders.view_own", "ordering.orders.change_own", "ordering.orders.add",
+			"ordering.catalog.view",
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
 		},
 		"rider": {
-			"riders:read_own", "riders:change_own",
-			"orders:read",
-			"logistics:read", "logistics:dispatch",
-			"profile:update",
-			"preferences:update",
+			"logistics.tasks.view_own", "logistics.tasks.change_own",
+			"logistics.fleet.view",
+			"logistics.earnings.view",
+			"ordering.orders.view",
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
 		},
 	}
 	for roleName, codes := range rolePerms {
