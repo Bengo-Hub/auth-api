@@ -68,9 +68,9 @@ type HTTPConfig struct {
 
 type DatabaseConfig struct {
 	URL             string        `env:"POSTGRES_URL"`
-	MaxOpenConns    int           `env:"POSTGRES_MAX_OPEN_CONNS" envDefault:"20"`
-	MaxIdleConns    int           `env:"POSTGRES_MAX_IDLE_CONNS" envDefault:"5"`
-	ConnMaxLifetime time.Duration `env:"POSTGRES_CONN_MAX_LIFETIME" envDefault:"30m"`
+	MaxOpenConns    int           `env:"POSTGRES_MAX_OPEN_CONNS" envDefault:"8"`
+	MaxIdleConns    int           `env:"POSTGRES_MAX_IDLE_CONNS" envDefault:"3"`
+	ConnMaxLifetime time.Duration `env:"POSTGRES_CONN_MAX_LIFETIME" envDefault:"15m"`
 	RunMigrations   bool          `env:"POSTGRES_RUN_MIGRATIONS" envDefault:"true"`
 }
 
