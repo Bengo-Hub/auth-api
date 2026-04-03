@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,6 +51,8 @@ func (h *BackupHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
 }
 
 // DownloadBackup streams a backup file (GET /api/v1/platform/backups/{filename}).
+// Uses a dedicated HTTP client with no timeout to avoid the router's 60s middleware
+// killing large file downloads. Streams data with flushing for real-time progress.
 func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 	if !h.enabled {
 		http.Error(w, `{"error":"backup feature is disabled"}`, http.StatusServiceUnavailable)
@@ -68,7 +71,21 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.httpClient.Get(h.backupServiceURL + "/" + filename)
+	// Use a background-derived context for the upstream request.
+	// The router's chimiddleware.Timeout(60s) cancels r.Context() after 60s,
+	// which would kill the download. We use context.WithoutCancel so the
+	// upstream fetch isn't affected by the middleware timeout, but still
+	// cancel if the server shuts down.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 10*time.Minute)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.backupServiceURL+"/"+filename, nil)
+	if err != nil {
+		http.Error(w, `{"error":"failed to create request"}`, http.StatusInternalServerError)
+		return
+	}
+
+	resp, err := h.httpClient.Do(req)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to fetch backup: %s"}`, err.Error()), http.StatusBadGateway)
 		return
@@ -85,7 +102,29 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 	if resp.ContentLength > 0 {
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", resp.ContentLength))
 	}
-	io.Copy(w, resp.Body)
+
+	// Flush headers immediately so the browser can show progress
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	// Stream in 32KB chunks with flushing for real-time progress
+	buf := make([]byte, 32*1024)
+	flusher, canFlush := w.(http.Flusher)
+	for {
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				return // client disconnected
+			}
+			if canFlush {
+				flusher.Flush()
+			}
+		}
+		if readErr != nil {
+			break
+		}
+	}
 }
 
 // BackupManifest is the JSON structure written by the CronJob.

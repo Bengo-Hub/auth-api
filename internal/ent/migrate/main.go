@@ -6,6 +6,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/bengobox/auth-api/internal/ent/migrate"
 
@@ -35,12 +36,21 @@ func main() {
 	}
 	
 	// Generate migrations using Atlas support.
+	// We use the ent_dev schema as a clean dev-db for Atlas to calculate the diff.
 	dbURL := os.Getenv("POSTGRES_URL")
 	if dbURL == "" {
 		dbURL = "postgres://postgres:postgres@localhost:5432/auth?sslmode=disable"
 	}
 
-	err = migrate.NamedDiff(ctx, dbURL, os.Args[1], opts...)
+	// Append search_path=ent_dev to the URL to use the clean schema
+	devURL := dbURL
+	if strings.Contains(devURL, "?") {
+		devURL += "&search_path=ent_dev"
+	} else {
+		devURL += "?search_path=ent_dev"
+	}
+
+	err = migrate.NamedDiff(ctx, devURL, os.Args[1], opts...)
 	if err != nil {
 		log.Fatalf("failed generating migration: %v", err)
 	}
