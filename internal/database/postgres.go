@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
@@ -25,6 +26,7 @@ func NewClient(ctx context.Context, cfg config.DatabaseConfig) (*ent.Client, *sq
 	db.SetMaxOpenConns(cfg.MaxOpenConns)
 	db.SetMaxIdleConns(cfg.MaxIdleConns)
 	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	db.SetConnMaxIdleTime(1 * time.Minute)
 
 	if err := db.PingContext(ctx); err != nil {
 		return nil, nil, fmt.Errorf("ping postgres: %w", err)

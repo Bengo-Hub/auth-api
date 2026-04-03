@@ -125,7 +125,7 @@ curl -X POST "https://sso.codevertexitsolutions.com/api/v1/auth/login" \
 
 **Solution**:
 - ✅ Use: `"tenant_slug": "codevertex"`
-- ❌ Not: `"tenant_slug": "bengobox"`
+- ❌ Not: `"tenant_slug": codevertex`
 
 ### Issue 3: No Data in Database
 **Symptoms**:
