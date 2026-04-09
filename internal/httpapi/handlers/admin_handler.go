@@ -480,6 +480,10 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 		}
 		if req.Metadata != nil {
 			for k, v := range req.Metadata {
+				// Skip empty string values to avoid overwriting existing metadata
+				if str, ok := v.(string); ok && str == "" {
+					continue
+				}
 				metadata[k] = v
 			}
 		}
