@@ -1100,6 +1100,16 @@ func (s *Service) GetUserRolesAndPermissions(ctx context.Context, userID uuid.UU
 	return roles, permissions, nil
 }
 
+// ListUserTenantMemberships returns every tenant the user belongs to, with
+// the Tenant edge eager-loaded so the caller can read tenant details without
+// an N+1 query.
+func (s *Service) ListUserTenantMemberships(ctx context.Context, userID uuid.UUID) ([]*ent.TenantMembership, error) {
+	return s.entClient.TenantMembership.Query().
+		Where(tenantmembership.UserID(userID)).
+		WithTenant().
+		All(ctx)
+}
+
 // ValidateAccessToken ensures the JWT is valid.
 func (s *Service) ValidateAccessToken(tokenStr string) (*token.Claims, error) {
 	return s.tokenSvc.Parse(tokenStr)
