@@ -785,6 +785,21 @@ type integrationConfigResponse struct {
 	UpdatedAt   string            `json:"updated_at"`
 }
 
+// platformOnlyIntegrations are integrations whose credentials MUST live at
+// platform scope (tenant_id = NULL). OAuth identity providers are shared
+// infrastructure: all tenants authenticate through the same Google/Microsoft/
+// GitHub app, with per-tenant context carried in the OAuth state JWT rather
+// than in a per-tenant client_id/secret. Duplicating credentials per tenant
+// would also leak secrets across the admin surface — disallow it.
+var platformOnlyIntegrations = map[string]bool{
+	"google":    true,
+	"microsoft": true,
+	"github":    true,
+	// System keys must also stay platform-wide.
+	"system_encryption_key": true,
+	"subscription_api_key":  true,
+}
+
 func (h *AdminHandler) CreateIntegrationConfig(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(r) {
 		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
@@ -804,6 +819,13 @@ func (h *AdminHandler) CreateIntegrationConfig(w http.ResponseWriter, r *http.Re
 			return
 		}
 		tenantID = &tid
+	}
+
+	// Enforce platform scope for integrations that are inherently shared.
+	// Silently drop the tenant_id instead of erroring — lets the admin UI
+	// send the same shape for every provider without having to special-case.
+	if platformOnlyIntegrations[req.Name] {
+		tenantID = nil
 	}
 
 	err := h.integrations.SaveConfig(r.Context(), tenantID, req.Name, req.DisplayName, req.Credentials)

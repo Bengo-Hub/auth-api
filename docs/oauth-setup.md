@@ -229,6 +229,25 @@ Handler locations:
 
 ---
 
+## Scope: platform-only
+
+**OAuth provider credentials (`google`, `microsoft`, `github`) are stored at
+platform scope only — `tenant_id` is always `NULL`.** Every tenant in the
+Codevertex ecosystem authenticates through the same OAuth app; per-tenant
+isolation is provided by the signed OAuth state JWT (`tenant_slug` claim), not
+by separate credentials per tenant.
+
+Enforcement is server-side in `admin_handler.go` via the
+`platformOnlyIntegrations` map — any create request for `google`, `microsoft`,
+or `github` silently drops the `tenant_id` field. The
+`GET /api/v1/auth/integrations/active?category=oauth` endpoint ignores the
+`tenant_slug` query param for the same reason.
+
+If you need a per-tenant identity provider override in the future (e.g. a
+dedicated Azure AD app for a large customer), that is a separate feature and
+should use a distinct table / code path — do not repurpose `integration_configs`
+to store per-tenant OAuth secrets.
+
 ## Multi-tenancy & Tenant Resolution
 
 OAuth flows are tenant-aware end-to-end:
