@@ -854,6 +854,11 @@ type googleOAuthStartRequest struct {
 	ClientID    string `json:"client_id"`
 	Flow        string `json:"flow"`
 	RedirectURI string `json:"redirect_uri"`
+	// ReturnTo is a frontend-only hint for where to land after the callback.
+	// Accepted so the DisallowUnknownFields JSON decoder doesn't 400 on requests
+	// from auth-ui; the server ignores it — the redirect destination is derived
+	// from the OAuthClient's registered redirect_uris.
+	ReturnTo string `json:"return_to"`
 }
 
 // oauthRegisterRequest is submitted by the signup wizard after an OAuth2 provider
