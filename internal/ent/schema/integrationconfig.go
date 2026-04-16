@@ -26,7 +26,7 @@ func (IntegrationConfig) Fields() []ent.Field {
 			Comment("Tenant identifier. NULL = platform-level integration."),
 		field.String("name").
 			NotEmpty().
-			Comment("Unique integration name e.g. google_oauth, paystack, slack"),
+			Comment("Unique integration name e.g. google, microsoft, github, slack (identity & comms only — payment providers live in treasury-api)"),
 		field.String("display_name").
 			NotEmpty().
 			Comment("Human-readable name"),

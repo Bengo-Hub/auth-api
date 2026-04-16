@@ -359,14 +359,17 @@ r.Use(authMiddleware.RequireAuth)
 
 ## External Third-Party Integrations
 
+> **For step-by-step setup of each OAuth provider console (Google Cloud, Azure AD, GitHub), see [oauth-setup.md](./oauth-setup.md).**
+
 ### Google OAuth
 
 **Purpose**: Social login via Google accounts
 
 **Configuration**:
-- Client ID: Stored in encrypted configuration (Tier 1 - Developer only)
-- Client Secret: Stored encrypted at rest in database
-- Redirect URI: `https://auth.codevertexitsolutions.co.ke/auth/oauth/google/callback`
+- Client ID: Stored encrypted in `IntegrationConfig.encrypted_credentials` (platform-level, `tenant_id=NULL`)
+- Client Secret: Stored encrypted at rest (AES-256-GCM)
+- Production redirect URI: `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/google/callback`
+- Local dev redirect URI: `http://localhost:8080/api/v1/auth/oauth/google/callback`
 
 **Flow**:
 1. User clicks "Sign in with Google"
@@ -375,7 +378,7 @@ r.Use(authMiddleware.RequireAuth)
 4. Google redirects with authorization code
 5. Exchange code for access token
 6. Fetch user profile from Google
-7. Create/link user identity
+7. Create/link user identity (JIT provisioning — see [architecture.md](./architecture.md))
 8. Issue first-party JWT tokens
 
 ### Microsoft OAuth
@@ -383,9 +386,11 @@ r.Use(authMiddleware.RequireAuth)
 **Purpose**: Social login via Microsoft 365 accounts
 
 **Configuration**:
-- Client ID: Stored in encrypted configuration (Tier 1)
-- Client Secret: Stored encrypted at rest
-- Redirect URI: `https://auth.codevertexitsolutions.co.ke/auth/oauth/microsoft/callback`
+- Client ID: Stored encrypted in `IntegrationConfig.encrypted_credentials`
+- Client Secret: Stored encrypted at rest (AES-256-GCM)
+- Tenant ID: Stored with credentials (`"common"` for multi-tenant personal + work accounts)
+- Production redirect URI: `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/microsoft/callback`
+- Local dev redirect URI: `http://localhost:8080/api/v1/auth/oauth/microsoft/callback`
 
 **Flow**: Similar to Google OAuth
 
@@ -394,9 +399,10 @@ r.Use(authMiddleware.RequireAuth)
 **Purpose**: Developer login via GitHub accounts
 
 **Configuration**:
-- Client ID: Stored in encrypted configuration (Tier 1)
-- Client Secret: Stored encrypted at rest
-- Redirect URI: `https://auth.codevertexitsolutions.co.ke/auth/oauth/github/callback`
+- Client ID: Stored encrypted in `IntegrationConfig.encrypted_credentials`
+- Client Secret: Stored encrypted at rest (AES-256-GCM)
+- Production redirect URI: `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/github/callback`
+- Local dev redirect URI: `http://localhost:8080/api/v1/auth/oauth/github/callback`
 
 **Flow**: Similar to Google OAuth
 
