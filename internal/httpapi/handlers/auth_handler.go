@@ -43,6 +43,7 @@ type AuthService interface {
 	RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error
 	IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
+	ListUserTenantMemberships(ctx context.Context, userID uuid.UUID) ([]*ent.TenantMembership, error)
 }
 
 // UseCaseService describes the use case logic capabilities.
@@ -638,7 +639,6 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 				out["tenant"] = tenantViewFromEnt(tenantEntity)
 				out["tenant_id"] = tenantEntity.ID.String()
 				out["tenant_slug"] = tenantEntity.Slug
-				// Platform owner flag: Codevertex users have cross-tenant access.
 				if tenantEntity.Slug == "codevertex" {
 					out["is_platform_owner"] = true
 				}
@@ -646,6 +646,33 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 				h.logger.Warn("failed to load primary tenant in /me", zap.Error(tErr))
 			}
 		}
+	}
+
+	// Include every tenant the user is a member of (with roles per tenant).
+	// The frontend uses this to: (a) populate the tenant switcher so
+	// activeTenant matches the user's ACTUAL org, not necessarily the
+	// platform-owner primary, (b) show an accurate org count on the overview.
+	memberships, mErr := h.service.ListUserTenantMemberships(r.Context(), userID)
+	if mErr != nil {
+		h.logger.Warn("failed to load memberships in /me", zap.Error(mErr))
+	}
+	if memberships != nil {
+		tenants := make([]map[string]any, 0, len(memberships))
+		for _, m := range memberships {
+			t := m.Edges.Tenant
+			if t == nil || t.Status != "active" {
+				continue
+			}
+			tenants = append(tenants, map[string]any{
+				"id":           t.ID.String(),
+				"name":         t.Name,
+				"slug":         t.Slug,
+				"brand_colors": t.BrandColors,
+				"logo_url":     t.LogoURL,
+				"roles":        m.Roles,
+			})
+		}
+		out["tenants"] = tenants
 	}
 
 	if cacheKey != "" {
