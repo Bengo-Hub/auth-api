@@ -154,7 +154,12 @@ func (h *AuthHandler) ListActiveIntegrations(w http.ResponseWriter, r *http.Requ
 	category := r.URL.Query().Get("category") // optional filter: "oauth", "messaging", etc.
 	var tenantID *uuid.UUID
 
-	if tenantSlug != "" {
+	// OAuth identity providers are platform-level by policy: every tenant
+	// authenticates through the same Google/Microsoft/GitHub app, with tenant
+	// context carried in the signed state payload. Ignore any tenant_slug
+	// hint when the caller is asking for the oauth category so the response
+	// can't accidentally include a misconfigured tenant-scoped row.
+	if tenantSlug != "" && category != "oauth" {
 		tenant, err := h.service.GetTenantBySlug(r.Context(), tenantSlug)
 		if err == nil && tenant != nil {
 			tenantID = &tenant.ID
