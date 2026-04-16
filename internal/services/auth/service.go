@@ -643,7 +643,7 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 	if s.google == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
+	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug)
 	if err != nil {
 		return "", err
 	}
@@ -763,7 +763,7 @@ func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (str
 	if s.github == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
+	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug)
 	if err != nil {
 		return "", err
 	}
@@ -841,7 +841,7 @@ func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (
 	if s.microsoft == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
+	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug)
 	if err != nil {
 		return "", err
 	}
@@ -1456,6 +1456,13 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.Name}, token); err != nil {
 			return nil, err
 		}
+		if userEntity.PrimaryTenantID == "" {
+			if err := s.entClient.User.UpdateOneID(userEntity.ID).
+				SetPrimaryTenantID(tenantEntity.ID.String()).
+				Exec(ctx); err != nil {
+				s.logger.Warn("failed to set primary tenant from oauth", zap.Error(err))
+			}
+		}
 		return userEntity, nil
 	}
 	if err != nil && !ent.IsNotFound(err) {
@@ -1525,6 +1532,13 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 		}
 		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.DisplayName}, token); err != nil {
 			return nil, err
+		}
+		if userEntity.PrimaryTenantID == "" {
+			if err := s.entClient.User.UpdateOneID(userEntity.ID).
+				SetPrimaryTenantID(tenantEntity.ID.String()).
+				Exec(ctx); err != nil {
+				s.logger.Warn("failed to set primary tenant from oauth", zap.Error(err))
+			}
 		}
 		return userEntity, nil
 	}
@@ -1736,6 +1750,18 @@ func (s *Service) GetTenantBySlug(ctx context.Context, slug string) (*ent.Tenant
 		return nil, ErrTenantInactive
 	}
 	return tenantEntity, nil
+}
+
+// resolveOAuthStartTenant returns the tenant the OAuth flow should run under.
+// If slug is empty (user hitting accounts.codevertexitsolutions.com without a
+// tenant path/subdomain), fall back to the platform-owner tenant "codevertex"
+// so OAuth can complete — the user's actual primary tenant is resolved post-
+// callback from their membership list. A non-empty slug must exist + be active.
+func (s *Service) resolveOAuthStartTenant(ctx context.Context, slug string) (*ent.Tenant, error) {
+	if slug != "" {
+		return s.GetTenantBySlug(ctx, slug)
+	}
+	return s.GetTenantBySlug(ctx, "codevertex")
 }
 
 func (s *Service) recordLoginAttempt(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, email string, success bool, reason string, ip string, ua string) {

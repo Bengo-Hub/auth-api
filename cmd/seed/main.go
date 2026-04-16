@@ -524,18 +524,6 @@ func main() {
 			"logistics.config.view", "logistics.config.manage",
 			"logistics.users.view", "logistics.users.manage",
 		},
-		// Treasury / Finance service
-		"treasury": {
-			"treasury.payments.add", "treasury.payments.view", "treasury.payments.view_own",
-			"treasury.payments.change", "treasury.payments.manage",
-			"treasury.transactions.view", "treasury.transactions.view_own",
-			"treasury.transactions.manage",
-			"treasury.ledger.view", "treasury.ledger.manage",
-			"treasury.gateways.add", "treasury.gateways.view", "treasury.gateways.change",
-			"treasury.gateways.manage",
-			"treasury.config.view", "treasury.config.manage",
-			"treasury.users.view", "treasury.users.manage",
-		},
 		// Auth service (platform-level)
 		"auth": {
 			"auth.users.add", "auth.users.view", "auth.users.view_own",
@@ -591,8 +579,6 @@ func main() {
 			"inventory.recipes.view",
 			// Logistics
 			"logistics.fleet.view",
-			// Treasury
-			"treasury.payments.view", "treasury.transactions.view",
 			// Auth
 			"auth.profile.view", "auth.profile.change",
 			"auth.preferences.view", "auth.preferences.change",

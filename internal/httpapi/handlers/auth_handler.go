@@ -136,8 +136,22 @@ func (h *AuthHandler) LogoutGet(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "https://accounts.codevertexitsolutions.com", http.StatusFound)
 }
 
+// integrationMeta maps an integration name to its category and presentation hints.
+// Keep this aligned with auth-ui/src/lib/oauth/catalog.ts so that the frontend
+// can render consistent logos and filter by category without extra round-trips.
+var integrationMeta = map[string]struct {
+	Category  string
+	LogoSlug  string
+	BrandHex  string
+}{
+	"google":    {Category: "oauth", LogoSlug: "google", BrandHex: "#4285F4"},
+	"microsoft": {Category: "oauth", LogoSlug: "microsoft", BrandHex: "#2F2F2F"},
+	"github":    {Category: "oauth", LogoSlug: "github", BrandHex: "#181717"},
+}
+
 func (h *AuthHandler) ListActiveIntegrations(w http.ResponseWriter, r *http.Request) {
 	tenantSlug := r.URL.Query().Get("tenant_slug")
+	category := r.URL.Query().Get("category") // optional filter: "oauth", "messaging", etc.
 	var tenantID *uuid.UUID
 
 	if tenantSlug != "" {
@@ -156,14 +170,23 @@ func (h *AuthHandler) ListActiveIntegrations(w http.ResponseWriter, r *http.Requ
 	type integrationInfo struct {
 		Name        string `json:"name"`
 		DisplayName string `json:"display_name"`
-		Icon        string `json:"icon,omitempty"`
+		Category    string `json:"category,omitempty"`
+		LogoSlug    string `json:"logo_slug,omitempty"`
+		BrandColor  string `json:"brand_color,omitempty"`
 	}
 
-	response := make([]integrationInfo, 0)
+	response := make([]integrationInfo, 0, len(configs))
 	for _, c := range configs {
+		meta := integrationMeta[c.Name]
+		if category != "" && meta.Category != category {
+			continue
+		}
 		response = append(response, integrationInfo{
 			Name:        c.Name,
 			DisplayName: c.DisplayName,
+			Category:    meta.Category,
+			LogoSlug:    meta.LogoSlug,
+			BrandColor:  meta.BrandHex,
 		})
 	}
 

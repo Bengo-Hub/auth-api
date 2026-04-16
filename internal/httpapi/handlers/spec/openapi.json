@@ -113,6 +113,38 @@
     "/api/v1/auth/oauth/github/callback": { "get": { "summary": "GitHub OAuth callback", "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/oauth/microsoft/start": { "post": { "summary": "Microsoft OAuth start", "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/oauth/microsoft/callback": { "get": { "summary": "Microsoft OAuth callback", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/integrations/active": {
+      "get": {
+        "summary": "List active integrations (public)",
+        "description": "Returns platform-level and tenant-scoped integrations that are currently active. Used by auth-ui login/signup pages to render only the OAuth providers configured in auth-api.",
+        "parameters": [
+          { "name": "tenant_slug", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Optional tenant slug to include tenant-scoped integrations in addition to platform-level ones." },
+          { "name": "category", "in": "query", "required": false, "schema": { "type": "string", "enum": ["oauth"] }, "description": "Filter by integration category. Currently only 'oauth' is recognised; omit to return all." }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string", "example": "google" },
+                      "display_name": { "type": "string", "example": "Google OAuth" },
+                      "category": { "type": "string", "example": "oauth" },
+                      "logo_slug": { "type": "string", "example": "google" },
+                      "brand_color": { "type": "string", "example": "#4285F4" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/.well-known/openid-configuration": {
       "get": { "summary": "OIDC discovery", "responses": { "200": { "description": "OK" } } }
     },

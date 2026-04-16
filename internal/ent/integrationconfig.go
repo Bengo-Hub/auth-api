@@ -21,7 +21,7 @@ type IntegrationConfig struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// Tenant identifier. NULL = platform-level integration.
 	TenantID *uuid.UUID `json:"tenant_id,omitempty"`
-	// Unique integration name e.g. google_oauth, paystack, slack
+	// Unique integration name e.g. google, microsoft, github, slack (identity & comms only — payment providers live in treasury-api)
 	Name string `json:"name,omitempty"`
 	// Human-readable name
 	DisplayName string `json:"display_name,omitempty"`
