@@ -54,15 +54,22 @@ func (h *AdminHandler) requireAdmin(r *http.Request) bool {
 		return false
 	}
 
-	// Superuser bypass: check if user has superuser role (bypasses all RBAC/permissions)
-	// Superuser role is set in TenantMembership and included in token claims
+	// Platform owners (primary tenant = "codevertex") bypass all RBAC.
+	if claims.IsPlatformOwner {
+		return true
+	}
+
+	// Superuser / admin roles from TenantMembership. Accept "admin" too —
+	// a tenant admin managing their own org's settings should pass, and
+	// cross-tenant writes are already gated by tenant_id checks on the
+	// targeted entity.
 	for _, role := range claims.Roles {
-		if role == "superuser" {
+		if role == "superuser" || role == "admin" {
 			return true
 		}
 	}
 
-	// Check for admin scopes
+	// Explicit admin scopes (for service-to-service tokens).
 	for _, s := range claims.Scope {
 		if s == "admin" || s == "auth.admin" {
 			return true
@@ -116,15 +123,20 @@ func (h *AdminHandler) publishTenantEvent(ctx context.Context, tenantID uuid.UUI
 
 // Tenants
 type tenantRequest struct {
-	ID           string                 `json:"id,omitempty"` // Tenant UUID - must match across all services
-	Name         string                 `json:"name"`
-	Slug         string                 `json:"slug"`
-	UseCase      string                 `json:"use_case"`
-	ContactEmail string                 `json:"contact_email,omitempty"`
+	ID               string                 `json:"id,omitempty"` // Tenant UUID - must match across all services
+	Name             string                 `json:"name"`
+	Slug             string                 `json:"slug"`
+	UseCase          string                 `json:"use_case,omitempty"`
+	ContactEmail     string                 `json:"contact_email,omitempty"`
 	ContactPhone     string                 `json:"contact_phone,omitempty"`
 	SubscriptionPlan string                 `json:"subscription_plan,omitempty"`
 	HQBranchName     string                 `json:"hq_branch_name,omitempty"`
-	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+	// Branding fields editable via Settings → Branding in auth-ui.
+	LogoURL     string                 `json:"logo_url,omitempty"`
+	Website     string                 `json:"website,omitempty"`
+	BrandColors map[string]any         `json:"brand_colors,omitempty"`
+	OrgSize     string                 `json:"org_size,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
 func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
@@ -469,6 +481,27 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Slug != "" {
 		update.SetSlug(req.Slug)
+	}
+	if req.LogoURL != "" {
+		update.SetLogoURL(req.LogoURL)
+	}
+	if req.Website != "" {
+		update.SetWebsite(req.Website)
+	}
+	if req.BrandColors != nil {
+		update.SetBrandColors(req.BrandColors)
+	}
+	if req.OrgSize != "" {
+		update.SetOrgSize(req.OrgSize)
+	}
+	if req.UseCase != "" {
+		update.SetUseCase(req.UseCase)
+	}
+	if req.ContactEmail != "" {
+		update.SetContactEmail(req.ContactEmail)
+	}
+	if req.ContactPhone != "" {
+		update.SetContactPhone(req.ContactPhone)
 	}
 
 	// Update metadata if provided
