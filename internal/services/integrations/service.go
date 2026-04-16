@@ -133,32 +133,71 @@ func (s *Service) GetDecryptedConfig(ctx context.Context, tenantID *uuid.UUID, n
 }
 
 // SaveConfig encrypts and stores credentials for a service.
+//
+// Postgres treats NULL as distinct in unique indexes, so the
+// (tenant_id, name) unique constraint does NOT prevent duplicate
+// platform-level rows (tenant_id = NULL) — the ON CONFLICT clause never
+// fires for NULL columns, and repeated saves produce orphan rows.
+// That then makes GetDecryptedConfig fail with ErrNotSingular (HTTP 500).
+//
+// Handle platform-level saves explicitly with a find-then-update path and
+// keep the ON CONFLICT upsert only for tenant-scoped rows, where tenant_id
+// is never NULL and the unique index behaves as expected.
 func (s *Service) SaveConfig(ctx context.Context, tenantID *uuid.UUID, name, displayName string, creds map[string]string) error {
 	credsJSON, err := json.Marshal(creds)
 	if err != nil {
 		return err
 	}
 
-	// Encrypt using AES-GCM
 	encrypted, err := crypto.Encrypt(string(credsJSON), s.encryptionKey)
 	if err != nil {
 		return fmt.Errorf("encrypt credentials: %w", err)
 	}
 
-	// Standard fields
-	err = s.client.IntegrationConfig.Create().
-		SetName(name).
-		SetDisplayName(displayName).
-		SetEncryptedCredentials(encrypted).
-		SetIsActive(true).
-		SetStatus("active").
-		SetNillableTenantID(tenantID).
-		OnConflict(sql.ConflictColumns(integrationconfig.FieldTenantID, integrationconfig.FieldName)).
-		UpdateNewValues().
-		Exec(ctx)
-
-	if err != nil {
-		return fmt.Errorf("save integration config: %w", err)
+	if tenantID == nil {
+		// Platform-level (tenant_id IS NULL). Upsert manually.
+		q := s.client.IntegrationConfig.Query().
+			Where(integrationconfig.Name(name), integrationconfig.TenantIDIsNil())
+		existing, err := q.First(ctx)
+		if err != nil && !ent.IsNotFound(err) {
+			return fmt.Errorf("lookup platform integration %s: %w", name, err)
+		}
+		if existing != nil {
+			_, err = s.client.IntegrationConfig.UpdateOneID(existing.ID).
+				SetDisplayName(displayName).
+				SetEncryptedCredentials(encrypted).
+				SetIsActive(true).
+				SetStatus("active").
+				Save(ctx)
+			if err != nil {
+				return fmt.Errorf("update platform integration %s: %w", name, err)
+			}
+		} else {
+			err = s.client.IntegrationConfig.Create().
+				SetName(name).
+				SetDisplayName(displayName).
+				SetEncryptedCredentials(encrypted).
+				SetIsActive(true).
+				SetStatus("active").
+				Exec(ctx)
+			if err != nil {
+				return fmt.Errorf("create platform integration %s: %w", name, err)
+			}
+		}
+	} else {
+		err = s.client.IntegrationConfig.Create().
+			SetName(name).
+			SetDisplayName(displayName).
+			SetEncryptedCredentials(encrypted).
+			SetIsActive(true).
+			SetStatus("active").
+			SetTenantID(*tenantID).
+			OnConflict(sql.ConflictColumns(integrationconfig.FieldTenantID, integrationconfig.FieldName)).
+			UpdateNewValues().
+			Exec(ctx)
+		if err != nil {
+			return fmt.Errorf("save integration config: %w", err)
+		}
 	}
 
 	// Invalidate Cache
