@@ -121,22 +121,32 @@ func (h *AdminHandler) publishTenantEvent(ctx context.Context, tenantID uuid.UUI
 	})
 }
 
-// Tenants
+// Tenants — accepts every field the tenant entity can carry so the frontend
+// can POST/PUT a full tenant object without triggering DisallowUnknownFields.
+// Fields the update handler ignores (status, subscription_*) are read-only.
 type tenantRequest struct {
-	ID               string                 `json:"id,omitempty"` // Tenant UUID - must match across all services
+	ID               string                 `json:"id,omitempty"`
 	Name             string                 `json:"name"`
 	Slug             string                 `json:"slug"`
+	Status           string                 `json:"status,omitempty"` // read-only; ignored on update
 	UseCase          string                 `json:"use_case,omitempty"`
+	UseCases         []string               `json:"use_cases,omitempty"`
 	ContactEmail     string                 `json:"contact_email,omitempty"`
 	ContactPhone     string                 `json:"contact_phone,omitempty"`
 	SubscriptionPlan string                 `json:"subscription_plan,omitempty"`
+	SubscriptionStatus string               `json:"subscription_status,omitempty"`
+	SubscriptionExpiresAt *string            `json:"subscription_expires_at,omitempty"`
 	HQBranchName     string                 `json:"hq_branch_name,omitempty"`
-	// Branding fields editable via Settings → Branding in auth-ui.
-	LogoURL     string                 `json:"logo_url,omitempty"`
-	Website     string                 `json:"website,omitempty"`
-	BrandColors map[string]any         `json:"brand_colors,omitempty"`
-	OrgSize     string                 `json:"org_size,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	LogoURL          string                 `json:"logo_url,omitempty"`
+	Website          string                 `json:"website,omitempty"`
+	BrandColors      map[string]any         `json:"brand_colors,omitempty"`
+	OrgSize          string                 `json:"org_size,omitempty"`
+	Country          string                 `json:"country,omitempty"`
+	Timezone         string                 `json:"timezone,omitempty"`
+	TierLimits       map[string]any         `json:"tier_limits,omitempty"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+	CreatedAt        *string                `json:"created_at,omitempty"`
+	UpdatedAt        *string                `json:"updated_at,omitempty"`
 }
 
 func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
@@ -371,6 +381,7 @@ type PublicTenantResponse struct {
 	BrandColors           map[string]any `json:"brand_colors,omitempty"`
 	OrgSize               *string        `json:"org_size,omitempty"`
 	UseCase               *string        `json:"use_case,omitempty"`
+	UseCases              []string       `json:"use_cases,omitempty"`
 	SubscriptionPlan      *string        `json:"subscription_plan,omitempty"`
 	SubscriptionStatus    *string        `json:"subscription_status,omitempty"`
 	SubscriptionExpiresAt *time.Time     `json:"subscription_expires_at,omitempty"`
@@ -420,6 +431,9 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 
 	if t.UseCase != nil {
 		resp.UseCase = t.UseCase
+	}
+	if len(t.UseCases) > 0 {
+		resp.UseCases = t.UseCases
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -497,11 +511,20 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	if req.UseCase != "" {
 		update.SetUseCase(req.UseCase)
 	}
+	if len(req.UseCases) > 0 {
+		update.SetUseCases(req.UseCases)
+	}
 	if req.ContactEmail != "" {
 		update.SetContactEmail(req.ContactEmail)
 	}
 	if req.ContactPhone != "" {
 		update.SetContactPhone(req.ContactPhone)
+	}
+	if req.Country != "" {
+		update.SetCountry(req.Country)
+	}
+	if req.Timezone != "" {
+		update.SetTimezone(req.Timezone)
 	}
 
 	// Update metadata if provided
