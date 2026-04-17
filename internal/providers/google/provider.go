@@ -60,7 +60,7 @@ func (p *Provider) AuthCodeURL(ctx context.Context, state string) (string, error
 	return oc.AuthCodeURL(
 		state,
 		oauth2.AccessTypeOffline,
-		oauth2.SetAuthURLParam("prompt", "consent"),
+		oauth2.SetAuthURLParam("prompt", "select_account"),
 	), nil
 }
 

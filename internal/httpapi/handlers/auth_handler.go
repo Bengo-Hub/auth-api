@@ -428,27 +428,96 @@ func (h *AuthHandler) GoogleOAuthStart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GoogleOAuthCallback finalises Google OAuth login.
-func (h *AuthHandler) GoogleOAuthCallback(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	stateParam := r.URL.Query().Get("state")
-	if code == "" || stateParam == "" {
-		writeError(w, http.StatusBadRequest, "invalid_request", "missing code or state", nil)
+// oauthFrontendBaseURL returns the base URL of the auth-ui frontend used for
+// post-OAuth redirects. Derived from the cookie domain — if we're on
+// codevertexitsolutions.com, the frontend is accounts.codevertexitsolutions.com.
+func (h *AuthHandler) oauthFrontendBaseURL(r *http.Request) string {
+	host := r.Host
+	if strings.Contains(host, "codevertexitsolutions.com") {
+		return "https://accounts.codevertexitsolutions.com"
+	}
+	return "http://localhost:3000"
+}
+
+// handleOAuthCallback is the shared logic for all provider callbacks. It:
+//  1. Checks for ?error= from the provider (user cancelled) → redirect to login
+//  2. Exchanges code, creates/links user, issues session
+//  3. Sets the bb_session cookie (same as Login handler)
+//  4. Redirects (302) to the frontend /auth/callback which finalises the login
+func (h *AuthHandler) handleOAuthCallback(
+	w http.ResponseWriter,
+	r *http.Request,
+	provider string,
+	complete func(context.Context, auth.OAuthCallbackInput) (*auth.AuthResult, error),
+) {
+	frontendBase := h.oauthFrontendBaseURL(r)
+
+	// Provider-side errors (user cancelled, admin denied, etc.)
+	if errCode := r.URL.Query().Get("error"); errCode != "" {
+		desc := r.URL.Query().Get("error_description")
+		if desc == "" {
+			desc = errCode
+		}
+		target := frontendBase + "/login?oauth_error=" + url.QueryEscape(desc)
+		http.Redirect(w, r, target, http.StatusFound)
 		return
 	}
 
-	result, err := h.service.CompleteGoogleOAuth(r.Context(), auth.OAuthCallbackInput{
+	code := r.URL.Query().Get("code")
+	stateParam := r.URL.Query().Get("state")
+	if code == "" || stateParam == "" {
+		http.Redirect(w, r, frontendBase+"/login?oauth_error=missing+code+or+state", http.StatusFound)
+		return
+	}
+
+	result, err := complete(r.Context(), auth.OAuthCallbackInput{
 		Code:      code,
 		State:     stateParam,
 		IPAddress: clientIP(r),
 		UserAgent: userAgent(r),
 	})
 	if err != nil {
-		h.handleError(w, r, err)
+		h.logger.Error("oauth callback failed", zap.String("provider", provider), zap.Error(err))
+		http.Redirect(w, r, frontendBase+"/login?oauth_error="+url.QueryEscape(err.Error()), http.StatusFound)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
+	// Set session cookie (mirrors Login handler logic).
+	sessionRef := result.SessionID.String()
+	if h.redis != nil && h.redisNamespace != "" {
+		sessionKey := h.redisNamespace + ":session_token:" + sessionRef
+		ttl := 24 * time.Hour
+		if !result.AccessTokenExpiresAt.IsZero() {
+			if d := time.Until(result.AccessTokenExpiresAt); d > 0 {
+				ttl = d
+			}
+		}
+		_ = h.redis.Set(r.Context(), sessionKey, result.AccessToken, ttl).Err()
+	}
+	cookie := &http.Cookie{
+		Name:     "bb_session",
+		Value:    sessionRef,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(24 * time.Hour),
+	}
+	if host := r.Host; host != "" && (strings.Contains(host, "codevertexitsolutions.com") || strings.HasSuffix(host, ".codevertexitsolutions.com")) {
+		cookie.Domain = ".codevertexitsolutions.com"
+	}
+	http.SetCookie(w, cookie)
+
+	// Redirect to frontend callback page. It reads the session cookie via
+	// /api/v1/auth/me and stores the user in the auth store.
+	target := frontendBase + "/auth/callback"
+	http.Redirect(w, r, target, http.StatusFound)
+}
+
+func (h *AuthHandler) GoogleOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	h.handleOAuthCallback(w, r, "google", func(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error) {
+		return h.service.CompleteGoogleOAuth(ctx, in)
+	})
 }
 
 // GitHub OAuth
@@ -474,23 +543,9 @@ func (h *AuthHandler) GitHubOAuthStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) GitHubOAuthCallback(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	stateParam := r.URL.Query().Get("state")
-	if code == "" || stateParam == "" {
-		writeError(w, http.StatusBadRequest, "invalid_request", "missing code or state", nil)
-		return
-	}
-	result, err := h.service.CompleteGitHubOAuth(r.Context(), auth.OAuthCallbackInput{
-		Code:      code,
-		State:     stateParam,
-		IPAddress: clientIP(r),
-		UserAgent: userAgent(r),
+	h.handleOAuthCallback(w, r, "github", func(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error) {
+		return h.service.CompleteGitHubOAuth(ctx, in)
 	})
-	if err != nil {
-		h.handleError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
 }
 
 // Microsoft OAuth
@@ -516,23 +571,9 @@ func (h *AuthHandler) MicrosoftOAuthStart(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) MicrosoftOAuthCallback(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	stateParam := r.URL.Query().Get("state")
-	if code == "" || stateParam == "" {
-		writeError(w, http.StatusBadRequest, "invalid_request", "missing code or state", nil)
-		return
-	}
-	result, err := h.service.CompleteMicrosoftOAuth(r.Context(), auth.OAuthCallbackInput{
-		Code:      code,
-		State:     stateParam,
-		IPAddress: clientIP(r),
-		UserAgent: userAgent(r),
+	h.handleOAuthCallback(w, r, "microsoft", func(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error) {
+		return h.service.CompleteMicrosoftOAuth(ctx, in)
 	})
-	if err != nil {
-		h.handleError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
 }
 
 // RequestPasswordReset issues a reset token.
