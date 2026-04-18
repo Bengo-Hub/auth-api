@@ -17,11 +17,11 @@ import (
 	"github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
-	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -252,7 +252,10 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		return nil, err
 	}
 
-	var (tenantEntity *ent.Tenant; err error)
+	var (
+		tenantEntity *ent.Tenant
+		err          error
+	)
 
 	if in.OrgAction == "create_new" && in.NewOrg != nil {
 		// Create a brand-new organisation; the registering user becomes its admin.
@@ -320,13 +323,13 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		}
 
 		s.publishEvent(ctx, tenantEntity.ID, "auth.tenant", tenantEntity.ID, "created", map[string]any{
-			"tenant_id":        tenantEntity.ID.String(),
-			"name":             tenantEntity.Name,
-			"slug":             tenantEntity.Slug,
-			"use_case":         tenantEntity.UseCase,
-			"subscription_id":  tenantEntity.SubscriptionID,
-			"selected_plan":    tenantEntity.SubscriptionPlan,
-			"created_by":       in.Email,
+			"tenant_id":       tenantEntity.ID.String(),
+			"name":            tenantEntity.Name,
+			"slug":            tenantEntity.Slug,
+			"use_case":        tenantEntity.UseCase,
+			"subscription_id": tenantEntity.SubscriptionID,
+			"selected_plan":   tenantEntity.SubscriptionPlan,
+			"created_by":      in.Email,
 		})
 
 		// Initialize Main/HQ branch
@@ -1277,13 +1280,13 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 
 	// Build token input with subscription data if available
 	tokenInput := token.AccessTokenInput{
-		UserID:      sessionEntity.UserID,
-		TenantID:    tenantIDPtr,
-		SessionID:   sessionEntity.ID,
-		Email:       userEntity.Email,
-		Scopes:      effectiveScopes,
-		Roles:       roles,
-		Permissions: permissions,
+		UserID:          sessionEntity.UserID,
+		TenantID:        tenantIDPtr,
+		SessionID:       sessionEntity.ID,
+		Email:           userEntity.Email,
+		Scopes:          effectiveScopes,
+		Roles:           roles,
+		Permissions:     permissions,
 		IsPlatformOwner: tenantEntity != nil && tenantEntity.Slug == "codevertex",
 	}
 	if tenantEntity != nil {
@@ -1311,7 +1314,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 				tenantEntity.SubscriptionPlan = strPtr(sub.PlanCode)
 				tenantEntity.SubscriptionStatus = strPtr(sub.Status)
 				tenantEntity.SubscriptionExpiresAt = &sub.CurrentPeriodEnd
-				
+
 				// Map map[string]int to map[string]any for tier_limits
 				limits := make(map[string]any)
 				for k, v := range sub.Limits {
@@ -1736,10 +1739,63 @@ func randomNonce() string {
 }
 
 func (s *Service) validatePassword(password string) error {
-	if len(password) < s.cfg.Security.PasswordMinLength {
+	// Check minimum length (relaxed to 8, but complexity matters more)
+	if len(password) < 8 {
 		return ErrPasswordTooWeak
 	}
-	return nil
+
+	// Check for required character complexity
+	hasUppercase := false
+	hasLowercase := false
+	hasDigit := false
+	hasSpecial := false
+
+	for _, ch := range password {
+		switch {
+		case ch >= 'A' && ch <= 'Z':
+			hasUppercase = true
+		case ch >= 'a' && ch <= 'z':
+			hasLowercase = true
+		case ch >= '0' && ch <= '9':
+			hasDigit = true
+		case !isAlphanumeric(ch):
+			hasSpecial = true
+		}
+	}
+
+	// Password must have at least 3 of 4 character types OR be very long
+	complexityCount := 0
+	if hasUppercase {
+		complexityCount++
+	}
+	if hasLowercase {
+		complexityCount++
+	}
+	if hasDigit {
+		complexityCount++
+	}
+	if hasSpecial {
+		complexityCount++
+	}
+
+	// Require either:
+	// - All 4 character types (strongest), OR
+	// - 3 character types with length >= 10
+	if complexityCount == 4 {
+		return nil // Strong password with all character types
+	}
+
+	if complexityCount >= 3 && len(password) >= 10 {
+		return nil // Good password with 3 types and reasonable length
+	}
+
+	return ErrPasswordTooWeak
+}
+
+func isAlphanumeric(ch rune) bool {
+	return (ch >= 'a' && ch <= 'z') ||
+		(ch >= 'A' && ch <= 'Z') ||
+		(ch >= '0' && ch <= '9')
 }
 
 func (s *Service) GetTenantBySlug(ctx context.Context, slug string) (*ent.Tenant, error) {
