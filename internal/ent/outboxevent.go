@@ -3,7 +3,6 @@
 package ent
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -28,7 +27,7 @@ type OutboxEvent struct {
 	// Event name (created, updated, login, etc.)
 	EventType string `json:"event_type,omitempty"`
 	// Full event JSON payload
-	Payload []uint8 `json:"payload,omitempty"`
+	Payload []byte `json:"payload,omitempty"`
 	// Status holds the value of the "status" field.
 	Status outboxevent.Status `json:"status,omitempty"`
 	// Attempts holds the value of the "attempts" field.
@@ -107,10 +106,8 @@ func (_m *OutboxEvent) assignValues(columns []string, values []any) error {
 		case outboxevent.FieldPayload:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field payload", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &_m.Payload); err != nil {
-					return fmt.Errorf("unmarshal field payload: %w", err)
-				}
+			} else if value != nil {
+				_m.Payload = *value
 			}
 		case outboxevent.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {

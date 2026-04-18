@@ -10,7 +10,6 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
@@ -87,14 +86,8 @@ func (_u *OutboxEventUpdate) SetNillableEventType(v *string) *OutboxEventUpdate 
 }
 
 // SetPayload sets the "payload" field.
-func (_u *OutboxEventUpdate) SetPayload(v []uint8) *OutboxEventUpdate {
+func (_u *OutboxEventUpdate) SetPayload(v []byte) *OutboxEventUpdate {
 	_u.mutation.SetPayload(v)
-	return _u
-}
-
-// AppendPayload appends value to the "payload" field.
-func (_u *OutboxEventUpdate) AppendPayload(v []uint8) *OutboxEventUpdate {
-	_u.mutation.AppendPayload(v)
 	return _u
 }
 
@@ -270,12 +263,7 @@ func (_u *OutboxEventUpdate) sqlSave(ctx context.Context) (_node int, err error)
 		_spec.SetField(outboxevent.FieldEventType, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Payload(); ok {
-		_spec.SetField(outboxevent.FieldPayload, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedPayload(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, outboxevent.FieldPayload, value)
-		})
+		_spec.SetField(outboxevent.FieldPayload, field.TypeBytes, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(outboxevent.FieldStatus, field.TypeEnum, value)
@@ -381,14 +369,8 @@ func (_u *OutboxEventUpdateOne) SetNillableEventType(v *string) *OutboxEventUpda
 }
 
 // SetPayload sets the "payload" field.
-func (_u *OutboxEventUpdateOne) SetPayload(v []uint8) *OutboxEventUpdateOne {
+func (_u *OutboxEventUpdateOne) SetPayload(v []byte) *OutboxEventUpdateOne {
 	_u.mutation.SetPayload(v)
-	return _u
-}
-
-// AppendPayload appends value to the "payload" field.
-func (_u *OutboxEventUpdateOne) AppendPayload(v []uint8) *OutboxEventUpdateOne {
-	_u.mutation.AppendPayload(v)
 	return _u
 }
 
@@ -594,12 +576,7 @@ func (_u *OutboxEventUpdateOne) sqlSave(ctx context.Context) (_node *OutboxEvent
 		_spec.SetField(outboxevent.FieldEventType, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Payload(); ok {
-		_spec.SetField(outboxevent.FieldPayload, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedPayload(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, outboxevent.FieldPayload, value)
-		})
+		_spec.SetField(outboxevent.FieldPayload, field.TypeBytes, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(outboxevent.FieldStatus, field.TypeEnum, value)

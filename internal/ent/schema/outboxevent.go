@@ -30,7 +30,7 @@ func (OutboxEvent) Fields() []ent.Field {
 		field.String("event_type").
 			NotEmpty().
 			Comment("Event name (created, updated, login, etc.)"),
-		field.JSON("payload", []byte{}).
+		field.Bytes("payload").
 			Comment("Full event JSON payload"),
 		field.Enum("status").
 			Values("PENDING", "PUBLISHED", "FAILED").

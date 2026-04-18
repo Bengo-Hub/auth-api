@@ -290,7 +290,7 @@ var (
 		{Name: "aggregate_type", Type: field.TypeString},
 		{Name: "aggregate_id", Type: field.TypeUUID},
 		{Name: "event_type", Type: field.TypeString},
-		{Name: "payload", Type: field.TypeJSON},
+		{Name: "payload", Type: field.TypeBytes},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"PENDING", "PUBLISHED", "FAILED"}, Default: "PENDING"},
 		{Name: "attempts", Type: field.TypeInt, Default: 0},
 		{Name: "last_attempt_at", Type: field.TypeTime, Nullable: true},
