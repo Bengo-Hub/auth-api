@@ -75,6 +75,11 @@ func EventType(v string) predicate.OutboxEvent {
 	return predicate.OutboxEvent(sql.FieldEQ(FieldEventType, v))
 }
 
+// Payload applies equality check predicate on the "payload" field. It's identical to PayloadEQ.
+func Payload(v []byte) predicate.OutboxEvent {
+	return predicate.OutboxEvent(sql.FieldEQ(FieldPayload, v))
+}
+
 // Attempts applies equality check predicate on the "attempts" field. It's identical to AttemptsEQ.
 func Attempts(v int) predicate.OutboxEvent {
 	return predicate.OutboxEvent(sql.FieldEQ(FieldAttempts, v))
@@ -308,6 +313,46 @@ func EventTypeEqualFold(v string) predicate.OutboxEvent {
 // EventTypeContainsFold applies the ContainsFold predicate on the "event_type" field.
 func EventTypeContainsFold(v string) predicate.OutboxEvent {
 	return predicate.OutboxEvent(sql.FieldContainsFold(FieldEventType, v))
+}
+
+// PayloadEQ applies the EQ predicate on the "payload" field.
+func PayloadEQ(v []byte) predicate.OutboxEvent {
+	return predicate.OutboxEvent(sql.FieldEQ(FieldPayload, v))
+}
+
+// PayloadNEQ applies the NEQ predicate on the "payload" field.
+func PayloadNEQ(v []byte) predicate.OutboxEvent {
+	return predicate.OutboxEvent(sql.FieldNEQ(FieldPayload, v))
+}
+
+// PayloadIn applies the In predicate on the "payload" field.
+func PayloadIn(vs ...[]byte) predicate.OutboxEvent {
+	return predicate.OutboxEvent(sql.FieldIn(FieldPayload, vs...))
+}
+
+// PayloadNotIn applies the NotIn predicate on the "payload" field.
+func PayloadNotIn(vs ...[]byte) predicate.OutboxEvent {
+	return predicate.OutboxEvent(sql.FieldNotIn(FieldPayload, vs...))
+}
+
+// PayloadGT applies the GT predicate on the "payload" field.
+func PayloadGT(v []byte) predicate.OutboxEvent {
+	return predicate.OutboxEvent(sql.FieldGT(FieldPayload, v))
+}
+
+// PayloadGTE applies the GTE predicate on the "payload" field.
+func PayloadGTE(v []byte) predicate.OutboxEvent {
+	return predicate.OutboxEvent(sql.FieldGTE(FieldPayload, v))
+}
+
+// PayloadLT applies the LT predicate on the "payload" field.
+func PayloadLT(v []byte) predicate.OutboxEvent {
+	return predicate.OutboxEvent(sql.FieldLT(FieldPayload, v))
+}
+
+// PayloadLTE applies the LTE predicate on the "payload" field.
+func PayloadLTE(v []byte) predicate.OutboxEvent {
+	return predicate.OutboxEvent(sql.FieldLTE(FieldPayload, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.
