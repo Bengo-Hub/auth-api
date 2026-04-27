@@ -44,6 +44,7 @@ type AuthService interface {
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error
 	IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
 	ListUserTenantMemberships(ctx context.Context, userID uuid.UUID) ([]*ent.TenantMembership, error)
+	AcceptTerms(ctx context.Context, userID uuid.UUID) error
 }
 
 // UseCaseService describes the use case logic capabilities.
@@ -779,6 +780,35 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// AcceptTerms marks the authenticated user as having accepted the platform terms of service.
+func (h *AuthHandler) AcceptTerms(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth context", nil)
+		return
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id in token", nil)
+		return
+	}
+
+	if err := h.service.AcceptTerms(r.Context(), userID); err != nil {
+		h.logger.Error("failed to accept terms", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to accept terms", nil)
+		return
+	}
+
+	// Invalidate /me cache so the next request reflects updated terms_accepted.
+	if h.redis != nil && h.redisNamespace != "" {
+		cacheKey := h.redisNamespace + ":auth:me:" + userID.String()
+		_ = h.redis.Del(r.Context(), cacheKey).Err()
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 // GetUseCaseConfig returns the configuration for a given use case or the current tenant's use case.
 func (h *AuthHandler) GetUseCaseConfig(w http.ResponseWriter, r *http.Request) {
 	useCase := r.URL.Query().Get("use_case")
@@ -866,14 +896,16 @@ func userViewFromEnt(user *ent.User) map[string]any {
 		return nil
 	}
 	return map[string]any{
-		"id":             user.ID,
-		"email":          user.Email,
-		"status":         user.Status,
-		"profile":        user.Profile,
-		"last_login_at":  user.LastLoginAt,
-		"primary_tenant": user.PrimaryTenantID,
-		"created_at":     user.CreatedAt,
-		"updated_at":     user.UpdatedAt,
+		"id":               user.ID,
+		"email":            user.Email,
+		"status":           user.Status,
+		"profile":          user.Profile,
+		"last_login_at":    user.LastLoginAt,
+		"primary_tenant":   user.PrimaryTenantID,
+		"created_at":       user.CreatedAt,
+		"updated_at":       user.UpdatedAt,
+		"terms_accepted":   user.TermsAccepted,
+		"terms_accepted_at": user.TermsAcceptedAt,
 	}
 }
 

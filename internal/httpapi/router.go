@@ -85,6 +85,8 @@ type AuthHandlers struct {
 	RemoveTenantMember http.HandlerFunc
 	// Public integrations info
 	ListActiveIntegrations http.HandlerFunc
+	// Terms acceptance
+	AcceptTerms http.HandlerFunc
 	// Use Case configuration
 	GetUseCaseConfig http.HandlerFunc
 	// Platform backup management
@@ -215,6 +217,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Post("/backup-codes/regenerate", deps.AuthHandlers.MFARegenerateBackupCodes)
 					r.Post("/backup-codes/consume", deps.AuthHandlers.MFAConsumeBackupCode)
 				})
+				r.Post("/me/accept-terms", deps.AuthHandlers.AcceptTerms)
 				r.Route("/sessions", func(r chi.Router) {
 					r.Get("/", deps.AuthHandlers.ListSessions)
 					r.Post("/revoke", deps.AuthHandlers.RevokeSession)
