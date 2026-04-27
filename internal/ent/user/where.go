@@ -91,6 +91,16 @@ func LastLoginAt(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldLastLoginAt, v))
 }
 
+// TermsAccepted applies equality check predicate on the "terms_accepted" field. It's identical to TermsAcceptedEQ.
+func TermsAccepted(v bool) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldTermsAccepted, v))
+}
+
+// TermsAcceptedAt applies equality check predicate on the "terms_accepted_at" field. It's identical to TermsAcceptedAtEQ.
+func TermsAcceptedAt(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldTermsAcceptedAt, v))
+}
+
 // EmailEQ applies the EQ predicate on the "email" field.
 func EmailEQ(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldEmail, v))
@@ -509,6 +519,66 @@ func LastLoginAtIsNil() predicate.User {
 // LastLoginAtNotNil applies the NotNil predicate on the "last_login_at" field.
 func LastLoginAtNotNil() predicate.User {
 	return predicate.User(sql.FieldNotNull(FieldLastLoginAt))
+}
+
+// TermsAcceptedEQ applies the EQ predicate on the "terms_accepted" field.
+func TermsAcceptedEQ(v bool) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldTermsAccepted, v))
+}
+
+// TermsAcceptedNEQ applies the NEQ predicate on the "terms_accepted" field.
+func TermsAcceptedNEQ(v bool) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldTermsAccepted, v))
+}
+
+// TermsAcceptedAtEQ applies the EQ predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldTermsAcceptedAt, v))
+}
+
+// TermsAcceptedAtNEQ applies the NEQ predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtNEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldTermsAcceptedAt, v))
+}
+
+// TermsAcceptedAtIn applies the In predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldIn(FieldTermsAcceptedAt, vs...))
+}
+
+// TermsAcceptedAtNotIn applies the NotIn predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtNotIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldTermsAcceptedAt, vs...))
+}
+
+// TermsAcceptedAtGT applies the GT predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtGT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGT(FieldTermsAcceptedAt, v))
+}
+
+// TermsAcceptedAtGTE applies the GTE predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtGTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldTermsAcceptedAt, v))
+}
+
+// TermsAcceptedAtLT applies the LT predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtLT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLT(FieldTermsAcceptedAt, v))
+}
+
+// TermsAcceptedAtLTE applies the LTE predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtLTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldTermsAcceptedAt, v))
+}
+
+// TermsAcceptedAtIsNil applies the IsNil predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldTermsAcceptedAt))
+}
+
+// TermsAcceptedAtNotNil applies the NotNil predicate on the "terms_accepted_at" field.
+func TermsAcceptedAtNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldTermsAcceptedAt))
 }
 
 // HasMemberships applies the HasEdge predicate on the "memberships" edge.

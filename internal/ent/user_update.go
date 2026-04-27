@@ -142,6 +142,40 @@ func (_u *UserUpdate) ClearLastLoginAt() *UserUpdate {
 	return _u
 }
 
+// SetTermsAccepted sets the "terms_accepted" field.
+func (_u *UserUpdate) SetTermsAccepted(v bool) *UserUpdate {
+	_u.mutation.SetTermsAccepted(v)
+	return _u
+}
+
+// SetNillableTermsAccepted sets the "terms_accepted" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableTermsAccepted(v *bool) *UserUpdate {
+	if v != nil {
+		_u.SetTermsAccepted(*v)
+	}
+	return _u
+}
+
+// SetTermsAcceptedAt sets the "terms_accepted_at" field.
+func (_u *UserUpdate) SetTermsAcceptedAt(v time.Time) *UserUpdate {
+	_u.mutation.SetTermsAcceptedAt(v)
+	return _u
+}
+
+// SetNillableTermsAcceptedAt sets the "terms_accepted_at" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableTermsAcceptedAt(v *time.Time) *UserUpdate {
+	if v != nil {
+		_u.SetTermsAcceptedAt(*v)
+	}
+	return _u
+}
+
+// ClearTermsAcceptedAt clears the value of the "terms_accepted_at" field.
+func (_u *UserUpdate) ClearTermsAcceptedAt() *UserUpdate {
+	_u.mutation.ClearTermsAcceptedAt()
+	return _u
+}
+
 // AddMembershipIDs adds the "memberships" edge to the TenantMembership entity by IDs.
 func (_u *UserUpdate) AddMembershipIDs(ids ...uuid.UUID) *UserUpdate {
 	_u.mutation.AddMembershipIDs(ids...)
@@ -494,6 +528,15 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.LastLoginAtCleared() {
 		_spec.ClearField(user.FieldLastLoginAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.TermsAccepted(); ok {
+		_spec.SetField(user.FieldTermsAccepted, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.TermsAcceptedAt(); ok {
+		_spec.SetField(user.FieldTermsAcceptedAt, field.TypeTime, value)
+	}
+	if _u.mutation.TermsAcceptedAtCleared() {
+		_spec.ClearField(user.FieldTermsAcceptedAt, field.TypeTime)
 	}
 	if _u.mutation.MembershipsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -936,6 +979,40 @@ func (_u *UserUpdateOne) ClearLastLoginAt() *UserUpdateOne {
 	return _u
 }
 
+// SetTermsAccepted sets the "terms_accepted" field.
+func (_u *UserUpdateOne) SetTermsAccepted(v bool) *UserUpdateOne {
+	_u.mutation.SetTermsAccepted(v)
+	return _u
+}
+
+// SetNillableTermsAccepted sets the "terms_accepted" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableTermsAccepted(v *bool) *UserUpdateOne {
+	if v != nil {
+		_u.SetTermsAccepted(*v)
+	}
+	return _u
+}
+
+// SetTermsAcceptedAt sets the "terms_accepted_at" field.
+func (_u *UserUpdateOne) SetTermsAcceptedAt(v time.Time) *UserUpdateOne {
+	_u.mutation.SetTermsAcceptedAt(v)
+	return _u
+}
+
+// SetNillableTermsAcceptedAt sets the "terms_accepted_at" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableTermsAcceptedAt(v *time.Time) *UserUpdateOne {
+	if v != nil {
+		_u.SetTermsAcceptedAt(*v)
+	}
+	return _u
+}
+
+// ClearTermsAcceptedAt clears the value of the "terms_accepted_at" field.
+func (_u *UserUpdateOne) ClearTermsAcceptedAt() *UserUpdateOne {
+	_u.mutation.ClearTermsAcceptedAt()
+	return _u
+}
+
 // AddMembershipIDs adds the "memberships" edge to the TenantMembership entity by IDs.
 func (_u *UserUpdateOne) AddMembershipIDs(ids ...uuid.UUID) *UserUpdateOne {
 	_u.mutation.AddMembershipIDs(ids...)
@@ -1318,6 +1395,15 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if _u.mutation.LastLoginAtCleared() {
 		_spec.ClearField(user.FieldLastLoginAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.TermsAccepted(); ok {
+		_spec.SetField(user.FieldTermsAccepted, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.TermsAcceptedAt(); ok {
+		_spec.SetField(user.FieldTermsAcceptedAt, field.TypeTime, value)
+	}
+	if _u.mutation.TermsAcceptedAtCleared() {
+		_spec.ClearField(user.FieldTermsAcceptedAt, field.TypeTime)
 	}
 	if _u.mutation.MembershipsCleared() {
 		edge := &sqlgraph.EdgeSpec{

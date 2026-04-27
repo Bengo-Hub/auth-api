@@ -504,6 +504,10 @@ func init() {
 	userDescPrimaryTenantID := userFields[6].Descriptor()
 	// user.PrimaryTenantIDValidator is a validator for the "primary_tenant_id" field. It is called by the builders before save.
 	user.PrimaryTenantIDValidator = userDescPrimaryTenantID.Validators[0].(func(string) error)
+	// userDescTermsAccepted is the schema descriptor for terms_accepted field.
+	userDescTermsAccepted := userFields[9].Descriptor()
+	// user.DefaultTermsAccepted holds the default value on creation for the terms_accepted field.
+	user.DefaultTermsAccepted = userDescTermsAccepted.Default.(bool)
 	// userDescID is the schema descriptor for id field.
 	userDescID := userFields[0].Descriptor()
 	// user.DefaultID holds the default value on creation for the id field.

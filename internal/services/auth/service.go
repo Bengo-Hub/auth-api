@@ -175,6 +175,9 @@ type RegisterInput struct {
 	// (e.g. "driver" for fleet invitations). If empty, defaults to "admin"
 	// for new orgs or "member" for existing orgs.
 	Role string
+	// TermsAccepted records whether the user accepted the Terms of Service at
+	// registration time. Always persisted; when true, TermsAcceptedAt is also set.
+	TermsAccepted bool
 }
 
 // LoginInput captures login payload.
@@ -248,8 +251,11 @@ func (s *Service) GetTenant(ctx context.Context, id uuid.UUID) (*ent.Tenant, err
 
 // Register creates a new user and returns session tokens.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, error) {
-	if err := s.validatePassword(in.Password); err != nil {
-		return nil, err
+	// Password validation is skipped for OAuth registrations (empty password).
+	if in.Password != "" {
+		if err := s.validatePassword(in.Password); err != nil {
+			return nil, err
+		}
 	}
 
 	var (
@@ -359,19 +365,28 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		}
 	}
 
-	hashed, err := s.hasher.Hash(in.Password)
-	if err != nil {
-		return nil, fmt.Errorf("hash password: %w", err)
-	}
-
 	email := normalizeEmail(in.Email)
-	userEntity, err := s.entClient.User.Create().
+	userCreate := s.entClient.User.Create().
 		SetEmail(email).
-		SetPasswordHash(hashed).
 		SetStatus("active").
 		SetPrimaryTenantID(tenantEntity.ID.String()).
 		SetProfile(coalesceMap(in.Profile)).
-		Save(ctx)
+		SetTermsAccepted(in.TermsAccepted)
+
+	if in.Password != "" {
+		hashed, err := s.hasher.Hash(in.Password)
+		if err != nil {
+			return nil, fmt.Errorf("hash password: %w", err)
+		}
+		userCreate = userCreate.SetPasswordHash(hashed)
+	}
+
+	if in.TermsAccepted {
+		now := time.Now()
+		userCreate = userCreate.SetTermsAcceptedAt(now)
+	}
+
+	userEntity, err := userCreate.Save(ctx)
 	if err != nil {
 		if ent.IsConstraintError(err) {
 			return nil, ErrEmailAlreadyExists
