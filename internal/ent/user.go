@@ -35,6 +35,10 @@ type User struct {
 	Profile map[string]interface{} `json:"profile,omitempty"`
 	// LastLoginAt holds the value of the "last_login_at" field.
 	LastLoginAt time.Time `json:"last_login_at,omitempty"`
+	// TermsAccepted holds the value of the "terms_accepted" field.
+	TermsAccepted bool `json:"terms_accepted,omitempty"`
+	// TermsAcceptedAt holds the value of the "terms_accepted_at" field.
+	TermsAcceptedAt *time.Time `json:"terms_accepted_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges        UserEdges `json:"edges"`
@@ -132,9 +136,11 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldProfile:
 			values[i] = new([]byte)
+		case user.FieldTermsAccepted:
+			values[i] = new(sql.NullBool)
 		case user.FieldEmail, user.FieldPasswordHash, user.FieldStatus, user.FieldPrimaryTenantID:
 			values[i] = new(sql.NullString)
-		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldLastLoginAt:
+		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldLastLoginAt, user.FieldTermsAcceptedAt:
 			values[i] = new(sql.NullTime)
 		case user.FieldID:
 			values[i] = new(uuid.UUID)
@@ -208,6 +214,19 @@ func (_m *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field last_login_at", values[i])
 			} else if value.Valid {
 				_m.LastLoginAt = value.Time
+			}
+		case user.FieldTermsAccepted:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field terms_accepted", values[i])
+			} else if value.Valid {
+				_m.TermsAccepted = value.Bool
+			}
+		case user.FieldTermsAcceptedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field terms_accepted_at", values[i])
+			} else if value.Valid {
+				_m.TermsAcceptedAt = new(time.Time)
+				*_m.TermsAcceptedAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -302,6 +321,14 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("last_login_at=")
 	builder.WriteString(_m.LastLoginAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("terms_accepted=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TermsAccepted))
+	builder.WriteString(", ")
+	if v := _m.TermsAcceptedAt; v != nil {
+		builder.WriteString("terms_accepted_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

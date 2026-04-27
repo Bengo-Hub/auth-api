@@ -24,6 +24,7 @@ type RouterDeps struct {
 // AuthHandlers groups the HTTP handlers for auth routes.
 type AuthHandlers struct {
 	Register                     http.HandlerFunc
+	RegisterOAuth                http.HandlerFunc
 	Login                        http.HandlerFunc
 	Refresh                      http.HandlerFunc
 	RequestPasswordReset         http.HandlerFunc
@@ -180,6 +181,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/integrations/active", deps.AuthHandlers.ListActiveIntegrations)
 			r.Get("/use-case/config", deps.AuthHandlers.GetUseCaseConfig)
 			r.Post("/register", deps.AuthHandlers.Register)
+			r.Post("/register/oauth", deps.AuthHandlers.RegisterOAuth)
 			if deps.RateLimitLogin != nil {
 				r.With(deps.RateLimitLogin).Post("/login", deps.AuthHandlers.Login)
 			} else {

@@ -127,6 +127,34 @@ func (_c *UserCreate) SetNillableLastLoginAt(v *time.Time) *UserCreate {
 	return _c
 }
 
+// SetTermsAccepted sets the "terms_accepted" field.
+func (_c *UserCreate) SetTermsAccepted(v bool) *UserCreate {
+	_c.mutation.SetTermsAccepted(v)
+	return _c
+}
+
+// SetNillableTermsAccepted sets the "terms_accepted" field if the given value is not nil.
+func (_c *UserCreate) SetNillableTermsAccepted(v *bool) *UserCreate {
+	if v != nil {
+		_c.SetTermsAccepted(*v)
+	}
+	return _c
+}
+
+// SetTermsAcceptedAt sets the "terms_accepted_at" field.
+func (_c *UserCreate) SetTermsAcceptedAt(v time.Time) *UserCreate {
+	_c.mutation.SetTermsAcceptedAt(v)
+	return _c
+}
+
+// SetNillableTermsAcceptedAt sets the "terms_accepted_at" field if the given value is not nil.
+func (_c *UserCreate) SetNillableTermsAcceptedAt(v *time.Time) *UserCreate {
+	if v != nil {
+		_c.SetTermsAcceptedAt(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *UserCreate) SetID(v uuid.UUID) *UserCreate {
 	_c.mutation.SetID(v)
@@ -293,6 +321,10 @@ func (_c *UserCreate) defaults() {
 		v := user.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.TermsAccepted(); !ok {
+		v := user.DefaultTermsAccepted
+		_c.mutation.SetTermsAccepted(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := user.DefaultID()
 		_c.mutation.SetID(v)
@@ -322,6 +354,9 @@ func (_c *UserCreate) check() error {
 		if err := user.PrimaryTenantIDValidator(v); err != nil {
 			return &ValidationError{Name: "primary_tenant_id", err: fmt.Errorf(`ent: validator failed for field "User.primary_tenant_id": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.TermsAccepted(); !ok {
+		return &ValidationError{Name: "terms_accepted", err: errors.New(`ent: missing required field "User.terms_accepted"`)}
 	}
 	return nil
 }
@@ -390,6 +425,14 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.LastLoginAt(); ok {
 		_spec.SetField(user.FieldLastLoginAt, field.TypeTime, value)
 		_node.LastLoginAt = value
+	}
+	if value, ok := _c.mutation.TermsAccepted(); ok {
+		_spec.SetField(user.FieldTermsAccepted, field.TypeBool, value)
+		_node.TermsAccepted = value
+	}
+	if value, ok := _c.mutation.TermsAcceptedAt(); ok {
+		_spec.SetField(user.FieldTermsAcceptedAt, field.TypeTime, value)
+		_node.TermsAcceptedAt = &value
 	}
 	if nodes := _c.mutation.MembershipsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -663,6 +706,36 @@ func (u *UserUpsert) ClearLastLoginAt() *UserUpsert {
 	return u
 }
 
+// SetTermsAccepted sets the "terms_accepted" field.
+func (u *UserUpsert) SetTermsAccepted(v bool) *UserUpsert {
+	u.Set(user.FieldTermsAccepted, v)
+	return u
+}
+
+// UpdateTermsAccepted sets the "terms_accepted" field to the value that was provided on create.
+func (u *UserUpsert) UpdateTermsAccepted() *UserUpsert {
+	u.SetExcluded(user.FieldTermsAccepted)
+	return u
+}
+
+// SetTermsAcceptedAt sets the "terms_accepted_at" field.
+func (u *UserUpsert) SetTermsAcceptedAt(v time.Time) *UserUpsert {
+	u.Set(user.FieldTermsAcceptedAt, v)
+	return u
+}
+
+// UpdateTermsAcceptedAt sets the "terms_accepted_at" field to the value that was provided on create.
+func (u *UserUpsert) UpdateTermsAcceptedAt() *UserUpsert {
+	u.SetExcluded(user.FieldTermsAcceptedAt)
+	return u
+}
+
+// ClearTermsAcceptedAt clears the value of the "terms_accepted_at" field.
+func (u *UserUpsert) ClearTermsAcceptedAt() *UserUpsert {
+	u.SetNull(user.FieldTermsAcceptedAt)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -837,6 +910,41 @@ func (u *UserUpsertOne) UpdateLastLoginAt() *UserUpsertOne {
 func (u *UserUpsertOne) ClearLastLoginAt() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearLastLoginAt()
+	})
+}
+
+// SetTermsAccepted sets the "terms_accepted" field.
+func (u *UserUpsertOne) SetTermsAccepted(v bool) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetTermsAccepted(v)
+	})
+}
+
+// UpdateTermsAccepted sets the "terms_accepted" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateTermsAccepted() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateTermsAccepted()
+	})
+}
+
+// SetTermsAcceptedAt sets the "terms_accepted_at" field.
+func (u *UserUpsertOne) SetTermsAcceptedAt(v time.Time) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetTermsAcceptedAt(v)
+	})
+}
+
+// UpdateTermsAcceptedAt sets the "terms_accepted_at" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateTermsAcceptedAt() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateTermsAcceptedAt()
+	})
+}
+
+// ClearTermsAcceptedAt clears the value of the "terms_accepted_at" field.
+func (u *UserUpsertOne) ClearTermsAcceptedAt() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearTermsAcceptedAt()
 	})
 }
 
@@ -1181,6 +1289,41 @@ func (u *UserUpsertBulk) UpdateLastLoginAt() *UserUpsertBulk {
 func (u *UserUpsertBulk) ClearLastLoginAt() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearLastLoginAt()
+	})
+}
+
+// SetTermsAccepted sets the "terms_accepted" field.
+func (u *UserUpsertBulk) SetTermsAccepted(v bool) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetTermsAccepted(v)
+	})
+}
+
+// UpdateTermsAccepted sets the "terms_accepted" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateTermsAccepted() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateTermsAccepted()
+	})
+}
+
+// SetTermsAcceptedAt sets the "terms_accepted_at" field.
+func (u *UserUpsertBulk) SetTermsAcceptedAt(v time.Time) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetTermsAcceptedAt(v)
+	})
+}
+
+// UpdateTermsAcceptedAt sets the "terms_accepted_at" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateTermsAcceptedAt() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateTermsAcceptedAt()
+	})
+}
+
+// ClearTermsAcceptedAt clears the value of the "terms_accepted_at" field.
+func (u *UserUpsertBulk) ClearTermsAcceptedAt() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearTermsAcceptedAt()
 	})
 }
 

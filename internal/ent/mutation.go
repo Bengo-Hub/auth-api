@@ -16966,6 +16966,8 @@ type UserMutation struct {
 	primary_tenant_id            *string
 	profile                      *map[string]interface{}
 	last_login_at                *time.Time
+	terms_accepted               *bool
+	terms_accepted_at            *time.Time
 	clearedFields                map[string]struct{}
 	memberships                  map[uuid.UUID]struct{}
 	removedmemberships           map[uuid.UUID]struct{}
@@ -17437,6 +17439,91 @@ func (m *UserMutation) ResetLastLoginAt() {
 	delete(m.clearedFields, user.FieldLastLoginAt)
 }
 
+// SetTermsAccepted sets the "terms_accepted" field.
+func (m *UserMutation) SetTermsAccepted(b bool) {
+	m.terms_accepted = &b
+}
+
+// TermsAccepted returns the value of the "terms_accepted" field in the mutation.
+func (m *UserMutation) TermsAccepted() (r bool, exists bool) {
+	v := m.terms_accepted
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTermsAccepted returns the old "terms_accepted" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldTermsAccepted(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTermsAccepted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTermsAccepted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTermsAccepted: %w", err)
+	}
+	return oldValue.TermsAccepted, nil
+}
+
+// ResetTermsAccepted resets all changes to the "terms_accepted" field.
+func (m *UserMutation) ResetTermsAccepted() {
+	m.terms_accepted = nil
+}
+
+// SetTermsAcceptedAt sets the "terms_accepted_at" field.
+func (m *UserMutation) SetTermsAcceptedAt(t time.Time) {
+	m.terms_accepted_at = &t
+}
+
+// TermsAcceptedAt returns the value of the "terms_accepted_at" field in the mutation.
+func (m *UserMutation) TermsAcceptedAt() (r time.Time, exists bool) {
+	v := m.terms_accepted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTermsAcceptedAt returns the old "terms_accepted_at" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldTermsAcceptedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTermsAcceptedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTermsAcceptedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTermsAcceptedAt: %w", err)
+	}
+	return oldValue.TermsAcceptedAt, nil
+}
+
+// ClearTermsAcceptedAt clears the value of the "terms_accepted_at" field.
+func (m *UserMutation) ClearTermsAcceptedAt() {
+	m.terms_accepted_at = nil
+	m.clearedFields[user.FieldTermsAcceptedAt] = struct{}{}
+}
+
+// TermsAcceptedAtCleared returns if the "terms_accepted_at" field was cleared in this mutation.
+func (m *UserMutation) TermsAcceptedAtCleared() bool {
+	_, ok := m.clearedFields[user.FieldTermsAcceptedAt]
+	return ok
+}
+
+// ResetTermsAcceptedAt resets all changes to the "terms_accepted_at" field.
+func (m *UserMutation) ResetTermsAcceptedAt() {
+	m.terms_accepted_at = nil
+	delete(m.clearedFields, user.FieldTermsAcceptedAt)
+}
+
 // AddMembershipIDs adds the "memberships" edge to the TenantMembership entity by ids.
 func (m *UserMutation) AddMembershipIDs(ids ...uuid.UUID) {
 	if m.memberships == nil {
@@ -17849,7 +17936,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 10)
 	if m.email != nil {
 		fields = append(fields, user.FieldEmail)
 	}
@@ -17873,6 +17960,12 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.last_login_at != nil {
 		fields = append(fields, user.FieldLastLoginAt)
+	}
+	if m.terms_accepted != nil {
+		fields = append(fields, user.FieldTermsAccepted)
+	}
+	if m.terms_accepted_at != nil {
+		fields = append(fields, user.FieldTermsAcceptedAt)
 	}
 	return fields
 }
@@ -17898,6 +17991,10 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.Profile()
 	case user.FieldLastLoginAt:
 		return m.LastLoginAt()
+	case user.FieldTermsAccepted:
+		return m.TermsAccepted()
+	case user.FieldTermsAcceptedAt:
+		return m.TermsAcceptedAt()
 	}
 	return nil, false
 }
@@ -17923,6 +18020,10 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldProfile(ctx)
 	case user.FieldLastLoginAt:
 		return m.OldLastLoginAt(ctx)
+	case user.FieldTermsAccepted:
+		return m.OldTermsAccepted(ctx)
+	case user.FieldTermsAcceptedAt:
+		return m.OldTermsAcceptedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown User field %s", name)
 }
@@ -17988,6 +18089,20 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetLastLoginAt(v)
 		return nil
+	case user.FieldTermsAccepted:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTermsAccepted(v)
+		return nil
+	case user.FieldTermsAcceptedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTermsAcceptedAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)
 }
@@ -18030,6 +18145,9 @@ func (m *UserMutation) ClearedFields() []string {
 	if m.FieldCleared(user.FieldLastLoginAt) {
 		fields = append(fields, user.FieldLastLoginAt)
 	}
+	if m.FieldCleared(user.FieldTermsAcceptedAt) {
+		fields = append(fields, user.FieldTermsAcceptedAt)
+	}
 	return fields
 }
 
@@ -18055,6 +18173,9 @@ func (m *UserMutation) ClearField(name string) error {
 		return nil
 	case user.FieldLastLoginAt:
 		m.ClearLastLoginAt()
+		return nil
+	case user.FieldTermsAcceptedAt:
+		m.ClearTermsAcceptedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown User nullable field %s", name)
@@ -18087,6 +18208,12 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldLastLoginAt:
 		m.ResetLastLoginAt()
+		return nil
+	case user.FieldTermsAccepted:
+		m.ResetTermsAccepted()
+		return nil
+	case user.FieldTermsAcceptedAt:
+		m.ResetTermsAcceptedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)

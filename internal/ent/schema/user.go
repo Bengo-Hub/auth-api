@@ -41,6 +41,11 @@ func (User) Fields() []ent.Field {
 			Optional(),
 		field.Time("last_login_at").
 			Optional(),
+		field.Bool("terms_accepted").
+			Default(false),
+		field.Time("terms_accepted_at").
+			Optional().
+			Nillable(),
 	}
 }
 

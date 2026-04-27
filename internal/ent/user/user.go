@@ -31,6 +31,10 @@ const (
 	FieldProfile = "profile"
 	// FieldLastLoginAt holds the string denoting the last_login_at field in the database.
 	FieldLastLoginAt = "last_login_at"
+	// FieldTermsAccepted holds the string denoting the terms_accepted field in the database.
+	FieldTermsAccepted = "terms_accepted"
+	// FieldTermsAcceptedAt holds the string denoting the terms_accepted_at field in the database.
+	FieldTermsAcceptedAt = "terms_accepted_at"
 	// EdgeMemberships holds the string denoting the memberships edge name in mutations.
 	EdgeMemberships = "memberships"
 	// EdgeSessions holds the string denoting the sessions edge name in mutations.
@@ -109,6 +113,8 @@ var Columns = []string{
 	FieldPrimaryTenantID,
 	FieldProfile,
 	FieldLastLoginAt,
+	FieldTermsAccepted,
+	FieldTermsAcceptedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -134,6 +140,8 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// PrimaryTenantIDValidator is a validator for the "primary_tenant_id" field. It is called by the builders before save.
 	PrimaryTenantIDValidator func(string) error
+	// DefaultTermsAccepted holds the default value on creation for the "terms_accepted" field.
+	DefaultTermsAccepted bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -179,6 +187,16 @@ func ByPrimaryTenantID(opts ...sql.OrderTermOption) OrderOption {
 // ByLastLoginAt orders the results by the last_login_at field.
 func ByLastLoginAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLastLoginAt, opts...).ToFunc()
+}
+
+// ByTermsAccepted orders the results by the terms_accepted field.
+func ByTermsAccepted(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTermsAccepted, opts...).ToFunc()
+}
+
+// ByTermsAcceptedAt orders the results by the terms_accepted_at field.
+func ByTermsAcceptedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTermsAcceptedAt, opts...).ToFunc()
 }
 
 // ByMembershipsCount orders the results by memberships count.

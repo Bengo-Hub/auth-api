@@ -249,17 +249,65 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.service.Register(r.Context(), auth.RegisterInput{
-		Email:        req.Email,
-		Password:     req.Password,
-		TenantSlug:   req.TenantSlug,
-		Profile:      req.Profile,
-		IPAddress:    clientIP(r),
-		UserAgent:    userAgent(r),
-		ClientID:     req.ClientID,
-		SelectedPlan: req.SelectedPlan,
-		OrgAction:    req.OrgAction,
-		NewOrg:       newOrg,
-		Role:         req.Role,
+		Email:         req.Email,
+		Password:      req.Password,
+		TenantSlug:    req.TenantSlug,
+		Profile:       req.Profile,
+		IPAddress:     clientIP(r),
+		UserAgent:     userAgent(r),
+		ClientID:      req.ClientID,
+		SelectedPlan:  req.SelectedPlan,
+		OrgAction:     req.OrgAction,
+		NewOrg:        newOrg,
+		Role:          req.Role,
+		TermsAccepted: req.TermsAccepted,
+	})
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, h.toAuthResponse(result))
+}
+
+// RegisterOAuth completes registration for a new user arriving via OAuth2 flow.
+// The signup wizard submits an oauth_token (issued during the OAuth callback)
+// together with org-selection details to finalise account creation without a password.
+func (h *AuthHandler) RegisterOAuth(w http.ResponseWriter, r *http.Request) {
+	var req oauthRegisterRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+
+	if req.OAuthToken == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "oauth_token is required", nil)
+		return
+	}
+
+	var newOrg *auth.NewOrgInput
+	if req.NewOrg != nil {
+		newOrg = &auth.NewOrgInput{
+			Name:         req.NewOrg.Name,
+			Slug:         req.NewOrg.Slug,
+			UseCase:      req.NewOrg.UseCase,
+			UseCases:     req.NewOrg.UseCases,
+			HQBranchName: req.NewOrg.HQBranchName,
+			Metadata:     req.NewOrg.Metadata,
+		}
+	}
+
+	result, err := h.service.Register(r.Context(), auth.RegisterInput{
+		Email:         req.Email,
+		Password:      "",  // OAuth users have no password; hash is not set
+		TenantSlug:    req.TenantSlug,
+		Profile:       req.Profile,
+		IPAddress:     clientIP(r),
+		UserAgent:     userAgent(r),
+		ClientID:      req.ClientID,
+		SelectedPlan:  req.SelectedPlan,
+		OrgAction:     req.OrgAction,
+		NewOrg:        newOrg,
+		TermsAccepted: req.TermsAccepted,
 	})
 	if err != nil {
 		h.handleError(w, r, err)
@@ -897,6 +945,8 @@ type registerRequest struct {
 	NewOrg    *newOrgRequest `json:"new_org,omitempty"`
 	// Role is an optional role hint for pre-invited users (e.g. "driver" for fleet invitations).
 	Role string `json:"role,omitempty"`
+	// TermsAccepted records whether the user accepted the Terms of Service at signup.
+	TermsAccepted bool `json:"terms_accepted"`
 }
 
 type loginRequest struct {
@@ -948,6 +998,7 @@ type oauthRegisterRequest struct {
 	SelectedPlan  string         `json:"selected_plan,omitempty"`
 	OrgAction     string         `json:"org_action,omitempty"`
 	NewOrg        *newOrgRequest `json:"new_org,omitempty"`
+	TermsAccepted bool           `json:"terms_accepted"`
 }
 
 // ListSessions returns all active sessions for the authenticated user.
