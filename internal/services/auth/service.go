@@ -1940,3 +1940,16 @@ func profileStr(profile map[string]any, key string) string {
 func strPtr(s string) *string {
 	return &s
 }
+
+// AcceptTerms marks the user as having accepted the platform terms of service.
+func (s *Service) AcceptTerms(ctx context.Context, userID uuid.UUID) error {
+	now := time.Now()
+	err := s.entClient.User.UpdateOneID(userID).
+		SetTermsAccepted(true).
+		SetTermsAcceptedAt(now).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("accept terms: %w", err)
+	}
+	return nil
+}
