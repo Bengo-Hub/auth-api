@@ -14,6 +14,7 @@ import (
 type RouterDeps struct {
 	HealthHandler      http.HandlerFunc
 	AuthHandlers       AuthHandlers
+	UserHandler        *handlers.UserHandler
 	RequireAuthHandler func(http.Handler) http.Handler
 	TryAuthHandler     func(http.Handler) http.Handler
 	RateLimitLogin     func(http.Handler) http.Handler
@@ -275,6 +276,20 @@ func NewRouter(deps RouterDeps) http.Handler {
 				// Platform backup management (platform admins only)
 				r.Get("/backups", deps.AuthHandlers.ListBackups)
 				r.Get("/backups/{filename}", deps.AuthHandlers.DownloadBackup)
+				// Platform user management (platform admins only)
+				if deps.UserHandler != nil {
+					r.Route("/users", func(r chi.Router) {
+						r.Get("/", deps.UserHandler.AdminListUsers)
+						r.Route("/{user_id}", func(r chi.Router) {
+							r.Get("/", deps.UserHandler.AdminGetUser)
+							r.Patch("/", deps.UserHandler.AdminUpdateUser)
+							r.Delete("/", deps.UserHandler.AdminDeleteUser)
+							r.Post("/suspend", deps.UserHandler.AdminSuspendUser)
+							r.Post("/deactivate", deps.UserHandler.AdminDeactivateUser)
+							r.Post("/activate", deps.UserHandler.AdminActivateUser)
+						})
+					})
+				}
 			})
 		})
 		r.Route("/developer", func(r chi.Router) {

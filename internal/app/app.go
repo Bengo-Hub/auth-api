@@ -173,10 +173,12 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
+	userHandler := handlers.NewUserHandler(entClient, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
 		HealthHandler:  handlers.Health,
 		MetricsHandler: promhttp.Handler(),
+		UserHandler:    userHandler,
 		AuthHandlers: httpapi.AuthHandlers{
 			Register:                     authHandler.Register,
 			RegisterOAuth:                authHandler.RegisterOAuth,
