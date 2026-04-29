@@ -20,10 +20,16 @@ type Tx struct {
 	AuthorizationCode *AuthorizationCodeClient
 	// ConsentSession is the client for interacting with the ConsentSession builders.
 	ConsentSession *ConsentSessionClient
+	// EquityHolderApplication is the client for interacting with the EquityHolderApplication builders.
+	EquityHolderApplication *EquityHolderApplicationClient
 	// FeatureEntitlement is the client for interacting with the FeatureEntitlement builders.
 	FeatureEntitlement *FeatureEntitlementClient
 	// IntegrationConfig is the client for interacting with the IntegrationConfig builders.
 	IntegrationConfig *IntegrationConfigClient
+	// LegalAcceptance is the client for interacting with the LegalAcceptance builders.
+	LegalAcceptance *LegalAcceptanceClient
+	// LegalDocument is the client for interacting with the LegalDocument builders.
+	LegalDocument *LegalDocumentClient
 	// LoginAttempt is the client for interacting with the LoginAttempt builders.
 	LoginAttempt *LoginAttemptClient
 	// MFABackupCode is the client for interacting with the MFABackupCode builders.
@@ -40,6 +46,8 @@ type Tx struct {
 	PasswordResetToken *PasswordResetTokenClient
 	// Permission is the client for interacting with the Permission builders.
 	Permission *PermissionClient
+	// ReferralLink is the client for interacting with the ReferralLink builders.
+	ReferralLink *ReferralLinkClient
 	// RolePermission is the client for interacting with the RolePermission builders.
 	RolePermission *RolePermissionClient
 	// Session is the client for interacting with the Session builders.
@@ -189,8 +197,11 @@ func (tx *Tx) init() {
 	tx.AuditLog = NewAuditLogClient(tx.config)
 	tx.AuthorizationCode = NewAuthorizationCodeClient(tx.config)
 	tx.ConsentSession = NewConsentSessionClient(tx.config)
+	tx.EquityHolderApplication = NewEquityHolderApplicationClient(tx.config)
 	tx.FeatureEntitlement = NewFeatureEntitlementClient(tx.config)
 	tx.IntegrationConfig = NewIntegrationConfigClient(tx.config)
+	tx.LegalAcceptance = NewLegalAcceptanceClient(tx.config)
+	tx.LegalDocument = NewLegalDocumentClient(tx.config)
 	tx.LoginAttempt = NewLoginAttemptClient(tx.config)
 	tx.MFABackupCode = NewMFABackupCodeClient(tx.config)
 	tx.MFASettings = NewMFASettingsClient(tx.config)
@@ -199,6 +210,7 @@ func (tx *Tx) init() {
 	tx.OutboxEvent = NewOutboxEventClient(tx.config)
 	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
 	tx.Permission = NewPermissionClient(tx.config)
+	tx.ReferralLink = NewReferralLinkClient(tx.config)
 	tx.RolePermission = NewRolePermissionClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.Tenant = NewTenantClient(tx.config)

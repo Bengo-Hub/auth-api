@@ -16,8 +16,11 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/auditlog"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/consentsession"
+	"github.com/bengobox/auth-api/internal/ent/equityholderapplication"
 	"github.com/bengobox/auth-api/internal/ent/featureentitlement"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
+	"github.com/bengobox/auth-api/internal/ent/legalacceptance"
+	"github.com/bengobox/auth-api/internal/ent/legaldocument"
 	"github.com/bengobox/auth-api/internal/ent/loginattempt"
 	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
@@ -26,6 +29,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/referrallink"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -93,27 +97,31 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			apikey.Table:             apikey.ValidColumn,
-			auditlog.Table:           auditlog.ValidColumn,
-			authorizationcode.Table:  authorizationcode.ValidColumn,
-			consentsession.Table:     consentsession.ValidColumn,
-			featureentitlement.Table: featureentitlement.ValidColumn,
-			integrationconfig.Table:  integrationconfig.ValidColumn,
-			loginattempt.Table:       loginattempt.ValidColumn,
-			mfabackupcode.Table:      mfabackupcode.ValidColumn,
-			mfasettings.Table:        mfasettings.ValidColumn,
-			mfatotpsecret.Table:      mfatotpsecret.ValidColumn,
-			oauthclient.Table:        oauthclient.ValidColumn,
-			outboxevent.Table:        outboxevent.ValidColumn,
-			passwordresettoken.Table: passwordresettoken.ValidColumn,
-			permission.Table:         permission.ValidColumn,
-			rolepermission.Table:     rolepermission.ValidColumn,
-			session.Table:            session.ValidColumn,
-			tenant.Table:             tenant.ValidColumn,
-			tenantmembership.Table:   tenantmembership.ValidColumn,
-			usagemetric.Table:        usagemetric.ValidColumn,
-			user.Table:               user.ValidColumn,
-			useridentity.Table:       useridentity.ValidColumn,
+			apikey.Table:                  apikey.ValidColumn,
+			auditlog.Table:                auditlog.ValidColumn,
+			authorizationcode.Table:       authorizationcode.ValidColumn,
+			consentsession.Table:          consentsession.ValidColumn,
+			equityholderapplication.Table: equityholderapplication.ValidColumn,
+			featureentitlement.Table:      featureentitlement.ValidColumn,
+			integrationconfig.Table:       integrationconfig.ValidColumn,
+			legalacceptance.Table:         legalacceptance.ValidColumn,
+			legaldocument.Table:           legaldocument.ValidColumn,
+			loginattempt.Table:            loginattempt.ValidColumn,
+			mfabackupcode.Table:           mfabackupcode.ValidColumn,
+			mfasettings.Table:             mfasettings.ValidColumn,
+			mfatotpsecret.Table:           mfatotpsecret.ValidColumn,
+			oauthclient.Table:             oauthclient.ValidColumn,
+			outboxevent.Table:             outboxevent.ValidColumn,
+			passwordresettoken.Table:      passwordresettoken.ValidColumn,
+			permission.Table:              permission.ValidColumn,
+			referrallink.Table:            referrallink.ValidColumn,
+			rolepermission.Table:          rolepermission.ValidColumn,
+			session.Table:                 session.ValidColumn,
+			tenant.Table:                  tenant.ValidColumn,
+			tenantmembership.Table:        tenantmembership.ValidColumn,
+			usagemetric.Table:             usagemetric.ValidColumn,
+			user.Table:                    user.ValidColumn,
+			useridentity.Table:            useridentity.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

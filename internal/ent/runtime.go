@@ -9,8 +9,11 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/auditlog"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/consentsession"
+	"github.com/bengobox/auth-api/internal/ent/equityholderapplication"
 	"github.com/bengobox/auth-api/internal/ent/featureentitlement"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
+	"github.com/bengobox/auth-api/internal/ent/legalacceptance"
+	"github.com/bengobox/auth-api/internal/ent/legaldocument"
 	"github.com/bengobox/auth-api/internal/ent/loginattempt"
 	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
@@ -19,6 +22,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/referrallink"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/schema"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -138,6 +142,26 @@ func init() {
 	consentsessionDescID := consentsessionFields[0].Descriptor()
 	// consentsession.DefaultID holds the default value on creation for the id field.
 	consentsession.DefaultID = consentsessionDescID.Default.(func() uuid.UUID)
+	equityholderapplicationFields := schema.EquityHolderApplication{}.Fields()
+	_ = equityholderapplicationFields
+	// equityholderapplicationDescKycReference is the schema descriptor for kyc_reference field.
+	equityholderapplicationDescKycReference := equityholderapplicationFields[3].Descriptor()
+	// equityholderapplication.KycReferenceValidator is a validator for the "kyc_reference" field. It is called by the builders before save.
+	equityholderapplication.KycReferenceValidator = equityholderapplicationDescKycReference.Validators[0].(func(string) error)
+	// equityholderapplicationDescCreatedAt is the schema descriptor for created_at field.
+	equityholderapplicationDescCreatedAt := equityholderapplicationFields[8].Descriptor()
+	// equityholderapplication.DefaultCreatedAt holds the default value on creation for the created_at field.
+	equityholderapplication.DefaultCreatedAt = equityholderapplicationDescCreatedAt.Default.(func() time.Time)
+	// equityholderapplicationDescUpdatedAt is the schema descriptor for updated_at field.
+	equityholderapplicationDescUpdatedAt := equityholderapplicationFields[9].Descriptor()
+	// equityholderapplication.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	equityholderapplication.DefaultUpdatedAt = equityholderapplicationDescUpdatedAt.Default.(func() time.Time)
+	// equityholderapplication.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	equityholderapplication.UpdateDefaultUpdatedAt = equityholderapplicationDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// equityholderapplicationDescID is the schema descriptor for id field.
+	equityholderapplicationDescID := equityholderapplicationFields[0].Descriptor()
+	// equityholderapplication.DefaultID holds the default value on creation for the id field.
+	equityholderapplication.DefaultID = equityholderapplicationDescID.Default.(func() uuid.UUID)
 	featureentitlementFields := schema.FeatureEntitlement{}.Fields()
 	_ = featureentitlementFields
 	// featureentitlementDescFeatureCode is the schema descriptor for feature_code field.
@@ -202,6 +226,78 @@ func init() {
 	integrationconfigDescID := integrationconfigFields[0].Descriptor()
 	// integrationconfig.DefaultID holds the default value on creation for the id field.
 	integrationconfig.DefaultID = integrationconfigDescID.Default.(func() uuid.UUID)
+	legalacceptanceFields := schema.LegalAcceptance{}.Fields()
+	_ = legalacceptanceFields
+	// legalacceptanceDescDocVersion is the schema descriptor for doc_version field.
+	legalacceptanceDescDocVersion := legalacceptanceFields[4].Descriptor()
+	// legalacceptance.DocVersionValidator is a validator for the "doc_version" field. It is called by the builders before save.
+	legalacceptance.DocVersionValidator = func() func(string) error {
+		validators := legalacceptanceDescDocVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(doc_version string) error {
+			for _, fn := range fns {
+				if err := fn(doc_version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// legalacceptanceDescIPAddress is the schema descriptor for ip_address field.
+	legalacceptanceDescIPAddress := legalacceptanceFields[6].Descriptor()
+	// legalacceptance.IPAddressValidator is a validator for the "ip_address" field. It is called by the builders before save.
+	legalacceptance.IPAddressValidator = legalacceptanceDescIPAddress.Validators[0].(func(string) error)
+	// legalacceptanceDescUserAgent is the schema descriptor for user_agent field.
+	legalacceptanceDescUserAgent := legalacceptanceFields[7].Descriptor()
+	// legalacceptance.UserAgentValidator is a validator for the "user_agent" field. It is called by the builders before save.
+	legalacceptance.UserAgentValidator = legalacceptanceDescUserAgent.Validators[0].(func(string) error)
+	// legalacceptanceDescSignatureImageURL is the schema descriptor for signature_image_url field.
+	legalacceptanceDescSignatureImageURL := legalacceptanceFields[8].Descriptor()
+	// legalacceptance.SignatureImageURLValidator is a validator for the "signature_image_url" field. It is called by the builders before save.
+	legalacceptance.SignatureImageURLValidator = legalacceptanceDescSignatureImageURL.Validators[0].(func(string) error)
+	// legalacceptanceDescCreatedAt is the schema descriptor for created_at field.
+	legalacceptanceDescCreatedAt := legalacceptanceFields[9].Descriptor()
+	// legalacceptance.DefaultCreatedAt holds the default value on creation for the created_at field.
+	legalacceptance.DefaultCreatedAt = legalacceptanceDescCreatedAt.Default.(func() time.Time)
+	// legalacceptanceDescID is the schema descriptor for id field.
+	legalacceptanceDescID := legalacceptanceFields[0].Descriptor()
+	// legalacceptance.DefaultID holds the default value on creation for the id field.
+	legalacceptance.DefaultID = legalacceptanceDescID.Default.(func() uuid.UUID)
+	legaldocumentFields := schema.LegalDocument{}.Fields()
+	_ = legaldocumentFields
+	// legaldocumentDescVersion is the schema descriptor for version field.
+	legaldocumentDescVersion := legaldocumentFields[2].Descriptor()
+	// legaldocument.VersionValidator is a validator for the "version" field. It is called by the builders before save.
+	legaldocument.VersionValidator = func() func(string) error {
+		validators := legaldocumentDescVersion.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(version string) error {
+			for _, fn := range fns {
+				if err := fn(version); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// legaldocumentDescIsCurrent is the schema descriptor for is_current field.
+	legaldocumentDescIsCurrent := legaldocumentFields[5].Descriptor()
+	// legaldocument.DefaultIsCurrent holds the default value on creation for the is_current field.
+	legaldocument.DefaultIsCurrent = legaldocumentDescIsCurrent.Default.(bool)
+	// legaldocumentDescCreatedAt is the schema descriptor for created_at field.
+	legaldocumentDescCreatedAt := legaldocumentFields[6].Descriptor()
+	// legaldocument.DefaultCreatedAt holds the default value on creation for the created_at field.
+	legaldocument.DefaultCreatedAt = legaldocumentDescCreatedAt.Default.(func() time.Time)
+	// legaldocumentDescID is the schema descriptor for id field.
+	legaldocumentDescID := legaldocumentFields[0].Descriptor()
+	// legaldocument.DefaultID holds the default value on creation for the id field.
+	legaldocument.DefaultID = legaldocumentDescID.Default.(func() uuid.UUID)
 	loginattemptFields := schema.LoginAttempt{}.Fields()
 	_ = loginattemptFields
 	// loginattemptDescEmail is the schema descriptor for email field.
@@ -354,6 +450,52 @@ func init() {
 	permissionDescAction := permissionFields[2].Descriptor()
 	// permission.ActionValidator is a validator for the "action" field. It is called by the builders before save.
 	permission.ActionValidator = permissionDescAction.Validators[0].(func(string) error)
+	referrallinkFields := schema.ReferralLink{}.Fields()
+	_ = referrallinkFields
+	// referrallinkDescReferralCode is the schema descriptor for referral_code field.
+	referrallinkDescReferralCode := referrallinkFields[2].Descriptor()
+	// referrallink.ReferralCodeValidator is a validator for the "referral_code" field. It is called by the builders before save.
+	referrallink.ReferralCodeValidator = func() func(string) error {
+		validators := referrallinkDescReferralCode.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(referral_code string) error {
+			for _, fn := range fns {
+				if err := fn(referral_code); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// referrallinkDescProgramID is the schema descriptor for program_id field.
+	referrallinkDescProgramID := referrallinkFields[3].Descriptor()
+	// referrallink.ProgramIDValidator is a validator for the "program_id" field. It is called by the builders before save.
+	referrallink.ProgramIDValidator = referrallinkDescProgramID.Validators[0].(func(string) error)
+	// referrallinkDescClicks is the schema descriptor for clicks field.
+	referrallinkDescClicks := referrallinkFields[4].Descriptor()
+	// referrallink.DefaultClicks holds the default value on creation for the clicks field.
+	referrallink.DefaultClicks = referrallinkDescClicks.Default.(int)
+	// referrallinkDescIsActive is the schema descriptor for is_active field.
+	referrallinkDescIsActive := referrallinkFields[6].Descriptor()
+	// referrallink.DefaultIsActive holds the default value on creation for the is_active field.
+	referrallink.DefaultIsActive = referrallinkDescIsActive.Default.(bool)
+	// referrallinkDescCreatedAt is the schema descriptor for created_at field.
+	referrallinkDescCreatedAt := referrallinkFields[7].Descriptor()
+	// referrallink.DefaultCreatedAt holds the default value on creation for the created_at field.
+	referrallink.DefaultCreatedAt = referrallinkDescCreatedAt.Default.(func() time.Time)
+	// referrallinkDescUpdatedAt is the schema descriptor for updated_at field.
+	referrallinkDescUpdatedAt := referrallinkFields[8].Descriptor()
+	// referrallink.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	referrallink.DefaultUpdatedAt = referrallinkDescUpdatedAt.Default.(func() time.Time)
+	// referrallink.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	referrallink.UpdateDefaultUpdatedAt = referrallinkDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// referrallinkDescID is the schema descriptor for id field.
+	referrallinkDescID := referrallinkFields[0].Descriptor()
+	// referrallink.DefaultID holds the default value on creation for the id field.
+	referrallink.DefaultID = referrallinkDescID.Default.(func() uuid.UUID)
 	rolepermissionFields := schema.RolePermission{}.Fields()
 	_ = rolepermissionFields
 	// rolepermissionDescRoleName is the schema descriptor for role_name field.
