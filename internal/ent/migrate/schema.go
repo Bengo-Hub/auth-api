@@ -124,6 +124,42 @@ var (
 		Columns:    ConsentSessionsColumns,
 		PrimaryKey: []*schema.Column{ConsentSessionsColumns[0]},
 	}
+	// EquityHolderApplicationsColumns holds the columns for the "equity_holder_applications" table.
+	EquityHolderApplicationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "tenant_id", Type: field.TypeUUID},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "kyc_pending", "kyc_approved", "epa_pending", "approved", "rejected"}, Default: "pending"},
+		{Name: "kyc_reference", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "kyc_result", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "epa_acceptance_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "treasury_holder_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// EquityHolderApplicationsTable holds the schema information for the "equity_holder_applications" table.
+	EquityHolderApplicationsTable = &schema.Table{
+		Name:       "equity_holder_applications",
+		Columns:    EquityHolderApplicationsColumns,
+		PrimaryKey: []*schema.Column{EquityHolderApplicationsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "equityholderapplication_tenant_id",
+				Unique:  false,
+				Columns: []*schema.Column{EquityHolderApplicationsColumns[1]},
+			},
+			{
+				Name:    "equityholderapplication_status",
+				Unique:  false,
+				Columns: []*schema.Column{EquityHolderApplicationsColumns[2]},
+			},
+			{
+				Name:    "equityholderapplication_tenant_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{EquityHolderApplicationsColumns[1], EquityHolderApplicationsColumns[2]},
+			},
+		},
+	}
 	// FeatureEntitlementsColumns holds the columns for the "feature_entitlements" table.
 	FeatureEntitlementsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -178,6 +214,65 @@ var (
 				Name:    "integrationconfig_is_active",
 				Unique:  false,
 				Columns: []*schema.Column{IntegrationConfigsColumns[8]},
+			},
+		},
+	}
+	// LegalAcceptancesColumns holds the columns for the "legal_acceptances" table.
+	LegalAcceptancesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "entity_id", Type: field.TypeUUID},
+		{Name: "entity_type", Type: field.TypeEnum, Enums: []string{"tenant", "user"}},
+		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA"}},
+		{Name: "doc_version", Type: field.TypeString, Size: 32},
+		{Name: "accepted_at", Type: field.TypeTime},
+		{Name: "ip_address", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "user_agent", Type: field.TypeString, Nullable: true, Size: 512},
+		{Name: "signature_image_url", Type: field.TypeString, Nullable: true, Size: 1024},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// LegalAcceptancesTable holds the schema information for the "legal_acceptances" table.
+	LegalAcceptancesTable = &schema.Table{
+		Name:       "legal_acceptances",
+		Columns:    LegalAcceptancesColumns,
+		PrimaryKey: []*schema.Column{LegalAcceptancesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "legalacceptance_entity_id_doc_type",
+				Unique:  false,
+				Columns: []*schema.Column{LegalAcceptancesColumns[1], LegalAcceptancesColumns[3]},
+			},
+			{
+				Name:    "legalacceptance_entity_id",
+				Unique:  false,
+				Columns: []*schema.Column{LegalAcceptancesColumns[1]},
+			},
+		},
+	}
+	// LegalDocumentsColumns holds the columns for the "legal_documents" table.
+	LegalDocumentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA"}},
+		{Name: "version", Type: field.TypeString, Size: 32},
+		{Name: "html_content", Type: field.TypeString, Size: 2147483647},
+		{Name: "effective_date", Type: field.TypeTime},
+		{Name: "is_current", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// LegalDocumentsTable holds the schema information for the "legal_documents" table.
+	LegalDocumentsTable = &schema.Table{
+		Name:       "legal_documents",
+		Columns:    LegalDocumentsColumns,
+		PrimaryKey: []*schema.Column{LegalDocumentsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "legaldocument_doc_type_version",
+				Unique:  true,
+				Columns: []*schema.Column{LegalDocumentsColumns[1], LegalDocumentsColumns[2]},
+			},
+			{
+				Name:    "legaldocument_doc_type_is_current",
+				Unique:  false,
+				Columns: []*schema.Column{LegalDocumentsColumns[1], LegalDocumentsColumns[5]},
 			},
 		},
 	}
@@ -371,6 +466,41 @@ var (
 				Name:    "permission_resource_action",
 				Unique:  true,
 				Columns: []*schema.Column{PermissionsColumns[2], PermissionsColumns[3]},
+			},
+		},
+	}
+	// ReferralLinksColumns holds the columns for the "referral_links" table.
+	ReferralLinksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "referrer_tenant_id", Type: field.TypeUUID},
+		{Name: "referral_code", Type: field.TypeString, Unique: true, Size: 32},
+		{Name: "program_id", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "clicks", Type: field.TypeInt, Default: 0},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "is_active", Type: field.TypeBool, Default: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ReferralLinksTable holds the schema information for the "referral_links" table.
+	ReferralLinksTable = &schema.Table{
+		Name:       "referral_links",
+		Columns:    ReferralLinksColumns,
+		PrimaryKey: []*schema.Column{ReferralLinksColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "referrallink_referral_code",
+				Unique:  true,
+				Columns: []*schema.Column{ReferralLinksColumns[2]},
+			},
+			{
+				Name:    "referrallink_referrer_tenant_id",
+				Unique:  false,
+				Columns: []*schema.Column{ReferralLinksColumns[1]},
+			},
+			{
+				Name:    "referrallink_is_active",
+				Unique:  false,
+				Columns: []*schema.Column{ReferralLinksColumns[6]},
 			},
 		},
 	}
@@ -610,8 +740,11 @@ var (
 		AuditLogsTable,
 		AuthorizationCodesTable,
 		ConsentSessionsTable,
+		EquityHolderApplicationsTable,
 		FeatureEntitlementsTable,
 		IntegrationConfigsTable,
+		LegalAcceptancesTable,
+		LegalDocumentsTable,
 		LoginAttemptsTable,
 		MfaBackupCodesTable,
 		MfaSettingsTable,
@@ -620,6 +753,7 @@ var (
 		OutboxEventsTable,
 		PasswordResetTokensTable,
 		PermissionsTable,
+		ReferralLinksTable,
 		RolePermissionsTable,
 		SessionsTable,
 		TenantsTable,

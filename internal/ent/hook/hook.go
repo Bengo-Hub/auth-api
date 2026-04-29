@@ -57,6 +57,18 @@ func (f ConsentSessionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ConsentSessionMutation", m)
 }
 
+// The EquityHolderApplicationFunc type is an adapter to allow the use of ordinary
+// function as EquityHolderApplication mutator.
+type EquityHolderApplicationFunc func(context.Context, *ent.EquityHolderApplicationMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EquityHolderApplicationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EquityHolderApplicationMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EquityHolderApplicationMutation", m)
+}
+
 // The FeatureEntitlementFunc type is an adapter to allow the use of ordinary
 // function as FeatureEntitlement mutator.
 type FeatureEntitlementFunc func(context.Context, *ent.FeatureEntitlementMutation) (ent.Value, error)
@@ -79,6 +91,30 @@ func (f IntegrationConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IntegrationConfigMutation", m)
+}
+
+// The LegalAcceptanceFunc type is an adapter to allow the use of ordinary
+// function as LegalAcceptance mutator.
+type LegalAcceptanceFunc func(context.Context, *ent.LegalAcceptanceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LegalAcceptanceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LegalAcceptanceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LegalAcceptanceMutation", m)
+}
+
+// The LegalDocumentFunc type is an adapter to allow the use of ordinary
+// function as LegalDocument mutator.
+type LegalDocumentFunc func(context.Context, *ent.LegalDocumentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f LegalDocumentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.LegalDocumentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.LegalDocumentMutation", m)
 }
 
 // The LoginAttemptFunc type is an adapter to allow the use of ordinary
@@ -175,6 +211,18 @@ func (f PermissionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PermissionMutation", m)
+}
+
+// The ReferralLinkFunc type is an adapter to allow the use of ordinary
+// function as ReferralLink mutator.
+type ReferralLinkFunc func(context.Context, *ent.ReferralLinkMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ReferralLinkFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ReferralLinkMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReferralLinkMutation", m)
 }
 
 // The RolePermissionFunc type is an adapter to allow the use of ordinary

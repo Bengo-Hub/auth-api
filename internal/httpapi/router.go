@@ -12,14 +12,18 @@ import (
 
 // RouterDeps defines router construction dependencies.
 type RouterDeps struct {
-	HealthHandler      http.HandlerFunc
-	AuthHandlers       AuthHandlers
-	UserHandler        *handlers.UserHandler
-	RequireAuthHandler func(http.Handler) http.Handler
-	TryAuthHandler     func(http.Handler) http.Handler
-	RateLimitLogin     func(http.Handler) http.Handler
-	RateLimitToken     func(http.Handler) http.Handler
-	MetricsHandler     http.Handler
+	HealthHandler        http.HandlerFunc
+	AuthHandlers         AuthHandlers
+	UserHandler          *handlers.UserHandler
+	LegalHandler         *handlers.LegalHandler
+	ReferralLinkHandler  *handlers.ReferralLinkHandler
+	EquityPortalHandler  *handlers.EquityPortalHandler
+	EquityPortalAuth     func(http.Handler) http.Handler
+	RequireAuthHandler   func(http.Handler) http.Handler
+	TryAuthHandler       func(http.Handler) http.Handler
+	RateLimitLogin       func(http.Handler) http.Handler
+	RateLimitToken       func(http.Handler) http.Handler
+	MetricsHandler       http.Handler
 }
 
 // AuthHandlers groups the HTTP handlers for auth routes.
@@ -299,6 +303,55 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/clients", deps.AuthHandlers.DeveloperListClients)
 			r.Post("/clients", deps.AuthHandlers.DeveloperCreateClient)
 		})
+
+		// Legal documents (public read, admin write)
+		if deps.LegalHandler != nil {
+			r.Get("/legal/documents/{type}", deps.LegalHandler.GetCurrentDocument)
+			r.Group(func(r chi.Router) {
+				if deps.RequireAuthHandler != nil {
+					r.Use(deps.RequireAuthHandler)
+				}
+				r.Post("/auth/legal/accept", deps.LegalHandler.AcceptDocument)
+				r.Post("/auth/legal/sign", deps.LegalHandler.SignDocument)
+				r.Post("/auth/equity/apply", deps.LegalHandler.CreateApplication)
+			})
+			r.Group(func(r chi.Router) {
+				if deps.RequireAuthHandler != nil {
+					r.Use(deps.RequireAuthHandler)
+				}
+				r.Post("/admin/legal/documents", deps.LegalHandler.UpsertDocument)
+				r.Get("/admin/equity/applications", deps.LegalHandler.ListApplications)
+				r.Put("/admin/equity/applications/{id}", deps.LegalHandler.UpdateApplication)
+			})
+		}
+
+		// Referral links
+		if deps.ReferralLinkHandler != nil {
+			r.Get("/referrals/link/{code}", deps.ReferralLinkHandler.GetLinkByCode)
+			r.Group(func(r chi.Router) {
+				if deps.RequireAuthHandler != nil {
+					r.Use(deps.RequireAuthHandler)
+				}
+				r.Post("/admin/referral-links", deps.ReferralLinkHandler.CreateReferralLink)
+				r.Get("/admin/referral-links", deps.ReferralLinkHandler.ListReferralLinks)
+			})
+		}
+
+		// Equity portal JWT issuance (admin authed) + portal data endpoint
+		if deps.EquityPortalHandler != nil {
+			r.Group(func(r chi.Router) {
+				if deps.RequireAuthHandler != nil {
+					r.Use(deps.RequireAuthHandler)
+				}
+				r.Post("/admin/equity-holders/{treasury_holder_id}/portal-link", deps.EquityPortalHandler.GeneratePortalLink)
+			})
+			if deps.EquityPortalAuth != nil {
+				r.Group(func(r chi.Router) {
+					r.Use(deps.EquityPortalAuth)
+					r.Get("/equity-portal/me", deps.EquityPortalHandler.Me)
+				})
+			}
+		}
 	})
 
 	return r

@@ -174,11 +174,18 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 	userHandler := handlers.NewUserHandler(entClient, logger)
+	legalHandler := handlers.NewLegalHandler(entClient, logger)
+	referralLinkHandler := handlers.NewReferralLinkHandler(entClient, logger)
+	equityPortalHandler := handlers.NewEquityPortalHandler(entClient, tokenSvc, cfg.Token.Issuer, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
-		HealthHandler:  handlers.Health,
-		MetricsHandler: promhttp.Handler(),
-		UserHandler:    userHandler,
+		HealthHandler:       handlers.Health,
+		MetricsHandler:      promhttp.Handler(),
+		UserHandler:         userHandler,
+		LegalHandler:        legalHandler,
+		ReferralLinkHandler: referralLinkHandler,
+		EquityPortalHandler: equityPortalHandler,
+		EquityPortalAuth:    handlers.EquityPortalAuth(tokenSvc),
 		AuthHandlers: httpapi.AuthHandlers{
 			Register:                     authHandler.Register,
 			RegisterOAuth:                authHandler.RegisterOAuth,

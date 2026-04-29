@@ -18,11 +18,20 @@ type AuthorizationCode func(*sql.Selector)
 // ConsentSession is the predicate function for consentsession builders.
 type ConsentSession func(*sql.Selector)
 
+// EquityHolderApplication is the predicate function for equityholderapplication builders.
+type EquityHolderApplication func(*sql.Selector)
+
 // FeatureEntitlement is the predicate function for featureentitlement builders.
 type FeatureEntitlement func(*sql.Selector)
 
 // IntegrationConfig is the predicate function for integrationconfig builders.
 type IntegrationConfig func(*sql.Selector)
+
+// LegalAcceptance is the predicate function for legalacceptance builders.
+type LegalAcceptance func(*sql.Selector)
+
+// LegalDocument is the predicate function for legaldocument builders.
+type LegalDocument func(*sql.Selector)
 
 // LoginAttempt is the predicate function for loginattempt builders.
 type LoginAttempt func(*sql.Selector)
@@ -47,6 +56,9 @@ type PasswordResetToken func(*sql.Selector)
 
 // Permission is the predicate function for permission builders.
 type Permission func(*sql.Selector)
+
+// ReferralLink is the predicate function for referrallink builders.
+type ReferralLink func(*sql.Selector)
 
 // RolePermission is the predicate function for rolepermission builders.
 type RolePermission func(*sql.Selector)

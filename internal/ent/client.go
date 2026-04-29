@@ -20,8 +20,11 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/auditlog"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/consentsession"
+	"github.com/bengobox/auth-api/internal/ent/equityholderapplication"
 	"github.com/bengobox/auth-api/internal/ent/featureentitlement"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
+	"github.com/bengobox/auth-api/internal/ent/legalacceptance"
+	"github.com/bengobox/auth-api/internal/ent/legaldocument"
 	"github.com/bengobox/auth-api/internal/ent/loginattempt"
 	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
@@ -30,6 +33,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/referrallink"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -52,10 +56,16 @@ type Client struct {
 	AuthorizationCode *AuthorizationCodeClient
 	// ConsentSession is the client for interacting with the ConsentSession builders.
 	ConsentSession *ConsentSessionClient
+	// EquityHolderApplication is the client for interacting with the EquityHolderApplication builders.
+	EquityHolderApplication *EquityHolderApplicationClient
 	// FeatureEntitlement is the client for interacting with the FeatureEntitlement builders.
 	FeatureEntitlement *FeatureEntitlementClient
 	// IntegrationConfig is the client for interacting with the IntegrationConfig builders.
 	IntegrationConfig *IntegrationConfigClient
+	// LegalAcceptance is the client for interacting with the LegalAcceptance builders.
+	LegalAcceptance *LegalAcceptanceClient
+	// LegalDocument is the client for interacting with the LegalDocument builders.
+	LegalDocument *LegalDocumentClient
 	// LoginAttempt is the client for interacting with the LoginAttempt builders.
 	LoginAttempt *LoginAttemptClient
 	// MFABackupCode is the client for interacting with the MFABackupCode builders.
@@ -72,6 +82,8 @@ type Client struct {
 	PasswordResetToken *PasswordResetTokenClient
 	// Permission is the client for interacting with the Permission builders.
 	Permission *PermissionClient
+	// ReferralLink is the client for interacting with the ReferralLink builders.
+	ReferralLink *ReferralLinkClient
 	// RolePermission is the client for interacting with the RolePermission builders.
 	RolePermission *RolePermissionClient
 	// Session is the client for interacting with the Session builders.
@@ -101,8 +113,11 @@ func (c *Client) init() {
 	c.AuditLog = NewAuditLogClient(c.config)
 	c.AuthorizationCode = NewAuthorizationCodeClient(c.config)
 	c.ConsentSession = NewConsentSessionClient(c.config)
+	c.EquityHolderApplication = NewEquityHolderApplicationClient(c.config)
 	c.FeatureEntitlement = NewFeatureEntitlementClient(c.config)
 	c.IntegrationConfig = NewIntegrationConfigClient(c.config)
+	c.LegalAcceptance = NewLegalAcceptanceClient(c.config)
+	c.LegalDocument = NewLegalDocumentClient(c.config)
 	c.LoginAttempt = NewLoginAttemptClient(c.config)
 	c.MFABackupCode = NewMFABackupCodeClient(c.config)
 	c.MFASettings = NewMFASettingsClient(c.config)
@@ -111,6 +126,7 @@ func (c *Client) init() {
 	c.OutboxEvent = NewOutboxEventClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
 	c.Permission = NewPermissionClient(c.config)
+	c.ReferralLink = NewReferralLinkClient(c.config)
 	c.RolePermission = NewRolePermissionClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.Tenant = NewTenantClient(c.config)
@@ -208,29 +224,33 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                ctx,
-		config:             cfg,
-		APIKey:             NewAPIKeyClient(cfg),
-		AuditLog:           NewAuditLogClient(cfg),
-		AuthorizationCode:  NewAuthorizationCodeClient(cfg),
-		ConsentSession:     NewConsentSessionClient(cfg),
-		FeatureEntitlement: NewFeatureEntitlementClient(cfg),
-		IntegrationConfig:  NewIntegrationConfigClient(cfg),
-		LoginAttempt:       NewLoginAttemptClient(cfg),
-		MFABackupCode:      NewMFABackupCodeClient(cfg),
-		MFASettings:        NewMFASettingsClient(cfg),
-		MFATOTPSecret:      NewMFATOTPSecretClient(cfg),
-		OAuthClient:        NewOAuthClientClient(cfg),
-		OutboxEvent:        NewOutboxEventClient(cfg),
-		PasswordResetToken: NewPasswordResetTokenClient(cfg),
-		Permission:         NewPermissionClient(cfg),
-		RolePermission:     NewRolePermissionClient(cfg),
-		Session:            NewSessionClient(cfg),
-		Tenant:             NewTenantClient(cfg),
-		TenantMembership:   NewTenantMembershipClient(cfg),
-		UsageMetric:        NewUsageMetricClient(cfg),
-		User:               NewUserClient(cfg),
-		UserIdentity:       NewUserIdentityClient(cfg),
+		ctx:                     ctx,
+		config:                  cfg,
+		APIKey:                  NewAPIKeyClient(cfg),
+		AuditLog:                NewAuditLogClient(cfg),
+		AuthorizationCode:       NewAuthorizationCodeClient(cfg),
+		ConsentSession:          NewConsentSessionClient(cfg),
+		EquityHolderApplication: NewEquityHolderApplicationClient(cfg),
+		FeatureEntitlement:      NewFeatureEntitlementClient(cfg),
+		IntegrationConfig:       NewIntegrationConfigClient(cfg),
+		LegalAcceptance:         NewLegalAcceptanceClient(cfg),
+		LegalDocument:           NewLegalDocumentClient(cfg),
+		LoginAttempt:            NewLoginAttemptClient(cfg),
+		MFABackupCode:           NewMFABackupCodeClient(cfg),
+		MFASettings:             NewMFASettingsClient(cfg),
+		MFATOTPSecret:           NewMFATOTPSecretClient(cfg),
+		OAuthClient:             NewOAuthClientClient(cfg),
+		OutboxEvent:             NewOutboxEventClient(cfg),
+		PasswordResetToken:      NewPasswordResetTokenClient(cfg),
+		Permission:              NewPermissionClient(cfg),
+		ReferralLink:            NewReferralLinkClient(cfg),
+		RolePermission:          NewRolePermissionClient(cfg),
+		Session:                 NewSessionClient(cfg),
+		Tenant:                  NewTenantClient(cfg),
+		TenantMembership:        NewTenantMembershipClient(cfg),
+		UsageMetric:             NewUsageMetricClient(cfg),
+		User:                    NewUserClient(cfg),
+		UserIdentity:            NewUserIdentityClient(cfg),
 	}, nil
 }
 
@@ -248,29 +268,33 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                ctx,
-		config:             cfg,
-		APIKey:             NewAPIKeyClient(cfg),
-		AuditLog:           NewAuditLogClient(cfg),
-		AuthorizationCode:  NewAuthorizationCodeClient(cfg),
-		ConsentSession:     NewConsentSessionClient(cfg),
-		FeatureEntitlement: NewFeatureEntitlementClient(cfg),
-		IntegrationConfig:  NewIntegrationConfigClient(cfg),
-		LoginAttempt:       NewLoginAttemptClient(cfg),
-		MFABackupCode:      NewMFABackupCodeClient(cfg),
-		MFASettings:        NewMFASettingsClient(cfg),
-		MFATOTPSecret:      NewMFATOTPSecretClient(cfg),
-		OAuthClient:        NewOAuthClientClient(cfg),
-		OutboxEvent:        NewOutboxEventClient(cfg),
-		PasswordResetToken: NewPasswordResetTokenClient(cfg),
-		Permission:         NewPermissionClient(cfg),
-		RolePermission:     NewRolePermissionClient(cfg),
-		Session:            NewSessionClient(cfg),
-		Tenant:             NewTenantClient(cfg),
-		TenantMembership:   NewTenantMembershipClient(cfg),
-		UsageMetric:        NewUsageMetricClient(cfg),
-		User:               NewUserClient(cfg),
-		UserIdentity:       NewUserIdentityClient(cfg),
+		ctx:                     ctx,
+		config:                  cfg,
+		APIKey:                  NewAPIKeyClient(cfg),
+		AuditLog:                NewAuditLogClient(cfg),
+		AuthorizationCode:       NewAuthorizationCodeClient(cfg),
+		ConsentSession:          NewConsentSessionClient(cfg),
+		EquityHolderApplication: NewEquityHolderApplicationClient(cfg),
+		FeatureEntitlement:      NewFeatureEntitlementClient(cfg),
+		IntegrationConfig:       NewIntegrationConfigClient(cfg),
+		LegalAcceptance:         NewLegalAcceptanceClient(cfg),
+		LegalDocument:           NewLegalDocumentClient(cfg),
+		LoginAttempt:            NewLoginAttemptClient(cfg),
+		MFABackupCode:           NewMFABackupCodeClient(cfg),
+		MFASettings:             NewMFASettingsClient(cfg),
+		MFATOTPSecret:           NewMFATOTPSecretClient(cfg),
+		OAuthClient:             NewOAuthClientClient(cfg),
+		OutboxEvent:             NewOutboxEventClient(cfg),
+		PasswordResetToken:      NewPasswordResetTokenClient(cfg),
+		Permission:              NewPermissionClient(cfg),
+		ReferralLink:            NewReferralLinkClient(cfg),
+		RolePermission:          NewRolePermissionClient(cfg),
+		Session:                 NewSessionClient(cfg),
+		Tenant:                  NewTenantClient(cfg),
+		TenantMembership:        NewTenantMembershipClient(cfg),
+		UsageMetric:             NewUsageMetricClient(cfg),
+		User:                    NewUserClient(cfg),
+		UserIdentity:            NewUserIdentityClient(cfg),
 	}, nil
 }
 
@@ -301,10 +325,11 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
-		c.FeatureEntitlement, c.IntegrationConfig, c.LoginAttempt, c.MFABackupCode,
+		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
+		c.LegalAcceptance, c.LegalDocument, c.LoginAttempt, c.MFABackupCode,
 		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
-		c.PasswordResetToken, c.Permission, c.RolePermission, c.Session, c.Tenant,
-		c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
+		c.PasswordResetToken, c.Permission, c.ReferralLink, c.RolePermission,
+		c.Session, c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
 	} {
 		n.Use(hooks...)
 	}
@@ -315,10 +340,11 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
-		c.FeatureEntitlement, c.IntegrationConfig, c.LoginAttempt, c.MFABackupCode,
+		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
+		c.LegalAcceptance, c.LegalDocument, c.LoginAttempt, c.MFABackupCode,
 		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
-		c.PasswordResetToken, c.Permission, c.RolePermission, c.Session, c.Tenant,
-		c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
+		c.PasswordResetToken, c.Permission, c.ReferralLink, c.RolePermission,
+		c.Session, c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -335,10 +361,16 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AuthorizationCode.mutate(ctx, m)
 	case *ConsentSessionMutation:
 		return c.ConsentSession.mutate(ctx, m)
+	case *EquityHolderApplicationMutation:
+		return c.EquityHolderApplication.mutate(ctx, m)
 	case *FeatureEntitlementMutation:
 		return c.FeatureEntitlement.mutate(ctx, m)
 	case *IntegrationConfigMutation:
 		return c.IntegrationConfig.mutate(ctx, m)
+	case *LegalAcceptanceMutation:
+		return c.LegalAcceptance.mutate(ctx, m)
+	case *LegalDocumentMutation:
+		return c.LegalDocument.mutate(ctx, m)
 	case *LoginAttemptMutation:
 		return c.LoginAttempt.mutate(ctx, m)
 	case *MFABackupCodeMutation:
@@ -355,6 +387,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PasswordResetToken.mutate(ctx, m)
 	case *PermissionMutation:
 		return c.Permission.mutate(ctx, m)
+	case *ReferralLinkMutation:
+		return c.ReferralLink.mutate(ctx, m)
 	case *RolePermissionMutation:
 		return c.RolePermission.mutate(ctx, m)
 	case *SessionMutation:
@@ -922,6 +956,139 @@ func (c *ConsentSessionClient) mutate(ctx context.Context, m *ConsentSessionMuta
 	}
 }
 
+// EquityHolderApplicationClient is a client for the EquityHolderApplication schema.
+type EquityHolderApplicationClient struct {
+	config
+}
+
+// NewEquityHolderApplicationClient returns a client for the EquityHolderApplication from the given config.
+func NewEquityHolderApplicationClient(c config) *EquityHolderApplicationClient {
+	return &EquityHolderApplicationClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `equityholderapplication.Hooks(f(g(h())))`.
+func (c *EquityHolderApplicationClient) Use(hooks ...Hook) {
+	c.hooks.EquityHolderApplication = append(c.hooks.EquityHolderApplication, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `equityholderapplication.Intercept(f(g(h())))`.
+func (c *EquityHolderApplicationClient) Intercept(interceptors ...Interceptor) {
+	c.inters.EquityHolderApplication = append(c.inters.EquityHolderApplication, interceptors...)
+}
+
+// Create returns a builder for creating a EquityHolderApplication entity.
+func (c *EquityHolderApplicationClient) Create() *EquityHolderApplicationCreate {
+	mutation := newEquityHolderApplicationMutation(c.config, OpCreate)
+	return &EquityHolderApplicationCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of EquityHolderApplication entities.
+func (c *EquityHolderApplicationClient) CreateBulk(builders ...*EquityHolderApplicationCreate) *EquityHolderApplicationCreateBulk {
+	return &EquityHolderApplicationCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EquityHolderApplicationClient) MapCreateBulk(slice any, setFunc func(*EquityHolderApplicationCreate, int)) *EquityHolderApplicationCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EquityHolderApplicationCreateBulk{err: fmt.Errorf("calling to EquityHolderApplicationClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EquityHolderApplicationCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EquityHolderApplicationCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for EquityHolderApplication.
+func (c *EquityHolderApplicationClient) Update() *EquityHolderApplicationUpdate {
+	mutation := newEquityHolderApplicationMutation(c.config, OpUpdate)
+	return &EquityHolderApplicationUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EquityHolderApplicationClient) UpdateOne(_m *EquityHolderApplication) *EquityHolderApplicationUpdateOne {
+	mutation := newEquityHolderApplicationMutation(c.config, OpUpdateOne, withEquityHolderApplication(_m))
+	return &EquityHolderApplicationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EquityHolderApplicationClient) UpdateOneID(id uuid.UUID) *EquityHolderApplicationUpdateOne {
+	mutation := newEquityHolderApplicationMutation(c.config, OpUpdateOne, withEquityHolderApplicationID(id))
+	return &EquityHolderApplicationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for EquityHolderApplication.
+func (c *EquityHolderApplicationClient) Delete() *EquityHolderApplicationDelete {
+	mutation := newEquityHolderApplicationMutation(c.config, OpDelete)
+	return &EquityHolderApplicationDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EquityHolderApplicationClient) DeleteOne(_m *EquityHolderApplication) *EquityHolderApplicationDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EquityHolderApplicationClient) DeleteOneID(id uuid.UUID) *EquityHolderApplicationDeleteOne {
+	builder := c.Delete().Where(equityholderapplication.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EquityHolderApplicationDeleteOne{builder}
+}
+
+// Query returns a query builder for EquityHolderApplication.
+func (c *EquityHolderApplicationClient) Query() *EquityHolderApplicationQuery {
+	return &EquityHolderApplicationQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEquityHolderApplication},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a EquityHolderApplication entity by its id.
+func (c *EquityHolderApplicationClient) Get(ctx context.Context, id uuid.UUID) (*EquityHolderApplication, error) {
+	return c.Query().Where(equityholderapplication.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EquityHolderApplicationClient) GetX(ctx context.Context, id uuid.UUID) *EquityHolderApplication {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *EquityHolderApplicationClient) Hooks() []Hook {
+	return c.hooks.EquityHolderApplication
+}
+
+// Interceptors returns the client interceptors.
+func (c *EquityHolderApplicationClient) Interceptors() []Interceptor {
+	return c.inters.EquityHolderApplication
+}
+
+func (c *EquityHolderApplicationClient) mutate(ctx context.Context, m *EquityHolderApplicationMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EquityHolderApplicationCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EquityHolderApplicationUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EquityHolderApplicationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EquityHolderApplicationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown EquityHolderApplication mutation op: %q", m.Op())
+	}
+}
+
 // FeatureEntitlementClient is a client for the FeatureEntitlement schema.
 type FeatureEntitlementClient struct {
 	config
@@ -1185,6 +1352,272 @@ func (c *IntegrationConfigClient) mutate(ctx context.Context, m *IntegrationConf
 		return (&IntegrationConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown IntegrationConfig mutation op: %q", m.Op())
+	}
+}
+
+// LegalAcceptanceClient is a client for the LegalAcceptance schema.
+type LegalAcceptanceClient struct {
+	config
+}
+
+// NewLegalAcceptanceClient returns a client for the LegalAcceptance from the given config.
+func NewLegalAcceptanceClient(c config) *LegalAcceptanceClient {
+	return &LegalAcceptanceClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `legalacceptance.Hooks(f(g(h())))`.
+func (c *LegalAcceptanceClient) Use(hooks ...Hook) {
+	c.hooks.LegalAcceptance = append(c.hooks.LegalAcceptance, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `legalacceptance.Intercept(f(g(h())))`.
+func (c *LegalAcceptanceClient) Intercept(interceptors ...Interceptor) {
+	c.inters.LegalAcceptance = append(c.inters.LegalAcceptance, interceptors...)
+}
+
+// Create returns a builder for creating a LegalAcceptance entity.
+func (c *LegalAcceptanceClient) Create() *LegalAcceptanceCreate {
+	mutation := newLegalAcceptanceMutation(c.config, OpCreate)
+	return &LegalAcceptanceCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of LegalAcceptance entities.
+func (c *LegalAcceptanceClient) CreateBulk(builders ...*LegalAcceptanceCreate) *LegalAcceptanceCreateBulk {
+	return &LegalAcceptanceCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LegalAcceptanceClient) MapCreateBulk(slice any, setFunc func(*LegalAcceptanceCreate, int)) *LegalAcceptanceCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LegalAcceptanceCreateBulk{err: fmt.Errorf("calling to LegalAcceptanceClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LegalAcceptanceCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LegalAcceptanceCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for LegalAcceptance.
+func (c *LegalAcceptanceClient) Update() *LegalAcceptanceUpdate {
+	mutation := newLegalAcceptanceMutation(c.config, OpUpdate)
+	return &LegalAcceptanceUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LegalAcceptanceClient) UpdateOne(_m *LegalAcceptance) *LegalAcceptanceUpdateOne {
+	mutation := newLegalAcceptanceMutation(c.config, OpUpdateOne, withLegalAcceptance(_m))
+	return &LegalAcceptanceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LegalAcceptanceClient) UpdateOneID(id uuid.UUID) *LegalAcceptanceUpdateOne {
+	mutation := newLegalAcceptanceMutation(c.config, OpUpdateOne, withLegalAcceptanceID(id))
+	return &LegalAcceptanceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for LegalAcceptance.
+func (c *LegalAcceptanceClient) Delete() *LegalAcceptanceDelete {
+	mutation := newLegalAcceptanceMutation(c.config, OpDelete)
+	return &LegalAcceptanceDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LegalAcceptanceClient) DeleteOne(_m *LegalAcceptance) *LegalAcceptanceDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LegalAcceptanceClient) DeleteOneID(id uuid.UUID) *LegalAcceptanceDeleteOne {
+	builder := c.Delete().Where(legalacceptance.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LegalAcceptanceDeleteOne{builder}
+}
+
+// Query returns a query builder for LegalAcceptance.
+func (c *LegalAcceptanceClient) Query() *LegalAcceptanceQuery {
+	return &LegalAcceptanceQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLegalAcceptance},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a LegalAcceptance entity by its id.
+func (c *LegalAcceptanceClient) Get(ctx context.Context, id uuid.UUID) (*LegalAcceptance, error) {
+	return c.Query().Where(legalacceptance.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LegalAcceptanceClient) GetX(ctx context.Context, id uuid.UUID) *LegalAcceptance {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *LegalAcceptanceClient) Hooks() []Hook {
+	return c.hooks.LegalAcceptance
+}
+
+// Interceptors returns the client interceptors.
+func (c *LegalAcceptanceClient) Interceptors() []Interceptor {
+	return c.inters.LegalAcceptance
+}
+
+func (c *LegalAcceptanceClient) mutate(ctx context.Context, m *LegalAcceptanceMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LegalAcceptanceCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LegalAcceptanceUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LegalAcceptanceUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LegalAcceptanceDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown LegalAcceptance mutation op: %q", m.Op())
+	}
+}
+
+// LegalDocumentClient is a client for the LegalDocument schema.
+type LegalDocumentClient struct {
+	config
+}
+
+// NewLegalDocumentClient returns a client for the LegalDocument from the given config.
+func NewLegalDocumentClient(c config) *LegalDocumentClient {
+	return &LegalDocumentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `legaldocument.Hooks(f(g(h())))`.
+func (c *LegalDocumentClient) Use(hooks ...Hook) {
+	c.hooks.LegalDocument = append(c.hooks.LegalDocument, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `legaldocument.Intercept(f(g(h())))`.
+func (c *LegalDocumentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.LegalDocument = append(c.inters.LegalDocument, interceptors...)
+}
+
+// Create returns a builder for creating a LegalDocument entity.
+func (c *LegalDocumentClient) Create() *LegalDocumentCreate {
+	mutation := newLegalDocumentMutation(c.config, OpCreate)
+	return &LegalDocumentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of LegalDocument entities.
+func (c *LegalDocumentClient) CreateBulk(builders ...*LegalDocumentCreate) *LegalDocumentCreateBulk {
+	return &LegalDocumentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LegalDocumentClient) MapCreateBulk(slice any, setFunc func(*LegalDocumentCreate, int)) *LegalDocumentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LegalDocumentCreateBulk{err: fmt.Errorf("calling to LegalDocumentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LegalDocumentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LegalDocumentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for LegalDocument.
+func (c *LegalDocumentClient) Update() *LegalDocumentUpdate {
+	mutation := newLegalDocumentMutation(c.config, OpUpdate)
+	return &LegalDocumentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LegalDocumentClient) UpdateOne(_m *LegalDocument) *LegalDocumentUpdateOne {
+	mutation := newLegalDocumentMutation(c.config, OpUpdateOne, withLegalDocument(_m))
+	return &LegalDocumentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LegalDocumentClient) UpdateOneID(id uuid.UUID) *LegalDocumentUpdateOne {
+	mutation := newLegalDocumentMutation(c.config, OpUpdateOne, withLegalDocumentID(id))
+	return &LegalDocumentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for LegalDocument.
+func (c *LegalDocumentClient) Delete() *LegalDocumentDelete {
+	mutation := newLegalDocumentMutation(c.config, OpDelete)
+	return &LegalDocumentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LegalDocumentClient) DeleteOne(_m *LegalDocument) *LegalDocumentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LegalDocumentClient) DeleteOneID(id uuid.UUID) *LegalDocumentDeleteOne {
+	builder := c.Delete().Where(legaldocument.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LegalDocumentDeleteOne{builder}
+}
+
+// Query returns a query builder for LegalDocument.
+func (c *LegalDocumentClient) Query() *LegalDocumentQuery {
+	return &LegalDocumentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLegalDocument},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a LegalDocument entity by its id.
+func (c *LegalDocumentClient) Get(ctx context.Context, id uuid.UUID) (*LegalDocument, error) {
+	return c.Query().Where(legaldocument.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LegalDocumentClient) GetX(ctx context.Context, id uuid.UUID) *LegalDocument {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *LegalDocumentClient) Hooks() []Hook {
+	return c.hooks.LegalDocument
+}
+
+// Interceptors returns the client interceptors.
+func (c *LegalDocumentClient) Interceptors() []Interceptor {
+	return c.inters.LegalDocument
+}
+
+func (c *LegalDocumentClient) mutate(ctx context.Context, m *LegalDocumentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LegalDocumentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LegalDocumentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LegalDocumentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LegalDocumentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown LegalDocument mutation op: %q", m.Op())
 	}
 }
 
@@ -2297,6 +2730,139 @@ func (c *PermissionClient) mutate(ctx context.Context, m *PermissionMutation) (V
 		return (&PermissionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Permission mutation op: %q", m.Op())
+	}
+}
+
+// ReferralLinkClient is a client for the ReferralLink schema.
+type ReferralLinkClient struct {
+	config
+}
+
+// NewReferralLinkClient returns a client for the ReferralLink from the given config.
+func NewReferralLinkClient(c config) *ReferralLinkClient {
+	return &ReferralLinkClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `referrallink.Hooks(f(g(h())))`.
+func (c *ReferralLinkClient) Use(hooks ...Hook) {
+	c.hooks.ReferralLink = append(c.hooks.ReferralLink, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `referrallink.Intercept(f(g(h())))`.
+func (c *ReferralLinkClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ReferralLink = append(c.inters.ReferralLink, interceptors...)
+}
+
+// Create returns a builder for creating a ReferralLink entity.
+func (c *ReferralLinkClient) Create() *ReferralLinkCreate {
+	mutation := newReferralLinkMutation(c.config, OpCreate)
+	return &ReferralLinkCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ReferralLink entities.
+func (c *ReferralLinkClient) CreateBulk(builders ...*ReferralLinkCreate) *ReferralLinkCreateBulk {
+	return &ReferralLinkCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ReferralLinkClient) MapCreateBulk(slice any, setFunc func(*ReferralLinkCreate, int)) *ReferralLinkCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ReferralLinkCreateBulk{err: fmt.Errorf("calling to ReferralLinkClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ReferralLinkCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ReferralLinkCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ReferralLink.
+func (c *ReferralLinkClient) Update() *ReferralLinkUpdate {
+	mutation := newReferralLinkMutation(c.config, OpUpdate)
+	return &ReferralLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ReferralLinkClient) UpdateOne(_m *ReferralLink) *ReferralLinkUpdateOne {
+	mutation := newReferralLinkMutation(c.config, OpUpdateOne, withReferralLink(_m))
+	return &ReferralLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ReferralLinkClient) UpdateOneID(id uuid.UUID) *ReferralLinkUpdateOne {
+	mutation := newReferralLinkMutation(c.config, OpUpdateOne, withReferralLinkID(id))
+	return &ReferralLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ReferralLink.
+func (c *ReferralLinkClient) Delete() *ReferralLinkDelete {
+	mutation := newReferralLinkMutation(c.config, OpDelete)
+	return &ReferralLinkDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ReferralLinkClient) DeleteOne(_m *ReferralLink) *ReferralLinkDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ReferralLinkClient) DeleteOneID(id uuid.UUID) *ReferralLinkDeleteOne {
+	builder := c.Delete().Where(referrallink.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ReferralLinkDeleteOne{builder}
+}
+
+// Query returns a query builder for ReferralLink.
+func (c *ReferralLinkClient) Query() *ReferralLinkQuery {
+	return &ReferralLinkQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeReferralLink},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ReferralLink entity by its id.
+func (c *ReferralLinkClient) Get(ctx context.Context, id uuid.UUID) (*ReferralLink, error) {
+	return c.Query().Where(referrallink.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ReferralLinkClient) GetX(ctx context.Context, id uuid.UUID) *ReferralLink {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ReferralLinkClient) Hooks() []Hook {
+	return c.hooks.ReferralLink
+}
+
+// Interceptors returns the client interceptors.
+func (c *ReferralLinkClient) Interceptors() []Interceptor {
+	return c.inters.ReferralLink
+}
+
+func (c *ReferralLinkClient) mutate(ctx context.Context, m *ReferralLinkMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ReferralLinkCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ReferralLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ReferralLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ReferralLinkDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ReferralLink mutation op: %q", m.Op())
 	}
 }
 
@@ -3442,15 +4008,17 @@ func (c *UserIdentityClient) mutate(ctx context.Context, m *UserIdentityMutation
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement,
-		IntegrationConfig, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
-		OAuthClient, OutboxEvent, PasswordResetToken, Permission, RolePermission,
+		APIKey, AuditLog, AuthorizationCode, ConsentSession, EquityHolderApplication,
+		FeatureEntitlement, IntegrationConfig, LegalAcceptance, LegalDocument,
+		LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient,
+		OutboxEvent, PasswordResetToken, Permission, ReferralLink, RolePermission,
 		Session, Tenant, TenantMembership, UsageMetric, User, UserIdentity []ent.Hook
 	}
 	inters struct {
-		APIKey, AuditLog, AuthorizationCode, ConsentSession, FeatureEntitlement,
-		IntegrationConfig, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
-		OAuthClient, OutboxEvent, PasswordResetToken, Permission, RolePermission,
+		APIKey, AuditLog, AuthorizationCode, ConsentSession, EquityHolderApplication,
+		FeatureEntitlement, IntegrationConfig, LegalAcceptance, LegalDocument,
+		LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient,
+		OutboxEvent, PasswordResetToken, Permission, ReferralLink, RolePermission,
 		Session, Tenant, TenantMembership, UsageMetric, User,
 		UserIdentity []ent.Interceptor
 	}
