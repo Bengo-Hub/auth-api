@@ -169,6 +169,10 @@ func Load() (*Config, error) {
 	if cfg.Events.NATSURL == "" {
 		cfg.Events.NATSURL = os.Getenv("EVENTS_NATS_URL")
 	}
+	// Standardized S2S key: AUTH_SUBSCRIPTION_API_KEY → INTERNAL_SERVICE_KEY (uniform across all services)
+	if cfg.Subscription.APIKey == "" {
+		cfg.Subscription.APIKey = os.Getenv("INTERNAL_SERVICE_KEY")
+	}
 	return cfg, nil
 }
 

@@ -750,7 +750,7 @@ func main() {
 
 	// Seed platform API key for service-to-service integrations
 	// This key is used by other services (auth-api → subscriptions-api, etc.) for S2S calls.
-	// Set PLATFORM_API_KEY env var to use a specific key; otherwise one is generated and printed.
+	// Set INTERNAL_SERVICE_KEY env var to use a specific key; otherwise one is generated and printed.
 	log.Println("Seeding platform API key...")
 	if err := seedPlatformAPIKey(ctx, client, tenantEntities[0].ID); err != nil {
 		log.Printf("⚠️  Failed to seed platform API key: %v", err)
@@ -783,7 +783,7 @@ func seedPlatformAPIKey(ctx context.Context, client *ent.Client, platformTenantI
 	// Generate a new API key or use one provided via env
 	var plainKey, keyPrefix, keyHash string
 
-	if envKey := os.Getenv("PLATFORM_API_KEY"); envKey != "" {
+	if envKey := os.Getenv("INTERNAL_SERVICE_KEY"); envKey != "" {
 		// Use the provided key
 		plainKey = envKey
 		if len(plainKey) >= 8 {
@@ -793,7 +793,7 @@ func seedPlatformAPIKey(ctx context.Context, client *ent.Client, platformTenantI
 		}
 		hashBytes := sha256.Sum256([]byte(plainKey))
 		keyHash = hex.EncodeToString(hashBytes[:])
-		log.Printf("  ℹ️  Using PLATFORM_API_KEY from environment")
+		log.Printf("  ℹ️  Using INTERNAL_SERVICE_KEY from environment")
 	} else {
 		// Generate a new key
 		b := make([]byte, 32)
@@ -847,8 +847,8 @@ func seedPlatformAPIKey(ctx context.Context, client *ent.Client, platformTenantI
 
 	log.Printf("  ✅ Platform API key created!")
 	log.Printf("  ⚠️  IMPORTANT: Save this key — it will NOT be shown again:")
-	log.Printf("  PLATFORM_API_KEY=%s", plainKey)
-	log.Printf("  Set this in auth-api-secrets as PLATFORM_API_KEY for initial deployment.")
+	log.Printf("  INTERNAL_SERVICE_KEY=%s", plainKey)
+	log.Printf("  Set this in auth-api-secrets (and all other service secrets) as INTERNAL_SERVICE_KEY.")
 	return nil
 }
 
