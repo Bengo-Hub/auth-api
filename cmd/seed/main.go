@@ -367,6 +367,68 @@ func main() {
 		}
 	}
 
+	// Seed Urban Loft Cafe demo POS staff users so PIN login has data.
+	// These users get POS-specific roles as their membership role so pos-api JIT
+	// provisioning can map them to the correct POS role on first SSO login.
+	urbanLoftStaff := []struct {
+		email string
+		name  string
+		role  string
+	}{
+		{"manager@theurbanloftcafe.com", "Urban Loft Manager", "manager"},
+		{"cashier@theurbanloftcafe.com", "Urban Loft Cashier", "cashier"},
+		{"waiter@theurbanloftcafe.com", "Urban Loft Waiter", "waiter"},
+		{"kitchen@theurbanloftcafe.com", "Urban Loft Kitchen", "kitchen"},
+		{"bar@theurbanloftcafe.com", "Urban Loft Bar", "bar"},
+		{"receptionist@theurbanloftcafe.com", "Urban Loft Receptionist", "receptionist"},
+	}
+	urbanLoftStaffPassword := os.Getenv("SEED_URBAN_LOFT_STAFF_PASSWORD")
+	if urbanLoftStaffPassword == "" {
+		urbanLoftStaffPassword = "UrbanLoftStaff2024!" // default for local dev; override via env
+	}
+	for _, s := range urbanLoftStaff {
+		staffHash, hashErr := hasher.Hash(urbanLoftStaffPassword)
+		if hashErr != nil {
+			log.Printf("  ⚠️  hash password for %s: %v", s.email, hashErr)
+			continue
+		}
+		staffUser, createErr := client.User.Create().
+			SetEmail(s.email).
+			SetPasswordHash(staffHash).
+			SetStatus("active").
+			SetPrimaryTenantID(urbanLoftTenant.ID.String()).
+			SetProfile(map[string]any{
+				"name":       s.name,
+				"created_by": "seed",
+				"role":       s.role,
+			}).
+			Save(ctx)
+		if createErr != nil {
+			staffUser, createErr = client.User.Query().Where(user.EmailEQ(s.email)).Only(ctx)
+			if createErr != nil {
+				log.Printf("  ⚠️  seed urban loft staff %s: %v", s.email, createErr)
+				continue
+			}
+			log.Printf("  ✓ Urban Loft staff exists: %s (%s)", s.email, s.role)
+		} else {
+			log.Printf("  ✓ Created Urban Loft staff: %s (%s)", s.email, s.role)
+		}
+
+		memberExists, _ := client.TenantMembership.Query().
+			Where(
+				tenantmembership.UserID(staffUser.ID),
+				tenantmembership.TenantID(urbanLoftTenant.ID),
+			).Exist(ctx)
+		if !memberExists {
+			_, _ = client.TenantMembership.Create().
+				SetUserID(staffUser.ID).
+				SetTenantID(urbanLoftTenant.ID).
+				SetRoles([]string{s.role}).
+				Save(ctx)
+			log.Printf("    ✓ Added %s role in %s", s.role, urbanLoftTenant.Slug)
+		}
+	}
+
 	// Seed demo admin for TruLoad commercial weighing tenant
 	// truload tenant is the last entry in the tenants slice
 	truloadTenant := tenantEntities[len(tenantEntities)-1] // "truload"
@@ -535,6 +597,25 @@ func main() {
 			"auth.preferences.view", "auth.preferences.change",
 			"auth.notifications.view", "auth.notifications.manage",
 		},
+		// POS service
+		"pos": {
+			"pos.orders.add", "pos.orders.view", "pos.orders.view_own",
+			"pos.orders.change", "pos.orders.change_own", "pos.orders.delete",
+			"pos.orders.manage", "pos.orders.manage_own",
+			"pos.payments.add", "pos.payments.view", "pos.payments.view_own",
+			"pos.payments.manage",
+			"pos.catalog.add", "pos.catalog.view", "pos.catalog.change",
+			"pos.catalog.delete", "pos.catalog.manage",
+			"pos.cash_drawers.add", "pos.cash_drawers.view", "pos.cash_drawers.view_own",
+			"pos.cash_drawers.change", "pos.cash_drawers.change_own", "pos.cash_drawers.manage",
+			"pos.tables.view", "pos.tables.change", "pos.tables.change_own", "pos.tables.manage",
+			"pos.sessions.add", "pos.sessions.view", "pos.sessions.view_own", "pos.sessions.manage",
+			"pos.users.view", "pos.users.change", "pos.users.manage",
+			"pos.config.view", "pos.config.change", "pos.config.manage",
+			"pos.reports.view", "pos.reports.manage",
+			"pos.devices.view", "pos.devices.manage",
+			"pos.hotel.view", "pos.hotel.manage",
+		},
 	}
 
 	permissionIDs := make(map[string]int)
@@ -568,6 +649,21 @@ func main() {
 	rolePerms := map[string][]string{
 		"superuser": {}, // all permissions (populated below)
 		"admin":     {}, // all permissions (populated below)
+		"manager": {
+			// Ordering
+			"ordering.orders.add", "ordering.orders.view", "ordering.orders.change", "ordering.orders.manage",
+			"ordering.catalog.add", "ordering.catalog.view", "ordering.catalog.change", "ordering.catalog.manage",
+			"ordering.analytics.view",
+			// Inventory
+			"inventory.items.view", "inventory.items.change", "inventory.items.manage",
+			"inventory.stock.view", "inventory.stock.change", "inventory.stock.manage",
+			"inventory.recipes.view", "inventory.recipes.change",
+			// Auth
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
+			"auth.notifications.view",
+			"auth.users.view", "auth.users.change",
+		},
 		"staff": {
 			// Ordering
 			"ordering.orders.add", "ordering.orders.view", "ordering.orders.change", "ordering.orders.manage",
@@ -597,6 +693,28 @@ func main() {
 			"ordering.orders.view",
 			"auth.profile.view", "auth.profile.change",
 			"auth.preferences.view", "auth.preferences.change",
+		},
+		// POS staff roles — POS-specific permissions (cross-service perms already in entries above)
+		"cashier": {
+			"ordering.orders.add", "ordering.orders.view", "ordering.orders.view_own", "ordering.catalog.view",
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
+		},
+		"waiter": {
+			"ordering.orders.add", "ordering.orders.view_own", "ordering.catalog.view",
+			"auth.profile.view", "auth.profile.change",
+		},
+		"kitchen": {
+			"ordering.orders.view", "ordering.catalog.view",
+			"auth.profile.view", "auth.profile.change",
+		},
+		"bar": {
+			"ordering.orders.view", "ordering.catalog.view",
+			"auth.profile.view", "auth.profile.change",
+		},
+		"receptionist": {
+			"ordering.orders.add", "ordering.orders.view", "ordering.catalog.view",
+			"auth.profile.view", "auth.profile.change",
 		},
 	}
 	for roleName, codes := range rolePerms {
