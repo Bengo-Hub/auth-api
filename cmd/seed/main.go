@@ -597,26 +597,12 @@ func main() {
 			"auth.preferences.view", "auth.preferences.change",
 			"auth.notifications.view", "auth.notifications.manage",
 		},
-		// POS service
-		"pos": {
-			"pos.orders.add", "pos.orders.view", "pos.orders.view_own",
-			"pos.orders.change", "pos.orders.change_own", "pos.orders.delete",
-			"pos.orders.manage", "pos.orders.manage_own",
-			"pos.payments.add", "pos.payments.view", "pos.payments.view_own",
-			"pos.payments.manage",
-			"pos.catalog.add", "pos.catalog.view", "pos.catalog.change",
-			"pos.catalog.delete", "pos.catalog.manage",
-			"pos.cash_drawers.add", "pos.cash_drawers.view", "pos.cash_drawers.view_own",
-			"pos.cash_drawers.change", "pos.cash_drawers.change_own", "pos.cash_drawers.manage",
-			"pos.tables.view", "pos.tables.change", "pos.tables.change_own", "pos.tables.manage",
-			"pos.sessions.add", "pos.sessions.view", "pos.sessions.view_own", "pos.sessions.manage",
-			"pos.users.view", "pos.users.change", "pos.users.manage",
-			"pos.config.view", "pos.config.change", "pos.config.manage",
-			"pos.reports.view", "pos.reports.manage",
-			"pos.devices.view", "pos.devices.manage",
-			"pos.hotel.view", "pos.hotel.manage",
-		},
 	}
+	// NOTE: pos.*.* permissions are NOT seeded here.
+	// Per Trinity Authorization Pattern: pos-service owns its own fine-grained RBAC
+	// (POSRoleV2 + POSPermission tables). Frontends call pos-api GET /{tenant}/pos/auth/me
+	// after SSO to get service-level roles and permissions. auth-api only issues the
+	// global JWT roles (admin, manager, cashier, etc.) — pos-api maps those to local POS roles.
 
 	permissionIDs := make(map[string]int)
 	for svc, codes := range servicePerms {
@@ -694,27 +680,26 @@ func main() {
 			"auth.profile.view", "auth.profile.change",
 			"auth.preferences.view", "auth.preferences.change",
 		},
-		// POS staff roles — POS-specific permissions (cross-service perms already in entries above)
+		// POS staff roles — only auth-service permissions here.
+		// POS-specific permissions (pos.*.*) are managed by pos-api's local RBAC (POSRoleV2 table).
+		// Frontends call GET /{tenant}/pos/auth/me to get service-level permissions.
 		"cashier": {
-			"ordering.orders.add", "ordering.orders.view", "ordering.orders.view_own", "ordering.catalog.view",
 			"auth.profile.view", "auth.profile.change",
 			"auth.preferences.view", "auth.preferences.change",
 		},
 		"waiter": {
-			"ordering.orders.add", "ordering.orders.view_own", "ordering.catalog.view",
 			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
 		},
 		"kitchen": {
-			"ordering.orders.view", "ordering.catalog.view",
 			"auth.profile.view", "auth.profile.change",
 		},
 		"bar": {
-			"ordering.orders.view", "ordering.catalog.view",
 			"auth.profile.view", "auth.profile.change",
 		},
 		"receptionist": {
-			"ordering.orders.add", "ordering.orders.view", "ordering.catalog.view",
 			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
 		},
 	}
 	for roleName, codes := range rolePerms {
