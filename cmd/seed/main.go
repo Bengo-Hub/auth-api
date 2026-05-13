@@ -763,6 +763,7 @@ func main() {
 		{ID: "ordering-ui", Name: "BengoBox Ordering UI", ProductionHost: "ordersapp.codevertexitsolutions.com", Public: true},
 		{ID: "rider-app", Name: "BengoBox Rider App", ProductionHost: "riderapp.codevertexitsolutions.com", Public: true},
 		{ID: "cafe-website", Name: "Urban Loft Cafe Website", ProductionHost: "theurbanloftcafe.com", Public: true},
+		{ID: "codevertex-website", Name: "Codevertex IT Solutions Website", ProductionHost: "codevertexitsolutions.com", Public: true},
 		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", ProductionHost: "pricing.codevertexitsolutions.com", Public: true},
 		{ID: "treasury-ui", Name: "BengoBox Treasury UI", ProductionHost: "books.codevertexitsolutions.com", Public: true},
 		{ID: "pos-ui", Name: "BengoBox POS UI", ProductionHost: "pos.codevertexitsolutions.com", Public: true},
@@ -800,12 +801,17 @@ func main() {
 
 	// auth-ui also needs the SSO domain as a redirect
 	authUIExtra := []string{"https://sso.codevertexitsolutions.com/auth/callback"}
+	// codevertex-website is reachable on both apex and www
+	cvWebsiteExtra := []string{"https://www.codevertexitsolutions.com/auth/callback"}
 
 	oauthClients := make([]oauthClientSpec, 0, len(clients))
 	for _, c := range clients {
 		uris := buildRedirects(c.ProductionHost)
 		if c.ID == "auth-ui" {
 			uris = append(uris, authUIExtra...)
+		}
+		if c.ID == "codevertex-website" {
+			uris = append(uris, cvWebsiteExtra...)
 		}
 		oauthClients = append(oauthClients, oauthClientSpec{
 			ID:           c.ID,
