@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -684,9 +685,15 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cache key includes the token's issued-at so new tokens (issued after a subscription
+	// change or renewal) always get a fresh response rather than hitting stale cached data.
 	cacheKey := ""
 	if h.redis != nil && h.redisNamespace != "" {
-		cacheKey = h.redisNamespace + ":auth:me:" + userID.String()
+		iat := int64(0)
+		if claims.IssuedAt != nil {
+			iat = claims.IssuedAt.Unix()
+		}
+		cacheKey = fmt.Sprintf("%s:auth:me:%s:%d", h.redisNamespace, userID.String(), iat)
 		if cached, err := h.redis.Get(r.Context(), cacheKey).Bytes(); err == nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -726,7 +733,18 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	if userEntity.PrimaryTenantID != "" {
 		if tenantID, parseErr := uuid.Parse(userEntity.PrimaryTenantID); parseErr == nil {
 			if tenantEntity, tErr := h.service.GetTenant(r.Context(), tenantID); tErr == nil {
-				out["tenant"] = tenantViewFromEnt(tenantEntity)
+				tenantView := tenantViewFromEnt(tenantEntity)
+				// Inject subscription_features from JWT claims (not stored in DB).
+				// JWT is the freshest source; decoding avoids a round-trip to subscription-api.
+				if len(claims.SubscriptionFeatures) > 0 {
+					tenantView["subscription_features"] = claims.SubscriptionFeatures
+				}
+				// Compute grace_period_ends_at so the frontend doesn't need to hard-code the 7-day rule.
+				if tenantEntity.SubscriptionExpiresAt != nil {
+					graceEnd := tenantEntity.SubscriptionExpiresAt.Add(7 * 24 * time.Hour)
+					tenantView["subscription_grace_ends_at"] = graceEnd
+				}
+				out["tenant"] = tenantView
 				out["tenant_id"] = tenantEntity.ID.String()
 				out["tenant_slug"] = tenantEntity.Slug
 				if tenantEntity.Slug == "codevertex" {
@@ -942,6 +960,7 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 		"subscription_plan":       tenant.SubscriptionPlan,
 		"subscription_status":     tenant.SubscriptionStatus,
 		"subscription_expires_at": tenant.SubscriptionExpiresAt,
+		"tier_limits":             tenant.TierLimits,
 		"created_at":              tenant.CreatedAt,
 		"updated_at":              tenant.UpdatedAt,
 	}
