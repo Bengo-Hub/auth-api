@@ -481,6 +481,58 @@ func main() {
 		}
 	}
 
+	// Seed kura (Kenya Urban Roads Authority) admin user.
+	// All previous kura users were removed via kubectl SQL (database-maintenance.md).
+	// This seeds the canonical kura admin: axleload@kura.go.ke
+	kuraTenant := tenantEntities[3] // "kura"
+	kuraAdminEmail := "axleload@kura.go.ke"
+	kuraAdminPassword := os.Getenv("SEED_KURA_ADMIN_PASSWORD")
+	if kuraAdminPassword == "" {
+		kuraAdminPassword = "Admin312$"
+	}
+	kuraAdminHash, _ := hasher.Hash(kuraAdminPassword)
+
+	kuraAdmin, err := client.User.Create().
+		SetEmail(kuraAdminEmail).
+		SetPasswordHash(kuraAdminHash).
+		SetStatus("active").
+		SetPrimaryTenantID(kuraTenant.ID.String()).
+		SetProfile(map[string]any{
+			"name":       "AxleLoad KURA Admin",
+			"created_by": "seed",
+		}).
+		Save(ctx)
+	if err != nil {
+		kuraAdmin, err = client.User.Query().Where(user.EmailEQ(kuraAdminEmail)).Only(ctx)
+		if err != nil {
+			log.Printf("⚠️  seed kura admin: %v", err)
+		} else {
+			log.Printf("✓ KURA admin exists: %s", kuraAdminEmail)
+		}
+	} else {
+		log.Printf("✓ Created KURA admin: %s", kuraAdminEmail)
+	}
+
+	if kuraAdmin != nil {
+		exists, _ := client.TenantMembership.Query().
+			Where(
+				tenantmembership.UserID(kuraAdmin.ID),
+				tenantmembership.TenantID(kuraTenant.ID),
+			).Exist(ctx)
+		if !exists {
+			_, err = client.TenantMembership.Create().
+				SetUserID(kuraAdmin.ID).
+				SetTenantID(kuraTenant.ID).
+				SetRoles([]string{"admin"}).
+				Save(ctx)
+			if err != nil {
+				log.Printf("  ⚠️  Error creating kura admin membership: %v", err)
+			} else {
+				log.Printf("  ✓ Added admin role in %s", kuraTenant.Slug)
+			}
+		}
+	}
+
 	// Seed staff users for all tenants
 	log.Println("Seeding staff users for all tenants...")
 	for _, te := range tenantEntities {
