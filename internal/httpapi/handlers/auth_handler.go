@@ -46,6 +46,7 @@ type AuthService interface {
 	IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
 	ListUserTenantMemberships(ctx context.Context, userID uuid.UUID) ([]*ent.TenantMembership, error)
 	AcceptTerms(ctx context.Context, userID uuid.UUID) error
+	ChangePassword(ctx context.Context, in auth.ChangePasswordInput) error
 }
 
 // UseCaseService describes the use case logic capabilities.
@@ -1137,4 +1138,43 @@ func (h *AuthHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "all_revoked"})
+}
+
+// ChangePassword lets an authenticated user change their own password by supplying the current one.
+// POST /api/v1/auth/me/change-password
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth context", nil)
+		return
+	}
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id in token", nil)
+		return
+	}
+
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "current_password and new_password are required", nil)
+		return
+	}
+
+	if err := h.service.ChangePassword(r.Context(), auth.ChangePasswordInput{
+		UserID:          userID,
+		CurrentPassword: req.CurrentPassword,
+		NewPassword:     req.NewPassword,
+	}); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "password_changed"})
 }

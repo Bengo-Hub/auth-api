@@ -4,7 +4,8 @@ This document explains how to integrate with the BengoBox Auth Service for SSO, 
 
 ## Base URL
 
-Default local: `http://localhost:4101` (configurable via `AUTH_HTTP_PORT`).
+Production: `https://sso.codevertexitsolutions.com`
+Local: `http://localhost:4101` (configurable via `AUTH_HTTP_PORT`)
 
 ## Authentication Flows
 
@@ -17,7 +18,7 @@ Default local: `http://localhost:4101` (configurable via `AUTH_HTTP_PORT`).
 - Logout: `POST /api/v1/auth/logout` (invalidates JTI and marks session revoked)
 
 Tokens:
-- Access token: JWT (RS256, has `kid`, `sub`, `sid`, `scope`, `email`)
+- Access token: JWT (RS256, has `kid`, `sub`, `sid`, `scope`, `email`, subscription claims)
 - Refresh token: Opaque string; rotated by default
 
 ### 2) OIDC – Authorization Code + PKCE
@@ -33,6 +34,8 @@ Endpoints:
 
 Claims highlights:
 - `sub` (UUID), `email`, `email_verified`, `tenant_id` (if present), `sid`
+- `sub_plan`, `sub_status`, `sub_features`, `sub_limits`, `sub_expires` (subscription enrichment)
+- `outlet_id`, `outlet_code`, `outlet_use_case`, `is_hq_user` (outlet context, post-selection)
 
 ### 3) Social OAuth (Google, GitHub, Microsoft)
 
@@ -40,7 +43,7 @@ Claims highlights:
 - GitHub: `POST /api/v1/auth/oauth/github/start` → `GET /api/v1/auth/oauth/github/callback`
 - Microsoft: `POST /api/v1/auth/oauth/microsoft/start` → `GET /api/v1/auth/oauth/microsoft/callback`
 
-When enabled, the service links/creates users by provider subject and email, assigns tenant membership, and issues a first‑party token pair.
+When enabled, the service links/creates users by provider subject and email, assigns tenant membership, and issues a first-party token pair.
 
 ## MFA – TOTP
 
@@ -49,15 +52,94 @@ When enabled, the service links/creates users by provider subject and email, ass
 - Regenerate backup codes: `POST /api/v1/auth/mfa/backup-codes/regenerate`
 - Consume backup code: `POST /api/v1/auth/mfa/backup-codes/consume` `{ "code": "..." }`
 
+## User Profile & Preferences
+
+Update own name, avatar URL, and notification preferences (authenticated):
+
+```
+PATCH /api/v1/auth/me
+Authorization: Bearer <access_token>
+{
+  "name": "John Doe",
+  "profile_picture_url": "https://cdn.example.com/avatar.jpg",
+  "preferences": {
+    "language": "English (US)",
+    "timezone": "Africa/Nairobi",
+    "country": "Kenya",
+    "email_alerts": true,
+    "push_notifications": false
+  }
+}
+```
+
+## Authenticated Password Change
+
+For logged-in users who know their current password (no reset token needed):
+
+```
+POST /api/v1/auth/me/change-password
+Authorization: Bearer <access_token>
+{ "current_password": "OldPass!", "new_password": "NewStr0ng!" }
+```
+
+Returns `{"status":"password_changed"}` on success. Use `POST /api/v1/auth/password-reset/request` + `POST /api/v1/auth/password-reset/confirm` for the forgotten-password email flow.
+
+## Session Management
+
+```
+GET  /api/v1/auth/sessions               # List current user's sessions
+POST /api/v1/auth/sessions/revoke        # Revoke a session: { "session_id": "..." }
+POST /api/v1/auth/sessions/revoke-all    # Revoke all except current
+```
+
 ## Admin APIs
 
-Require admin scopes (`admin` or `auth.admin`):
+Require `Authorization: Bearer <platform_admin_jwt>`:
 
 - Tenants: `GET/POST /api/v1/admin/tenants`
-- Clients: `GET/POST /api/v1/admin/clients`
+- Tenant members: `GET/POST /api/v1/admin/tenants/{id}/members`
+- OAuth Clients: `GET/POST /api/v1/admin/clients`
+- Users: `GET /api/v1/admin/users`, `PATCH /api/v1/admin/users/{id}`, `POST /api/v1/admin/users/{id}/suspend|deactivate|activate`
 - Entitlements: `GET/POST /api/v1/admin/entitlements`
 - Usage increment: `POST /api/v1/admin/usage/increment`
 - Rotate signing keys: `POST /api/v1/admin/keys/rotate`
+
+## App Management (S2S Tokens)
+
+Platform admins manage GitHub-style `bng_app_*` tokens for service-to-service authentication:
+
+```
+POST   /api/v1/admin/apps              # Create app, returns one-time bng_app_* token
+GET    /api/v1/admin/apps              # List apps (token never shown again)
+GET    /api/v1/admin/apps/{id}         # Get app metadata
+PUT    /api/v1/admin/apps/{id}         # Update name/description/scopes
+DELETE /api/v1/admin/apps/{id}         # Delete app
+POST   /api/v1/admin/apps/{id}/rotate  # Rotate token (returns new one-time token)
+POST   /api/v1/admin/apps/{id}/revoke  # Revoke without delete
+GET    /api/v1/admin/api-keys/validate # Validate bng_app_* or bng_* tokens (public, no auth)
+```
+
+Services pass the app token as `X-API-Key: bng_app_<token>` on inter-service requests.
+
+## API Key Management (Tenant/Developer Keys)
+
+```
+POST   /api/v1/admin/api-keys          # Create API key
+GET    /api/v1/admin/api-keys          # List API keys
+DELETE /api/v1/admin/api-keys/{id}     # Revoke API key
+GET    /api/v1/admin/api-keys/validate # Validate key (also handles bng_app_* prefix)
+```
+
+## Integrations
+
+```
+POST /api/v1/admin/integrations        # Create integration config (encrypted)
+GET  /api/v1/admin/integrations        # List integrations
+GET  /api/v1/admin/integrations/{id}   # Get integration
+PUT  /api/v1/admin/integrations/{id}/status  # Enable/disable integration
+DELETE /api/v1/admin/integrations/{id} # Delete integration
+GET  /api/v1/auth/integrations/active  # Public: list enabled integrations for login UI
+```
 
 ## Rate Limiting & Metrics
 
@@ -66,9 +148,8 @@ Require admin scopes (`admin` or `auth.admin`):
 
 ## Error Contract
 
-Errors use JSON envelope:
 ```json
-{ "error": "message", "code": "identifier", "details": { } }
+{ "error": "message", "code": "identifier", "details": {} }
 ```
 
 ## Security Notes
@@ -76,6 +157,7 @@ Errors use JSON envelope:
 - JWTs are RS256-signed; verify via JWKS and `kid`.
 - Keep refresh tokens secret; they are rotated by default.
 - Use HTTPS in production everywhere; rotate keys regularly (`/keys/rotate`).
+- App tokens (`bng_app_*`) shown exactly once at creation and rotation — store them immediately.
 
 ## Example – Authorization Code + PKCE
 
@@ -84,7 +166,11 @@ Errors use JSON envelope:
 3) On redirect, exchange code at `/token` with `code_verifier`
 4) Use `access_token` for API calls; parse `id_token` for identity claims.
 
-## Example – Service-to-Service (Client Credentials)
+## Example – Service-to-Service (App Token)
 
-Planned in roadmap; use `oauth_clients` as service accounts and distribute credentials via secrets manager. For now, prefer short-lived JWTs issued from the admin console.*** End Patch  }}}  assistant to=functions.apply_patchentañassistant to=functions.apply_patchasumikerror(Exception('Invalid arguments for apply_patch tool. Expecting a string with the patch content.')) ***!
-
+```bash
+# Validate an app token (used by downstream services)
+curl https://sso.codevertexitsolutions.com/api/v1/admin/api-keys/validate \
+  -H "X-API-Key: bng_app_<token>"
+# Response: { "client_id": "app_abc123", "scopes": ["s2s:*"], "roles": ["superuser","service"] }
+```
