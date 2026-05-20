@@ -19,6 +19,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/apikey"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
+	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/permission"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -110,6 +111,15 @@ func main() {
 			contactEmail: "truload@codevertexitsolutions.com",
 			brandColors: map[string]any{"primary": "#1a237e", "secondary": "#ff6f00", "accent": "#00c853"},
 		},
+		{
+			// Cross-platform demo tenant — covers all use-cases for platform demos.
+			// Staff accounts are seeded under this tenant; demo user gets admin role here.
+			name: "CodeVertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexitsolutions.com",
+			useCases: []string{"hospitality", "retail", "quick_service", "pharmacy", "services", "logistics"},
+			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://demo.codevertexitsolutions.com",
+			contactEmail: "demo@codevertexitsolutions.com",
+			brandColors: map[string]any{"primary": "#5B1C4D", "secondary": "#ea8022", "accent": "#f36a0c"},
+		},
 	}
 
 	var tenantEntities []*struct {
@@ -182,6 +192,16 @@ func main() {
 			Name: tenantEntity.Name,
 			Slug: tenantEntity.Slug,
 		})
+	}
+
+	// Seed outlets for tenants that operate physical/logical branches.
+	// Auth-api is the source of truth for outlet UUIDs — all downstream services
+	// sync these UUIDs via JIT login sync or NATS auth.outlet.* events.
+	log.Println("Seeding outlets...")
+	for _, te := range tenantEntities {
+		if err := seedOutletsForTenant(ctx, client, te.ID, te.Slug); err != nil {
+			log.Printf("  ⚠️  outlets for %s: %v", te.Slug, err)
+		}
 	}
 
 	hasher := password.NewHasher(cfg.Security)
@@ -317,6 +337,43 @@ func main() {
 		}
 	}
 
+	// Seed demo tenant admin (codevertex-demo — index 6, last added)
+	demoTenant := tenantEntities[len(tenantEntities)-1] // codevertex-demo
+	demoTenantAdminEmail := "admin@demo.codevertexitsolutions.com"
+	demoTenantAdminPassword := os.Getenv("SEED_DEMO_TENANT_ADMIN_PASSWORD")
+	if demoTenantAdminPassword == "" {
+		demoTenantAdminPassword = "DemoAdmin2024!"
+	}
+	demoTenantAdminHash, _ := hasher.Hash(demoTenantAdminPassword)
+
+	demoTenantAdmin, err := client.User.Create().
+		SetEmail(demoTenantAdminEmail).
+		SetPasswordHash(demoTenantAdminHash).
+		SetStatus("active").
+		SetPrimaryTenantID(demoTenant.ID.String()).
+		SetProfile(map[string]any{
+			"name":       "CodeVertex Demo Admin",
+			"created_by": "seed",
+		}).
+		Save(ctx)
+	if err != nil {
+		demoTenantAdmin, _ = client.User.Query().Where(user.EmailEQ(demoTenantAdminEmail)).Only(ctx)
+		log.Printf("✓ Demo tenant admin exists: %s", demoTenantAdminEmail)
+	} else {
+		log.Printf("✓ Created demo tenant admin: %s", demoTenantAdminEmail)
+	}
+	if demoTenantAdmin != nil {
+		exists, _ := client.TenantMembership.Query().Where(
+			tenantmembership.UserID(demoTenantAdmin.ID),
+			tenantmembership.TenantID(demoTenant.ID),
+		).Exist(ctx)
+		if !exists {
+			_, _ = client.TenantMembership.Create().
+				SetUserID(demoTenantAdmin.ID).SetTenantID(demoTenant.ID).SetRoles([]string{"admin"}).Save(ctx)
+			log.Printf("  ✓ Added admin role in %s", demoTenant.Slug)
+		}
+	}
+
 	// Seed tenant-specific admin for Urban Loft Cafe
 	urbanLoftTenant := tenantEntities[2]
 	tenantAdminEmail := "admin@theurbanloftcafe.com"
@@ -367,27 +424,28 @@ func main() {
 		}
 	}
 
-	// Seed Urban Loft Cafe demo POS staff users so PIN login has data.
-	// These users get POS-specific roles as their membership role so pos-api JIT
-	// provisioning can map them to the correct POS role on first SSO login.
-	urbanLoftStaff := []struct {
+	// Seed cross-platform demo staff under codevertex-demo tenant.
+	// These accounts cover every POS role so PIN login works for demos on any outlet.
+	// urban-loft staff emails have been migrated here; the urban-loft tenant now has
+	// only its real admin user (admin@theurbanloftcafe.com).
+	demoStaff := []struct {
 		email string
 		name  string
 		role  string
 	}{
-		{"manager@theurbanloftcafe.com", "Urban Loft Manager", "manager"},
-		{"cashier@theurbanloftcafe.com", "Urban Loft Cashier", "cashier"},
-		{"waiter@theurbanloftcafe.com", "Urban Loft Waiter", "waiter"},
-		{"kitchen@theurbanloftcafe.com", "Urban Loft Kitchen", "kitchen"},
-		{"bar@theurbanloftcafe.com", "Urban Loft Bar", "bar"},
-		{"receptionist@theurbanloftcafe.com", "Urban Loft Receptionist", "receptionist"},
+		{"manager@demo.codevertexitsolutions.com", "Demo Manager", "manager"},
+		{"cashier@demo.codevertexitsolutions.com", "Demo Cashier", "cashier"},
+		{"waiter@demo.codevertexitsolutions.com", "Demo Waiter", "waiter"},
+		{"kitchen@demo.codevertexitsolutions.com", "Demo Kitchen", "kitchen"},
+		{"bar@demo.codevertexitsolutions.com", "Demo Bar Staff", "bar"},
+		{"receptionist@demo.codevertexitsolutions.com", "Demo Receptionist", "receptionist"},
 	}
-	urbanLoftStaffPassword := os.Getenv("SEED_URBAN_LOFT_STAFF_PASSWORD")
-	if urbanLoftStaffPassword == "" {
-		urbanLoftStaffPassword = "UrbanLoftStaff2024!" // default for local dev; override via env
+	demoStaffPassword := os.Getenv("SEED_DEMO_STAFF_PASSWORD")
+	if demoStaffPassword == "" {
+		demoStaffPassword = "DemoStaff2024!"
 	}
-	for _, s := range urbanLoftStaff {
-		staffHash, hashErr := hasher.Hash(urbanLoftStaffPassword)
+	for _, s := range demoStaff {
+		staffHash, hashErr := hasher.Hash(demoStaffPassword)
 		if hashErr != nil {
 			log.Printf("  ⚠️  hash password for %s: %v", s.email, hashErr)
 			continue
@@ -396,7 +454,7 @@ func main() {
 			SetEmail(s.email).
 			SetPasswordHash(staffHash).
 			SetStatus("active").
-			SetPrimaryTenantID(urbanLoftTenant.ID.String()).
+			SetPrimaryTenantID(demoTenant.ID.String()).
 			SetProfile(map[string]any{
 				"name":       s.name,
 				"created_by": "seed",
@@ -406,32 +464,31 @@ func main() {
 		if createErr != nil {
 			staffUser, createErr = client.User.Query().Where(user.EmailEQ(s.email)).Only(ctx)
 			if createErr != nil {
-				log.Printf("  ⚠️  seed urban loft staff %s: %v", s.email, createErr)
+				log.Printf("  ⚠️  seed demo staff %s: %v", s.email, createErr)
 				continue
 			}
-			log.Printf("  ✓ Urban Loft staff exists: %s (%s)", s.email, s.role)
+			log.Printf("  ✓ Demo staff exists: %s (%s)", s.email, s.role)
 		} else {
-			log.Printf("  ✓ Created Urban Loft staff: %s (%s)", s.email, s.role)
+			log.Printf("  ✓ Created demo staff: %s (%s)", s.email, s.role)
 		}
 
 		memberExists, _ := client.TenantMembership.Query().
 			Where(
 				tenantmembership.UserID(staffUser.ID),
-				tenantmembership.TenantID(urbanLoftTenant.ID),
+				tenantmembership.TenantID(demoTenant.ID),
 			).Exist(ctx)
 		if !memberExists {
 			_, _ = client.TenantMembership.Create().
 				SetUserID(staffUser.ID).
-				SetTenantID(urbanLoftTenant.ID).
+				SetTenantID(demoTenant.ID).
 				SetRoles([]string{s.role}).
 				Save(ctx)
-			log.Printf("    ✓ Added %s role in %s", s.role, urbanLoftTenant.Slug)
+			log.Printf("    ✓ Added %s role in %s", s.role, demoTenant.Slug)
 		}
 	}
 
-	// Seed demo admin for TruLoad commercial weighing tenant
-	// truload tenant is the last entry in the tenants slice
-	truloadTenant := tenantEntities[len(tenantEntities)-1] // "truload"
+	// Seed demo admin for TruLoad commercial weighing tenant (index 5 in tenants slice)
+	truloadTenant := tenantEntities[5] // "truload"
 	truloadAdminEmail := "admin@truload.codevertexitsolutions.com"
 	truloadAdminPassword := os.Getenv("SEED_TRULOAD_ADMIN_PASSWORD")
 	if truloadAdminPassword == "" {
@@ -919,6 +976,160 @@ func main() {
 
 	log.Println("✅ Seeding completed successfully!")
 	_ = os.Setenv("SEEDED_AT", time.Now().Format(time.RFC3339))
+}
+
+// outletSeedID returns a deterministic UUID for an outlet using the same formula
+// as pos-api, inventory-api, and ordering-backend — ensuring cross-service UUID alignment.
+func outletSeedID(tenantSlug, outletSlug string) uuid.UUID {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("bengobox:cafe:outlet:%s:%s", tenantSlug, outletSlug)))
+}
+
+type outletDef struct {
+	slug    string
+	code    string
+	name    string
+	useCase string
+	isHQ    bool
+	address string
+	pinMsg  string
+}
+
+// outletsByTenant defines the outlets to seed per tenant slug.
+// Downstream services reference these UUIDs (computed via outletSeedID) for warehouse,
+// device, order, and staff scoping — never create outlets independently in those services.
+var outletsByTenant = map[string][]outletDef{
+	"urban-loft": {
+		{
+			slug:    "busia",
+			code:    "BUSIA",
+			name:    "Urban Loft Cafe Busia",
+			useCase: "hospitality",
+			isHQ:    true,
+			address: "Busia Town, Busia, Kenya",
+			pinMsg:  "Welcome to Urban Loft Cafe — Shift starts 7:00 AM",
+		},
+	},
+	"codevertex-demo": {
+		// HQ outlet — hospitality (hotel, bar, restaurant)
+		{
+			slug: "demo-hospitality", code: "HOSP",
+			name: "Demo Grand Hotel & Restaurant", useCase: "hospitality", isHQ: true,
+			address: "Demo Plaza, Nairobi, Kenya",
+			pinMsg:  "Welcome to Demo Grand Hotel — please check your shift schedule",
+		},
+		// Retail outlet — shop, supermarket, hardware
+		{
+			slug: "demo-retail", code: "RETAIL",
+			name: "Demo Tech Store", useCase: "retail", isHQ: false,
+			address: "Demo Mall, Westlands, Nairobi",
+			pinMsg:  "Welcome to Demo Tech Store — barcode scanner is active",
+		},
+		// Quick service outlet — fast food, coffee kiosk
+		{
+			slug: "demo-quick", code: "QSR",
+			name: "Demo Express Kiosk", useCase: "quick_service", isHQ: false,
+			address: "Demo Food Court, CBD Nairobi",
+			pinMsg:  "Welcome to Demo Express — fast service starts here!",
+		},
+		// Pharmacy outlet
+		{
+			slug: "demo-pharmacy", code: "PHARMA",
+			name: "Demo Health Pharmacy", useCase: "pharmacy", isHQ: false,
+			address: "Demo Health Centre, Upper Hill, Nairobi",
+			pinMsg:  "Welcome to Demo Health Pharmacy — verify prescriptions at counter",
+		},
+		// Services outlet — salon, spa, appointments
+		{
+			slug: "demo-services", code: "SVC",
+			name: "Demo Beauty & Wellness", useCase: "services", isHQ: false,
+			address: "Demo Towers, Kilimani, Nairobi",
+			pinMsg:  "Welcome to Demo Beauty & Wellness — check appointments board",
+		},
+		// Logistics / warehouse outlet
+		{
+			slug: "demo-logistics", code: "LOGIS",
+			name: "Demo Logistics Hub", useCase: "logistics", isHQ: false,
+			address: "Demo Industrial Area, Nairobi",
+			pinMsg:  "Welcome to Demo Logistics Hub — report to dispatch supervisor",
+		},
+	},
+	"mss": {
+		{
+			slug:    "main",
+			code:    "MAIN",
+			name:    "Masterspace Solutions HQ",
+			useCase: "services",
+			isHQ:    true,
+			address: "Masterspace HQ, Nairobi, Kenya",
+		},
+	},
+	"truload": {
+		{
+			slug:    "main",
+			code:    "MAIN",
+			name:    "TruLoad Weighbridge Main",
+			useCase: "logistics",
+			isHQ:    true,
+			address: "TruLoad Weighbridge, Nairobi, Kenya",
+		},
+	},
+}
+
+func seedOutletsForTenant(ctx context.Context, client *ent.Client, tenantID uuid.UUID, tenantSlug string) error {
+	defs, ok := outletsByTenant[tenantSlug]
+	if !ok {
+		return nil // tenant has no predefined outlets
+	}
+
+	for _, d := range defs {
+		id := outletSeedID(tenantSlug, d.slug)
+
+		existing, err := client.Outlet.Query().Where(entoutlet.ID(id)).Only(ctx)
+		if err == nil {
+			// Update mutable fields on re-run
+			upd := existing.Update().
+				SetCode(d.code).
+				SetName(d.name).
+				SetUseCase(d.useCase).
+				SetIsHq(d.isHQ).
+				SetStatus("active")
+			if d.address != "" {
+				upd = upd.SetNillableAddress(&d.address)
+			}
+			if d.pinMsg != "" {
+				upd = upd.SetNillablePinLoginMessage(&d.pinMsg)
+			}
+			if _, err2 := upd.Save(ctx); err2 != nil {
+				log.Printf("  ⚠️  update outlet %s/%s: %v", tenantSlug, d.slug, err2)
+			} else {
+				log.Printf("  ✓ Outlet updated: %s/%s (use_case=%s, is_hq=%v)", tenantSlug, d.code, d.useCase, d.isHQ)
+			}
+			continue
+		}
+		if !ent.IsNotFound(err) {
+			return fmt.Errorf("query outlet %s/%s: %w", tenantSlug, d.slug, err)
+		}
+
+		create := client.Outlet.Create().
+			SetID(id).
+			SetTenantID(tenantID).
+			SetCode(d.code).
+			SetName(d.name).
+			SetUseCase(d.useCase).
+			SetIsHq(d.isHQ).
+			SetStatus("active")
+		if d.address != "" {
+			create = create.SetNillableAddress(&d.address)
+		}
+		if d.pinMsg != "" {
+			create = create.SetNillablePinLoginMessage(&d.pinMsg)
+		}
+		if _, err2 := create.Save(ctx); err2 != nil {
+			return fmt.Errorf("create outlet %s/%s: %w", tenantSlug, d.slug, err2)
+		}
+		log.Printf("  ✓ Outlet created: %s/%s (use_case=%s, is_hq=%v, id=%s)", tenantSlug, d.code, d.useCase, d.isHQ, id)
+	}
+	return nil
 }
 
 func seedPlatformAPIKey(ctx context.Context, client *ent.Client, platformTenantID uuid.UUID) error {

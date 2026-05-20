@@ -3,7 +3,7 @@
 **Service**: auth-api (Go)
 **Deployed**: authapi.codevertexitsolutions.com
 **Port**: 4101
-**Canonical tenant**: `urban-loft` | **Active outlet**: Busia
+**Source of truth for**: tenants, outlets (all downstream services mirror via JIT sync + NATS events)
 
 ---
 
@@ -85,6 +85,19 @@ Auth-api is the **central identity provider** for all BengoBox services. It impl
 - Tenant policies (password, session, MFA enforcement)
 - Feature entitlements synced from treasury-api
 
+### Outlet Management (source of truth)
+
+Auth-api owns the canonical outlet/branch registry. All downstream services mirror outlet data — they never manage outlets independently.
+
+- CRUD for outlets (`GET/POST/PUT /api/v1/tenants/{slug}/outlets`)
+- Outlet fields: `id` (deterministic UUID), `code`, `name`, `use_case`, `is_hq`, `status`, `address`, `pin_login_message`
+- Deterministic outlet UUID formula (shared across ALL services):
+  ```go
+  uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("bengobox:cafe:outlet:%s:%s", tenantSlug, outletSlug)))
+  ```
+- On SSO login: if tenant has multiple outlets, the token response includes `requiresOutletSelection: true` + outlet list; client calls `POST /api/v1/auth/select-outlet` to exchange for a final JWT with outlet claims
+- JWT outlet claims (`shared-auth-client v0.6.0`): `outlet_id`, `outlet_code`, `outlet_use_case`, `is_hq_user`
+
 ### User & Role Management
 
 - User registration, login, password reset
@@ -117,15 +130,16 @@ Auth-api is the **central identity provider** for all BengoBox services. It impl
 - JWT claims include `tenant_id`, `tenant_slug`, `roles`, `scopes`
 - Downstream services extract tenant context from JWT -- they never duplicate user/tenant tables
 
-### Downstream tenant sync (JIT)
+### Downstream tenant + outlet sync (JIT)
 
-All Go backends (ordering-backend, notifications-api, subscriptions-api, treasury-api, pos-api, inventory-api, logistics-api) use a **uniform JIT (just-in-time) tenant sync** workflow:
+All Go backends (ordering-backend, notifications-api, subscriptions-api, treasury-api, pos-api, inventory-api, logistics-api) use a **uniform JIT (just-in-time) sync** workflow:
 
-1. **Auth-api** is the source of truth for tenants and exposes `GET /api/v1/tenants/by-slug/{slug}` (public, no auth).
-2. When the **authorize** URL includes `?tenant=urban-loft` (or another slug), auth-api stores it in the authorization code metadata. On **token exchange**, if the user is a member of that tenant, the issued tokens carry that tenant's `tenant_id` and `tenant_slug`.
-3. Each downstream service has a **tenant syncer** that GETs the full tenant from auth-api by slug and upserts it into the service's local DB.
-4. On every request that has tenant context (from JWT or URL/header), a **middleware** (or equivalent) runs **before** business logic: if `tenant_slug` is present in context, call `SyncTenant(ctx, slug)`. This ensures the tenant exists locally and avoids "tenant not found" after SSO login.
-5. **Default tenant** for app context is `urban-loft`; **codevertex** is the platform owner tenant (elevated access and platform-scoped routes). No separate tenant sync job is required; sync on first request is sufficient.
+1. **Auth-api** is the source of truth for tenants AND outlets. Endpoints: `GET /api/v1/tenants/by-slug/{slug}` and `GET /api/v1/tenants/{slug}/outlets` (both public, no auth required).
+2. When the **authorize** URL includes `?tenant=urban-loft` (or another slug), auth-api stores it in the authorization code metadata. On **token exchange**, the issued tokens carry `tenant_id`, `tenant_slug`, `outlet_id`, `outlet_code`, `outlet_use_case`, and `is_hq_user`.
+3. If a tenant has multiple outlets, the token response includes `requiresOutletSelection: true`. The client navigates to `/{orgSlug}/auth/select-outlet`, calls `POST /api/v1/auth/select-outlet` with `ssoExchangeToken + outletId`, and receives a final JWT with outlet claims embedded.
+4. Each downstream service's **tenant syncer** GETs the tenant from auth-api and upserts it locally. On first login per outlet, the service also syncs the outlet row via the outlets endpoint.
+5. Outlet UUIDs are **deterministic** across all services — computed from the same formula. Services never generate their own outlet IDs.
+6. **codevertex** is the platform owner tenant (elevated access). **codevertex-demo** is the cross-platform demo tenant with 6 outlets covering every use case. No separate sync job is required; sync on first request per tenant/outlet is sufficient.
 
 ---
 
@@ -141,8 +155,9 @@ Auth-api publishes domain events to NATS JetStream:
 | `auth.user.created` | New user registered | All downstream services |
 | `auth.user.updated` | User profile changed | All downstream services |
 | `auth.role.assigned` | Role assigned to user | All downstream services |
-| `auth.outlet.created` | New outlet created | POS, ordering, inventory |
-| `auth.outlet.synced` | Outlet metadata synced | POS, ordering, inventory |
+| `auth.outlet.created` | New outlet created | pos-api, ordering-backend, inventory-api |
+| `auth.outlet.updated` | Outlet name/use_case/status changed | pos-api, ordering-backend, inventory-api |
+| `auth.outlet.archived` | Outlet deactivated | pos-api, ordering-backend, inventory-api |
 
 Events use the outbox pattern: written to `outbox_events` table in the same transaction as the domain change, then published by a background worker.
 
@@ -152,12 +167,16 @@ Events use the outbox pattern: written to `outbox_events` table in the same tran
 
 | Entity | Value | Notes |
 |--------|-------|-------|
-| Platform admin | `admin@codevertexitsolutions.com` | `super_admin` role |
-| Tenant | `urban-loft` (The Urban Loft Cafe) | MVP tenant |
-| Tenant admin | `admin@theurbanloftcafe.com` | `admin` role on `urban-loft` |
-| Demo users | Various | For cross-service integration testing |
-| OAuth clients | `auth-ui`, `ordering-app`, etc. | Pre-registered for SSO |
-| System scopes | `profile`, `email`, `offline_access`, `pos.read`, `orders.manage` | Standard + service-specific |
+| Platform admin | `admin@codevertexitsolutions.com` | `superuser` role on all tenants |
+| Platform tenant | `codevertex` | `is_platform_owner = true` |
+| Real client | `urban-loft` (Urban Loft Cafe) | Hospitality only — hotel, bar, grill, cafe |
+| Urban Loft admin | `admin@theurbanloftcafe.com` | `admin` role on `urban-loft` |
+| Urban Loft outlet | BUSIA / hospitality / is_hq=true | Single outlet |
+| **Demo tenant** | `codevertex-demo` | Cross-platform demo — all 6 use-cases |
+| Demo admin | `admin@demo.codevertexitsolutions.com` | `admin` role on `codevertex-demo` |
+| Demo outlets | HOSP/hospitality, RETAIL/retail, QSR/quick_service, PHARMA/pharmacy, SVC/services, LOGIS/logistics | One outlet per use case |
+| Demo staff | `manager/cashier/waiter/kitchen/bar/receptionist @demo.codevertexitsolutions.com` | POS PIN staff for demo |
+| OAuth clients | `pos-ui`, `inventory-ui`, `ordering-ui`, `auth-ui`, etc. | Pre-registered for SSO |
 
 ---
 
