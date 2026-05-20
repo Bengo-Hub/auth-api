@@ -7,8 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ## [Unreleased]
 
 ### Added
-- Integration config CRUD endpoints for secure storage of OAuth2 and third-party secrets
-- AES-256-GCM encryption utilities for integration configuration data
+- **Sprint 12 – App entity & GitHub-style S2S tokens**: New `App` Ent schema with `bng_app_*` prefixed tokens; full CRUD at `/api/v1/admin/apps` (create, list, get, update, rotate, revoke, delete); `ValidateAPIKey` detects `bng_app_*` prefix and routes to the apps table; seed creates a default "Codevertex Platform Services" platform app
+- **`POST /api/v1/auth/me/change-password`**: Authenticated password change endpoint — verifies current password via Argon2id, hashes and stores new password, records audit entry; distinct from the unauthenticated `POST /api/v1/auth/password-reset/confirm` email-token flow
+- **Sprint 11 – JWT Claims Enrichment**: Subscription data (`sub_plan`, `sub_status`, `sub_features`, `sub_limits`, `sub_expires`) embedded in JWT access tokens at login/refresh via subscription-service client; cached 5 min in Redis; graceful fallback on subscription-service unavailability
+- **Session management endpoints**: `GET /api/v1/auth/sessions`, `POST /api/v1/auth/sessions/revoke`, `POST /api/v1/auth/sessions/revoke-all`
+- **User preferences PATCH**: `PATCH /api/v1/auth/me` now accepts `preferences` object (`language`, `timezone`, `country`, `email_alerts`, `push_notifications`) stored in user metadata
+- **Outlet context claims**: `outlet_id`, `outlet_code`, `outlet_use_case`, `is_hq_user` added to JWT claims post-outlet-selection
+- **Tenant member management**: `GET/POST /api/v1/admin/tenants/{id}/members`, `PATCH/DELETE /api/v1/admin/tenants/{id}/members/{userId}`
+- **API Key management (Sprint 12)**: `POST/GET /api/v1/admin/api-keys`, `DELETE /api/v1/admin/api-keys/{id}`, `GET /api/v1/admin/api-keys/validate` — `bng_*` prefixed developer keys with SHA-256 storage, prefix display only
+- **Integration config CRUD endpoints** for secure storage of OAuth2 and third-party secrets
+- **AES-256-GCM encryption utilities** for integration configuration data
+- **Redis session resolver**: `bb_session` cookies now store session UUID (not full JWT) to stay within browser 4KB cookie limit; resolved via Redis on each request
+- **Dynamic subscription API key**: Key resolved from `integration_configs` DB (5 min cache) so platform admins can rotate it via auth-ui without restarting pods
 
 ### Changed
 - Standardized Swagger documentation path to `/v1/docs` (previously `/api/v1/docs`)
@@ -16,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Swagger UI handler now uses protocol-aware URL detection for HTTPS compatibility
 - Swagger UI now displays standard header with Explore button and URL input field
 - Added `deepLinking`, `filter`, and `persistAuthorization` options to Swagger UI configuration
+- Rewrote `docs/developer-api.md` with clean, comprehensive endpoint reference covering all current flows
 
 ## [0.3.0] - 2025-11-14
 ### Added

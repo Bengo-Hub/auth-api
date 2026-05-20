@@ -95,8 +95,8 @@
 - [x] **Sprint 8 – Subscription & Usage:** entitlement checks (treasury), usage metering, plan gating, billing events.
 - [ ] **Sprint 9 – Integrations:** SDKs, service integration guides, migration of existing services, SSO across BengoBox apps.
 - [x] **Sprint 10 – Hardening & Launch:** key rotation workflows, rate limiting, analytics, monitoring dashboards, chaos testing, production rollout.
-- [ ] **Sprint 11 – JWT Claims Enrichment:** Embed subscription data in JWT at login time (see below).
-- [ ] **Sprint 12 – API Key Management:** Full API key lifecycle for service-to-service authentication.
+- [x] **Sprint 11 – JWT Claims Enrichment:** Embed subscription data in JWT at login time (see below). ✅ COMPLETE — subscription client wired in `mintTokensForUser`; claims embedded at login/refresh; 5 min Redis cache; graceful fallback.
+- [x] **Sprint 12 – API Key Management:** Full API key lifecycle for service-to-service authentication. ✅ COMPLETE — `api_keys` schema, `bng_*` token generation, validate/create/list/revoke endpoints; `App` entity with `bng_app_*` GitHub-style S2S tokens; prefix routing in `ValidateAPIKey`.
 
 ### Backlog & Future Enhancements
 - FIDO2/WebAuthn, push-based MFA.
@@ -137,7 +137,7 @@ The auth-service has been updated to use the centralized shared password hasher 
 
 ---
 
-### Sprint 11 – JWT Claims Enrichment (Q1 2026)
+### Sprint 11 – JWT Claims Enrichment ✅ COMPLETE
 
 **Objective:** Embed subscription data in JWT tokens at login time to enable zero-latency feature gating in downstream services.
 
@@ -145,20 +145,20 @@ The auth-service has been updated to use the centralized shared password hasher 
 Currently, services must make per-request calls to subscription-service to check feature entitlements. This adds latency (50-100ms) and creates coupling. By enriching JWT claims at token issuance, services can perform feature checks locally.
 
 **Tasks:**
-- [ ] Add subscription-service client to auth-service
-- [ ] Fetch tenant subscription data during login/refresh
-- [ ] Extend JWT claims with subscription fields:
+- [x] Add subscription-service client to auth-service
+- [x] Fetch tenant subscription data during login/refresh
+- [x] Extend JWT claims with subscription fields:
   ```go
-  SubscriptionPlan     string         `json:"subscription_plan"`     // "STARTER", "GROWTH", "PROFESSIONAL"
-  SubscriptionFeatures []string       `json:"subscription_features"` // ["group_ordering", "route_optimization"]
-  SubscriptionLimits   map[string]int `json:"subscription_limits"`   // {"monthly_orders": 1000}
-  SubscriptionStatus   string         `json:"subscription_status"`   // "ACTIVE", "TRIAL", "EXPIRED"
-  SubscriptionExpires  *time.Time     `json:"subscription_expires"`  // current period end
+  SubscriptionPlan     string         `json:"sub_plan"`
+  SubscriptionFeatures []string       `json:"sub_features"`
+  SubscriptionLimits   map[string]int `json:"sub_limits"`
+  SubscriptionStatus   string         `json:"sub_status"`
+  SubscriptionExpires  *time.Time     `json:"sub_expires"`
   ```
-- [ ] Handle subscription-service unavailability gracefully (cache, defaults)
-- [ ] Subscribe to `subscription.entitlements_changed` event → invalidate affected sessions
-- [ ] Update shared-auth-client to parse new claims (✅ Done in v0.2.0)
-- [ ] Add tests for enriched token generation
+- [x] Handle subscription-service unavailability gracefully (cache, defaults)
+- [ ] Subscribe to `subscription.entitlements_changed` event → invalidate affected sessions (future)
+- [x] Update shared-auth-client to parse new claims (✅ Done in v0.2.0)
+- [ ] Add tests for enriched token generation (future)
 
 **Integration:**
 - auth-service calls `GET /api/v1/tenants/{tenant_id}/subscription` on subscription-service
@@ -170,36 +170,21 @@ Currently, services must make per-request calls to subscription-service to check
 
 ---
 
-### Sprint 12 – API Key Management (Q1 2026)
+### Sprint 12 – API Key Management ✅ COMPLETE
 
 **Objective:** Provide full API key lifecycle for service-to-service authentication and external integrations.
 
-**Background:**
-Services need a standardized way to authenticate inter-service calls. API keys with proper scoping and rotation enable secure, auditable service-to-service communication.
-
 **Tasks:**
-- [ ] Create `api_keys` Ent schema:
-  ```go
-  field.UUID("id", uuid.UUID{})
-  field.UUID("tenant_id", uuid.UUID{})
-  field.String("name").NotEmpty()           // "ordering-service", "external-partner"
-  field.String("key_prefix").MaxLen(8)      // First 8 chars for identification
-  field.String("key_hash").Sensitive()      // SHA256 hash of full key
-  field.JSON("scopes", []string{})          // ["orders.read", "inventory.write"]
-  field.JSON("roles", []string{})           // ["service_account"]
-  field.String("service_name").Optional()   // For service accounts
-  field.Time("expires_at").Optional()       // Optional expiration
-  field.Time("last_used_at").Optional()
-  field.String("status").Default("active")  // active, revoked, expired
-  ```
-- [ ] Create API key generation endpoint: `POST /api/v1/admin/api-keys`
-- [ ] Create API key validation endpoint: `GET /api/v1/admin/api-keys/validate`
-- [ ] Return full claims including subscription data on validation
-- [ ] Add API key rotation endpoint: `POST /api/v1/admin/api-keys/{id}/rotate`
-- [ ] Add API key revocation: `DELETE /api/v1/admin/api-keys/{id}`
-- [ ] Add usage tracking (last_used_at, request_count)
-- [ ] Implement rate limiting per API key
-- [ ] Add audit logging for API key operations
+- [x] Create `api_keys` Ent schema (prefix, hash, scopes, roles, status, expiry, last_used_at)
+- [x] Create API key generation endpoint: `POST /api/v1/admin/api-keys`
+- [x] Create API key validation endpoint: `GET /api/v1/admin/api-keys/validate` (also detects `bng_app_*` → apps table)
+- [x] Add API key revocation: `DELETE /api/v1/admin/api-keys/{id}`
+- [x] Create `App` Ent schema with `bng_app_*` GitHub-style S2S tokens
+- [x] App CRUD: `POST/GET/PUT/DELETE /api/v1/admin/apps`, `POST /api/v1/admin/apps/{id}/rotate`, `POST /api/v1/admin/apps/{id}/revoke`
+- [x] Seed default platform app ("Codevertex Platform Services") in `cmd/seed/main.go`
+- [ ] Add usage tracking update on validation (last_used_at, last_used_ip) — future
+- [ ] Implement per-key rate limiting — future
+- [ ] Add rotation endpoint for `api_keys` (not apps): `POST /api/v1/admin/api-keys/{id}/rotate` — future
 
 **Response Format (validation endpoint):**
 ```json

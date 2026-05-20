@@ -1960,6 +1960,50 @@ func strPtr(s string) *string {
 	return &s
 }
 
+// ChangePasswordInput is the input for authenticated password change.
+type ChangePasswordInput struct {
+	UserID          uuid.UUID
+	CurrentPassword string
+	NewPassword     string
+}
+
+// ChangePassword verifies the current password and sets a new one for an authenticated user.
+func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) error {
+	if err := s.validatePassword(in.NewPassword); err != nil {
+		return err
+	}
+
+	u, err := s.entClient.User.Get(ctx, in.UserID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return ErrInvalidCredentials
+		}
+		return fmt.Errorf("load user: %w", err)
+	}
+
+	if err := s.hasher.Compare(u.PasswordHash, in.CurrentPassword); err != nil {
+		return ErrInvalidCredentials
+	}
+
+	newHash, err := s.hasher.Hash(in.NewPassword)
+	if err != nil {
+		return fmt.Errorf("hash new password: %w", err)
+	}
+
+	if err := s.entClient.User.UpdateOneID(in.UserID).SetPasswordHash(newHash).Exec(ctx); err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+
+	s.auditor.Record(ctx, audit.Entry{
+		UserID:     &in.UserID,
+		Action:     "auth.password.changed",
+		Resource:   "user",
+		ResourceID: in.UserID.String(),
+	})
+
+	return nil
+}
+
 // AcceptTerms marks the user as having accepted the platform terms of service.
 func (s *Service) AcceptTerms(ctx context.Context, userID uuid.UUID) error {
 	now := time.Now()

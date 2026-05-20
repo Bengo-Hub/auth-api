@@ -215,6 +215,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			MFARegenerateBackupCodes:     mfaHandler.RegenerateBackupCodes,
 			MFAConsumeBackupCode:         mfaHandler.ConsumeBackupCode,
 			AcceptTerms:                  authHandler.AcceptTerms,
+			ChangePassword:               authHandler.ChangePassword,
 			ListSessions:                 authHandler.ListSessions,
 			RevokeSession:                authHandler.RevokeSession,
 			RevokeAllSessions:            authHandler.RevokeAllSessions,
