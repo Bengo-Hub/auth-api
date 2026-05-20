@@ -9,6 +9,9 @@ import (
 // APIKey is the predicate function for apikey builders.
 type APIKey func(*sql.Selector)
 
+// App is the predicate function for app builders.
+type App func(*sql.Selector)
+
 // AuditLog is the predicate function for auditlog builders.
 type AuditLog func(*sql.Selector)
 
@@ -51,11 +54,17 @@ type OAuthClient func(*sql.Selector)
 // OutboxEvent is the predicate function for outboxevent builders.
 type OutboxEvent func(*sql.Selector)
 
+// Outlet is the predicate function for outlet builders.
+type Outlet func(*sql.Selector)
+
 // PasswordResetToken is the predicate function for passwordresettoken builders.
 type PasswordResetToken func(*sql.Selector)
 
 // Permission is the predicate function for permission builders.
 type Permission func(*sql.Selector)
+
+// PortalShortLink is the predicate function for portalshortlink builders.
+type PortalShortLink func(*sql.Selector)
 
 // ReferralLink is the predicate function for referrallink builders.
 type ReferralLink func(*sql.Selector)

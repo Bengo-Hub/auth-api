@@ -338,17 +338,36 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 			"created_by":      in.Email,
 		})
 
-		// Initialize Main/HQ branch
-		hqName := "Main/HQ"
+		// Initialize default HQ outlet — persist to DB + publish auth.outlet.created.
+		hqName := "Main / HQ"
 		if in.NewOrg.HQBranchName != "" {
 			hqName = in.NewOrg.HQBranchName
 		}
-		s.publishEvent(ctx, tenantEntity.ID, "auth.tenant.branch", tenantEntity.ID, "created", map[string]any{
-			"tenant_id":  tenantEntity.ID.String(),
-			"name":       hqName,
-			"is_default": true,
-			"use_case":   tenantEntity.UseCase,
-		})
+		hqUseCase := ""
+		if tenantEntity.UseCase != nil {
+			hqUseCase = *tenantEntity.UseCase
+		}
+		hqOutlet, outletErr := s.entClient.Outlet.Create().
+			SetTenantID(tenantEntity.ID).
+			SetCode("MAIN").
+			SetName(hqName).
+			SetUseCase(hqUseCase).
+			SetIsHq(true).
+			SetStatus("active").
+			Save(ctx)
+		if outletErr != nil {
+			s.logger.Warn("failed to create default HQ outlet",
+				zap.String("tenant_id", tenantEntity.ID.String()), zap.Error(outletErr))
+		} else {
+			s.publishEvent(ctx, tenantEntity.ID, "auth.outlet", hqOutlet.ID, "created", map[string]any{
+				"outlet_id":  hqOutlet.ID.String(),
+				"tenant_id":  tenantEntity.ID.String(),
+				"code":       hqOutlet.Code,
+				"name":       hqOutlet.Name,
+				"use_case":   hqOutlet.UseCase,
+				"is_hq":      hqOutlet.IsHq,
+			})
+		}
 
 		// Auto-register redirect URIs for the new tenant slug on all OAuth clients
 		// so the tenant can immediately log in to all frontend apps.

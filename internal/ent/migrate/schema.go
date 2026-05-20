@@ -56,6 +56,61 @@ var (
 			},
 		},
 	}
+	// AppsColumns holds the columns for the "apps" table.
+	AppsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "app_type", Type: field.TypeEnum, Enums: []string{"platform", "tenant"}, Default: "tenant"},
+		{Name: "tenant_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "client_id", Type: field.TypeString, Unique: true},
+		{Name: "key_hash", Type: field.TypeString},
+		{Name: "key_prefix", Type: field.TypeString, Size: 20},
+		{Name: "scopes", Type: field.TypeJSON, Nullable: true},
+		{Name: "allowed_ips", Type: field.TypeJSON, Nullable: true},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "revoked", "expired"}, Default: "active"},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_used_ip", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "revoked_reason", Type: field.TypeString, Nullable: true},
+	}
+	// AppsTable holds the schema information for the "apps" table.
+	AppsTable = &schema.Table{
+		Name:       "apps",
+		Columns:    AppsColumns,
+		PrimaryKey: []*schema.Column{AppsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "app_key_hash",
+				Unique:  true,
+				Columns: []*schema.Column{AppsColumns[7]},
+			},
+			{
+				Name:    "app_client_id",
+				Unique:  true,
+				Columns: []*schema.Column{AppsColumns[6]},
+			},
+			{
+				Name:    "app_tenant_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{AppsColumns[4], AppsColumns[11]},
+			},
+			{
+				Name:    "app_app_type_status",
+				Unique:  false,
+				Columns: []*schema.Column{AppsColumns[3], AppsColumns[11]},
+			},
+			{
+				Name:    "app_status_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{AppsColumns[11], AppsColumns[12]},
+			},
+		},
+	}
 	// AuditLogsColumns holds the columns for the "audit_logs" table.
 	AuditLogsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -426,6 +481,53 @@ var (
 			},
 		},
 	}
+	// OutletsColumns holds the columns for the "outlets" table.
+	OutletsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "code", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+		{Name: "use_case", Type: field.TypeString, Default: "hospitality"},
+		{Name: "address", Type: field.TypeString, Nullable: true},
+		{Name: "timezone", Type: field.TypeString, Nullable: true, Default: "Africa/Nairobi"},
+		{Name: "is_hq", Type: field.TypeBool, Default: false},
+		{Name: "status", Type: field.TypeString, Default: "active"},
+		{Name: "pin_login_message", Type: field.TypeString, Nullable: true},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "tenant_id", Type: field.TypeUUID},
+	}
+	// OutletsTable holds the schema information for the "outlets" table.
+	OutletsTable = &schema.Table{
+		Name:       "outlets",
+		Columns:    OutletsColumns,
+		PrimaryKey: []*schema.Column{OutletsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "outlets_tenants_outlets",
+				Columns:    []*schema.Column{OutletsColumns[12]},
+				RefColumns: []*schema.Column{TenantsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "outlet_tenant_id_code",
+				Unique:  true,
+				Columns: []*schema.Column{OutletsColumns[12], OutletsColumns[1]},
+			},
+			{
+				Name:    "outlet_tenant_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{OutletsColumns[12], OutletsColumns[7]},
+			},
+			{
+				Name:    "outlet_tenant_id_is_hq",
+				Unique:  false,
+				Columns: []*schema.Column{OutletsColumns[12], OutletsColumns[6]},
+			},
+		},
+	}
 	// PasswordResetTokensColumns holds the columns for the "password_reset_tokens" table.
 	PasswordResetTokensColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -466,6 +568,39 @@ var (
 				Name:    "permission_resource_action",
 				Unique:  true,
 				Columns: []*schema.Column{PermissionsColumns[2], PermissionsColumns[3]},
+			},
+		},
+	}
+	// PortalShortLinksColumns holds the columns for the "portal_short_links" table.
+	PortalShortLinksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "code", Type: field.TypeString, Unique: true, Size: 16},
+		{Name: "holder_id", Type: field.TypeUUID},
+		{Name: "jwt_token", Type: field.TypeString, Size: 2147483647},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "clicks", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// PortalShortLinksTable holds the schema information for the "portal_short_links" table.
+	PortalShortLinksTable = &schema.Table{
+		Name:       "portal_short_links",
+		Columns:    PortalShortLinksColumns,
+		PrimaryKey: []*schema.Column{PortalShortLinksColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "portalshortlink_code",
+				Unique:  true,
+				Columns: []*schema.Column{PortalShortLinksColumns[1]},
+			},
+			{
+				Name:    "portalshortlink_holder_id",
+				Unique:  false,
+				Columns: []*schema.Column{PortalShortLinksColumns[2]},
+			},
+			{
+				Name:    "portalshortlink_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{PortalShortLinksColumns[4]},
 			},
 		},
 	}
@@ -737,6 +872,7 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
+		AppsTable,
 		AuditLogsTable,
 		AuthorizationCodesTable,
 		ConsentSessionsTable,
@@ -751,8 +887,10 @@ var (
 		MfatotpSecretsTable,
 		OauthClientsTable,
 		OutboxEventsTable,
+		OutletsTable,
 		PasswordResetTokensTable,
 		PermissionsTable,
+		PortalShortLinksTable,
 		ReferralLinksTable,
 		RolePermissionsTable,
 		SessionsTable,
@@ -768,6 +906,7 @@ func init() {
 	AuthorizationCodesTable.ForeignKeys[0].RefTable = UsersTable
 	MfaBackupCodesTable.ForeignKeys[0].RefTable = UsersTable
 	MfatotpSecretsTable.ForeignKeys[0].RefTable = UsersTable
+	OutletsTable.ForeignKeys[0].RefTable = TenantsTable
 	PasswordResetTokensTable.ForeignKeys[0].RefTable = UsersTable
 	RolePermissionsTable.ForeignKeys[0].RefTable = PermissionsTable
 	SessionsTable.ForeignKeys[0].RefTable = UsersTable

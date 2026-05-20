@@ -29,6 +29,14 @@ type Claims struct {
 	Email       string   `json:"email,omitempty"`
 	IsPlatformOwner bool `json:"is_platform_owner,omitempty"`
 
+	// Outlet / branch context — set after the user selects an outlet at login.
+	// Single-outlet tenants get this populated automatically; multi-outlet tenants
+	// go through the select-outlet flow before receiving a JWT with these claims.
+	OutletID      string `json:"outlet_id,omitempty"`
+	OutletCode    string `json:"outlet_code,omitempty"`
+	OutletUseCase string `json:"outlet_use_case,omitempty"`
+	IsHQUser      bool   `json:"is_hq_user,omitempty"`
+
 	// Subscription claims (enriched from subscription-service)
 	SubscriptionPlan     string         `json:"sub_plan,omitempty"`     // Plan code (STARTER, GROWTH, PROFESSIONAL)
 	SubscriptionStatus   string         `json:"sub_status,omitempty"`   // Status (ACTIVE, TRIAL, EXPIRED, etc.)
@@ -51,6 +59,12 @@ type AccessTokenInput struct {
 	Permissions []string // Canonical permission codes (e.g., catalog:view, orders:read)
 	IsPlatformOwner bool
 	Audience    []string
+
+	// Outlet / branch context (optional — populated after outlet selection)
+	OutletID      string
+	OutletCode    string
+	OutletUseCase string
+	IsHQUser      bool
 
 	// Subscription data (optional, from subscription-service)
 	SubscriptionPlan     string
@@ -136,6 +150,12 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	}
 	if len(input.Audience) > 0 {
 		claims.RegisteredClaims.Audience = jwt.ClaimStrings(input.Audience)
+	}
+	if input.OutletID != "" {
+		claims.OutletID = input.OutletID
+		claims.OutletCode = input.OutletCode
+		claims.OutletUseCase = input.OutletUseCase
+		claims.IsHQUser = input.IsHQUser
 	}
 
 	// Add subscription claims if available

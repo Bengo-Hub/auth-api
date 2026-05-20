@@ -17,6 +17,7 @@ import (
 	"github.com/bengobox/auth-api/internal/database"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/apikey"
+	entapp "github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
@@ -966,12 +967,16 @@ func main() {
 		}
 	}
 
-	// Seed platform API key for service-to-service integrations
-	// This key is used by other services (auth-api → subscriptions-api, etc.) for S2S calls.
-	// Set INTERNAL_SERVICE_KEY env var to use a specific key; otherwise one is generated and printed.
-	log.Println("Seeding platform API key...")
+	// Seed legacy platform API key (kept for backward compatibility with services not yet migrated)
+	log.Println("Seeding platform API key (legacy)...")
 	if err := seedPlatformAPIKey(ctx, client, tenantEntities[0].ID); err != nil {
 		log.Printf("⚠️  Failed to seed platform API key: %v", err)
+	}
+
+	// Seed platform App with GitHub-style token (new S2S mechanism)
+	log.Println("Seeding platform App token...")
+	if err := seedPlatformApp(ctx, client); err != nil {
+		log.Printf("⚠️  Failed to seed platform App: %v", err)
 	}
 
 	log.Println("✅ Seeding completed successfully!")
@@ -1304,5 +1309,67 @@ func seedIntegrations(ctx context.Context, client *ent.Client, apiBaseURL string
 			log.Printf("  ✓ Seeded integration: %s", app.name)
 		}
 	}
+	return nil
+}
+
+// seedPlatformApp creates the default platform App with a GitHub-style bng_app_* token.
+// Services can migrate to this token progressively, replacing the legacy INTERNAL_SERVICE_KEY.
+// The token is stored only as a SHA-256 hash; the plain token is printed once for operator storage.
+func seedPlatformApp(ctx context.Context, client *ent.Client) error {
+	const appName = "Codevertex Platform Services"
+
+	// Idempotent: skip if already exists
+	exists, err := client.App.Query().
+		Where(
+			entapp.NameEQ(appName),
+			entapp.AppTypeEQ(entapp.AppTypePlatform),
+		).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check existing platform app: %w", err)
+	}
+	if exists {
+		log.Printf("  ✓ Platform App already exists")
+		return nil
+	}
+
+	// Generate bng_app_* token
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Errorf("generate token bytes: %w", err)
+	}
+	token := "bng_app_" + base64.URLEncoding.EncodeToString(b)
+	prefix := token
+	if len(prefix) > 16 {
+		prefix = prefix[:16]
+	}
+	hashBytes := sha256.Sum256([]byte(token))
+	keyHash := hex.EncodeToString(hashBytes[:])
+
+	// Generate public client_id
+	cidBytes := make([]byte, 6)
+	if _, err := rand.Read(cidBytes); err != nil {
+		return fmt.Errorf("generate client_id: %w", err)
+	}
+	clientID := "app_" + hex.EncodeToString(cidBytes)
+
+	_, err = client.App.Create().
+		SetName(appName).
+		SetDescription("Default platform app for S2S calls across all Codevertex services").
+		SetAppType(entapp.AppTypePlatform).
+		SetClientID(clientID).
+		SetKeyHash(keyHash).
+		SetKeyPrefix(prefix).
+		SetScopes([]string{"s2s:*"}).
+		SetStatus(entapp.StatusActive).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("create platform app: %w", err)
+	}
+
+	log.Printf("  ✅ Platform App created! client_id=%s", clientID)
+	log.Printf("  ⚠️  IMPORTANT: Save this token — it will NOT be shown again:")
+	log.Printf("  PLATFORM_APP_TOKEN=%s", token)
+	log.Printf("  Configure this in each service's Settings → Integrations page as the S2S auth token.")
 	return nil
 }

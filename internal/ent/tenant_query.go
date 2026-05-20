@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
@@ -26,6 +27,7 @@ type TenantQuery struct {
 	inters          []Interceptor
 	predicates      []predicate.Tenant
 	withMemberships *TenantMembershipQuery
+	withOutlets     *OutletQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -77,6 +79,28 @@ func (_q *TenantQuery) QueryMemberships() *TenantMembershipQuery {
 			sqlgraph.From(tenant.Table, tenant.FieldID, selector),
 			sqlgraph.To(tenantmembership.Table, tenantmembership.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, tenant.MembershipsTable, tenant.MembershipsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryOutlets chains the current query on the "outlets" edge.
+func (_q *TenantQuery) QueryOutlets() *OutletQuery {
+	query := (&OutletClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(tenant.Table, tenant.FieldID, selector),
+			sqlgraph.To(outlet.Table, outlet.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, tenant.OutletsTable, tenant.OutletsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -277,6 +301,7 @@ func (_q *TenantQuery) Clone() *TenantQuery {
 		inters:          append([]Interceptor{}, _q.inters...),
 		predicates:      append([]predicate.Tenant{}, _q.predicates...),
 		withMemberships: _q.withMemberships.Clone(),
+		withOutlets:     _q.withOutlets.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -291,6 +316,17 @@ func (_q *TenantQuery) WithMemberships(opts ...func(*TenantMembershipQuery)) *Te
 		opt(query)
 	}
 	_q.withMemberships = query
+	return _q
+}
+
+// WithOutlets tells the query-builder to eager-load the nodes that are connected to
+// the "outlets" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TenantQuery) WithOutlets(opts ...func(*OutletQuery)) *TenantQuery {
+	query := (&OutletClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withOutlets = query
 	return _q
 }
 
@@ -372,8 +408,9 @@ func (_q *TenantQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Tenan
 	var (
 		nodes       = []*Tenant{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			_q.withMemberships != nil,
+			_q.withOutlets != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -401,6 +438,13 @@ func (_q *TenantQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Tenan
 			return nil, err
 		}
 	}
+	if query := _q.withOutlets; query != nil {
+		if err := _q.loadOutlets(ctx, query, nodes,
+			func(n *Tenant) { n.Edges.Outlets = []*Outlet{} },
+			func(n *Tenant, e *Outlet) { n.Edges.Outlets = append(n.Edges.Outlets, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
 }
 
@@ -419,6 +463,36 @@ func (_q *TenantQuery) loadMemberships(ctx context.Context, query *TenantMembers
 	}
 	query.Where(predicate.TenantMembership(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(tenant.MembershipsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.TenantID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "tenant_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *TenantQuery) loadOutlets(ctx context.Context, query *OutletQuery, nodes []*Tenant, init func(*Tenant), assign func(*Tenant, *Outlet)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Tenant)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(outlet.FieldTenantID)
+	}
+	query.Where(predicate.Outlet(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(tenant.OutletsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

@@ -14,6 +14,8 @@ type Tx struct {
 	config
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
+	// App is the client for interacting with the App builders.
+	App *AppClient
 	// AuditLog is the client for interacting with the AuditLog builders.
 	AuditLog *AuditLogClient
 	// AuthorizationCode is the client for interacting with the AuthorizationCode builders.
@@ -42,10 +44,14 @@ type Tx struct {
 	OAuthClient *OAuthClientClient
 	// OutboxEvent is the client for interacting with the OutboxEvent builders.
 	OutboxEvent *OutboxEventClient
+	// Outlet is the client for interacting with the Outlet builders.
+	Outlet *OutletClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
 	PasswordResetToken *PasswordResetTokenClient
 	// Permission is the client for interacting with the Permission builders.
 	Permission *PermissionClient
+	// PortalShortLink is the client for interacting with the PortalShortLink builders.
+	PortalShortLink *PortalShortLinkClient
 	// ReferralLink is the client for interacting with the ReferralLink builders.
 	ReferralLink *ReferralLinkClient
 	// RolePermission is the client for interacting with the RolePermission builders.
@@ -194,6 +200,7 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.APIKey = NewAPIKeyClient(tx.config)
+	tx.App = NewAppClient(tx.config)
 	tx.AuditLog = NewAuditLogClient(tx.config)
 	tx.AuthorizationCode = NewAuthorizationCodeClient(tx.config)
 	tx.ConsentSession = NewConsentSessionClient(tx.config)
@@ -208,8 +215,10 @@ func (tx *Tx) init() {
 	tx.MFATOTPSecret = NewMFATOTPSecretClient(tx.config)
 	tx.OAuthClient = NewOAuthClientClient(tx.config)
 	tx.OutboxEvent = NewOutboxEventClient(tx.config)
+	tx.Outlet = NewOutletClient(tx.config)
 	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
 	tx.Permission = NewPermissionClient(tx.config)
+	tx.PortalShortLink = NewPortalShortLinkClient(tx.config)
 	tx.ReferralLink = NewReferralLinkClient(tx.config)
 	tx.RolePermission = NewRolePermissionClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)

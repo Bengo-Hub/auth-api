@@ -18,6 +18,7 @@ type RouterDeps struct {
 	LegalHandler         *handlers.LegalHandler
 	ReferralLinkHandler  *handlers.ReferralLinkHandler
 	EquityPortalHandler  *handlers.EquityPortalHandler
+	OutletHandler        *handlers.OutletHandler
 	EquityPortalAuth     func(http.Handler) http.Handler
 	RequireAuthHandler   func(http.Handler) http.Handler
 	TryAuthHandler       func(http.Handler) http.Handler
@@ -79,6 +80,15 @@ type AuthHandlers struct {
 	AdminListAPIKeys  http.HandlerFunc
 	AdminRevokeAPIKey http.HandlerFunc
 	ValidateAPIKey    http.HandlerFunc // Public endpoint for service-to-service validation
+	// App management (GitHub-style S2S tokens)
+	AdminCreateApp      http.HandlerFunc
+	AdminListApps       http.HandlerFunc
+	AdminGetApp         http.HandlerFunc
+	AdminUpdateApp      http.HandlerFunc
+	AdminRevokeApp      http.HandlerFunc
+	AdminDeleteApp      http.HandlerFunc
+	AdminRotateAppToken http.HandlerFunc
+	// Note: app token validation reuses ValidateAPIKey (detects bng_app_* prefix)
 	// Session management
 	ListSessions      http.HandlerFunc
 	RevokeSession     http.HandlerFunc
@@ -97,6 +107,8 @@ type AuthHandlers struct {
 	// Platform backup management
 	ListBackups    http.HandlerFunc
 	DownloadBackup http.HandlerFunc
+	// Outlet / branch management
+	OutletHandler *handlers.OutletHandler
 }
 
 // NewRouter wires HTTP routes.
@@ -215,6 +227,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Use(deps.RequireAuthHandler)
 				}
 				r.Get("/me", deps.AuthHandlers.Me)
+				// Self-service profile update (name, avatar URL, preferences)
+				if deps.UserHandler != nil {
+					r.Patch("/me", deps.UserHandler.UpdateMyProfile)
+				}
 				r.Post("/logout", deps.AuthHandlers.Logout)
 				r.Route("/mfa", func(r chi.Router) {
 					r.Post("/totp/start", deps.AuthHandlers.MFAStartTOTP)
@@ -234,10 +250,34 @@ func NewRouter(deps RouterDeps) http.Handler {
 		r.Route("/tenants", func(r chi.Router) {
 			r.Post("/", deps.AuthHandlers.PublicCreateTenant)
 			r.Get("/by-slug/{slug}", deps.AuthHandlers.PublicGetTenantBySlug)
+			// Outlet management (tenant admin — auth required)
+			if deps.OutletHandler != nil {
+				r.Group(func(r chi.Router) {
+					if deps.RequireAuthHandler != nil {
+						r.Use(deps.RequireAuthHandler)
+					}
+					r.Route("/{slug}/outlets", func(r chi.Router) {
+						r.Get("/", deps.OutletHandler.ListOutlets)
+						r.Post("/", deps.OutletHandler.CreateOutlet)
+						r.Put("/{outlet_id}", deps.OutletHandler.UpdateOutlet)
+						r.Delete("/{outlet_id}", deps.OutletHandler.ArchiveOutlet)
+					})
+				})
+			}
 		})
+		// Outlet selection after SSO (exchange token → outlet-scoped JWT)
+		if deps.OutletHandler != nil {
+			r.Post("/auth/select-outlet", deps.OutletHandler.SelectOutlet)
+			r.Group(func(r chi.Router) {
+				if deps.RequireAuthHandler != nil {
+					r.Use(deps.RequireAuthHandler)
+				}
+				r.Get("/auth/outlets/current", deps.OutletHandler.GetCurrentOutlet)
+			})
+		}
 		r.Route("/admin", func(r chi.Router) {
-			// API Key validation endpoint (public - validates via X-API-Key header)
-			// This MUST be outside the auth middleware since it validates API keys, not JWTs
+			// Public token validation — no auth required (validates token itself)
+			// Handles both bng_* (api_keys) and bng_app_* (apps) via prefix detection
 			r.Get("/api-keys/validate", deps.AuthHandlers.ValidateAPIKey)
 
 			// Protected admin routes
@@ -277,6 +317,18 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Post("/api-keys", deps.AuthHandlers.AdminCreateAPIKey)
 				r.Get("/api-keys", deps.AuthHandlers.AdminListAPIKeys)
 				r.Delete("/api-keys/{id}", deps.AuthHandlers.AdminRevokeAPIKey)
+				// App management (GitHub-style S2S tokens)
+				if deps.AuthHandlers.AdminCreateApp != nil {
+					r.Post("/apps", deps.AuthHandlers.AdminCreateApp)
+					r.Get("/apps", deps.AuthHandlers.AdminListApps)
+					r.Route("/apps/{id}", func(r chi.Router) {
+						r.Get("/", deps.AuthHandlers.AdminGetApp)
+						r.Put("/", deps.AuthHandlers.AdminUpdateApp)
+						r.Delete("/", deps.AuthHandlers.AdminDeleteApp)
+						r.Post("/rotate", deps.AuthHandlers.AdminRotateAppToken)
+						r.Post("/revoke", deps.AuthHandlers.AdminRevokeApp)
+					})
+				}
 				// Platform backup management (platform admins only)
 				r.Get("/backups", deps.AuthHandlers.ListBackups)
 				r.Get("/backups/{filename}", deps.AuthHandlers.DownloadBackup)
@@ -353,6 +405,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 			}
 		}
 	})
+
+	// Short-link redirect — public, outside /api/v1 prefix.
+	// GET /p/{code}  →  302  →  /equity-holder/?token=<JWT>  (on auth-ui)
+	if deps.EquityPortalHandler != nil {
+		r.Get("/p/{code}", deps.EquityPortalHandler.RedeemShortLink)
+	}
 
 	return r
 }

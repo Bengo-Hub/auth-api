@@ -71,9 +71,11 @@ type Tenant struct {
 type TenantEdges struct {
 	// Memberships holds the value of the memberships edge.
 	Memberships []*TenantMembership `json:"memberships,omitempty"`
+	// Outlets holds the value of the outlets edge.
+	Outlets []*Outlet `json:"outlets,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // MembershipsOrErr returns the Memberships value or an error if the edge
@@ -83,6 +85,15 @@ func (e TenantEdges) MembershipsOrErr() ([]*TenantMembership, error) {
 		return e.Memberships, nil
 	}
 	return nil, &NotLoadedError{edge: "memberships"}
+}
+
+// OutletsOrErr returns the Outlets value or an error if the edge
+// was not loaded in eager-loading.
+func (e TenantEdges) OutletsOrErr() ([]*Outlet, error) {
+	if e.loadedTypes[1] {
+		return e.Outlets, nil
+	}
+	return nil, &NotLoadedError{edge: "outlets"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -281,6 +292,11 @@ func (_m *Tenant) Value(name string) (ent.Value, error) {
 // QueryMemberships queries the "memberships" edge of the Tenant entity.
 func (_m *Tenant) QueryMemberships() *TenantMembershipQuery {
 	return NewTenantClient(_m.config).QueryMemberships(_m)
+}
+
+// QueryOutlets queries the "outlets" edge of the Tenant entity.
+func (_m *Tenant) QueryOutlets() *OutletQuery {
+	return NewTenantClient(_m.config).QueryOutlets(_m)
 }
 
 // Update returns a builder for updating this Tenant.

@@ -59,6 +59,8 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// EdgeMemberships holds the string denoting the memberships edge name in mutations.
 	EdgeMemberships = "memberships"
+	// EdgeOutlets holds the string denoting the outlets edge name in mutations.
+	EdgeOutlets = "outlets"
 	// Table holds the table name of the tenant in the database.
 	Table = "tenants"
 	// MembershipsTable is the table that holds the memberships relation/edge.
@@ -68,6 +70,13 @@ const (
 	MembershipsInverseTable = "tenant_memberships"
 	// MembershipsColumn is the table column denoting the memberships relation/edge.
 	MembershipsColumn = "tenant_id"
+	// OutletsTable is the table that holds the outlets relation/edge.
+	OutletsTable = "outlets"
+	// OutletsInverseTable is the table name for the Outlet entity.
+	// It exists in this package in order to avoid circular dependency with the "outlet" package.
+	OutletsInverseTable = "outlets"
+	// OutletsColumn is the table column denoting the outlets relation/edge.
+	OutletsColumn = "tenant_id"
 )
 
 // Columns holds all SQL columns for tenant fields.
@@ -233,10 +242,31 @@ func ByMemberships(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newMembershipsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByOutletsCount orders the results by outlets count.
+func ByOutletsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newOutletsStep(), opts...)
+	}
+}
+
+// ByOutlets orders the results by outlets terms.
+func ByOutlets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOutletsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newMembershipsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(MembershipsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, MembershipsTable, MembershipsColumn),
+	)
+}
+func newOutletsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OutletsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, OutletsTable, OutletsColumn),
 	)
 }
