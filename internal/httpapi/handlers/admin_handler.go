@@ -235,17 +235,33 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	}
 	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, useCase, createdBy)
 
-	// Initialize Main/HQ branch
-	hqName := "Main/HQ"
+	// Initialize default HQ outlet — persisted to DB + event published.
+	// This is the source-of-truth record that downstream services (pos-api, inventory-api)
+	// sync from via auth.outlet.created NATS events.
+	hqName := "Main / HQ"
 	if req.HQBranchName != "" {
 		hqName = req.HQBranchName
 	}
-	h.publishEvent(r.Context(), t.ID, "auth.tenant.branch", t.ID, "created", map[string]any{
-		"tenant_id":  t.ID.String(),
-		"name":       hqName,
-		"is_default": true,
-		"use_case":   useCase,
-	})
+	hqOutlet, err := h.ent.Outlet.Create().
+		SetTenantID(t.ID).
+		SetCode("MAIN").
+		SetName(hqName).
+		SetUseCase(useCase).
+		SetIsHq(true).
+		SetStatus("active").
+		Save(r.Context())
+	if err != nil {
+		h.logger.Warn("failed to create default HQ outlet", zap.String("tenant_id", t.ID.String()), zap.Error(err))
+	} else {
+		h.publishEvent(r.Context(), t.ID, "auth.outlet", hqOutlet.ID, "created", map[string]any{
+			"outlet_id":  hqOutlet.ID.String(),
+			"tenant_id":  t.ID.String(),
+			"code":       hqOutlet.Code,
+			"name":       hqOutlet.Name,
+			"use_case":   hqOutlet.UseCase,
+			"is_hq":      hqOutlet.IsHq,
+		})
+	}
 
 	// Auto-register redirect URIs for the new tenant slug on all OAuth clients.
 	if err := auth.AppendTenantRedirectURIs(r.Context(), h.ent, t.Slug); err != nil {
@@ -350,17 +366,31 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 	}
 	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, useCase, "self-service")
 
-	// Initialize Main/HQ branch
-	hqName := "Main/HQ"
+	// Initialize default HQ outlet in DB + publish auth.outlet.created.
+	hqName := "Main / HQ"
 	if req.HQBranchName != "" {
 		hqName = req.HQBranchName
 	}
-	h.publishEvent(r.Context(), t.ID, "auth.tenant.branch", t.ID, "created", map[string]any{
-		"tenant_id":  t.ID.String(),
-		"name":       hqName,
-		"is_default": true,
-		"use_case":   useCase,
-	})
+	hqOutletPub, pubErr := h.ent.Outlet.Create().
+		SetTenantID(t.ID).
+		SetCode("MAIN").
+		SetName(hqName).
+		SetUseCase(useCase).
+		SetIsHq(true).
+		SetStatus("active").
+		Save(r.Context())
+	if pubErr != nil {
+		h.logger.Warn("failed to create default HQ outlet (public)", zap.String("tenant_id", t.ID.String()), zap.Error(pubErr))
+	} else {
+		h.publishEvent(r.Context(), t.ID, "auth.outlet", hqOutletPub.ID, "created", map[string]any{
+			"outlet_id":  hqOutletPub.ID.String(),
+			"tenant_id":  t.ID.String(),
+			"code":       hqOutletPub.Code,
+			"name":       hqOutletPub.Name,
+			"use_case":   hqOutletPub.UseCase,
+			"is_hq":      hqOutletPub.IsHq,
+		})
+	}
 
 	writeJSON(w, http.StatusCreated, t)
 }

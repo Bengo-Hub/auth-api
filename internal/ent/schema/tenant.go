@@ -128,6 +128,7 @@ func (Tenant) Fields() []ent.Field {
 func (Tenant) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("memberships", TenantMembership.Type),
+		edge.To("outlets", Outlet.Type),
 	}
 }
 

@@ -171,14 +171,17 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	mfaHandler := handlers.NewMFAHandler(mfaService, logger)
 
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, logger)
+	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
+	appHandler := handlers.NewAppHandler(entClient, logger)
 	userHandler := handlers.NewUserHandler(entClient, logger)
 	legalHandler := handlers.NewLegalHandler(entClient, logger)
 	referralLinkHandler := handlers.NewReferralLinkHandler(entClient, logger)
-	equityPortalHandler := handlers.NewEquityPortalHandler(entClient, tokenSvc, cfg.Token.Issuer, logger)
+	equityPortalHandler := handlers.NewEquityPortalHandler(entClient, tokenSvc, cfg.Token.Issuer, cfg.App.AuthUIURL, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
+		OutletHandler: outletHandler,
 		HealthHandler:       handlers.Health,
 		MetricsHandler:      promhttp.Handler(),
 		UserHandler:         userHandler,
@@ -248,6 +251,14 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminListAPIKeys:  apiKeyHandler.ListAPIKeys,
 			AdminRevokeAPIKey: apiKeyHandler.RevokeAPIKey,
 			ValidateAPIKey:    apiKeyHandler.ValidateAPIKey,
+			// App management (GitHub-style S2S tokens; validation merged into ValidateAPIKey)
+			AdminCreateApp:      appHandler.CreateApp,
+			AdminListApps:       appHandler.ListApps,
+			AdminGetApp:         appHandler.GetApp,
+			AdminUpdateApp:      appHandler.UpdateApp,
+			AdminRevokeApp:      appHandler.RevokeApp,
+			AdminDeleteApp:      appHandler.DeleteApp,
+			AdminRotateAppToken: appHandler.RotateToken,
 			// Platform backup management
 			ListBackups:    handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled).ListBackups,
 			DownloadBackup: handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled).DownloadBackup,

@@ -305,3 +305,64 @@ func (h *UserHandler) AdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("user soft-deleted", zap.String("user_id", userID.String()))
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// UpdateMyProfile lets any authenticated user update their own name, avatar URL,
+// and notification preferences stored in the profile JSON field.
+// PATCH /api/v1/auth/me (wired in router alongside Me GET)
+func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id", nil)
+		return
+	}
+
+	var req struct {
+		Name              string         `json:"name,omitempty"`
+		ProfilePictureURL string         `json:"profile_picture_url,omitempty"`
+		Preferences       map[string]any `json:"preferences,omitempty"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid body", nil)
+		return
+	}
+
+	// Load existing profile to merge
+	u, err := h.ent.User.Get(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
+		return
+	}
+	profile := make(map[string]any)
+	for k, v := range u.Profile {
+		profile[k] = v
+	}
+	if req.Name != "" {
+		profile["name"] = req.Name
+	}
+	if req.ProfilePictureURL != "" {
+		profile["profile_picture_url"] = req.ProfilePictureURL
+	}
+	if len(req.Preferences) > 0 {
+		existing, _ := profile["preferences"].(map[string]any)
+		if existing == nil {
+			existing = make(map[string]any)
+		}
+		for k, v := range req.Preferences {
+			existing[k] = v
+		}
+		profile["preferences"] = existing
+	}
+
+	updated, err := h.ent.User.UpdateOneID(userID).SetProfile(profile).Save(r.Context())
+	if err != nil {
+		h.logger.Error("update my profile", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to update profile", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, mapUser(updated))
+}

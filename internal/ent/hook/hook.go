@@ -21,6 +21,18 @@ func (f APIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyMutation", m)
 }
 
+// The AppFunc type is an adapter to allow the use of ordinary
+// function as App mutator.
+type AppFunc func(context.Context, *ent.AppMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AppFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AppMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AppMutation", m)
+}
+
 // The AuditLogFunc type is an adapter to allow the use of ordinary
 // function as AuditLog mutator.
 type AuditLogFunc func(context.Context, *ent.AuditLogMutation) (ent.Value, error)
@@ -189,6 +201,18 @@ func (f OutboxEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value,
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OutboxEventMutation", m)
 }
 
+// The OutletFunc type is an adapter to allow the use of ordinary
+// function as Outlet mutator.
+type OutletFunc func(context.Context, *ent.OutletMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f OutletFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.OutletMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OutletMutation", m)
+}
+
 // The PasswordResetTokenFunc type is an adapter to allow the use of ordinary
 // function as PasswordResetToken mutator.
 type PasswordResetTokenFunc func(context.Context, *ent.PasswordResetTokenMutation) (ent.Value, error)
@@ -211,6 +235,18 @@ func (f PermissionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PermissionMutation", m)
+}
+
+// The PortalShortLinkFunc type is an adapter to allow the use of ordinary
+// function as PortalShortLink mutator.
+type PortalShortLinkFunc func(context.Context, *ent.PortalShortLinkMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PortalShortLinkFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PortalShortLinkMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PortalShortLinkMutation", m)
 }
 
 // The ReferralLinkFunc type is an adapter to allow the use of ordinary

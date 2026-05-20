@@ -17,6 +17,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/bengobox/auth-api/internal/ent/apikey"
+	"github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/auditlog"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/consentsession"
@@ -31,8 +32,10 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
+	"github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -50,6 +53,8 @@ type Client struct {
 	Schema *migrate.Schema
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
+	// App is the client for interacting with the App builders.
+	App *AppClient
 	// AuditLog is the client for interacting with the AuditLog builders.
 	AuditLog *AuditLogClient
 	// AuthorizationCode is the client for interacting with the AuthorizationCode builders.
@@ -78,10 +83,14 @@ type Client struct {
 	OAuthClient *OAuthClientClient
 	// OutboxEvent is the client for interacting with the OutboxEvent builders.
 	OutboxEvent *OutboxEventClient
+	// Outlet is the client for interacting with the Outlet builders.
+	Outlet *OutletClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
 	PasswordResetToken *PasswordResetTokenClient
 	// Permission is the client for interacting with the Permission builders.
 	Permission *PermissionClient
+	// PortalShortLink is the client for interacting with the PortalShortLink builders.
+	PortalShortLink *PortalShortLinkClient
 	// ReferralLink is the client for interacting with the ReferralLink builders.
 	ReferralLink *ReferralLinkClient
 	// RolePermission is the client for interacting with the RolePermission builders.
@@ -110,6 +119,7 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.APIKey = NewAPIKeyClient(c.config)
+	c.App = NewAppClient(c.config)
 	c.AuditLog = NewAuditLogClient(c.config)
 	c.AuthorizationCode = NewAuthorizationCodeClient(c.config)
 	c.ConsentSession = NewConsentSessionClient(c.config)
@@ -124,8 +134,10 @@ func (c *Client) init() {
 	c.MFATOTPSecret = NewMFATOTPSecretClient(c.config)
 	c.OAuthClient = NewOAuthClientClient(c.config)
 	c.OutboxEvent = NewOutboxEventClient(c.config)
+	c.Outlet = NewOutletClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
 	c.Permission = NewPermissionClient(c.config)
+	c.PortalShortLink = NewPortalShortLinkClient(c.config)
 	c.ReferralLink = NewReferralLinkClient(c.config)
 	c.RolePermission = NewRolePermissionClient(c.config)
 	c.Session = NewSessionClient(c.config)
@@ -227,6 +239,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:                     ctx,
 		config:                  cfg,
 		APIKey:                  NewAPIKeyClient(cfg),
+		App:                     NewAppClient(cfg),
 		AuditLog:                NewAuditLogClient(cfg),
 		AuthorizationCode:       NewAuthorizationCodeClient(cfg),
 		ConsentSession:          NewConsentSessionClient(cfg),
@@ -241,8 +254,10 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		MFATOTPSecret:           NewMFATOTPSecretClient(cfg),
 		OAuthClient:             NewOAuthClientClient(cfg),
 		OutboxEvent:             NewOutboxEventClient(cfg),
+		Outlet:                  NewOutletClient(cfg),
 		PasswordResetToken:      NewPasswordResetTokenClient(cfg),
 		Permission:              NewPermissionClient(cfg),
+		PortalShortLink:         NewPortalShortLinkClient(cfg),
 		ReferralLink:            NewReferralLinkClient(cfg),
 		RolePermission:          NewRolePermissionClient(cfg),
 		Session:                 NewSessionClient(cfg),
@@ -271,6 +286,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:                     ctx,
 		config:                  cfg,
 		APIKey:                  NewAPIKeyClient(cfg),
+		App:                     NewAppClient(cfg),
 		AuditLog:                NewAuditLogClient(cfg),
 		AuthorizationCode:       NewAuthorizationCodeClient(cfg),
 		ConsentSession:          NewConsentSessionClient(cfg),
@@ -285,8 +301,10 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		MFATOTPSecret:           NewMFATOTPSecretClient(cfg),
 		OAuthClient:             NewOAuthClientClient(cfg),
 		OutboxEvent:             NewOutboxEventClient(cfg),
+		Outlet:                  NewOutletClient(cfg),
 		PasswordResetToken:      NewPasswordResetTokenClient(cfg),
 		Permission:              NewPermissionClient(cfg),
+		PortalShortLink:         NewPortalShortLinkClient(cfg),
 		ReferralLink:            NewReferralLinkClient(cfg),
 		RolePermission:          NewRolePermissionClient(cfg),
 		Session:                 NewSessionClient(cfg),
@@ -324,12 +342,13 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
+		c.APIKey, c.App, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
 		c.LegalAcceptance, c.LegalDocument, c.LoginAttempt, c.MFABackupCode,
-		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
-		c.PasswordResetToken, c.Permission, c.ReferralLink, c.RolePermission,
-		c.Session, c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
+		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent, c.Outlet,
+		c.PasswordResetToken, c.Permission, c.PortalShortLink, c.ReferralLink,
+		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserIdentity,
 	} {
 		n.Use(hooks...)
 	}
@@ -339,12 +358,13 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
+		c.APIKey, c.App, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
 		c.LegalAcceptance, c.LegalDocument, c.LoginAttempt, c.MFABackupCode,
-		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
-		c.PasswordResetToken, c.Permission, c.ReferralLink, c.RolePermission,
-		c.Session, c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
+		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent, c.Outlet,
+		c.PasswordResetToken, c.Permission, c.PortalShortLink, c.ReferralLink,
+		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserIdentity,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -355,6 +375,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *APIKeyMutation:
 		return c.APIKey.mutate(ctx, m)
+	case *AppMutation:
+		return c.App.mutate(ctx, m)
 	case *AuditLogMutation:
 		return c.AuditLog.mutate(ctx, m)
 	case *AuthorizationCodeMutation:
@@ -383,10 +405,14 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.OAuthClient.mutate(ctx, m)
 	case *OutboxEventMutation:
 		return c.OutboxEvent.mutate(ctx, m)
+	case *OutletMutation:
+		return c.Outlet.mutate(ctx, m)
 	case *PasswordResetTokenMutation:
 		return c.PasswordResetToken.mutate(ctx, m)
 	case *PermissionMutation:
 		return c.Permission.mutate(ctx, m)
+	case *PortalShortLinkMutation:
+		return c.PortalShortLink.mutate(ctx, m)
 	case *ReferralLinkMutation:
 		return c.ReferralLink.mutate(ctx, m)
 	case *RolePermissionMutation:
@@ -538,6 +564,139 @@ func (c *APIKeyClient) mutate(ctx context.Context, m *APIKeyMutation) (Value, er
 		return (&APIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown APIKey mutation op: %q", m.Op())
+	}
+}
+
+// AppClient is a client for the App schema.
+type AppClient struct {
+	config
+}
+
+// NewAppClient returns a client for the App from the given config.
+func NewAppClient(c config) *AppClient {
+	return &AppClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `app.Hooks(f(g(h())))`.
+func (c *AppClient) Use(hooks ...Hook) {
+	c.hooks.App = append(c.hooks.App, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `app.Intercept(f(g(h())))`.
+func (c *AppClient) Intercept(interceptors ...Interceptor) {
+	c.inters.App = append(c.inters.App, interceptors...)
+}
+
+// Create returns a builder for creating a App entity.
+func (c *AppClient) Create() *AppCreate {
+	mutation := newAppMutation(c.config, OpCreate)
+	return &AppCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of App entities.
+func (c *AppClient) CreateBulk(builders ...*AppCreate) *AppCreateBulk {
+	return &AppCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AppClient) MapCreateBulk(slice any, setFunc func(*AppCreate, int)) *AppCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AppCreateBulk{err: fmt.Errorf("calling to AppClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AppCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AppCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for App.
+func (c *AppClient) Update() *AppUpdate {
+	mutation := newAppMutation(c.config, OpUpdate)
+	return &AppUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AppClient) UpdateOne(_m *App) *AppUpdateOne {
+	mutation := newAppMutation(c.config, OpUpdateOne, withApp(_m))
+	return &AppUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AppClient) UpdateOneID(id uuid.UUID) *AppUpdateOne {
+	mutation := newAppMutation(c.config, OpUpdateOne, withAppID(id))
+	return &AppUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for App.
+func (c *AppClient) Delete() *AppDelete {
+	mutation := newAppMutation(c.config, OpDelete)
+	return &AppDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AppClient) DeleteOne(_m *App) *AppDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AppClient) DeleteOneID(id uuid.UUID) *AppDeleteOne {
+	builder := c.Delete().Where(app.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AppDeleteOne{builder}
+}
+
+// Query returns a query builder for App.
+func (c *AppClient) Query() *AppQuery {
+	return &AppQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeApp},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a App entity by its id.
+func (c *AppClient) Get(ctx context.Context, id uuid.UUID) (*App, error) {
+	return c.Query().Where(app.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AppClient) GetX(ctx context.Context, id uuid.UUID) *App {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *AppClient) Hooks() []Hook {
+	return c.hooks.App
+}
+
+// Interceptors returns the client interceptors.
+func (c *AppClient) Interceptors() []Interceptor {
+	return c.inters.App
+}
+
+func (c *AppClient) mutate(ctx context.Context, m *AppMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AppCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AppUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AppUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AppDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown App mutation op: %q", m.Op())
 	}
 }
 
@@ -2451,6 +2610,155 @@ func (c *OutboxEventClient) mutate(ctx context.Context, m *OutboxEventMutation) 
 	}
 }
 
+// OutletClient is a client for the Outlet schema.
+type OutletClient struct {
+	config
+}
+
+// NewOutletClient returns a client for the Outlet from the given config.
+func NewOutletClient(c config) *OutletClient {
+	return &OutletClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `outlet.Hooks(f(g(h())))`.
+func (c *OutletClient) Use(hooks ...Hook) {
+	c.hooks.Outlet = append(c.hooks.Outlet, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `outlet.Intercept(f(g(h())))`.
+func (c *OutletClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Outlet = append(c.inters.Outlet, interceptors...)
+}
+
+// Create returns a builder for creating a Outlet entity.
+func (c *OutletClient) Create() *OutletCreate {
+	mutation := newOutletMutation(c.config, OpCreate)
+	return &OutletCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Outlet entities.
+func (c *OutletClient) CreateBulk(builders ...*OutletCreate) *OutletCreateBulk {
+	return &OutletCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *OutletClient) MapCreateBulk(slice any, setFunc func(*OutletCreate, int)) *OutletCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &OutletCreateBulk{err: fmt.Errorf("calling to OutletClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*OutletCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &OutletCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Outlet.
+func (c *OutletClient) Update() *OutletUpdate {
+	mutation := newOutletMutation(c.config, OpUpdate)
+	return &OutletUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *OutletClient) UpdateOne(_m *Outlet) *OutletUpdateOne {
+	mutation := newOutletMutation(c.config, OpUpdateOne, withOutlet(_m))
+	return &OutletUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *OutletClient) UpdateOneID(id uuid.UUID) *OutletUpdateOne {
+	mutation := newOutletMutation(c.config, OpUpdateOne, withOutletID(id))
+	return &OutletUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Outlet.
+func (c *OutletClient) Delete() *OutletDelete {
+	mutation := newOutletMutation(c.config, OpDelete)
+	return &OutletDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *OutletClient) DeleteOne(_m *Outlet) *OutletDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *OutletClient) DeleteOneID(id uuid.UUID) *OutletDeleteOne {
+	builder := c.Delete().Where(outlet.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &OutletDeleteOne{builder}
+}
+
+// Query returns a query builder for Outlet.
+func (c *OutletClient) Query() *OutletQuery {
+	return &OutletQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeOutlet},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Outlet entity by its id.
+func (c *OutletClient) Get(ctx context.Context, id uuid.UUID) (*Outlet, error) {
+	return c.Query().Where(outlet.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *OutletClient) GetX(ctx context.Context, id uuid.UUID) *Outlet {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryTenant queries the tenant edge of a Outlet.
+func (c *OutletClient) QueryTenant(_m *Outlet) *TenantQuery {
+	query := (&TenantClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(outlet.Table, outlet.FieldID, id),
+			sqlgraph.To(tenant.Table, tenant.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, outlet.TenantTable, outlet.TenantColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *OutletClient) Hooks() []Hook {
+	return c.hooks.Outlet
+}
+
+// Interceptors returns the client interceptors.
+func (c *OutletClient) Interceptors() []Interceptor {
+	return c.inters.Outlet
+}
+
+func (c *OutletClient) mutate(ctx context.Context, m *OutletMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&OutletCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&OutletUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&OutletUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&OutletDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Outlet mutation op: %q", m.Op())
+	}
+}
+
 // PasswordResetTokenClient is a client for the PasswordResetToken schema.
 type PasswordResetTokenClient struct {
 	config
@@ -2730,6 +3038,139 @@ func (c *PermissionClient) mutate(ctx context.Context, m *PermissionMutation) (V
 		return (&PermissionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Permission mutation op: %q", m.Op())
+	}
+}
+
+// PortalShortLinkClient is a client for the PortalShortLink schema.
+type PortalShortLinkClient struct {
+	config
+}
+
+// NewPortalShortLinkClient returns a client for the PortalShortLink from the given config.
+func NewPortalShortLinkClient(c config) *PortalShortLinkClient {
+	return &PortalShortLinkClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `portalshortlink.Hooks(f(g(h())))`.
+func (c *PortalShortLinkClient) Use(hooks ...Hook) {
+	c.hooks.PortalShortLink = append(c.hooks.PortalShortLink, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `portalshortlink.Intercept(f(g(h())))`.
+func (c *PortalShortLinkClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PortalShortLink = append(c.inters.PortalShortLink, interceptors...)
+}
+
+// Create returns a builder for creating a PortalShortLink entity.
+func (c *PortalShortLinkClient) Create() *PortalShortLinkCreate {
+	mutation := newPortalShortLinkMutation(c.config, OpCreate)
+	return &PortalShortLinkCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PortalShortLink entities.
+func (c *PortalShortLinkClient) CreateBulk(builders ...*PortalShortLinkCreate) *PortalShortLinkCreateBulk {
+	return &PortalShortLinkCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PortalShortLinkClient) MapCreateBulk(slice any, setFunc func(*PortalShortLinkCreate, int)) *PortalShortLinkCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PortalShortLinkCreateBulk{err: fmt.Errorf("calling to PortalShortLinkClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PortalShortLinkCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PortalShortLinkCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PortalShortLink.
+func (c *PortalShortLinkClient) Update() *PortalShortLinkUpdate {
+	mutation := newPortalShortLinkMutation(c.config, OpUpdate)
+	return &PortalShortLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PortalShortLinkClient) UpdateOne(_m *PortalShortLink) *PortalShortLinkUpdateOne {
+	mutation := newPortalShortLinkMutation(c.config, OpUpdateOne, withPortalShortLink(_m))
+	return &PortalShortLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PortalShortLinkClient) UpdateOneID(id uuid.UUID) *PortalShortLinkUpdateOne {
+	mutation := newPortalShortLinkMutation(c.config, OpUpdateOne, withPortalShortLinkID(id))
+	return &PortalShortLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PortalShortLink.
+func (c *PortalShortLinkClient) Delete() *PortalShortLinkDelete {
+	mutation := newPortalShortLinkMutation(c.config, OpDelete)
+	return &PortalShortLinkDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PortalShortLinkClient) DeleteOne(_m *PortalShortLink) *PortalShortLinkDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PortalShortLinkClient) DeleteOneID(id uuid.UUID) *PortalShortLinkDeleteOne {
+	builder := c.Delete().Where(portalshortlink.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PortalShortLinkDeleteOne{builder}
+}
+
+// Query returns a query builder for PortalShortLink.
+func (c *PortalShortLinkClient) Query() *PortalShortLinkQuery {
+	return &PortalShortLinkQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePortalShortLink},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PortalShortLink entity by its id.
+func (c *PortalShortLinkClient) Get(ctx context.Context, id uuid.UUID) (*PortalShortLink, error) {
+	return c.Query().Where(portalshortlink.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PortalShortLinkClient) GetX(ctx context.Context, id uuid.UUID) *PortalShortLink {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *PortalShortLinkClient) Hooks() []Hook {
+	return c.hooks.PortalShortLink
+}
+
+// Interceptors returns the client interceptors.
+func (c *PortalShortLinkClient) Interceptors() []Interceptor {
+	return c.inters.PortalShortLink
+}
+
+func (c *PortalShortLinkClient) mutate(ctx context.Context, m *PortalShortLinkMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PortalShortLinkCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PortalShortLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PortalShortLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PortalShortLinkDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PortalShortLink mutation op: %q", m.Op())
 	}
 }
 
@@ -3281,6 +3722,22 @@ func (c *TenantClient) QueryMemberships(_m *Tenant) *TenantMembershipQuery {
 			sqlgraph.From(tenant.Table, tenant.FieldID, id),
 			sqlgraph.To(tenantmembership.Table, tenantmembership.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, tenant.MembershipsTable, tenant.MembershipsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryOutlets queries the outlets edge of a Tenant.
+func (c *TenantClient) QueryOutlets(_m *Tenant) *OutletQuery {
+	query := (&OutletClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(tenant.Table, tenant.FieldID, id),
+			sqlgraph.To(outlet.Table, outlet.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, tenant.OutletsTable, tenant.OutletsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4008,18 +4465,19 @@ func (c *UserIdentityClient) mutate(ctx context.Context, m *UserIdentityMutation
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, AuditLog, AuthorizationCode, ConsentSession, EquityHolderApplication,
-		FeatureEntitlement, IntegrationConfig, LegalAcceptance, LegalDocument,
-		LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient,
-		OutboxEvent, PasswordResetToken, Permission, ReferralLink, RolePermission,
-		Session, Tenant, TenantMembership, UsageMetric, User, UserIdentity []ent.Hook
+		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
+		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
+		LegalAcceptance, LegalDocument, LoginAttempt, MFABackupCode, MFASettings,
+		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordResetToken,
+		Permission, PortalShortLink, ReferralLink, RolePermission, Session, Tenant,
+		TenantMembership, UsageMetric, User, UserIdentity []ent.Hook
 	}
 	inters struct {
-		APIKey, AuditLog, AuthorizationCode, ConsentSession, EquityHolderApplication,
-		FeatureEntitlement, IntegrationConfig, LegalAcceptance, LegalDocument,
-		LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient,
-		OutboxEvent, PasswordResetToken, Permission, ReferralLink, RolePermission,
-		Session, Tenant, TenantMembership, UsageMetric, User,
-		UserIdentity []ent.Interceptor
+		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
+		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
+		LegalAcceptance, LegalDocument, LoginAttempt, MFABackupCode, MFASettings,
+		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordResetToken,
+		Permission, PortalShortLink, ReferralLink, RolePermission, Session, Tenant,
+		TenantMembership, UsageMetric, User, UserIdentity []ent.Interceptor
 	}
 )

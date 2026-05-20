@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bengobox/auth-api/internal/ent/apikey"
+	"github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/auditlog"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/consentsession"
@@ -20,8 +21,10 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
+	"github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/schema"
@@ -66,6 +69,38 @@ func init() {
 	apikeyDescID := apikeyFields[0].Descriptor()
 	// apikey.DefaultID holds the default value on creation for the id field.
 	apikey.DefaultID = apikeyDescID.Default.(func() uuid.UUID)
+	appFields := schema.App{}.Fields()
+	_ = appFields
+	// appDescName is the schema descriptor for name field.
+	appDescName := appFields[1].Descriptor()
+	// app.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	app.NameValidator = appDescName.Validators[0].(func(string) error)
+	// appDescClientID is the schema descriptor for client_id field.
+	appDescClientID := appFields[6].Descriptor()
+	// app.ClientIDValidator is a validator for the "client_id" field. It is called by the builders before save.
+	app.ClientIDValidator = appDescClientID.Validators[0].(func(string) error)
+	// appDescKeyHash is the schema descriptor for key_hash field.
+	appDescKeyHash := appFields[7].Descriptor()
+	// app.KeyHashValidator is a validator for the "key_hash" field. It is called by the builders before save.
+	app.KeyHashValidator = appDescKeyHash.Validators[0].(func(string) error)
+	// appDescKeyPrefix is the schema descriptor for key_prefix field.
+	appDescKeyPrefix := appFields[8].Descriptor()
+	// app.KeyPrefixValidator is a validator for the "key_prefix" field. It is called by the builders before save.
+	app.KeyPrefixValidator = appDescKeyPrefix.Validators[0].(func(string) error)
+	// appDescCreatedAt is the schema descriptor for created_at field.
+	appDescCreatedAt := appFields[15].Descriptor()
+	// app.DefaultCreatedAt holds the default value on creation for the created_at field.
+	app.DefaultCreatedAt = appDescCreatedAt.Default.(func() time.Time)
+	// appDescUpdatedAt is the schema descriptor for updated_at field.
+	appDescUpdatedAt := appFields[16].Descriptor()
+	// app.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	app.DefaultUpdatedAt = appDescUpdatedAt.Default.(func() time.Time)
+	// app.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	app.UpdateDefaultUpdatedAt = appDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// appDescID is the schema descriptor for id field.
+	appDescID := appFields[0].Descriptor()
+	// app.DefaultID holds the default value on creation for the id field.
+	app.DefaultID = appDescID.Default.(func() uuid.UUID)
 	auditlogFields := schema.AuditLog{}.Fields()
 	_ = auditlogFields
 	// auditlogDescAction is the schema descriptor for action field.
@@ -422,6 +457,46 @@ func init() {
 	outboxeventDescID := outboxeventFields[0].Descriptor()
 	// outboxevent.DefaultID holds the default value on creation for the id field.
 	outboxevent.DefaultID = outboxeventDescID.Default.(func() uuid.UUID)
+	outletFields := schema.Outlet{}.Fields()
+	_ = outletFields
+	// outletDescCode is the schema descriptor for code field.
+	outletDescCode := outletFields[2].Descriptor()
+	// outlet.CodeValidator is a validator for the "code" field. It is called by the builders before save.
+	outlet.CodeValidator = outletDescCode.Validators[0].(func(string) error)
+	// outletDescName is the schema descriptor for name field.
+	outletDescName := outletFields[3].Descriptor()
+	// outlet.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	outlet.NameValidator = outletDescName.Validators[0].(func(string) error)
+	// outletDescUseCase is the schema descriptor for use_case field.
+	outletDescUseCase := outletFields[4].Descriptor()
+	// outlet.DefaultUseCase holds the default value on creation for the use_case field.
+	outlet.DefaultUseCase = outletDescUseCase.Default.(string)
+	// outletDescTimezone is the schema descriptor for timezone field.
+	outletDescTimezone := outletFields[6].Descriptor()
+	// outlet.DefaultTimezone holds the default value on creation for the timezone field.
+	outlet.DefaultTimezone = outletDescTimezone.Default.(string)
+	// outletDescIsHq is the schema descriptor for is_hq field.
+	outletDescIsHq := outletFields[7].Descriptor()
+	// outlet.DefaultIsHq holds the default value on creation for the is_hq field.
+	outlet.DefaultIsHq = outletDescIsHq.Default.(bool)
+	// outletDescStatus is the schema descriptor for status field.
+	outletDescStatus := outletFields[8].Descriptor()
+	// outlet.DefaultStatus holds the default value on creation for the status field.
+	outlet.DefaultStatus = outletDescStatus.Default.(string)
+	// outletDescCreatedAt is the schema descriptor for created_at field.
+	outletDescCreatedAt := outletFields[11].Descriptor()
+	// outlet.DefaultCreatedAt holds the default value on creation for the created_at field.
+	outlet.DefaultCreatedAt = outletDescCreatedAt.Default.(func() time.Time)
+	// outletDescUpdatedAt is the schema descriptor for updated_at field.
+	outletDescUpdatedAt := outletFields[12].Descriptor()
+	// outlet.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	outlet.DefaultUpdatedAt = outletDescUpdatedAt.Default.(func() time.Time)
+	// outlet.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	outlet.UpdateDefaultUpdatedAt = outletDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// outletDescID is the schema descriptor for id field.
+	outletDescID := outletFields[0].Descriptor()
+	// outlet.DefaultID holds the default value on creation for the id field.
+	outlet.DefaultID = outletDescID.Default.(func() uuid.UUID)
 	passwordresettokenFields := schema.PasswordResetToken{}.Fields()
 	_ = passwordresettokenFields
 	// passwordresettokenDescTokenHash is the schema descriptor for token_hash field.
@@ -450,6 +525,38 @@ func init() {
 	permissionDescAction := permissionFields[2].Descriptor()
 	// permission.ActionValidator is a validator for the "action" field. It is called by the builders before save.
 	permission.ActionValidator = permissionDescAction.Validators[0].(func(string) error)
+	portalshortlinkFields := schema.PortalShortLink{}.Fields()
+	_ = portalshortlinkFields
+	// portalshortlinkDescCode is the schema descriptor for code field.
+	portalshortlinkDescCode := portalshortlinkFields[1].Descriptor()
+	// portalshortlink.CodeValidator is a validator for the "code" field. It is called by the builders before save.
+	portalshortlink.CodeValidator = func() func(string) error {
+		validators := portalshortlinkDescCode.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(code string) error {
+			for _, fn := range fns {
+				if err := fn(code); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// portalshortlinkDescClicks is the schema descriptor for clicks field.
+	portalshortlinkDescClicks := portalshortlinkFields[5].Descriptor()
+	// portalshortlink.DefaultClicks holds the default value on creation for the clicks field.
+	portalshortlink.DefaultClicks = portalshortlinkDescClicks.Default.(int)
+	// portalshortlinkDescCreatedAt is the schema descriptor for created_at field.
+	portalshortlinkDescCreatedAt := portalshortlinkFields[6].Descriptor()
+	// portalshortlink.DefaultCreatedAt holds the default value on creation for the created_at field.
+	portalshortlink.DefaultCreatedAt = portalshortlinkDescCreatedAt.Default.(func() time.Time)
+	// portalshortlinkDescID is the schema descriptor for id field.
+	portalshortlinkDescID := portalshortlinkFields[0].Descriptor()
+	// portalshortlink.DefaultID holds the default value on creation for the id field.
+	portalshortlink.DefaultID = portalshortlinkDescID.Default.(func() uuid.UUID)
 	referrallinkFields := schema.ReferralLink{}.Fields()
 	_ = referrallinkFields
 	// referrallinkDescReferralCode is the schema descriptor for referral_code field.

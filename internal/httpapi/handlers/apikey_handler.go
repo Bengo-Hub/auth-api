@@ -11,6 +11,7 @@ import (
 
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/apikey"
+	entapp "github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -195,31 +196,36 @@ func (h *APIKeyHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, resp)
 }
 
-// ValidateAPIKey validates an API key and returns its metadata.
-// This endpoint is called by other services to validate API keys.
-// It accepts the API key in the X-API-Key header.
+// ValidateAPIKey validates an API key or App token and returns caller identity.
+// Accepts: X-API-Key header (or Authorization: Bearer <token>).
+// Routes automatically:
+//   - bng_app_* prefix → apps table (platform/tenant S2S apps)
+//   - bng_* prefix     → api_keys table (developer keys)
 func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
-	apiKeyHeader := r.Header.Get("X-API-Key")
-	if apiKeyHeader == "" {
+	tokenHeader := r.Header.Get("X-API-Key")
+	if tokenHeader == "" {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing X-API-Key header", nil)
 		return
 	}
 
-	// Hash the provided key for lookup
-	keyHash := hashAPIKey(apiKeyHeader)
+	// Route to apps table for bng_app_* tokens
+	if strings.HasPrefix(tokenHeader, "bng_app_") {
+		h.validateAppToken(w, r, tokenHeader)
+		return
+	}
 
-	// Look up the API key
+	// Standard api_keys table lookup
+	keyHash := hashAPIKey(tokenHeader)
 	key, err := h.ent.APIKey.Query().
 		Where(
 			apikey.KeyHashEQ(keyHash),
 			apikey.StatusEQ(apikey.StatusActive),
 		).
 		Only(r.Context())
-
 	if err != nil {
 		if ent.IsNotFound(err) {
 			h.logger.Warn("invalid API key attempted",
-				zap.String("key_prefix", getKeyPrefix(apiKeyHeader)),
+				zap.String("key_prefix", getKeyPrefix(tokenHeader)),
 			)
 			writeError(w, http.StatusUnauthorized, "unauthorized", "invalid API key", nil)
 			return
@@ -229,16 +235,11 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check expiration
 	if key.ExpiresAt != nil && !key.ExpiresAt.IsZero() && time.Now().After(*key.ExpiresAt) {
-		h.logger.Warn("expired API key used",
-			zap.String("key_id", key.ID.String()),
-		)
 		writeError(w, http.StatusUnauthorized, "unauthorized", "API key expired", nil)
 		return
 	}
 
-	// Check IP whitelist if configured
 	if len(key.AllowedIps) > 0 {
 		clientIP := getClientIP(r)
 		allowed := false
@@ -249,16 +250,11 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !allowed {
-			h.logger.Warn("API key used from unauthorized IP",
-				zap.String("key_id", key.ID.String()),
-				zap.String("client_ip", clientIP),
-			)
 			writeError(w, http.StatusForbidden, "forbidden", "IP not allowed", nil)
 			return
 		}
 	}
 
-	// Update last used timestamp (async to not block response)
 	go func() {
 		clientIP := getClientIP(r)
 		_, _ = h.ent.APIKey.UpdateOneID(key.ID).
@@ -267,21 +263,18 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 			Save(r.Context())
 	}()
 
-	// Look up tenant slug for platform owner detection
 	tenantSlug := ""
-	if tenantEntity, err := h.ent.Tenant.Query().
+	if t, err := h.ent.Tenant.Query().
 		Where(tenant.IDEQ(key.TenantID)).
 		Only(r.Context()); err == nil {
-		tenantSlug = tenantEntity.Slug
+		tenantSlug = t.Slug
 	}
 
-	// Determine roles: service keys get superuser access, regular keys use stored scopes
 	roles := []string{}
 	if key.Service != "" {
 		roles = []string{"superuser"}
 	}
 
-	// Return validation response
 	writeJSON(w, http.StatusOK, ValidateAPIKeyResponse{
 		ClientID:   key.ID.String(),
 		TenantID:   key.TenantID.String(),
@@ -289,6 +282,81 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 		Scopes:     key.Scopes,
 		Roles:      roles,
 		Service:    key.Service,
+	})
+}
+
+// validateAppToken handles validation of bng_app_* tokens from the apps table.
+func (h *APIKeyHandler) validateAppToken(w http.ResponseWriter, r *http.Request, tokenHeader string) {
+	keyHash := hashAPIKey(tokenHeader)
+
+	a, err := h.ent.App.Query().
+		Where(
+			entapp.KeyHashEQ(keyHash),
+			entapp.StatusEQ(entapp.StatusActive),
+		).
+		Only(r.Context())
+	if err != nil {
+		if ent.IsNotFound(err) {
+			h.logger.Warn("invalid app token", zap.String("prefix", getKeyPrefix(tokenHeader)))
+			writeError(w, http.StatusUnauthorized, "unauthorized", "invalid token", nil)
+			return
+		}
+		h.logger.Error("app token lookup", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "validation failed", nil)
+		return
+	}
+
+	if a.ExpiresAt != nil && !a.ExpiresAt.IsZero() && time.Now().After(*a.ExpiresAt) {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "token expired", nil)
+		return
+	}
+
+	if len(a.AllowedIps) > 0 {
+		clientIP := getClientIP(r)
+		allowed := false
+		for _, ip := range a.AllowedIps {
+			if ip == clientIP || ip == "*" {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "forbidden", "IP not allowed", nil)
+			return
+		}
+	}
+
+	go func() {
+		clientIP := getClientIP(r)
+		_, _ = h.ent.App.UpdateOneID(a.ID).
+			SetLastUsedAt(time.Now()).
+			SetLastUsedIP(clientIP).
+			Save(r.Context())
+	}()
+
+	tenantSlug := ""
+	tenantIDStr := ""
+	if a.TenantID != nil {
+		tenantIDStr = a.TenantID.String()
+		if t, err := h.ent.Tenant.Query().
+			Where(tenant.IDEQ(*a.TenantID)).
+			Only(r.Context()); err == nil {
+			tenantSlug = t.Slug
+		}
+	}
+
+	roles := []string{"service"}
+	if a.AppType == entapp.AppTypePlatform {
+		roles = []string{"superuser", "service"}
+	}
+
+	writeJSON(w, http.StatusOK, ValidateAPIKeyResponse{
+		ClientID:   a.ClientID,
+		TenantID:   tenantIDStr,
+		TenantSlug: tenantSlug,
+		Scopes:     a.Scopes,
+		Roles:      roles,
+		Service:    string(a.AppType),
 	})
 }
 

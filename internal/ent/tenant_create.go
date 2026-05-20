@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/google/uuid"
@@ -300,6 +301,21 @@ func (_c *TenantCreate) AddMemberships(v ...*TenantMembership) *TenantCreate {
 	return _c.AddMembershipIDs(ids...)
 }
 
+// AddOutletIDs adds the "outlets" edge to the Outlet entity by IDs.
+func (_c *TenantCreate) AddOutletIDs(ids ...uuid.UUID) *TenantCreate {
+	_c.mutation.AddOutletIDs(ids...)
+	return _c
+}
+
+// AddOutlets adds the "outlets" edges to the Outlet entity.
+func (_c *TenantCreate) AddOutlets(v ...*Outlet) *TenantCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddOutletIDs(ids...)
+}
+
 // Mutation returns the TenantMutation object of the builder.
 func (_c *TenantCreate) Mutation() *TenantMutation {
 	return _c.mutation
@@ -517,6 +533,22 @@ func (_c *TenantCreate) createSpec() (*Tenant, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(tenantmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.OutletsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tenant.OutletsTable,
+			Columns: []string{tenant.OutletsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(outlet.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

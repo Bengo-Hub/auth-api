@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
@@ -388,6 +389,21 @@ func (_u *TenantUpdate) AddMemberships(v ...*TenantMembership) *TenantUpdate {
 	return _u.AddMembershipIDs(ids...)
 }
 
+// AddOutletIDs adds the "outlets" edge to the Outlet entity by IDs.
+func (_u *TenantUpdate) AddOutletIDs(ids ...uuid.UUID) *TenantUpdate {
+	_u.mutation.AddOutletIDs(ids...)
+	return _u
+}
+
+// AddOutlets adds the "outlets" edges to the Outlet entity.
+func (_u *TenantUpdate) AddOutlets(v ...*Outlet) *TenantUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOutletIDs(ids...)
+}
+
 // Mutation returns the TenantMutation object of the builder.
 func (_u *TenantUpdate) Mutation() *TenantMutation {
 	return _u.mutation
@@ -412,6 +428,27 @@ func (_u *TenantUpdate) RemoveMemberships(v ...*TenantMembership) *TenantUpdate 
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveMembershipIDs(ids...)
+}
+
+// ClearOutlets clears all "outlets" edges to the Outlet entity.
+func (_u *TenantUpdate) ClearOutlets() *TenantUpdate {
+	_u.mutation.ClearOutlets()
+	return _u
+}
+
+// RemoveOutletIDs removes the "outlets" edge to Outlet entities by IDs.
+func (_u *TenantUpdate) RemoveOutletIDs(ids ...uuid.UUID) *TenantUpdate {
+	_u.mutation.RemoveOutletIDs(ids...)
+	return _u
+}
+
+// RemoveOutlets removes "outlets" edges to Outlet entities.
+func (_u *TenantUpdate) RemoveOutlets(v ...*Outlet) *TenantUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOutletIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -628,6 +665,51 @@ func (_u *TenantUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(tenantmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.OutletsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tenant.OutletsTable,
+			Columns: []string{tenant.OutletsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(outlet.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOutletsIDs(); len(nodes) > 0 && !_u.mutation.OutletsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tenant.OutletsTable,
+			Columns: []string{tenant.OutletsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(outlet.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OutletsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tenant.OutletsTable,
+			Columns: []string{tenant.OutletsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(outlet.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1012,6 +1094,21 @@ func (_u *TenantUpdateOne) AddMemberships(v ...*TenantMembership) *TenantUpdateO
 	return _u.AddMembershipIDs(ids...)
 }
 
+// AddOutletIDs adds the "outlets" edge to the Outlet entity by IDs.
+func (_u *TenantUpdateOne) AddOutletIDs(ids ...uuid.UUID) *TenantUpdateOne {
+	_u.mutation.AddOutletIDs(ids...)
+	return _u
+}
+
+// AddOutlets adds the "outlets" edges to the Outlet entity.
+func (_u *TenantUpdateOne) AddOutlets(v ...*Outlet) *TenantUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOutletIDs(ids...)
+}
+
 // Mutation returns the TenantMutation object of the builder.
 func (_u *TenantUpdateOne) Mutation() *TenantMutation {
 	return _u.mutation
@@ -1036,6 +1133,27 @@ func (_u *TenantUpdateOne) RemoveMemberships(v ...*TenantMembership) *TenantUpda
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveMembershipIDs(ids...)
+}
+
+// ClearOutlets clears all "outlets" edges to the Outlet entity.
+func (_u *TenantUpdateOne) ClearOutlets() *TenantUpdateOne {
+	_u.mutation.ClearOutlets()
+	return _u
+}
+
+// RemoveOutletIDs removes the "outlets" edge to Outlet entities by IDs.
+func (_u *TenantUpdateOne) RemoveOutletIDs(ids ...uuid.UUID) *TenantUpdateOne {
+	_u.mutation.RemoveOutletIDs(ids...)
+	return _u
+}
+
+// RemoveOutlets removes "outlets" edges to Outlet entities.
+func (_u *TenantUpdateOne) RemoveOutlets(v ...*Outlet) *TenantUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOutletIDs(ids...)
 }
 
 // Where appends a list predicates to the TenantUpdate builder.
@@ -1282,6 +1400,51 @@ func (_u *TenantUpdateOne) sqlSave(ctx context.Context) (_node *Tenant, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(tenantmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.OutletsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tenant.OutletsTable,
+			Columns: []string{tenant.OutletsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(outlet.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOutletsIDs(); len(nodes) > 0 && !_u.mutation.OutletsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tenant.OutletsTable,
+			Columns: []string{tenant.OutletsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(outlet.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OutletsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   tenant.OutletsTable,
+			Columns: []string{tenant.OutletsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(outlet.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

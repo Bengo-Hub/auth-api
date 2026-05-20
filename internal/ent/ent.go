@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/bengobox/auth-api/internal/ent/apikey"
+	"github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/auditlog"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/consentsession"
@@ -27,8 +28,10 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
+	"github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -98,6 +101,7 @@ func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			apikey.Table:                  apikey.ValidColumn,
+			app.Table:                     app.ValidColumn,
 			auditlog.Table:                auditlog.ValidColumn,
 			authorizationcode.Table:       authorizationcode.ValidColumn,
 			consentsession.Table:          consentsession.ValidColumn,
@@ -112,8 +116,10 @@ func checkColumn(t, c string) error {
 			mfatotpsecret.Table:           mfatotpsecret.ValidColumn,
 			oauthclient.Table:             oauthclient.ValidColumn,
 			outboxevent.Table:             outboxevent.ValidColumn,
+			outlet.Table:                  outlet.ValidColumn,
 			passwordresettoken.Table:      passwordresettoken.ValidColumn,
 			permission.Table:              permission.ValidColumn,
+			portalshortlink.Table:         portalshortlink.ValidColumn,
 			referrallink.Table:            referrallink.ValidColumn,
 			rolepermission.Table:          rolepermission.ValidColumn,
 			session.Table:                 session.ValidColumn,
