@@ -65,6 +65,8 @@ func main() {
 		slug            string
 		baseDomain      string
 		isPlatformOwner bool
+		isDemo          bool   // bypasses subscription gating across all services
+		billingMode     string // "service_charge" for transaction-fee tenants
 		useCases        []string
 		logoURL         string
 		website         string
@@ -116,8 +118,9 @@ func main() {
 		},
 		{
 			// Cross-platform demo tenant — covers all use-cases for platform demos.
-			// Staff accounts are seeded under this tenant; demo user gets admin role here.
+			// is_demo=true is written to metadata so all downstream services bypass subscription gating.
 			name: "CodeVertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexitsolutions.com",
+			isDemo:   true,
 			useCases: []string{"hospitality", "retail", "quick_service", "pharmacy", "services", "logistics"},
 			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://demo.codevertexitsolutions.com",
 			contactEmail: "demo@codevertexitsolutions.com",
@@ -138,6 +141,12 @@ func main() {
 		if t.isPlatformOwner {
 			meta["is_platform_owner"] = true
 			meta["scope"] = "platform"
+		}
+		if t.isDemo {
+			meta["is_demo"] = true
+		}
+		if t.billingMode != "" {
+			meta["billing_mode"] = t.billingMode
 		}
 		tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ(t.slug)).Only(ctx)
 		if err != nil {
