@@ -826,6 +826,16 @@ func main() {
 			"auth.profile.view", "auth.profile.change",
 			"auth.preferences.view", "auth.preferences.change",
 		},
+		// delivery_coordinator — assigned to ordering/logistics staff managing dispatch.
+		// Recognized by ordering-backend and logistics-api for delivery route/zone access.
+		"delivery_coordinator": {
+			"logistics.tasks.view", "logistics.tasks.change", "logistics.tasks.manage",
+			"logistics.zones.view",
+			"logistics.fleet.view",
+			"ordering.orders.view", "ordering.orders.change",
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
+		},
 	}
 	for roleName, codes := range rolePerms {
 		if len(codes) == 0 {
