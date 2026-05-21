@@ -836,6 +836,45 @@ func main() {
 			"auth.profile.view", "auth.profile.change",
 			"auth.preferences.view", "auth.preferences.change",
 		},
+		// driver — logistics fleet/cargo driver (vehicle-based delivery, distinct from rider).
+		// Used by logistics-api for fleet drivers managing cargo/truck deliveries.
+		"driver": {
+			"logistics.tasks.view_own", "logistics.tasks.change_own",
+			"logistics.fleet.view",
+			"logistics.vehicles.view",
+			"logistics.earnings.view",
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
+		},
+		// customer — end-user/consumer role for B2C access.
+		// Used by ordering-backend for food/retail customers and ISP billing for subscribers.
+		// Distinct from member (staff) — customers have no internal management access.
+		"customer": {
+			"ordering.orders.add", "ordering.orders.view_own", "ordering.orders.change_own",
+			"ordering.catalog.view",
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
+			"auth.notifications.view",
+		},
+		// technician — field technician role for ISP billing and IT services.
+		// Can manage service tasks and view fleet/zone information.
+		"technician": {
+			"logistics.tasks.view", "logistics.tasks.change",
+			"logistics.zones.view",
+			"logistics.fleet.view",
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
+		},
+		// viewer — read-only cross-service role for auditors, observers, and reporting users.
+		// Can view data across services but cannot create, modify, or delete anything.
+		"viewer": {
+			"ordering.orders.view", "ordering.catalog.view", "ordering.analytics.view",
+			"inventory.items.view", "inventory.stock.view", "inventory.recipes.view",
+			"inventory.warehouses.view",
+			"logistics.tasks.view", "logistics.fleet.view", "logistics.zones.view",
+			"auth.profile.view",
+			"auth.notifications.view",
+		},
 	}
 	for roleName, codes := range rolePerms {
 		if len(codes) == 0 {
