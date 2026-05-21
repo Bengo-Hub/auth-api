@@ -475,6 +475,8 @@ func main() {
 		{"technician@demo.codevertexitsolutions.com", "Demo Technician", "technician"},
 		{"viewer@demo.codevertexitsolutions.com", "Demo Viewer", "viewer"},
 		{"customer@demo.codevertexitsolutions.com", "Demo Customer", "customer"},
+		// Pharmacy role
+		{"pharmacist@demo.codevertexitsolutions.com", "Grace Pharmacist", "pharmacist"},
 	}
 	demoStaffPassword := os.Getenv("SEED_DEMO_STAFF_PASSWORD")
 	if demoStaffPassword == "" {
@@ -865,6 +867,12 @@ func main() {
 			"auth.profile.view", "auth.profile.change",
 			"auth.preferences.view", "auth.preferences.change",
 		},
+		// pharmacist — licensed pharmacy dispenser.
+		// POS-specific permissions (pos.pharmacy.*) are managed by pos-api's POSRoleV2 table.
+		"pharmacist": {
+			"auth.profile.view", "auth.profile.change",
+			"auth.preferences.view", "auth.preferences.change",
+		},
 		// delivery_coordinator — assigned to ordering/logistics staff managing dispatch.
 		// Recognized by ordering-backend and logistics-api for delivery route/zone access.
 		"delivery_coordinator": {
@@ -1128,9 +1136,9 @@ var outletsByTenant = map[string][]outletDef{
 		// Retail outlet — shop, supermarket, hardware
 		{
 			slug: "demo-retail", code: "RETAIL",
-			name: "Demo Tech Store", useCase: "retail", isHQ: false,
+			name: "Demo City Supermarket", useCase: "retail", isHQ: false,
 			address: "Demo Mall, Westlands, Nairobi",
-			pinMsg:  "Welcome to Demo Tech Store — barcode scanner is active",
+			pinMsg:  "Welcome to Demo City Supermarket — barcode scanner is active",
 		},
 		// Quick service outlet — fast food, coffee kiosk
 		{
