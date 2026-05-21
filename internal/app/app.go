@@ -38,14 +38,15 @@ import (
 
 // App wires core dependencies and exposes server lifecycle controls.
 type App struct {
-	cfg             *config.Config
-	logger          *zap.Logger
-	entClient       *ent.Client
-	db              *sql.DB
-	redis           *redis.Client
-	natsConn        *nats.Conn
-	outboxPublisher *outbox.Publisher
-	httpServer      *http.Server
+	cfg                      *config.Config
+	logger                   *zap.Logger
+	entClient                *ent.Client
+	db                       *sql.DB
+	redis                    *redis.Client
+	natsConn                 *nats.Conn
+	outboxPublisher          *outbox.Publisher
+	subscriptionSubscriber   *platformevents.SubscriptionSubscriber
+	httpServer               *http.Server
 }
 
 // New constructs the application.
@@ -283,15 +284,26 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		IdleTimeout:       cfg.HTTP.IdleTimeout,
 	}
 
+	// Start NATS subscription sync subscriber (updates denormalised sub fields on tenant)
+	var subSubscriber *platformevents.SubscriptionSubscriber
+	if natsConn != nil {
+		subSubscriber = platformevents.NewSubscriptionSubscriber(entClient, redisClient, cfg.Redis.Namespace, logger)
+		if err := subSubscriber.Start(natsConn); err != nil {
+			logger.Warn("failed to start subscription subscriber", zap.Error(err))
+			subSubscriber = nil
+		}
+	}
+
 	return &App{
-		cfg:             cfg,
-		logger:          logger,
-		entClient:       entClient,
-		db:              sqlDB,
-		redis:           redisClient,
-		natsConn:        natsConn,
-		outboxPublisher: outboxPub,
-		httpServer:      server,
+		cfg:                    cfg,
+		logger:                 logger,
+		entClient:              entClient,
+		db:                     sqlDB,
+		redis:                  redisClient,
+		natsConn:               natsConn,
+		outboxPublisher:        outboxPub,
+		subscriptionSubscriber: subSubscriber,
+		httpServer:             server,
 	}, nil
 }
 
@@ -313,7 +325,10 @@ func (a *App) Run() error {
 func (a *App) Shutdown(ctx context.Context) error {
 	shutdownErr := a.httpServer.Shutdown(ctx)
 
-	// Stop outbox publisher first
+	// Stop subscribers and outbox publisher
+	if a.subscriptionSubscriber != nil {
+		a.subscriptionSubscriber.Stop()
+	}
 	if a.outboxPublisher != nil {
 		a.outboxPublisher.Stop()
 	}

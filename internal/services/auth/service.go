@@ -1326,6 +1326,32 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 	}
 	if tenantEntity != nil {
 		tokenInput.TenantSlug = tenantEntity.Slug
+
+		// Populate billing_mode from tenant metadata (set by platform admin)
+		if meta, ok := tenantEntity.Metadata["billing_mode"]; ok {
+			if bm, ok := meta.(string); ok {
+				tokenInput.BillingMode = bm
+			}
+		}
+
+		// Mark demo tenant so all services bypass subscription gating
+		if tenantEntity.Slug == "codevertex-demo" {
+			tokenInput.IsDemo = true
+		}
+		if demoFlag, ok := tenantEntity.Metadata["is_demo"]; ok {
+			if v, ok := demoFlag.(bool); ok && v {
+				tokenInput.IsDemo = true
+			}
+		}
+	}
+
+	// Also mark demo if user profile has is_demo flag
+	if !tokenInput.IsDemo {
+		if profile, ok := userEntity.Profile["is_demo"]; ok {
+			if v, ok := profile.(bool); ok && v {
+				tokenInput.IsDemo = true
+			}
+		}
 	}
 
 	// Fetch subscription data for tenant (non-blocking, fail-open)
