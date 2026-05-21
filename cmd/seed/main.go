@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/database"
 	"github.com/bengobox/auth-api/internal/ent"
@@ -21,6 +22,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
+	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/permission"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -449,12 +451,21 @@ func main() {
 		name  string
 		role  string
 	}{
+		// POS roles
 		{"manager@demo.codevertexitsolutions.com", "Demo Manager", "manager"},
 		{"cashier@demo.codevertexitsolutions.com", "Demo Cashier", "cashier"},
 		{"waiter@demo.codevertexitsolutions.com", "Demo Waiter", "waiter"},
 		{"kitchen@demo.codevertexitsolutions.com", "Demo Kitchen", "kitchen"},
 		{"bar@demo.codevertexitsolutions.com", "Demo Bar Staff", "bar"},
 		{"receptionist@demo.codevertexitsolutions.com", "Demo Receptionist", "receptionist"},
+		// Logistics roles
+		{"rider@demo.codevertexitsolutions.com", "Demo Rider", "rider"},
+		{"driver@demo.codevertexitsolutions.com", "Demo Driver", "driver"},
+		{"coordinator@demo.codevertexitsolutions.com", "Demo Coordinator", "delivery_coordinator"},
+		// Cross-service roles
+		{"technician@demo.codevertexitsolutions.com", "Demo Technician", "technician"},
+		{"viewer@demo.codevertexitsolutions.com", "Demo Viewer", "viewer"},
+		{"customer@demo.codevertexitsolutions.com", "Demo Customer", "customer"},
 	}
 	demoStaffPassword := os.Getenv("SEED_DEMO_STAFF_PASSWORD")
 	if demoStaffPassword == "" {
@@ -466,6 +477,7 @@ func main() {
 			log.Printf("  ⚠️  hash password for %s: %v", s.email, hashErr)
 			continue
 		}
+		isNew := false
 		staffUser, createErr := client.User.Create().
 			SetEmail(s.email).
 			SetPasswordHash(staffHash).
@@ -485,6 +497,7 @@ func main() {
 			}
 			log.Printf("  ✓ Demo staff exists: %s (%s)", s.email, s.role)
 		} else {
+			isNew = true
 			log.Printf("  ✓ Created demo staff: %s (%s)", s.email, s.role)
 		}
 
@@ -501,6 +514,23 @@ func main() {
 				Save(ctx)
 			log.Printf("    ✓ Added %s role in %s", s.role, demoTenant.Slug)
 		}
+
+		// Publish outbox event so the running auth-api picks it up and syncs to
+		// downstream services (pos-api staff profiles, inventory users, etc.).
+		// New users get "created"; re-runs get "updated" to re-trigger provisioning.
+		eventType := "updated"
+		if isNew {
+			eventType = "created"
+		}
+		publishSeedUserEvent(ctx, client, demoTenant.ID, staffUser.ID, map[string]any{
+			"user_id":     staffUser.ID.String(),
+			"email":       s.email,
+			"full_name":   s.name,
+			"tenant_id":   demoTenant.ID.String(),
+			"tenant_slug": demoTenant.Slug,
+			"roles":       []string{s.role},
+			"method":      "seed",
+		}, eventType)
 	}
 
 	// Seed demo admin for TruLoad commercial weighing tenant (index 5 in tenants slice)
@@ -1436,4 +1466,36 @@ func seedPlatformApp(ctx context.Context, client *ent.Client) error {
 	log.Printf("  PLATFORM_APP_TOKEN=%s", token)
 	log.Printf("  Configure this in each service's Settings → Integrations page as the S2S auth token.")
 	return nil
+}
+
+// publishSeedUserEvent writes an auth.user.* outbox record so the running auth-api
+// outbox publisher picks it up and broadcasts to downstream services via NATS.
+// This triggers pos-api staff profile provisioning, inventory user sync,
+// logistics rider registration, etc. for all seed-created or seed-updated users.
+// New users receive event_type="created"; re-runs receive "updated" to re-trigger
+// provisioning without causing duplicate key errors in downstream services.
+func publishSeedUserEvent(ctx context.Context, client *ent.Client, tenantID, userID uuid.UUID, data map[string]any, eventType string) {
+	event := sharedevents.NewEvent(eventType, "auth.user", userID, tenantID, data)
+	if slug, ok := data["tenant_slug"].(string); ok {
+		event.WithTenantSlug(slug)
+	}
+	payload, err := event.ToJSON()
+	if err != nil {
+		log.Printf("  ⚠️  marshal seed event for %s: %v", userID, err)
+		return
+	}
+	err = client.OutboxEvent.Create().
+		SetTenantID(tenantID).
+		SetAggregateType("auth.user").
+		SetAggregateID(userID).
+		SetEventType(eventType).
+		SetPayload(payload).
+		SetStatus(outboxevent.StatusPENDING).
+		SetAttempts(0).
+		Exec(ctx)
+	if err != nil {
+		log.Printf("  ⚠️  write outbox event auth.user.%s for %s: %v", eventType, userID, err)
+	} else {
+		log.Printf("    ✓ Queued auth.user.%s → outbox for user %s", eventType, userID)
+	}
 }
