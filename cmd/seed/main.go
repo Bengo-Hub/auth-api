@@ -207,7 +207,12 @@ func main() {
 
 	hasher := password.NewHasher(cfg.Security)
 
-	// Seed demo user
+	// Seed demo user.
+	// Primary tenant must be codevertex-demo, NOT codevertex (platform owner).
+	// Using codevertex as primary would mint is_platform_owner=true in the JWT,
+	// giving the demo user full platform-admin access — a confirmed prod bug.
+	demoPrimaryTenant := tenantEntities[len(tenantEntities)-1] // codevertex-demo
+
 	demoEmail := "demo@bengobox.dev"
 	demoPassword := os.Getenv("SEED_DEMO_PASSWORD")
 	if demoPassword == "" {
@@ -223,7 +228,7 @@ func main() {
 		SetEmail(demoEmail).
 		SetPasswordHash(demoHash).
 		SetStatus("active").
-		SetPrimaryTenantID(tenantEntities[0].ID.String()).
+		SetPrimaryTenantID(demoPrimaryTenant.ID.String()).
 		SetProfile(map[string]any{
 			"name":       "Demo User",
 			"is_demo":    true,
@@ -235,13 +240,23 @@ func main() {
 		if err != nil {
 			log.Fatalf("seed demo user: %v", err)
 		}
+		// Patch existing demo user if its primary_tenant still points to codevertex.
+		if demoUser.PrimaryTenantID != demoPrimaryTenant.ID.String() {
+			_, _ = demoUser.Update().SetPrimaryTenantID(demoPrimaryTenant.ID.String()).Save(ctx)
+			log.Printf("  ✓ Fixed demo user primary_tenant → %s", demoPrimaryTenant.Slug)
+		}
 		log.Printf("✓ Demo user exists: %s", demoEmail)
 	} else {
 		log.Printf("✓ Created demo user: %s", demoEmail)
 	}
 
-	// Add demo user membership to all tenants
+	// Add demo user membership to all tenants except the platform-owner (codevertex).
+	// Membership in codevertex would not elevate the JWT (primary_tenant drives
+	// is_platform_owner), but it's still incorrect for a demo/client account.
 	for _, tenantEnt := range tenantEntities {
+		if tenantEnt.Slug == "codevertex" {
+			continue // demo user must never be a member of the platform-owner tenant
+		}
 		exists, err := client.TenantMembership.Query().
 			Where(
 				tenantmembership.UserID(demoUser.ID),

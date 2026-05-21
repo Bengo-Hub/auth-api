@@ -1185,12 +1185,13 @@ func (s *Service) Logout(ctx context.Context, sessionID uuid.UUID, jti string, t
 	return nil
 }
 
-// ListSessions returns all active sessions for a user.
+// ListSessions returns non-expired active sessions for a user.
 func (s *Service) ListSessions(ctx context.Context, userID uuid.UUID) ([]*ent.Session, error) {
 	return s.entClient.Session.Query().
 		Where(
 			session.UserID(userID),
 			session.StatusEQ("active"),
+			session.ExpiresAtGT(time.Now()),
 		).
 		Order(ent.Desc(session.FieldIssuedAt)).
 		All(ctx)
@@ -1896,6 +1897,17 @@ func generatePasswordResetToken() (string, string, error) {
 
 func normalizeEmail(email string) string {
 	return strings.TrimSpace(strings.ToLower(email))
+}
+
+// SendOTPEmail publishes an otp.requested event so the notifications service
+// emails the OTP to the user. Best-effort — never blocks the caller.
+func (s *Service) SendOTPEmail(ctx context.Context, tenantID, userID uuid.UUID, email, otp string) {
+	s.publishEvent(ctx, tenantID, "auth.user", userID, "otp.requested", map[string]any{
+		"user_id":   userID.String(),
+		"tenant_id": tenantID.String(),
+		"email":     email,
+		"otp":       otp,
+	})
 }
 
 // publishEvent writes an event to the outbox table for async NATS publishing.

@@ -306,9 +306,10 @@ func (h *UserHandler) AdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// UpdateMyProfile lets any authenticated user update their own name, avatar URL,
-// and notification preferences stored in the profile JSON field.
-// PATCH /api/v1/auth/me (wired in router alongside Me GET)
+// UpdateMyProfile lets any authenticated user update their own profile fields
+// stored in the profile JSON column. Merges the provided fields into the
+// existing profile so callers only need to send what changed.
+// PATCH /api/v1/auth/me
 func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
@@ -324,19 +325,26 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name              string         `json:"name,omitempty"`
 		ProfilePictureURL string         `json:"profile_picture_url,omitempty"`
+		Phone             string         `json:"phone,omitempty"`
+		Bio               string         `json:"bio,omitempty"`
+		Timezone          string         `json:"timezone,omitempty"`
+		Locale            string         `json:"locale,omitempty"`
 		Preferences       map[string]any `json:"preferences,omitempty"`
+		// Notification settings (email/sms/push/whatsapp toggles)
+		NotificationSettings map[string]any `json:"notification_settings,omitempty"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid body", nil)
 		return
 	}
 
-	// Load existing profile to merge
 	u, err := h.ent.User.Get(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
 		return
 	}
+
+	// Merge into existing profile JSON
 	profile := make(map[string]any)
 	for k, v := range u.Profile {
 		profile[k] = v
@@ -347,6 +355,18 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	if req.ProfilePictureURL != "" {
 		profile["profile_picture_url"] = req.ProfilePictureURL
 	}
+	if req.Phone != "" {
+		profile["phone"] = req.Phone
+	}
+	if req.Bio != "" {
+		profile["bio"] = req.Bio
+	}
+	if req.Timezone != "" {
+		profile["timezone"] = req.Timezone
+	}
+	if req.Locale != "" {
+		profile["locale"] = req.Locale
+	}
 	if len(req.Preferences) > 0 {
 		existing, _ := profile["preferences"].(map[string]any)
 		if existing == nil {
@@ -356,6 +376,16 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 			existing[k] = v
 		}
 		profile["preferences"] = existing
+	}
+	if len(req.NotificationSettings) > 0 {
+		existing, _ := profile["notification_settings"].(map[string]any)
+		if existing == nil {
+			existing = make(map[string]any)
+		}
+		for k, v := range req.NotificationSettings {
+			existing[k] = v
+		}
+		profile["notification_settings"] = existing
 	}
 
 	updated, err := h.ent.User.UpdateOneID(userID).SetProfile(profile).Save(r.Context())

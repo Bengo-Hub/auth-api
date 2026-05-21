@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+	"unicode"
 
 	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/ent"
@@ -23,6 +24,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // AdminHandler provides basic tenant/client admin APIs.
@@ -1135,6 +1137,25 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Publish auth.user.created so downstream services (pos-api, etc.) can provision the user.
+	u, userErr := h.ent.User.Get(r.Context(), userID)
+	if userErr == nil {
+		tenantSlug := ""
+		if t, tErr := h.ent.Tenant.Get(r.Context(), tenantID); tErr == nil {
+			tenantSlug = t.Slug
+		}
+		h.publishEvent(r.Context(), tenantID, "auth.user", userID, "created", map[string]any{
+			"user_id":     userID.String(),
+			"email":       u.Email,
+			"full_name":   profileStr(u.Profile, "name"),
+			"phone":       profileStr(u.Profile, "phone"),
+			"tenant_id":   tenantID.String(),
+			"tenant_slug": tenantSlug,
+			"roles":       req.Roles,
+			"method":      "admin_provisioned",
+		})
+	}
+
 	writeJSON(w, http.StatusCreated, tenantMemberResponse{
 		ID:        membership.ID.String(),
 		UserID:    membership.UserID.String(),
@@ -1272,6 +1293,13 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Publish auth.user.updated so downstream services can sync role changes.
+	h.publishEvent(r.Context(), tenantID, "auth.user", userID, "updated", map[string]any{
+		"user_id":   userID.String(),
+		"tenant_id": tenantID.String(),
+		"roles":     req.Roles,
+	})
+
 	writeJSON(w, http.StatusOK, tenantMemberResponse{
 		ID:        updated.ID.String(),
 		UserID:    updated.UserID.String(),
@@ -1319,4 +1347,99 @@ func (h *AdminHandler) RemoveTenantMember(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "removed"})
+}
+
+// profileStr extracts a string value from a user's Profile JSON map.
+func profileStr(profile map[string]any, key string) string {
+	if profile == nil {
+		return ""
+	}
+	v, _ := profile[key].(string)
+	return v
+}
+
+type setUserServicePINRequest struct {
+	Service string `json:"service"`
+	PIN     string `json:"pin"`
+}
+
+// SetUserServicePIN allows tenant admins to set a service-level PIN for a user.
+// POST /api/v1/admin/tenants/{tenant_id}/members/{user_id}/service-pin
+// Publishes auth.user.pin_set so downstream services (pos-api etc.) can store the PIN hash.
+func (h *AdminHandler) SetUserServicePIN(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+
+	tenantIDStr := chi.URLParam(r, "tenant_id")
+	userIDStr := chi.URLParam(r, "user_id")
+
+	tenantID, err := uuid.Parse(tenantIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+		return
+	}
+
+	var req setUserServicePINRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
+		return
+	}
+
+	// Validate PIN: must be exactly 4 digits.
+	if len(req.PIN) != 4 {
+		writeError(w, http.StatusBadRequest, "invalid_request", "pin must be exactly 4 digits", nil)
+		return
+	}
+	for _, ch := range req.PIN {
+		if !unicode.IsDigit(ch) {
+			writeError(w, http.StatusBadRequest, "invalid_request", "pin must be numeric", nil)
+			return
+		}
+	}
+
+	if req.Service == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "service is required", nil)
+		return
+	}
+
+	// Verify user exists in this tenant.
+	_, err = h.ent.TenantMembership.Query().
+		Where(
+			tenantmembership.UserID(userID),
+			tenantmembership.TenantID(tenantID),
+		).
+		Only(r.Context())
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "member not found", nil)
+			return
+		}
+		h.logger.Error("Failed to find tenant member", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not verify member", nil)
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.PIN), bcrypt.DefaultCost)
+	if err != nil {
+		h.logger.Error("Failed to hash PIN", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not hash pin", nil)
+		return
+	}
+
+	h.publishEvent(r.Context(), tenantID, "auth.user", userID, "pin_set", map[string]any{
+		"user_id":   userID.String(),
+		"tenant_id": tenantID.String(),
+		"service":   req.Service,
+		"pin_hash":  string(hash),
+	})
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "pin_set"})
 }
