@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 	"unicode"
 
 	sharedevents "github.com/Bengo-Hub/shared-events"
+	"github.com/Bengo-Hub/pagination"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
@@ -1169,6 +1171,7 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 
 // ListTenantMembers lists all members of a tenant.
 // GET /api/v1/admin/tenants/{tenant_id}/members
+// Query params: page, limit, search (email/name), role, status
 func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(r) {
 		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
@@ -1182,8 +1185,17 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Parse pagination params using shared library (page, limit; default 20, max 100)
+	pg := pagination.Parse(r)
+	q := r.URL.Query()
+	searchQ := strings.ToLower(strings.TrimSpace(q.Get("search")))
+	roleFilter := strings.ToLower(strings.TrimSpace(q.Get("role")))
+	statusFilter := strings.TrimSpace(q.Get("status"))
+
+	// Fetch all memberships for this tenant (admin-only — tenant size is bounded)
 	members, err := h.ent.TenantMembership.Query().
 		Where(tenantmembership.TenantID(tenantID)).
+		Order(ent.Asc(tenantmembership.FieldCreatedAt)).
 		All(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to list tenant members", zap.Error(err))
@@ -1191,13 +1203,11 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Collect user IDs for batch lookup
+	// Batch fetch user details to avoid N+1
 	userIDs := make([]uuid.UUID, 0, len(members))
 	for _, m := range members {
 		userIDs = append(userIDs, m.UserID)
 	}
-
-	// Batch fetch user details (email, profile) to avoid N+1 queries
 	userMap := make(map[uuid.UUID]*ent.User)
 	if len(userIDs) > 0 {
 		users, uErr := h.ent.User.Query().
@@ -1211,32 +1221,88 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	response := make([]map[string]interface{}, 0)
-	for _, member := range members {
-		entry := map[string]interface{}{
-			"id":         member.ID.String(),
-			"user_id":    member.UserID.String(),
-			"tenant_id":  member.TenantID.String(),
-			"roles":      member.Roles,
-			"status":     member.Status,
-			"created_at": member.CreatedAt.Format(time.RFC3339),
-			"updated_at": member.UpdatedAt.Format(time.RFC3339),
+	// Build enriched entries and apply in-memory filters
+	type memberEntry struct {
+		ID        string   `json:"id"`
+		UserID    string   `json:"user_id"`
+		TenantID  string   `json:"tenant_id"`
+		Roles     []string `json:"roles"`
+		Status    string   `json:"status"`
+		Email     string   `json:"email,omitempty"`
+		Name      string   `json:"name,omitempty"`
+		AvatarURL string   `json:"avatar_url,omitempty"`
+		CreatedAt string   `json:"created_at"`
+		UpdatedAt string   `json:"updated_at"`
+	}
+
+	all := make([]memberEntry, 0, len(members))
+	for _, m := range members {
+		roles := m.Roles
+		if roles == nil {
+			roles = []string{"member"}
 		}
-		// Enrich with user details if available
-		if u, ok := userMap[member.UserID]; ok {
-			entry["email"] = u.Email
+		entry := memberEntry{
+			ID:        m.ID.String(),
+			UserID:    m.UserID.String(),
+			TenantID:  m.TenantID.String(),
+			Roles:     roles,
+			Status:    m.Status,
+			CreatedAt: m.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: m.UpdatedAt.Format(time.RFC3339),
+		}
+		if u, ok := userMap[m.UserID]; ok {
+			entry.Email = u.Email
 			if u.Profile != nil {
-				if name, ok := u.Profile["name"]; ok {
-					entry["name"] = name
-				} else if fullName, ok := u.Profile["full_name"]; ok {
-					entry["name"] = fullName
+				if v, ok := u.Profile["name"].(string); ok && v != "" {
+					entry.Name = v
+				} else if v, ok := u.Profile["full_name"].(string); ok && v != "" {
+					entry.Name = v
+				}
+				if v, ok := u.Profile["avatar_url"].(string); ok {
+					entry.AvatarURL = v
 				}
 			}
 		}
-		response = append(response, entry)
+
+		// Apply filters
+		if statusFilter != "" && m.Status != statusFilter {
+			continue
+		}
+		if roleFilter != "" {
+			found := false
+			for _, r := range roles {
+				if strings.ToLower(r) == roleFilter {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+		if searchQ != "" {
+			emailMatch := strings.Contains(strings.ToLower(entry.Email), searchQ)
+			nameMatch := strings.Contains(strings.ToLower(entry.Name), searchQ)
+			if !emailMatch && !nameMatch {
+				continue
+			}
+		}
+
+		all = append(all, entry)
 	}
 
-	writeJSON(w, http.StatusOK, response)
+	// Paginate using shared library offsets
+	total := len(all)
+	start := pg.Offset
+	end := start + pg.Limit
+	if start > total {
+		start = total
+	}
+	if end > total {
+		end = total
+	}
+
+	writeJSON(w, http.StatusOK, pagination.NewResponse(all[start:end], total, pg))
 }
 
 // UpdateTenantMember updates a member's roles.
