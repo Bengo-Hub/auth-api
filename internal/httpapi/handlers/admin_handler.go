@@ -1067,8 +1067,9 @@ func (h *AdminHandler) UpdateIntegrationStatus(w http.ResponseWriter, r *http.Re
 // Tenant Member Management Endpoints
 
 type addTenantMemberRequest struct {
-	UserID string   `json:"user_id"`
-	Roles  []string `json:"roles"`
+	UserID   string   `json:"user_id"`
+	Roles    []string `json:"roles"`
+	OutletID string   `json:"outlet_id,omitempty"`
 }
 
 type tenantMemberResponse struct {
@@ -1077,6 +1078,7 @@ type tenantMemberResponse struct {
 	TenantID  string   `json:"tenant_id"`
 	Roles     []string `json:"roles"`
 	Status    string   `json:"status"`
+	OutletID  *string  `json:"outlet_id,omitempty"`
 	CreatedAt string   `json:"created_at"`
 	UpdatedAt string   `json:"updated_at"`
 }
@@ -1116,21 +1118,35 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		).
 		Only(r.Context())
 
+	// Parse optional outlet_id
+	var outletID *uuid.UUID
+	if req.OutletID != "" {
+		if oid, oErr := uuid.Parse(req.OutletID); oErr == nil {
+			outletID = &oid
+		}
+	}
+
 	var membership *ent.TenantMembership
 	if existingMember != nil {
 		// Update existing
-		membership, err = existingMember.Update().
+		upd := existingMember.Update().
 			SetRoles(req.Roles).
-			SetStatus("active").
-			Save(r.Context())
+			SetStatus("active")
+		if outletID != nil {
+			upd = upd.SetOutletID(*outletID)
+		}
+		membership, err = upd.Save(r.Context())
 	} else {
 		// Create new
-		membership, err = h.ent.TenantMembership.Create().
+		crt := h.ent.TenantMembership.Create().
 			SetUserID(userID).
 			SetTenantID(tenantID).
 			SetRoles(req.Roles).
-			SetStatus("active").
-			Save(r.Context())
+			SetStatus("active")
+		if outletID != nil {
+			crt = crt.SetOutletID(*outletID)
+		}
+		membership, err = crt.Save(r.Context())
 	}
 
 	if err != nil {
@@ -1146,7 +1162,7 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		if t, tErr := h.ent.Tenant.Get(r.Context(), tenantID); tErr == nil {
 			tenantSlug = t.Slug
 		}
-		h.publishEvent(r.Context(), tenantID, "auth.user", userID, "created", map[string]any{
+		payload := map[string]any{
 			"user_id":     userID.String(),
 			"email":       u.Email,
 			"full_name":   profileStr(u.Profile, "name"),
@@ -1155,15 +1171,25 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			"tenant_slug": tenantSlug,
 			"roles":       req.Roles,
 			"method":      "admin_provisioned",
-		})
+		}
+		if outletID != nil {
+			payload["outlet_id"] = outletID.String()
+		}
+		h.publishEvent(r.Context(), tenantID, "auth.user", userID, "created", payload)
 	}
 
+	var outletIDStr *string
+	if membership.OutletID != nil {
+		s := membership.OutletID.String()
+		outletIDStr = &s
+	}
 	writeJSON(w, http.StatusCreated, tenantMemberResponse{
 		ID:        membership.ID.String(),
 		UserID:    membership.UserID.String(),
 		TenantID:  membership.TenantID.String(),
 		Roles:     membership.Roles,
 		Status:    membership.Status,
+		OutletID:  outletIDStr,
 		CreatedAt: membership.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: membership.UpdatedAt.Format(time.RFC3339),
 	})
@@ -1228,6 +1254,7 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 		TenantID  string   `json:"tenant_id"`
 		Roles     []string `json:"roles"`
 		Status    string   `json:"status"`
+		OutletID  *string  `json:"outlet_id,omitempty"`
 		Email     string   `json:"email,omitempty"`
 		Name      string   `json:"name,omitempty"`
 		AvatarURL string   `json:"avatar_url,omitempty"`
@@ -1241,12 +1268,18 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 		if roles == nil {
 			roles = []string{"member"}
 		}
+		var outletIDStr *string
+		if m.OutletID != nil {
+			s := m.OutletID.String()
+			outletIDStr = &s
+		}
 		entry := memberEntry{
 			ID:        m.ID.String(),
 			UserID:    m.UserID.String(),
 			TenantID:  m.TenantID.String(),
 			Roles:     roles,
 			Status:    m.Status,
+			OutletID:  outletIDStr,
 			CreatedAt: m.CreatedAt.Format(time.RFC3339),
 			UpdatedAt: m.UpdatedAt.Format(time.RFC3339),
 		}
@@ -1350,28 +1383,44 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	updated, err := membership.Update().
-		SetRoles(req.Roles).
-		Save(r.Context())
+	upd := membership.Update().SetRoles(req.Roles)
+	var outletIDPtr *uuid.UUID
+	if req.OutletID != "" {
+		if oid, oErr := uuid.Parse(req.OutletID); oErr == nil {
+			upd = upd.SetOutletID(oid)
+			outletIDPtr = &oid
+		}
+	}
+	updated, err := upd.Save(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to update tenant member", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "could not update member", nil)
 		return
 	}
 
-	// Publish auth.user.updated so downstream services can sync role changes.
-	h.publishEvent(r.Context(), tenantID, "auth.user", userID, "updated", map[string]any{
+	// Publish auth.user.updated so downstream services can sync role/outlet changes.
+	eventPayload := map[string]any{
 		"user_id":   userID.String(),
 		"tenant_id": tenantID.String(),
 		"roles":     req.Roles,
-	})
+	}
+	if outletIDPtr != nil {
+		eventPayload["outlet_id"] = outletIDPtr.String()
+	}
+	h.publishEvent(r.Context(), tenantID, "auth.user", userID, "updated", eventPayload)
 
+	var outletIDStr *string
+	if updated.OutletID != nil {
+		s := updated.OutletID.String()
+		outletIDStr = &s
+	}
 	writeJSON(w, http.StatusOK, tenantMemberResponse{
 		ID:        updated.ID.String(),
 		UserID:    updated.UserID.String(),
 		TenantID:  updated.TenantID.String(),
 		Roles:     updated.Roles,
 		Status:    updated.Status,
+		OutletID:  outletIDStr,
 		CreatedAt: updated.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: updated.UpdatedAt.Format(time.RFC3339),
 	})

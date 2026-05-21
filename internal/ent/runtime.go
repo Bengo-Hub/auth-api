@@ -680,15 +680,15 @@ func init() {
 	tenantmembershipFields := schema.TenantMembership{}.Fields()
 	_ = tenantmembershipFields
 	// tenantmembershipDescStatus is the schema descriptor for status field.
-	tenantmembershipDescStatus := tenantmembershipFields[4].Descriptor()
+	tenantmembershipDescStatus := tenantmembershipFields[5].Descriptor()
 	// tenantmembership.DefaultStatus holds the default value on creation for the status field.
 	tenantmembership.DefaultStatus = tenantmembershipDescStatus.Default.(string)
 	// tenantmembershipDescCreatedAt is the schema descriptor for created_at field.
-	tenantmembershipDescCreatedAt := tenantmembershipFields[5].Descriptor()
+	tenantmembershipDescCreatedAt := tenantmembershipFields[6].Descriptor()
 	// tenantmembership.DefaultCreatedAt holds the default value on creation for the created_at field.
 	tenantmembership.DefaultCreatedAt = tenantmembershipDescCreatedAt.Default.(func() time.Time)
 	// tenantmembershipDescUpdatedAt is the schema descriptor for updated_at field.
-	tenantmembershipDescUpdatedAt := tenantmembershipFields[6].Descriptor()
+	tenantmembershipDescUpdatedAt := tenantmembershipFields[7].Descriptor()
 	// tenantmembership.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	tenantmembership.DefaultUpdatedAt = tenantmembershipDescUpdatedAt.Default.(func() time.Time)
 	// tenantmembership.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

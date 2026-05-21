@@ -21,6 +21,8 @@ const (
 	FieldTenantID = "tenant_id"
 	// FieldRoles holds the string denoting the roles field in the database.
 	FieldRoles = "roles"
+	// FieldOutletID holds the string denoting the outlet_id field in the database.
+	FieldOutletID = "outlet_id"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -55,6 +57,7 @@ var Columns = []string{
 	FieldUserID,
 	FieldTenantID,
 	FieldRoles,
+	FieldOutletID,
 	FieldStatus,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -99,6 +102,11 @@ func ByUserID(opts ...sql.OrderTermOption) OrderOption {
 // ByTenantID orders the results by the tenant_id field.
 func ByTenantID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTenantID, opts...).ToFunc()
+}
+
+// ByOutletID orders the results by the outlet_id field.
+func ByOutletID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOutletID, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.
