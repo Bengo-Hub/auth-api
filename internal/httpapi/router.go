@@ -98,6 +98,7 @@ type AuthHandlers struct {
 	ListTenantMembers  http.HandlerFunc
 	UpdateTenantMember http.HandlerFunc
 	RemoveTenantMember http.HandlerFunc
+	SetUserServicePIN  http.HandlerFunc
 	// Public integrations info
 	ListActiveIntegrations http.HandlerFunc
 	// Terms acceptance
@@ -106,6 +107,9 @@ type AuthHandlers struct {
 	ChangePassword http.HandlerFunc
 	// Use Case configuration
 	GetUseCaseConfig http.HandlerFunc
+	// OTP (email verification for Vera AI ticket flow)
+	SendOTP   http.HandlerFunc
+	VerifyOTP http.HandlerFunc
 	// Platform backup management
 	ListBackups    http.HandlerFunc
 	DownloadBackup http.HandlerFunc
@@ -242,6 +246,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 				})
 				r.Post("/me/accept-terms", deps.AuthHandlers.AcceptTerms)
 				r.Post("/me/change-password", deps.AuthHandlers.ChangePassword)
+				r.Route("/otp", func(r chi.Router) {
+					r.Post("/send", deps.AuthHandlers.SendOTP)
+					r.Post("/verify", deps.AuthHandlers.VerifyOTP)
+				})
 				r.Route("/sessions", func(r chi.Router) {
 					r.Get("/", deps.AuthHandlers.ListSessions)
 					r.Post("/revoke", deps.AuthHandlers.RevokeSession)
@@ -298,6 +306,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 						r.Get("/", deps.AuthHandlers.ListTenantMembers)
 						r.Put("/{user_id}", deps.AuthHandlers.UpdateTenantMember)
 						r.Delete("/{user_id}", deps.AuthHandlers.RemoveTenantMember)
+						r.Post("/{user_id}/service-pin", deps.AuthHandlers.SetUserServicePIN)
 					})
 				})
 				r.Post("/clients", deps.AuthHandlers.AdminCreateClient)

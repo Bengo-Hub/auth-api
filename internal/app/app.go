@@ -245,6 +245,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			ListTenantMembers:     adminHandler.ListTenantMembers,
 			UpdateTenantMember:    adminHandler.UpdateTenantMember,
 			RemoveTenantMember:    adminHandler.RemoveTenantMember,
+			SetUserServicePIN:     adminHandler.SetUserServicePIN,
 			DeveloperListClients:  developerHandler.ListClients,
 			DeveloperCreateClient: developerHandler.CreateClient,
 			// API Key management (service accounts)
@@ -260,6 +261,9 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminRevokeApp:      appHandler.RevokeApp,
 			AdminDeleteApp:      appHandler.DeleteApp,
 			AdminRotateAppToken: appHandler.RotateToken,
+			// OTP (email verification for Vera AI ticket flow)
+			SendOTP:   authHandler.SendOTP,
+			VerifyOTP: authHandler.VerifyOTP,
 			// Platform backup management
 			ListBackups:    handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled).ListBackups,
 			DownloadBackup: handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled).DownloadBackup,

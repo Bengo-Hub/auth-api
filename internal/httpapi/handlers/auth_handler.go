@@ -2,9 +2,13 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strings"
@@ -47,6 +51,7 @@ type AuthService interface {
 	ListUserTenantMemberships(ctx context.Context, userID uuid.UUID) ([]*ent.TenantMembership, error)
 	AcceptTerms(ctx context.Context, userID uuid.UUID) error
 	ChangePassword(ctx context.Context, in auth.ChangePasswordInput) error
+	SendOTPEmail(ctx context.Context, tenantID, userID uuid.UUID, email, otp string)
 }
 
 // UseCaseService describes the use case logic capabilities.
@@ -1177,4 +1182,125 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "password_changed"})
+}
+
+// otpKey returns the Redis key for a pending OTP for a user.
+func (h *AuthHandler) otpKey(userID uuid.UUID) string {
+	return h.redisNamespace + ":vera:otp:" + userID.String()
+}
+
+// otpTokenKey returns the Redis key for a verified OTP token.
+func (h *AuthHandler) otpTokenKey(tokenHash string) string {
+	return h.redisNamespace + ":vera:otp_token:" + tokenHash
+}
+
+// generateOTP returns a zero-padded 6-digit OTP string using crypto/rand.
+func generateOTP() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
+func hashOTP(otp string) string {
+	sum := sha256.Sum256([]byte(otp))
+	return hex.EncodeToString(sum[:])
+}
+
+// SendOTP generates a 6-digit OTP for the authenticated user and publishes it
+// via NATS so the notifications service delivers it by email.
+// POST /api/v1/auth/otp/send
+func (h *AuthHandler) SendOTP(w http.ResponseWriter, r *http.Request) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "OTP service not configured", nil)
+		return
+	}
+
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id", nil)
+		return
+	}
+
+	otp, err := generateOTP()
+	if err != nil {
+		h.logger.Error("generate otp", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to generate OTP", nil)
+		return
+	}
+
+	// Store hash in Redis for 5 minutes — one OTP per user at a time.
+	_ = h.redis.Set(r.Context(), h.otpKey(userID), hashOTP(otp), 5*time.Minute).Err()
+
+	// Publish event so notifications-service sends the OTP email.
+	if tenantID, _ := uuid.Parse(claims.TenantID); tenantID != uuid.Nil {
+		h.service.SendOTPEmail(r.Context(), tenantID, userID, claims.Email, otp)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"sent": true})
+}
+
+// VerifyOTP checks the submitted OTP against the stored hash.
+// On success it stores a short-lived token in Redis and returns it so the
+// Vera widget can pass it to marketflow-ai for ticket creation.
+// POST /api/v1/auth/otp/verify
+func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "OTP service not configured", nil)
+		return
+	}
+
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id", nil)
+		return
+	}
+
+	var req struct {
+		OTP string `json:"otp"`
+	}
+	if err := decodeJSON(r, &req); err != nil || strings.TrimSpace(req.OTP) == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "otp is required", nil)
+		return
+	}
+
+	stored, err := h.redis.Get(r.Context(), h.otpKey(userID)).Result()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "otp_expired", "OTP has expired or was not sent", nil)
+		return
+	}
+	if stored != hashOTP(strings.TrimSpace(req.OTP)) {
+		writeError(w, http.StatusBadRequest, "otp_invalid", "OTP is incorrect", nil)
+		return
+	}
+
+	// Consume the OTP — one use only.
+	_ = h.redis.Del(r.Context(), h.otpKey(userID)).Err()
+
+	// Issue a short-lived otp_token for the Vera widget to present to marketflow-ai.
+	rawToken := make([]byte, 24)
+	_, _ = rand.Read(rawToken)
+	otpToken := hex.EncodeToString(rawToken)
+	tokenPayload, _ := json.Marshal(map[string]any{
+		"user_id": userID.String(),
+		"email":   claims.Email,
+		"roles":   claims.Roles,
+	})
+	_ = h.redis.Set(r.Context(), h.otpTokenKey(hashOTP(otpToken)), string(tokenPayload), 10*time.Minute).Err()
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"verified":  true,
+		"otp_token": otpToken,
+	})
 }
