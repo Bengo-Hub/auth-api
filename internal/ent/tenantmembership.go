@@ -27,6 +27,8 @@ type TenantMembership struct {
 	TenantID uuid.UUID `json:"tenant_id,omitempty"`
 	// Roles holds the value of the "roles" field.
 	Roles []string `json:"roles,omitempty"`
+	// Home outlet for this user in this tenant; nil = unassigned / tenant-wide
+	OutletID *uuid.UUID `json:"outlet_id,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -77,6 +79,8 @@ func (*TenantMembership) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case tenantmembership.FieldOutletID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case tenantmembership.FieldRoles:
 			values[i] = new([]byte)
 		case tenantmembership.FieldStatus:
@@ -125,6 +129,13 @@ func (_m *TenantMembership) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.Roles); err != nil {
 					return fmt.Errorf("unmarshal field roles: %w", err)
 				}
+			}
+		case tenantmembership.FieldOutletID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field outlet_id", values[i])
+			} else if value.Valid {
+				_m.OutletID = new(uuid.UUID)
+				*_m.OutletID = *value.S.(*uuid.UUID)
 			}
 		case tenantmembership.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -198,6 +209,11 @@ func (_m *TenantMembership) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("roles=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Roles))
+	builder.WriteString(", ")
+	if v := _m.OutletID; v != nil {
+		builder.WriteString("outlet_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)

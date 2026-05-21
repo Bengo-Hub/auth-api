@@ -78,6 +78,26 @@ func (_u *TenantMembershipUpdate) ClearRoles() *TenantMembershipUpdate {
 	return _u
 }
 
+// SetOutletID sets the "outlet_id" field.
+func (_u *TenantMembershipUpdate) SetOutletID(v uuid.UUID) *TenantMembershipUpdate {
+	_u.mutation.SetOutletID(v)
+	return _u
+}
+
+// SetNillableOutletID sets the "outlet_id" field if the given value is not nil.
+func (_u *TenantMembershipUpdate) SetNillableOutletID(v *uuid.UUID) *TenantMembershipUpdate {
+	if v != nil {
+		_u.SetOutletID(*v)
+	}
+	return _u
+}
+
+// ClearOutletID clears the value of the "outlet_id" field.
+func (_u *TenantMembershipUpdate) ClearOutletID() *TenantMembershipUpdate {
+	_u.mutation.ClearOutletID()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *TenantMembershipUpdate) SetStatus(v string) *TenantMembershipUpdate {
 	_u.mutation.SetStatus(v)
@@ -194,6 +214,12 @@ func (_u *TenantMembershipUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if _u.mutation.RolesCleared() {
 		_spec.ClearField(tenantmembership.FieldRoles, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.OutletID(); ok {
+		_spec.SetField(tenantmembership.FieldOutletID, field.TypeUUID, value)
+	}
+	if _u.mutation.OutletIDCleared() {
+		_spec.ClearField(tenantmembership.FieldOutletID, field.TypeUUID)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(tenantmembership.FieldStatus, field.TypeString, value)
@@ -322,6 +348,26 @@ func (_u *TenantMembershipUpdateOne) AppendRoles(v []string) *TenantMembershipUp
 // ClearRoles clears the value of the "roles" field.
 func (_u *TenantMembershipUpdateOne) ClearRoles() *TenantMembershipUpdateOne {
 	_u.mutation.ClearRoles()
+	return _u
+}
+
+// SetOutletID sets the "outlet_id" field.
+func (_u *TenantMembershipUpdateOne) SetOutletID(v uuid.UUID) *TenantMembershipUpdateOne {
+	_u.mutation.SetOutletID(v)
+	return _u
+}
+
+// SetNillableOutletID sets the "outlet_id" field if the given value is not nil.
+func (_u *TenantMembershipUpdateOne) SetNillableOutletID(v *uuid.UUID) *TenantMembershipUpdateOne {
+	if v != nil {
+		_u.SetOutletID(*v)
+	}
+	return _u
+}
+
+// ClearOutletID clears the value of the "outlet_id" field.
+func (_u *TenantMembershipUpdateOne) ClearOutletID() *TenantMembershipUpdateOne {
+	_u.mutation.ClearOutletID()
 	return _u
 }
 
@@ -471,6 +517,12 @@ func (_u *TenantMembershipUpdateOne) sqlSave(ctx context.Context) (_node *Tenant
 	}
 	if _u.mutation.RolesCleared() {
 		_spec.ClearField(tenantmembership.FieldRoles, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.OutletID(); ok {
+		_spec.SetField(tenantmembership.FieldOutletID, field.TypeUUID, value)
+	}
+	if _u.mutation.OutletIDCleared() {
+		_spec.ClearField(tenantmembership.FieldOutletID, field.TypeUUID)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(tenantmembership.FieldStatus, field.TypeString, value)

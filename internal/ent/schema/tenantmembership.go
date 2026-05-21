@@ -25,6 +25,10 @@ func (TenantMembership) Fields() []ent.Field {
 		field.UUID("tenant_id", uuid.UUID{}),
 		field.JSON("roles", []string{}).
 			Optional(),
+		field.UUID("outlet_id", uuid.UUID{}).
+			Optional().
+			Nillable().
+			Comment("Home outlet for this user in this tenant; nil = unassigned / tenant-wide"),
 		field.String("status").
 			Default("active"),
 		field.Time("created_at").

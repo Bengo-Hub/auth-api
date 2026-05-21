@@ -21720,6 +21720,7 @@ type TenantMembershipMutation struct {
 	id            *uuid.UUID
 	roles         *[]string
 	appendroles   []string
+	outlet_id     *uuid.UUID
 	status        *string
 	created_at    *time.Time
 	updated_at    *time.Time
@@ -21974,6 +21975,55 @@ func (m *TenantMembershipMutation) ResetRoles() {
 	delete(m.clearedFields, tenantmembership.FieldRoles)
 }
 
+// SetOutletID sets the "outlet_id" field.
+func (m *TenantMembershipMutation) SetOutletID(u uuid.UUID) {
+	m.outlet_id = &u
+}
+
+// OutletID returns the value of the "outlet_id" field in the mutation.
+func (m *TenantMembershipMutation) OutletID() (r uuid.UUID, exists bool) {
+	v := m.outlet_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutletID returns the old "outlet_id" field's value of the TenantMembership entity.
+// If the TenantMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMembershipMutation) OldOutletID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutletID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutletID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutletID: %w", err)
+	}
+	return oldValue.OutletID, nil
+}
+
+// ClearOutletID clears the value of the "outlet_id" field.
+func (m *TenantMembershipMutation) ClearOutletID() {
+	m.outlet_id = nil
+	m.clearedFields[tenantmembership.FieldOutletID] = struct{}{}
+}
+
+// OutletIDCleared returns if the "outlet_id" field was cleared in this mutation.
+func (m *TenantMembershipMutation) OutletIDCleared() bool {
+	_, ok := m.clearedFields[tenantmembership.FieldOutletID]
+	return ok
+}
+
+// ResetOutletID resets all changes to the "outlet_id" field.
+func (m *TenantMembershipMutation) ResetOutletID() {
+	m.outlet_id = nil
+	delete(m.clearedFields, tenantmembership.FieldOutletID)
+}
+
 // SetStatus sets the "status" field.
 func (m *TenantMembershipMutation) SetStatus(s string) {
 	m.status = &s
@@ -22170,7 +22220,7 @@ func (m *TenantMembershipMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TenantMembershipMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 7)
 	if m.user != nil {
 		fields = append(fields, tenantmembership.FieldUserID)
 	}
@@ -22179,6 +22229,9 @@ func (m *TenantMembershipMutation) Fields() []string {
 	}
 	if m.roles != nil {
 		fields = append(fields, tenantmembership.FieldRoles)
+	}
+	if m.outlet_id != nil {
+		fields = append(fields, tenantmembership.FieldOutletID)
 	}
 	if m.status != nil {
 		fields = append(fields, tenantmembership.FieldStatus)
@@ -22203,6 +22256,8 @@ func (m *TenantMembershipMutation) Field(name string) (ent.Value, bool) {
 		return m.TenantID()
 	case tenantmembership.FieldRoles:
 		return m.Roles()
+	case tenantmembership.FieldOutletID:
+		return m.OutletID()
 	case tenantmembership.FieldStatus:
 		return m.Status()
 	case tenantmembership.FieldCreatedAt:
@@ -22224,6 +22279,8 @@ func (m *TenantMembershipMutation) OldField(ctx context.Context, name string) (e
 		return m.OldTenantID(ctx)
 	case tenantmembership.FieldRoles:
 		return m.OldRoles(ctx)
+	case tenantmembership.FieldOutletID:
+		return m.OldOutletID(ctx)
 	case tenantmembership.FieldStatus:
 		return m.OldStatus(ctx)
 	case tenantmembership.FieldCreatedAt:
@@ -22259,6 +22316,13 @@ func (m *TenantMembershipMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRoles(v)
+		return nil
+	case tenantmembership.FieldOutletID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutletID(v)
 		return nil
 	case tenantmembership.FieldStatus:
 		v, ok := value.(string)
@@ -22314,6 +22378,9 @@ func (m *TenantMembershipMutation) ClearedFields() []string {
 	if m.FieldCleared(tenantmembership.FieldRoles) {
 		fields = append(fields, tenantmembership.FieldRoles)
 	}
+	if m.FieldCleared(tenantmembership.FieldOutletID) {
+		fields = append(fields, tenantmembership.FieldOutletID)
+	}
 	return fields
 }
 
@@ -22331,6 +22398,9 @@ func (m *TenantMembershipMutation) ClearField(name string) error {
 	case tenantmembership.FieldRoles:
 		m.ClearRoles()
 		return nil
+	case tenantmembership.FieldOutletID:
+		m.ClearOutletID()
+		return nil
 	}
 	return fmt.Errorf("unknown TenantMembership nullable field %s", name)
 }
@@ -22347,6 +22417,9 @@ func (m *TenantMembershipMutation) ResetField(name string) error {
 		return nil
 	case tenantmembership.FieldRoles:
 		m.ResetRoles()
+		return nil
+	case tenantmembership.FieldOutletID:
+		m.ResetOutletID()
 		return nil
 	case tenantmembership.FieldStatus:
 		m.ResetStatus()

@@ -66,6 +66,11 @@ func TenantID(v uuid.UUID) predicate.TenantMembership {
 	return predicate.TenantMembership(sql.FieldEQ(FieldTenantID, v))
 }
 
+// OutletID applies equality check predicate on the "outlet_id" field. It's identical to OutletIDEQ.
+func OutletID(v uuid.UUID) predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldEQ(FieldOutletID, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.TenantMembership {
 	return predicate.TenantMembership(sql.FieldEQ(FieldStatus, v))
@@ -129,6 +134,56 @@ func RolesIsNil() predicate.TenantMembership {
 // RolesNotNil applies the NotNil predicate on the "roles" field.
 func RolesNotNil() predicate.TenantMembership {
 	return predicate.TenantMembership(sql.FieldNotNull(FieldRoles))
+}
+
+// OutletIDEQ applies the EQ predicate on the "outlet_id" field.
+func OutletIDEQ(v uuid.UUID) predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldEQ(FieldOutletID, v))
+}
+
+// OutletIDNEQ applies the NEQ predicate on the "outlet_id" field.
+func OutletIDNEQ(v uuid.UUID) predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldNEQ(FieldOutletID, v))
+}
+
+// OutletIDIn applies the In predicate on the "outlet_id" field.
+func OutletIDIn(vs ...uuid.UUID) predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldIn(FieldOutletID, vs...))
+}
+
+// OutletIDNotIn applies the NotIn predicate on the "outlet_id" field.
+func OutletIDNotIn(vs ...uuid.UUID) predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldNotIn(FieldOutletID, vs...))
+}
+
+// OutletIDGT applies the GT predicate on the "outlet_id" field.
+func OutletIDGT(v uuid.UUID) predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldGT(FieldOutletID, v))
+}
+
+// OutletIDGTE applies the GTE predicate on the "outlet_id" field.
+func OutletIDGTE(v uuid.UUID) predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldGTE(FieldOutletID, v))
+}
+
+// OutletIDLT applies the LT predicate on the "outlet_id" field.
+func OutletIDLT(v uuid.UUID) predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldLT(FieldOutletID, v))
+}
+
+// OutletIDLTE applies the LTE predicate on the "outlet_id" field.
+func OutletIDLTE(v uuid.UUID) predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldLTE(FieldOutletID, v))
+}
+
+// OutletIDIsNil applies the IsNil predicate on the "outlet_id" field.
+func OutletIDIsNil() predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldIsNull(FieldOutletID))
+}
+
+// OutletIDNotNil applies the NotNil predicate on the "outlet_id" field.
+func OutletIDNotNil() predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldNotNull(FieldOutletID))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.
