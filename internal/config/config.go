@@ -87,7 +87,7 @@ type TokenConfig struct {
 	Audience            string        `env:"AUDIENCE" envDefault:"codevertex"`
 	PrivateKeyPath      string        `env:"PRIVATE_KEY_PATH"`
 	PublicKeyPath       string        `env:"PUBLIC_KEY_PATH"`
-	AccessTokenTTL      time.Duration `env:"ACCESS_TTL" envDefault:"15m"`
+	AccessTokenTTL      time.Duration `env:"ACCESS_TTL" envDefault:"8h"`
 	RefreshTokenTTL     time.Duration `env:"REFRESH_TTL" envDefault:"720h"`
 	RotateRefreshTokens bool          `env:"ROTATE_REFRESH" envDefault:"true"`
 	DefaultScopes       []string      `env:"DEFAULT_SCOPES" envSeparator:"," envDefault:"profile,email,offline_access"`
