@@ -182,7 +182,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	}
 	var webAuthnHandler *handlers.WebAuthnHandler
 	if webAuthnService != nil {
-		webAuthnHandler = handlers.NewWebAuthnHandler(webAuthnService, authService, logger)
+		webAuthnHandler = handlers.NewWebAuthnHandler(webAuthnService, authService, logger, redisClient, cfg.Redis.Namespace)
 	}
 
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, logger)
