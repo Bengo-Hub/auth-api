@@ -236,11 +236,24 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// GET /logout is public: for redirect-based logout (post_logout_redirect_uri from clients)
 			r.Get("/logout", deps.AuthHandlers.LogoutGet)
 
-			// WebAuthn / passkey authentication (public — no JWT required for login ceremony)
-			if deps.AuthHandlers.WebAuthnBeginAuthentication != nil {
+			// WebAuthn routes: public authenticate + authenticated register/manage under one path
+			if deps.AuthHandlers.WebAuthnBeginAuthentication != nil || deps.AuthHandlers.WebAuthnBeginRegistration != nil {
 				r.Route("/webauthn", func(r chi.Router) {
-					r.Post("/authenticate/begin", deps.AuthHandlers.WebAuthnBeginAuthentication)
-					r.Post("/authenticate/finish", deps.AuthHandlers.WebAuthnFinishAuthentication)
+					if deps.AuthHandlers.WebAuthnBeginAuthentication != nil {
+						r.Post("/authenticate/begin", deps.AuthHandlers.WebAuthnBeginAuthentication)
+						r.Post("/authenticate/finish", deps.AuthHandlers.WebAuthnFinishAuthentication)
+					}
+					if deps.AuthHandlers.WebAuthnBeginRegistration != nil {
+						r.Group(func(r chi.Router) {
+							if deps.RequireAuthHandler != nil {
+								r.Use(deps.RequireAuthHandler)
+							}
+							r.Post("/register/begin", deps.AuthHandlers.WebAuthnBeginRegistration)
+							r.Post("/register/finish", deps.AuthHandlers.WebAuthnFinishRegistration)
+							r.Get("/credentials", deps.AuthHandlers.WebAuthnListCredentials)
+							r.Delete("/credentials/{id}", deps.AuthHandlers.WebAuthnDeleteCredential)
+						})
+					}
 				})
 			}
 
@@ -260,15 +273,6 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Post("/backup-codes/regenerate", deps.AuthHandlers.MFARegenerateBackupCodes)
 					r.Post("/backup-codes/consume", deps.AuthHandlers.MFAConsumeBackupCode)
 				})
-				// WebAuthn registration and credential management (requires auth)
-				if deps.AuthHandlers.WebAuthnBeginRegistration != nil {
-					r.Route("/webauthn", func(r chi.Router) {
-						r.Post("/register/begin", deps.AuthHandlers.WebAuthnBeginRegistration)
-						r.Post("/register/finish", deps.AuthHandlers.WebAuthnFinishRegistration)
-						r.Get("/credentials", deps.AuthHandlers.WebAuthnListCredentials)
-						r.Delete("/credentials/{id}", deps.AuthHandlers.WebAuthnDeleteCredential)
-					})
-				}
 				r.Post("/me/accept-terms", deps.AuthHandlers.AcceptTerms)
 				r.Post("/me/change-password", deps.AuthHandlers.ChangePassword)
 				r.Route("/otp", func(r chi.Router) {
