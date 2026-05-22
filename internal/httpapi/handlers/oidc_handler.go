@@ -94,10 +94,10 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		uq := u.Query()
 		uq.Set("return_to", fullAuthorizeURL)
 
-		// Propagate tenant slug if provided, else default to codevertex
+		// Propagate tenant slug if provided, else default to codevertex-demo
 		tenant := r.URL.Query().Get("tenant")
 		if tenant == "" {
-			tenant = "codevertex"
+			tenant = "codevertex-demo"
 		}
 		uq.Set("tenant", tenant)
 

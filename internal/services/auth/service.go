@@ -1933,7 +1933,7 @@ func (s *Service) resolveOAuthStartTenant(ctx context.Context, slug string) (*en
 	if slug != "" {
 		return s.GetTenantBySlug(ctx, slug)
 	}
-	return s.GetTenantBySlug(ctx, "codevertex")
+	return s.GetTenantBySlug(ctx, "codevertex-demo")
 }
 
 func (s *Service) recordLoginAttempt(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, email string, success bool, reason string, ip string, ua string) {
