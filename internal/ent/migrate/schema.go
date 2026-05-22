@@ -870,6 +870,36 @@ var (
 			},
 		},
 	}
+	// WebAuthnCredentialsColumns holds the columns for the "web_authn_credentials" table.
+	WebAuthnCredentialsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "credential_id", Type: field.TypeBytes, Unique: true},
+		{Name: "public_key", Type: field.TypeBytes},
+		{Name: "aaguid", Type: field.TypeString, Nullable: true},
+		{Name: "sign_count", Type: field.TypeUint32, Default: 0},
+		{Name: "transports", Type: field.TypeJSON, Nullable: true},
+		{Name: "user_verified", Type: field.TypeBool, Default: false},
+		{Name: "backup_eligible", Type: field.TypeBool, Default: false},
+		{Name: "backup_state", Type: field.TypeBool, Default: false},
+		{Name: "friendly_name", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// WebAuthnCredentialsTable holds the schema information for the "web_authn_credentials" table.
+	WebAuthnCredentialsTable = &schema.Table{
+		Name:       "web_authn_credentials",
+		Columns:    WebAuthnCredentialsColumns,
+		PrimaryKey: []*schema.Column{WebAuthnCredentialsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "web_authn_credentials_users_webauthn_credentials",
+				Columns:    []*schema.Column{WebAuthnCredentialsColumns[12]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
@@ -900,6 +930,7 @@ var (
 		UsageMetricsTable,
 		UsersTable,
 		UserIdentitiesTable,
+		WebAuthnCredentialsTable,
 	}
 )
 
@@ -914,4 +945,5 @@ func init() {
 	TenantMembershipsTable.ForeignKeys[0].RefTable = TenantsTable
 	TenantMembershipsTable.ForeignKeys[1].RefTable = UsersTable
 	UserIdentitiesTable.ForeignKeys[0].RefTable = UsersTable
+	WebAuthnCredentialsTable.ForeignKeys[0].RefTable = UsersTable
 }

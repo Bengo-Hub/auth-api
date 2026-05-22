@@ -34,6 +34,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/usagemetric"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 	"github.com/google/uuid"
 )
 
@@ -793,4 +794,30 @@ func init() {
 	useridentityDescID := useridentityFields[0].Descriptor()
 	// useridentity.DefaultID holds the default value on creation for the id field.
 	useridentity.DefaultID = useridentityDescID.Default.(func() uuid.UUID)
+	webauthncredentialFields := schema.WebAuthnCredential{}.Fields()
+	_ = webauthncredentialFields
+	// webauthncredentialDescSignCount is the schema descriptor for sign_count field.
+	webauthncredentialDescSignCount := webauthncredentialFields[5].Descriptor()
+	// webauthncredential.DefaultSignCount holds the default value on creation for the sign_count field.
+	webauthncredential.DefaultSignCount = webauthncredentialDescSignCount.Default.(uint32)
+	// webauthncredentialDescUserVerified is the schema descriptor for user_verified field.
+	webauthncredentialDescUserVerified := webauthncredentialFields[7].Descriptor()
+	// webauthncredential.DefaultUserVerified holds the default value on creation for the user_verified field.
+	webauthncredential.DefaultUserVerified = webauthncredentialDescUserVerified.Default.(bool)
+	// webauthncredentialDescBackupEligible is the schema descriptor for backup_eligible field.
+	webauthncredentialDescBackupEligible := webauthncredentialFields[8].Descriptor()
+	// webauthncredential.DefaultBackupEligible holds the default value on creation for the backup_eligible field.
+	webauthncredential.DefaultBackupEligible = webauthncredentialDescBackupEligible.Default.(bool)
+	// webauthncredentialDescBackupState is the schema descriptor for backup_state field.
+	webauthncredentialDescBackupState := webauthncredentialFields[9].Descriptor()
+	// webauthncredential.DefaultBackupState holds the default value on creation for the backup_state field.
+	webauthncredential.DefaultBackupState = webauthncredentialDescBackupState.Default.(bool)
+	// webauthncredentialDescCreatedAt is the schema descriptor for created_at field.
+	webauthncredentialDescCreatedAt := webauthncredentialFields[11].Descriptor()
+	// webauthncredential.DefaultCreatedAt holds the default value on creation for the created_at field.
+	webauthncredential.DefaultCreatedAt = webauthncredentialDescCreatedAt.Default.(func() time.Time)
+	// webauthncredentialDescID is the schema descriptor for id field.
+	webauthncredentialDescID := webauthncredentialFields[0].Descriptor()
+	// webauthncredential.DefaultID holds the default value on creation for the id field.
+	webauthncredential.DefaultID = webauthncredentialDescID.Default.(func() uuid.UUID)
 }

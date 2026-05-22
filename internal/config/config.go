@@ -20,6 +20,7 @@ type Config struct {
 	Subscription SubscriptionConfig `envPrefix:"AUTH_SUBSCRIPTION_"`
 	Events       EventsConfig       `envPrefix:"AUTH_EVENTS_"`
 	Backup       BackupConfig       `envPrefix:"BACKUP_"`
+	WebAuthn     WebAuthnConfig     `envPrefix:"AUTH_WEBAUTHN_"`
 }
 
 // BackupConfig points to the internal backup-server that serves PostgreSQL backup files.
@@ -52,6 +53,13 @@ type AppConfig struct {
 	Environment string `env:"APP_ENV" envDefault:"development"`
 	ServiceName string `env:"APP_NAME" envDefault:"auth-api"`
 	AuthUIURL   string `env:"AUTH_UI_URL" envDefault:"https://accounts.codevertexitsolutions.com"`
+}
+
+// WebAuthnConfig holds WebAuthn / passkey relying party settings.
+type WebAuthnConfig struct {
+	RPID          string   `env:"RPID" envDefault:"codevertexitsolutions.com"`
+	RPDisplayName string   `env:"RP_DISPLAY_NAME" envDefault:"Codevertex Platform"`
+	RPOrigins     []string `env:"RP_ORIGINS" envSeparator:"," envDefault:"https://accounts.codevertexitsolutions.com,https://pos.codevertexitsolutions.com,https://inventory.codevertexitsolutions.com,https://ordering.codevertexitsolutions.com"`
 }
 
 type HTTPConfig struct {

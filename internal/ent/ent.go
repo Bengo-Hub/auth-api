@@ -40,6 +40,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/usagemetric"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -128,6 +129,7 @@ func checkColumn(t, c string) error {
 			usagemetric.Table:             usagemetric.ValidColumn,
 			user.Table:                    user.ValidColumn,
 			useridentity.Table:            useridentity.ValidColumn,
+			webauthncredential.Table:      webauthncredential.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

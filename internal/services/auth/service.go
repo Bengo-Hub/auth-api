@@ -190,6 +190,51 @@ type LoginInput struct {
 	ClientID   string
 }
 
+// WebAuthnLoginInput identifies a user who has already been verified by WebAuthn.
+type WebAuthnLoginInput struct {
+	UserID     uuid.UUID
+	TenantSlug string
+	IPAddress  string
+	UserAgent  string
+	ClientID   string
+}
+
+// LoginWithWebAuthn issues a session for a user that has been verified via WebAuthn.
+// The caller is responsible for verifying the WebAuthn assertion before calling this method.
+func (s *Service) LoginWithWebAuthn(ctx context.Context, in WebAuthnLoginInput) (*AuthResult, error) {
+	userEntity, err := s.entClient.User.Get(ctx, in.UserID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, ErrInvalidCredentials
+		}
+		return nil, fmt.Errorf("load user: %w", err)
+	}
+
+	var tenantEntity *ent.Tenant
+	if strings.TrimSpace(in.TenantSlug) != "" {
+		tenantEntity, err = s.GetTenantBySlug(ctx, in.TenantSlug)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if primaryID := strings.TrimSpace(userEntity.PrimaryTenantID); primaryID != "" {
+			if primaryTenantUUID, parseErr := uuid.Parse(primaryID); parseErr == nil {
+				if t, getErr := s.GetTenant(ctx, primaryTenantUUID); getErr == nil && t.Status == "active" {
+					tenantEntity = t
+				}
+			}
+		}
+	}
+
+	return s.issueSession(ctx, issueSessionInput{
+		User:      userEntity,
+		Tenant:    tenantEntity,
+		ClientID:  in.ClientID,
+		IPAddress: in.IPAddress,
+		UserAgent: in.UserAgent,
+	})
+}
+
 // RefreshInput refresh token payload.
 type RefreshInput struct {
 	RefreshToken string
