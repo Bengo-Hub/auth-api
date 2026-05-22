@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/services/auth"
@@ -161,7 +162,7 @@ func (h *WebAuthnHandler) FinishAuthentication(w http.ResponseWriter, r *http.Re
 	writeJSON(w, http.StatusOK, map[string]any{
 		"access_token":  result.AccessToken,
 		"refresh_token": result.RefreshToken,
-		"expires_in":    int(result.AccessTokenExpiresAt.Sub(result.AccessTokenExpiresAt.Round(0)).Seconds()),
+		"expires_in":    int(time.Until(result.AccessTokenExpiresAt).Seconds()),
 		"token_type":    "Bearer",
 		"session_id":    result.SessionID.String(),
 	})
