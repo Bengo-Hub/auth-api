@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
@@ -10,18 +11,21 @@ import (
 	webauthnSvc "github.com/bengobox/auth-api/internal/services/webauthn"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
 // WebAuthnHandler exposes passkey/biometric registration and authentication endpoints.
 type WebAuthnHandler struct {
-	webAuthn *webauthnSvc.Service
-	authSvc  *auth.Service
-	logger   *zap.Logger
+	webAuthn       *webauthnSvc.Service
+	authSvc        *auth.Service
+	logger         *zap.Logger
+	redis          *redis.Client
+	redisNamespace string
 }
 
-func NewWebAuthnHandler(webAuthn *webauthnSvc.Service, authSvc *auth.Service, logger *zap.Logger) *WebAuthnHandler {
-	return &WebAuthnHandler{webAuthn: webAuthn, authSvc: authSvc, logger: logger}
+func NewWebAuthnHandler(webAuthn *webauthnSvc.Service, authSvc *auth.Service, logger *zap.Logger, rdb *redis.Client, redisNS string) *WebAuthnHandler {
+	return &WebAuthnHandler{webAuthn: webAuthn, authSvc: authSvc, logger: logger, redis: rdb, redisNamespace: redisNS}
 }
 
 // BeginRegistration starts the WebAuthn registration ceremony.
@@ -159,13 +163,51 @@ func (h *WebAuthnHandler) FinishAuthentication(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"access_token":  result.AccessToken,
-		"refresh_token": result.RefreshToken,
-		"expires_in":    int(time.Until(result.AccessTokenExpiresAt).Seconds()),
-		"token_type":    "Bearer",
-		"session_id":    result.SessionID.String(),
-	})
+	// Store session token in Redis so the auth middleware can resolve bb_session → JWT.
+	sessionRef := result.SessionID.String()
+	if h.redis != nil && h.redisNamespace != "" {
+		sessionKey := h.redisNamespace + ":session_token:" + sessionRef
+		ttl := 24 * time.Hour
+		if d := time.Until(result.AccessTokenExpiresAt); d > 0 {
+			ttl = d
+		}
+		_ = h.redis.Set(r.Context(), sessionKey, result.AccessToken, ttl).Err()
+	}
+
+	// Set bb_session cookie — identical config as AuthHandler.Login so subsequent
+	// page loads are authenticated via the session cookie, not just the Bearer token.
+	cookie := &http.Cookie{
+		Name:     "bb_session",
+		Value:    sessionRef,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(24 * time.Hour),
+	}
+	if host := r.Host; strings.Contains(host, "codevertexitsolutions.com") {
+		cookie.Domain = ".codevertexitsolutions.com"
+	}
+	http.SetCookie(w, cookie)
+
+	writeJSON(w, http.StatusOK, webAuthnAuthResponse(result))
+}
+
+// webAuthnAuthResponse builds the authentication response for WebAuthn logins,
+// mirroring toAuthResponse so RBAC state (roles/permissions) is returned to the client.
+func webAuthnAuthResponse(result *auth.AuthResult) map[string]any {
+	return map[string]any{
+		"access_token":       result.AccessToken,
+		"token_type":         "Bearer",
+		"expires_in":         int(time.Until(result.AccessTokenExpiresAt).Seconds()),
+		"refresh_token":      result.RefreshToken,
+		"refresh_expires_in": int(time.Until(result.RefreshTokenExpiresAt).Seconds()),
+		"session_id":         result.SessionID,
+		"user":               userViewFromEnt(result.User),
+		"tenant":             tenantViewFromEnt(result.Tenant),
+		"roles":              result.Roles,
+		"permissions":        result.Permissions,
+	}
 }
 
 // ListCredentials returns all WebAuthn credentials for the authenticated user.
