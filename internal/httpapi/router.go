@@ -178,7 +178,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Requested-With", "X-API-Key", "X-Tenant-Slug", "X-Tenant-ID", "X-WebAuthn-Session"},
-		ExposedHeaders:   []string{"Set-Cookie"},
+		ExposedHeaders:   []string{"Set-Cookie", "X-WebAuthn-Session"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
