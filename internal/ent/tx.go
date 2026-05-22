@@ -68,6 +68,8 @@ type Tx struct {
 	User *UserClient
 	// UserIdentity is the client for interacting with the UserIdentity builders.
 	UserIdentity *UserIdentityClient
+	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
+	WebAuthnCredential *WebAuthnCredentialClient
 
 	// lazily loaded.
 	client     *Client
@@ -227,6 +229,7 @@ func (tx *Tx) init() {
 	tx.UsageMetric = NewUsageMetricClient(tx.config)
 	tx.User = NewUserClient(tx.config)
 	tx.UserIdentity = NewUserIdentityClient(tx.config)
+	tx.WebAuthnCredential = NewWebAuthnCredentialClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

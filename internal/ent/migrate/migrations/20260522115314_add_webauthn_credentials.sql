@@ -1,0 +1,4 @@
+-- Create "web_authn_credentials" table
+CREATE TABLE "web_authn_credentials" ("id" uuid NOT NULL, "credential_id" bytea NOT NULL, "public_key" bytea NOT NULL, "aaguid" character varying NULL, "sign_count" bigint NOT NULL DEFAULT 0, "transports" jsonb NULL, "user_verified" boolean NOT NULL DEFAULT false, "backup_eligible" boolean NOT NULL DEFAULT false, "backup_state" boolean NOT NULL DEFAULT false, "friendly_name" character varying NULL, "created_at" timestamptz NOT NULL, "last_used_at" timestamptz NULL, "user_id" uuid NOT NULL, PRIMARY KEY ("id"), CONSTRAINT "web_authn_credentials_users_webauthn_credentials" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION);
+-- Create index "web_authn_credentials_credential_id_key" to table: "web_authn_credentials"
+CREATE UNIQUE INDEX "web_authn_credentials_credential_id_key" ON "web_authn_credentials" ("credential_id");

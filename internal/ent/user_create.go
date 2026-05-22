@@ -20,6 +20,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 	"github.com/google/uuid"
 )
 
@@ -272,6 +273,21 @@ func (_c *UserCreate) AddMfaBackupCodes(v ...*MFABackupCode) *UserCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddMfaBackupCodeIDs(ids...)
+}
+
+// AddWebauthnCredentialIDs adds the "webauthn_credentials" edge to the WebAuthnCredential entity by IDs.
+func (_c *UserCreate) AddWebauthnCredentialIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddWebauthnCredentialIDs(ids...)
+	return _c
+}
+
+// AddWebauthnCredentials adds the "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_c *UserCreate) AddWebauthnCredentials(v ...*WebAuthnCredential) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddWebauthnCredentialIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -539,6 +555,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.WebauthnCredentialsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WebauthnCredentialsTable,
+			Columns: []string{user.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -20,6 +20,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 	"github.com/google/uuid"
 )
 
@@ -281,6 +282,21 @@ func (_u *UserUpdate) AddMfaBackupCodes(v ...*MFABackupCode) *UserUpdate {
 	return _u.AddMfaBackupCodeIDs(ids...)
 }
 
+// AddWebauthnCredentialIDs adds the "webauthn_credentials" edge to the WebAuthnCredential entity by IDs.
+func (_u *UserUpdate) AddWebauthnCredentialIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.AddWebauthnCredentialIDs(ids...)
+	return _u
+}
+
+// AddWebauthnCredentials adds the "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_u *UserUpdate) AddWebauthnCredentials(v ...*WebAuthnCredential) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddWebauthnCredentialIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -431,6 +447,27 @@ func (_u *UserUpdate) RemoveMfaBackupCodes(v ...*MFABackupCode) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveMfaBackupCodeIDs(ids...)
+}
+
+// ClearWebauthnCredentials clears all "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_u *UserUpdate) ClearWebauthnCredentials() *UserUpdate {
+	_u.mutation.ClearWebauthnCredentials()
+	return _u
+}
+
+// RemoveWebauthnCredentialIDs removes the "webauthn_credentials" edge to WebAuthnCredential entities by IDs.
+func (_u *UserUpdate) RemoveWebauthnCredentialIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.RemoveWebauthnCredentialIDs(ids...)
+	return _u
+}
+
+// RemoveWebauthnCredentials removes "webauthn_credentials" edges to WebAuthnCredential entities.
+func (_u *UserUpdate) RemoveWebauthnCredentials(v ...*WebAuthnCredential) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveWebauthnCredentialIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -853,6 +890,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.WebauthnCredentialsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WebauthnCredentialsTable,
+			Columns: []string{user.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedWebauthnCredentialsIDs(); len(nodes) > 0 && !_u.mutation.WebauthnCredentialsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WebauthnCredentialsTable,
+			Columns: []string{user.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.WebauthnCredentialsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WebauthnCredentialsTable,
+			Columns: []string{user.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -1118,6 +1200,21 @@ func (_u *UserUpdateOne) AddMfaBackupCodes(v ...*MFABackupCode) *UserUpdateOne {
 	return _u.AddMfaBackupCodeIDs(ids...)
 }
 
+// AddWebauthnCredentialIDs adds the "webauthn_credentials" edge to the WebAuthnCredential entity by IDs.
+func (_u *UserUpdateOne) AddWebauthnCredentialIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.AddWebauthnCredentialIDs(ids...)
+	return _u
+}
+
+// AddWebauthnCredentials adds the "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_u *UserUpdateOne) AddWebauthnCredentials(v ...*WebAuthnCredential) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddWebauthnCredentialIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -1268,6 +1365,27 @@ func (_u *UserUpdateOne) RemoveMfaBackupCodes(v ...*MFABackupCode) *UserUpdateOn
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveMfaBackupCodeIDs(ids...)
+}
+
+// ClearWebauthnCredentials clears all "webauthn_credentials" edges to the WebAuthnCredential entity.
+func (_u *UserUpdateOne) ClearWebauthnCredentials() *UserUpdateOne {
+	_u.mutation.ClearWebauthnCredentials()
+	return _u
+}
+
+// RemoveWebauthnCredentialIDs removes the "webauthn_credentials" edge to WebAuthnCredential entities by IDs.
+func (_u *UserUpdateOne) RemoveWebauthnCredentialIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.RemoveWebauthnCredentialIDs(ids...)
+	return _u
+}
+
+// RemoveWebauthnCredentials removes "webauthn_credentials" edges to WebAuthnCredential entities.
+func (_u *UserUpdateOne) RemoveWebauthnCredentials(v ...*WebAuthnCredential) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveWebauthnCredentialIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -1713,6 +1831,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(mfabackupcode.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.WebauthnCredentialsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WebauthnCredentialsTable,
+			Columns: []string{user.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedWebauthnCredentialsIDs(); len(nodes) > 0 && !_u.mutation.WebauthnCredentialsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WebauthnCredentialsTable,
+			Columns: []string{user.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.WebauthnCredentialsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.WebauthnCredentialsTable,
+			Columns: []string{user.WebauthnCredentialsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

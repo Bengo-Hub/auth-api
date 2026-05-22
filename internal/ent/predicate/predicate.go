@@ -89,3 +89,6 @@ type User func(*sql.Selector)
 
 // UserIdentity is the predicate function for useridentity builders.
 type UserIdentity func(*sql.Selector)
+
+// WebAuthnCredential is the predicate function for webauthncredential builders.
+type WebAuthnCredential func(*sql.Selector)

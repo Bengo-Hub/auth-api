@@ -49,6 +49,8 @@ const (
 	EdgeMfaTotp = "mfa_totp"
 	// EdgeMfaBackupCodes holds the string denoting the mfa_backup_codes edge name in mutations.
 	EdgeMfaBackupCodes = "mfa_backup_codes"
+	// EdgeWebauthnCredentials holds the string denoting the webauthn_credentials edge name in mutations.
+	EdgeWebauthnCredentials = "webauthn_credentials"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// MembershipsTable is the table that holds the memberships relation/edge.
@@ -100,6 +102,13 @@ const (
 	MfaBackupCodesInverseTable = "mfa_backup_codes"
 	// MfaBackupCodesColumn is the table column denoting the mfa_backup_codes relation/edge.
 	MfaBackupCodesColumn = "user_id"
+	// WebauthnCredentialsTable is the table that holds the webauthn_credentials relation/edge.
+	WebauthnCredentialsTable = "web_authn_credentials"
+	// WebauthnCredentialsInverseTable is the table name for the WebAuthnCredential entity.
+	// It exists in this package in order to avoid circular dependency with the "webauthncredential" package.
+	WebauthnCredentialsInverseTable = "web_authn_credentials"
+	// WebauthnCredentialsColumn is the table column denoting the webauthn_credentials relation/edge.
+	WebauthnCredentialsColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -296,6 +305,20 @@ func ByMfaBackupCodes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newMfaBackupCodesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByWebauthnCredentialsCount orders the results by webauthn_credentials count.
+func ByWebauthnCredentialsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newWebauthnCredentialsStep(), opts...)
+	}
+}
+
+// ByWebauthnCredentials orders the results by webauthn_credentials terms.
+func ByWebauthnCredentials(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newWebauthnCredentialsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newMembershipsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -343,5 +366,12 @@ func newMfaBackupCodesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(MfaBackupCodesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, MfaBackupCodesTable, MfaBackupCodesColumn),
+	)
+}
+func newWebauthnCredentialsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(WebauthnCredentialsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, WebauthnCredentialsTable, WebauthnCredentialsColumn),
 	)
 }

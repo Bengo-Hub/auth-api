@@ -61,9 +61,11 @@ type UserEdges struct {
 	MfaTotp []*MFATOTPSecret `json:"mfa_totp,omitempty"`
 	// MfaBackupCodes holds the value of the mfa_backup_codes edge.
 	MfaBackupCodes []*MFABackupCode `json:"mfa_backup_codes,omitempty"`
+	// WebauthnCredentials holds the value of the webauthn_credentials edge.
+	WebauthnCredentials []*WebAuthnCredential `json:"webauthn_credentials,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [8]bool
 }
 
 // MembershipsOrErr returns the Memberships value or an error if the edge
@@ -127,6 +129,15 @@ func (e UserEdges) MfaBackupCodesOrErr() ([]*MFABackupCode, error) {
 		return e.MfaBackupCodes, nil
 	}
 	return nil, &NotLoadedError{edge: "mfa_backup_codes"}
+}
+
+// WebauthnCredentialsOrErr returns the WebauthnCredentials value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) WebauthnCredentialsOrErr() ([]*WebAuthnCredential, error) {
+	if e.loadedTypes[7] {
+		return e.WebauthnCredentials, nil
+	}
+	return nil, &NotLoadedError{edge: "webauthn_credentials"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -274,6 +285,11 @@ func (_m *User) QueryMfaTotp() *MFATOTPSecretQuery {
 // QueryMfaBackupCodes queries the "mfa_backup_codes" edge of the User entity.
 func (_m *User) QueryMfaBackupCodes() *MFABackupCodeQuery {
 	return NewUserClient(_m.config).QueryMfaBackupCodes(_m)
+}
+
+// QueryWebauthnCredentials queries the "webauthn_credentials" edge of the User entity.
+func (_m *User) QueryWebauthnCredentials() *WebAuthnCredentialQuery {
+	return NewUserClient(_m.config).QueryWebauthnCredentials(_m)
 }
 
 // Update returns a builder for updating this User.

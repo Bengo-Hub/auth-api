@@ -29,6 +29,7 @@ import (
 	"github.com/bengobox/auth-api/internal/services/mfa"
 	"github.com/bengobox/auth-api/internal/services/usecase"
 	"github.com/bengobox/auth-api/internal/services/oidc"
+	webauthnSvc "github.com/bengobox/auth-api/internal/services/webauthn"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -171,6 +172,19 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	mfaService := mfa.New(entClient, cfg.Token.Issuer)
 	mfaHandler := handlers.NewMFAHandler(mfaService, logger)
 
+	webAuthnService, webAuthnErr := webauthnSvc.New(webauthnSvc.Config{
+		RPID:          cfg.WebAuthn.RPID,
+		RPDisplayName: cfg.WebAuthn.RPDisplayName,
+		RPOrigins:     cfg.WebAuthn.RPOrigins,
+	}, entClient, redisClient, cfg.Redis.Namespace, logger)
+	if webAuthnErr != nil {
+		logger.Warn("webauthn disabled: failed to init", zap.Error(webAuthnErr))
+	}
+	var webAuthnHandler *handlers.WebAuthnHandler
+	if webAuthnService != nil {
+		webAuthnHandler = handlers.NewWebAuthnHandler(webAuthnService, authService, logger)
+	}
+
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, logger)
 	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
@@ -268,6 +282,13 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			// Platform backup management
 			ListBackups:    handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled).ListBackups,
 			DownloadBackup: handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled).DownloadBackup,
+			// WebAuthn / passkey biometric login
+			WebAuthnBeginRegistration:    webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.BeginRegistration }),
+			WebAuthnFinishRegistration:   webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.FinishRegistration }),
+			WebAuthnBeginAuthentication:  webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.BeginAuthentication }),
+			WebAuthnFinishAuthentication: webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.FinishAuthentication }),
+			WebAuthnListCredentials:      webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.ListCredentials }),
+			WebAuthnDeleteCredential:     webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.DeleteCredential }),
 		},
 		RequireAuthHandler: authMiddleware.RequireAuth,
 		TryAuthHandler:     authMiddleware.TryAuth,
@@ -360,4 +381,12 @@ func (a *App) Shutdown(ctx context.Context) error {
 		}
 	}
 	return shutdownErr
+}
+
+// webAuthnHandlerFunc returns nil if handler is nil (WebAuthn disabled), or calls f(handler).
+func webAuthnHandlerFunc(h *handlers.WebAuthnHandler, f func(*handlers.WebAuthnHandler) http.HandlerFunc) http.HandlerFunc {
+	if h == nil {
+		return nil
+	}
+	return f(h)
 }

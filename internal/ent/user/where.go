@@ -742,6 +742,29 @@ func HasMfaBackupCodesWith(preds ...predicate.MFABackupCode) predicate.User {
 	})
 }
 
+// HasWebauthnCredentials applies the HasEdge predicate on the "webauthn_credentials" edge.
+func HasWebauthnCredentials() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, WebauthnCredentialsTable, WebauthnCredentialsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasWebauthnCredentialsWith applies the HasEdge predicate on the "webauthn_credentials" edge with a given conditions (other predicates).
+func HasWebauthnCredentialsWith(preds ...predicate.WebAuthnCredential) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newWebauthnCredentialsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.User) predicate.User {
 	return predicate.User(sql.AndPredicates(predicates...))

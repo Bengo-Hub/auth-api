@@ -345,6 +345,18 @@ func (f UserIdentityFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserIdentityMutation", m)
 }
 
+// The WebAuthnCredentialFunc type is an adapter to allow the use of ordinary
+// function as WebAuthnCredential mutator.
+type WebAuthnCredentialFunc func(context.Context, *ent.WebAuthnCredentialMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f WebAuthnCredentialFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.WebAuthnCredentialMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.WebAuthnCredentialMutation", m)
+}
+
 // Condition is a hook condition function.
 type Condition func(context.Context, ent.Mutation) bool
 
