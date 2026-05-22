@@ -1,0 +1,325 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/bengobox/auth-api/internal/ent"
+	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
+	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/google/uuid"
+)
+
+// tenantSpec describes a tenant to seed.
+type tenantSpec struct {
+	name            string
+	slug            string
+	baseDomain      string
+	isPlatformOwner bool
+	isDemo          bool   // bypasses subscription gating across all services
+	billingMode     string // "service_charge" for transaction-fee tenants
+	useCases        []string
+	logoURL         string
+	website         string
+	contactEmail    string
+	contactPhone    string
+	brandColors     map[string]any
+}
+
+// tenantRef is a lightweight reference returned after seeding tenants.
+type tenantRef struct {
+	ID   uuid.UUID
+	Name string
+	Slug string
+}
+
+// seedTenants upserts all platform tenants and returns their references in the same order.
+func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) {
+	// Media base URL for tenant logos — points to the SSO/accounts CDN host.
+	const mediaBase = "https://accounts.codevertexitsolutions.com"
+
+	tenants := []tenantSpec{
+		{
+			name: "CodeVertex", slug: "codevertex", baseDomain: "codevertexitsolutions.com",
+			isPlatformOwner: true, useCases: nil,
+			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://codevertexitsolutions.com",
+			contactEmail: "support@codevertexitsolutions.com", contactPhone: "+254 743 793 901",
+			brandColors: map[string]any{"primary": "#5B1C4D", "secondary": "#ea8022", "accent": "#f36a0c"},
+		},
+		{
+			name: "Masterspace Solutions", slug: "mss", baseDomain: "masterspace.co.ke",
+			useCases: []string{"services"},
+			logoURL: mediaBase + "/images/logo/mss.jpeg", website: "https://masterspace.co.ke",
+			contactEmail: "info@masterspace.co.ke",
+			brandColors: map[string]any{"primary": "#1e3a5f", "secondary": "#4a90d9", "accent": "#f0ad4e"},
+		},
+		{
+			name: "Urban Loft Cafe", slug: "urban-loft", baseDomain: "theurbanloftcafe.com",
+			useCases: []string{"hospitality"},
+			logoURL: mediaBase + "/images/logo/urban-loft.png", website: "https://theurbanloftcafe.com",
+			contactEmail: "info@theurbanloftcafe.com",
+			brandColors: map[string]any{"primary": "#6b2a1b", "secondary": "#f36a0c", "accent": "#ea8022"},
+		},
+		{
+			name: "Kenya Urban Roads Authority (KURA)", slug: "kura", baseDomain: "kura.go.ke",
+			useCases: []string{"logistics"},
+			logoURL: mediaBase + "/images/logo/kura.png", website: "https://kura.go.ke",
+			contactEmail: "info@kura.go.ke",
+			brandColors: map[string]any{"primary": "#006633", "secondary": "#bb0000", "accent": "#000000"},
+		},
+		{
+			name: "UltiChange", slug: "ultichange", baseDomain: "ultichange.org",
+			useCases: []string{"services", "e_commerce"},
+			logoURL: mediaBase + "/images/logo/ultichange.svg", website: "https://ultichange.org",
+			contactEmail: "info@ultichange.org",
+			brandColors: map[string]any{"primary": "#2d3436", "secondary": "#0984e3", "accent": "#00cec9"},
+		},
+		{
+			name: "TruLoad", slug: "truload", baseDomain: "codevertexitsolutions.com",
+			useCases: []string{"weighbridge", "logistics"},
+			logoURL: mediaBase + "/images/logo/truload.svg", website: "https://truload.codevertexitsolutions.com",
+			contactEmail: "truload@codevertexitsolutions.com",
+			brandColors: map[string]any{"primary": "#1a237e", "secondary": "#ff6f00", "accent": "#00c853"},
+		},
+		{
+			// Cross-platform demo tenant — covers all use-cases for platform demos.
+			// is_demo=true is written to metadata so all downstream services bypass subscription gating.
+			name: "CodeVertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexitsolutions.com",
+			isDemo:   true,
+			useCases: []string{"hospitality", "retail", "quick_service", "pharmacy", "services", "logistics"},
+			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://demo.codevertexitsolutions.com",
+			contactEmail: "demo@codevertexitsolutions.com",
+			brandColors: map[string]any{"primary": "#5B1C4D", "secondary": "#ea8022", "accent": "#f36a0c"},
+		},
+	}
+
+	var refs []*tenantRef
+
+	for _, t := range tenants {
+		meta := map[string]any{
+			"base_domain": t.baseDomain,
+		}
+		if t.isPlatformOwner {
+			meta["is_platform_owner"] = true
+			meta["scope"] = "platform"
+		}
+		if t.isDemo {
+			meta["is_demo"] = true
+		}
+		if t.billingMode != "" {
+			meta["billing_mode"] = t.billingMode
+		}
+
+		tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ(t.slug)).Only(ctx)
+		if err != nil {
+			create := client.Tenant.Create().
+				SetName(t.name).
+				SetSlug(t.slug).
+				SetStatus("active").
+				SetMetadata(meta).
+				SetNillableLogoURL(&t.logoURL).
+				SetBrandColors(t.brandColors)
+			if t.website != "" {
+				create = create.SetNillableWebsite(&t.website)
+			}
+			if t.contactEmail != "" {
+				create = create.SetNillableContactEmail(&t.contactEmail)
+			}
+			if t.contactPhone != "" {
+				create = create.SetNillableContactPhone(&t.contactPhone)
+			}
+			if len(t.useCases) > 0 {
+				create = create.SetUseCase(t.useCases[0]).SetUseCases(t.useCases)
+			}
+			tenantEntity, err = create.Save(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("create tenant %s: %w", t.slug, err)
+			}
+			log.Printf("✓ Created tenant: %s (%s) base_domain=%s", t.name, t.slug, t.baseDomain)
+		} else {
+			upd := tenantEntity.Update().
+				SetMetadata(meta).
+				SetNillableLogoURL(&t.logoURL).
+				SetBrandColors(t.brandColors)
+			if t.website != "" {
+				upd = upd.SetNillableWebsite(&t.website)
+			}
+			if t.contactEmail != "" {
+				upd = upd.SetNillableContactEmail(&t.contactEmail)
+			}
+			if t.contactPhone != "" {
+				upd = upd.SetNillableContactPhone(&t.contactPhone)
+			}
+			if len(t.useCases) > 0 {
+				upd = upd.SetUseCase(t.useCases[0]).SetUseCases(t.useCases)
+			}
+			_, _ = upd.Save(ctx)
+			log.Printf("✓ Tenant exists (updated): %s (%s)", t.name, t.slug)
+		}
+
+		refs = append(refs, &tenantRef{
+			ID:   tenantEntity.ID,
+			Name: tenantEntity.Name,
+			Slug: tenantEntity.Slug,
+		})
+	}
+
+	return refs, nil
+}
+
+// outletDef describes an outlet to seed for a specific tenant.
+type outletDef struct {
+	slug    string
+	code    string
+	name    string
+	useCase string
+	isHQ    bool
+	address string
+	pinMsg  string
+}
+
+// outletsByTenant defines the outlets to seed per tenant slug.
+// Downstream services reference these UUIDs (computed via outletSeedID) for warehouse,
+// device, order, and staff scoping — never create outlets independently in those services.
+var outletsByTenant = map[string][]outletDef{
+	"urban-loft": {
+		{
+			slug:    "busia",
+			code:    "BUSIA",
+			name:    "Urban Loft Cafe Busia",
+			useCase: "hospitality",
+			isHQ:    true,
+			address: "Busia Town, Busia, Kenya",
+			pinMsg:  "Welcome to Urban Loft Cafe — Shift starts 7:00 AM",
+		},
+	},
+	"codevertex-demo": {
+		// HQ outlet — hospitality (hotel, bar, restaurant)
+		{
+			slug: "demo-hospitality", code: "HOSP",
+			name: "Demo Grand Hotel & Restaurant", useCase: "hospitality", isHQ: true,
+			address: "Demo Plaza, Nairobi, Kenya",
+			pinMsg:  "Welcome to Demo Grand Hotel — please check your shift schedule",
+		},
+		// Retail outlet — shop, supermarket, hardware
+		{
+			slug: "demo-retail", code: "RETAIL",
+			name: "Demo City Supermarket", useCase: "retail", isHQ: false,
+			address: "Demo Mall, Westlands, Nairobi",
+			pinMsg:  "Welcome to Demo City Supermarket — barcode scanner is active",
+		},
+		// Quick service outlet — fast food, coffee kiosk
+		{
+			slug: "demo-quick", code: "QSR",
+			name: "Demo Express Kiosk", useCase: "quick_service", isHQ: false,
+			address: "Demo Food Court, CBD Nairobi",
+			pinMsg:  "Welcome to Demo Express — fast service starts here!",
+		},
+		// Pharmacy outlet
+		{
+			slug: "demo-pharmacy", code: "PHARMA",
+			name: "Demo Health Pharmacy", useCase: "pharmacy", isHQ: false,
+			address: "Demo Health Centre, Upper Hill, Nairobi",
+			pinMsg:  "Welcome to Demo Health Pharmacy — verify prescriptions at counter",
+		},
+		// Services outlet — salon, spa, appointments
+		{
+			slug: "demo-services", code: "SVC",
+			name: "Demo Beauty & Wellness", useCase: "services", isHQ: false,
+			address: "Demo Towers, Kilimani, Nairobi",
+			pinMsg:  "Welcome to Demo Beauty & Wellness — check appointments board",
+		},
+		// Logistics / warehouse outlet
+		{
+			slug: "demo-logistics", code: "LOGIS",
+			name: "Demo Logistics Hub", useCase: "logistics", isHQ: false,
+			address: "Demo Industrial Area, Nairobi",
+			pinMsg:  "Welcome to Demo Logistics Hub — report to dispatch supervisor",
+		},
+	},
+	"mss": {
+		{
+			slug:    "main",
+			code:    "MAIN",
+			name:    "Masterspace Solutions HQ",
+			useCase: "services",
+			isHQ:    true,
+			address: "Masterspace HQ, Nairobi, Kenya",
+		},
+	},
+	"truload": {
+		{
+			slug:    "main",
+			code:    "MAIN",
+			name:    "TruLoad Weighbridge Main",
+			useCase: "logistics",
+			isHQ:    true,
+			address: "TruLoad Weighbridge, Nairobi, Kenya",
+		},
+	},
+}
+
+// outletSeedID returns a deterministic UUID for an outlet using the same formula
+// as pos-api, inventory-api, and ordering-backend — ensuring cross-service UUID alignment.
+func outletSeedID(tenantSlug, outletSlug string) uuid.UUID {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("bengobox:cafe:outlet:%s:%s", tenantSlug, outletSlug)))
+}
+
+// seedOutletsForTenant upserts all predefined outlets for the given tenant.
+func seedOutletsForTenant(ctx context.Context, client *ent.Client, tenantID uuid.UUID, tenantSlug string) error {
+	defs, ok := outletsByTenant[tenantSlug]
+	if !ok {
+		return nil // tenant has no predefined outlets
+	}
+
+	for _, d := range defs {
+		id := outletSeedID(tenantSlug, d.slug)
+
+		existing, err := client.Outlet.Query().Where(entoutlet.ID(id)).Only(ctx)
+		if err == nil {
+			// Update mutable fields on re-run
+			upd := existing.Update().
+				SetCode(d.code).
+				SetName(d.name).
+				SetUseCase(d.useCase).
+				SetIsHq(d.isHQ).
+				SetStatus("active")
+			if d.address != "" {
+				upd = upd.SetNillableAddress(&d.address)
+			}
+			if d.pinMsg != "" {
+				upd = upd.SetNillablePinLoginMessage(&d.pinMsg)
+			}
+			if _, err2 := upd.Save(ctx); err2 != nil {
+				log.Printf("  ⚠️  update outlet %s/%s: %v", tenantSlug, d.slug, err2)
+			} else {
+				log.Printf("  ✓ Outlet updated: %s/%s (use_case=%s, is_hq=%v)", tenantSlug, d.code, d.useCase, d.isHQ)
+			}
+			continue
+		}
+		if !ent.IsNotFound(err) {
+			return fmt.Errorf("query outlet %s/%s: %w", tenantSlug, d.slug, err)
+		}
+
+		create := client.Outlet.Create().
+			SetID(id).
+			SetTenantID(tenantID).
+			SetCode(d.code).
+			SetName(d.name).
+			SetUseCase(d.useCase).
+			SetIsHq(d.isHQ).
+			SetStatus("active")
+		if d.address != "" {
+			create = create.SetNillableAddress(&d.address)
+		}
+		if d.pinMsg != "" {
+			create = create.SetNillablePinLoginMessage(&d.pinMsg)
+		}
+		if _, err2 := create.Save(ctx); err2 != nil {
+			return fmt.Errorf("create outlet %s/%s: %w", tenantSlug, d.slug, err2)
+		}
+		log.Printf("  ✓ Outlet created: %s/%s (use_case=%s, is_hq=%v, id=%s)", tenantSlug, d.code, d.useCase, d.isHQ, id)
+	}
+	return nil
+}
