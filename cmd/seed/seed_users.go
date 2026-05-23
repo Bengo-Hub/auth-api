@@ -445,7 +445,7 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "ordering-ui", Name: "BengoBox Ordering UI", ProductionHost: "ordersapp.codevertexitsolutions.com", Public: true},
 		{ID: "rider-app", Name: "BengoBox Rider App", ProductionHost: "riderapp.codevertexitsolutions.com", Public: true},
 		{ID: "cafe-website", Name: "Urban Loft Cafe Website", ProductionHost: "theurbanloftcafe.com", Public: true},
-		{ID: "codevertex-website", Name: "Codevertex IT Solutions Website", ProductionHost: "codevertexitsolutions.com", Public: true},
+		{ID: "codevertex-website", Name: "Codevertex Africa Limited Website", ProductionHost: "codevertexitsolutions.com", Public: true},
 		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", ProductionHost: "pricing.codevertexitsolutions.com", Public: true},
 		{ID: "treasury-ui", Name: "BengoBox Treasury UI", ProductionHost: "books.codevertexitsolutions.com", Public: true},
 		{ID: "pos-ui", Name: "BengoBox POS UI", ProductionHost: "pos.codevertexitsolutions.com", Public: true},

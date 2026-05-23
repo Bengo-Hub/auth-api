@@ -79,11 +79,35 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 			ttl = 0
 		}
 	}
+	userID := parseUUID(claims.Subject)
+
+	// Revoke all sessions in DB (not just the current one) to clear the security tab
+	if err := h.service.RevokeAllSessions(r.Context(), userID, uuid.Nil); err != nil {
+		h.logger.Warn("revoke all sessions failed", zap.Error(err))
+		// Continue — still revoke current session below
+	}
+
+	// Revoke current session token in blocklist
 	if err := h.service.Logout(r.Context(), sessionID, jti, ttl); err != nil {
 		reqID := middleware.GetReqID(r.Context())
 		h.logger.Error("logout failed", zap.String("request_id", reqID), zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "logout failed", map[string]any{"request_id": reqID})
 		return
+	}
+
+	// Delete all Redis session_token keys for this user so /me stops returning stale sessions
+	if h.redis != nil && h.redisNamespace != "" && userID != uuid.Nil {
+		sessions, err := h.service.ListSessions(r.Context(), userID)
+		if err == nil {
+			for _, s := range sessions {
+				key := h.redisNamespace + ":session_token:" + s.ID.String()
+				_ = h.redis.Del(r.Context(), key).Err()
+			}
+		}
+		// Also delete the current session's key directly (in case it was already revoked above)
+		if sessionID != uuid.Nil {
+			_ = h.redis.Del(r.Context(), h.redisNamespace+":session_token:"+sessionID.String()).Err()
+		}
 	}
 
 	// Clear session cookie (Domain must match how it was set so browser clears it on .codevertexitsolutions.com)
@@ -141,8 +165,8 @@ func (h *AuthHandler) LogoutGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Default: redirect to auth-ui landing (accounts)
-	http.Redirect(w, r, "https://accounts.codevertexitsolutions.com", http.StatusFound)
+	// Default: redirect to auth-ui login page
+	http.Redirect(w, r, "https://accounts.codevertexitsolutions.com/login", http.StatusFound)
 }
 
 // integrationMeta maps an integration name to its category and presentation hints.
