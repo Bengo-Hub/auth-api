@@ -41,11 +41,11 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 
 	tenants := []tenantSpec{
 		{
-			name: "CodeVertex", slug: "codevertex", baseDomain: "codevertexitsolutions.com",
+			name: "Codevertex Africa Limited", slug: "codevertex", baseDomain: "codevertexitsolutions.com",
 			isPlatformOwner: true, useCases: nil,
 			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://codevertexitsolutions.com",
 			contactEmail: "support@codevertexitsolutions.com", contactPhone: "+254 743 793 901",
-			brandColors: map[string]any{"primary": "#5B1C4D", "secondary": "#ea8022", "accent": "#f36a0c"},
+			brandColors: map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
 		},
 		{
 			name: "Masterspace Solutions", slug: "mss", baseDomain: "masterspace.co.ke",
@@ -85,12 +85,12 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 		{
 			// Cross-platform demo tenant — covers all use-cases for platform demos.
 			// is_demo=true is written to metadata so all downstream services bypass subscription gating.
-			name: "CodeVertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexitsolutions.com",
+			name: "Codevertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexitsolutions.com",
 			isDemo:   true,
 			useCases: []string{"hospitality", "retail", "quick_service", "pharmacy", "services", "logistics"},
 			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://demo.codevertexitsolutions.com",
 			contactEmail: "demo@codevertexitsolutions.com",
-			brandColors: map[string]any{"primary": "#5B1C4D", "secondary": "#ea8022", "accent": "#f36a0c"},
+			brandColors: map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
 		},
 	}
 
