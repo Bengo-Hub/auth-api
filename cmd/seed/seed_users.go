@@ -452,11 +452,10 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "inventory-ui", Name: "BengoBox Inventory UI", ProductionHost: "inventory.codevertexitsolutions.com", Public: true},
 		{ID: "logistics-ui", Name: "BengoBox Logistics UI", ProductionHost: "logistics.codevertexitsolutions.com", Public: true},
 		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexitsolutions.com", Public: true},
-		{ID: "truload-ui", Name: "TruLoad UI", ProductionHost: "truload.codevertexitsolutions.com", Public: true},
 	}
 
-	// Collect all tenant slugs (seeded tenants + TruLoad org slugs).
-	allSlugs := append(tenantSlugs, "truload-demo", "danka")
+	// Collect all tenant slugs plus any additional org slugs used by OAuth clients.
+	allSlugs := append(tenantSlugs, "danka")
 
 	// buildRedirects generates the full redirect URI list for a client.
 	// Each client gets: base production callback, base localhost callback,

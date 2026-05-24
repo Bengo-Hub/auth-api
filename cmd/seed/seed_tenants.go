@@ -76,13 +76,6 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			brandColors: map[string]any{"primary": "#2d3436", "secondary": "#0984e3", "accent": "#00cec9"},
 		},
 		{
-			name: "TruLoad", slug: "truload", baseDomain: "codevertexitsolutions.com",
-			useCases: []string{"weighbridge", "logistics"},
-			logoURL: mediaBase + "/images/logo/truload.svg", website: "https://truload.codevertexitsolutions.com",
-			contactEmail: "truload@codevertexitsolutions.com",
-			brandColors: map[string]any{"primary": "#1a237e", "secondary": "#ff6f00", "accent": "#00c853"},
-		},
-		{
 			// Cross-platform demo tenant — covers all use-cases for platform demos.
 			// is_demo=true is written to metadata so all downstream services bypass subscription gating.
 			name: "Codevertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexitsolutions.com",
@@ -246,16 +239,6 @@ var outletsByTenant = map[string][]outletDef{
 			useCase: "services",
 			isHQ:    true,
 			address: "Masterspace HQ, Nairobi, Kenya",
-		},
-	},
-	"truload": {
-		{
-			slug:    "main",
-			code:    "MAIN",
-			name:    "TruLoad Weighbridge Main",
-			useCase: "logistics",
-			isHQ:    true,
-			address: "TruLoad Weighbridge, Nairobi, Kenya",
 		},
 	},
 }

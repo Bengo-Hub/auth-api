@@ -77,22 +77,17 @@ func main() {
 		log.Printf("⚠️  seed demo staff: %v", err)
 	}
 
-	// 8. Seed TruLoad demo admin (index 5)
-	if err := seedTruLoadAdmin(ctx, client, hasher, tenantEntities[5]); err != nil {
-		log.Printf("⚠️  seed truload admin: %v", err)
-	}
-
-	// 9. Seed KURA admin (index 3)
+	// 8. Seed KURA admin (index 3)
 	if err := seedKURAAdmin(ctx, client, hasher, tenantEntities[3]); err != nil {
 		log.Printf("⚠️  seed kura admin: %v", err)
 	}
 
-	// 10. Seed generic staff users for all tenants
+	// 9. Seed generic staff users for all tenants
 	if err := seedTenantStaffUsers(ctx, client, hasher, tenantEntities); err != nil {
 		log.Printf("⚠️  seed tenant staff users: %v", err)
 	}
 
-	// 11. Seed permissions and role-permission mappings
+	// 10. Seed permissions and role-permission mappings
 	permissionIDs, err := seedPermissions(ctx, client)
 	if err != nil {
 		log.Printf("⚠️  seed permissions: %v", err)
