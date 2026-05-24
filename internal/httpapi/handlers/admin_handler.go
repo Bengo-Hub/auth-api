@@ -14,6 +14,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
@@ -606,9 +607,21 @@ func (h *AdminHandler) DeleteTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Soft delete by setting status to 'deleted' or actually deleting
-	// For now, let's just delete
-	err = h.ent.Tenant.DeleteOneID(id).Exec(r.Context())
+	ctx := r.Context()
+
+	// Delete FK-constrained child records before deleting the tenant.
+	if _, err = h.ent.TenantMembership.Delete().
+		Where(tenantmembership.TenantID(id)).Exec(ctx); err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to remove tenant memberships", nil)
+		return
+	}
+	if _, err = h.ent.Outlet.Delete().
+		Where(entoutlet.TenantID(id)).Exec(ctx); err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to remove tenant outlets", nil)
+		return
+	}
+
+	err = h.ent.Tenant.DeleteOneID(id).Exec(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete tenant", nil)
 		return
