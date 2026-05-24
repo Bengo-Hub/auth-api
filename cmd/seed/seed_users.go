@@ -454,8 +454,8 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexitsolutions.com", Public: true},
 	}
 
-	// Collect all tenant slugs plus any additional org slugs used by OAuth clients.
-	allSlugs := append(tenantSlugs, "danka")
+	// Collect all tenant slugs for OAuth redirect URI generation.
+	allSlugs := tenantSlugs
 
 	// buildRedirects generates the full redirect URI list for a client.
 	// Each client gets: base production callback, base localhost callback,
