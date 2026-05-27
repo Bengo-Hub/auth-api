@@ -17,7 +17,6 @@ import (
 	"github.com/bengobox/auth-api/internal/httpapi/handlers"
 	httpmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	eventslib "github.com/Bengo-Hub/shared-events"
-	"github.com/bengobox/auth-api/internal/modules/outbox"
 	"github.com/bengobox/auth-api/internal/password"
 	platformevents "github.com/bengobox/auth-api/internal/platform/events"
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
@@ -45,7 +44,7 @@ type App struct {
 	db                       *sql.DB
 	redis                    *redis.Client
 	natsConn                 *nats.Conn
-	outboxPublisher          *outbox.Publisher
+	outboxPublisher          *eventslib.OutboxPoller
 	subscriptionSubscriber   *platformevents.SubscriptionSubscriber
 	httpServer               *http.Server
 }
@@ -125,7 +124,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 
 	// Initialize NATS event publishing (optional)
 	var natsConn *nats.Conn
-	var outboxPub *outbox.Publisher
+	var outboxPub *eventslib.OutboxPoller
 	if cfg.Events.Enabled {
 		natsConn, err = platformevents.Connect(cfg.Events)
 		if err != nil {
@@ -136,8 +135,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		)
 
 		outboxRepo := eventslib.NewSQLOutboxRepository(sqlDB)
-		outboxNatsPublisher := platformevents.NewOutboxPublisher(natsConn, logger)
-		outboxPub = outbox.NewPublisher(outboxRepo, outboxNatsPublisher, logger, outbox.PublisherConfig{
+		outboxNatsPublisher := eventslib.NewNATSAdapter(natsConn, logger)
+		outboxPub = eventslib.NewOutboxPoller(outboxRepo, outboxNatsPublisher, logger, eventslib.PollerConfig{
 			BatchSize:  cfg.Events.OutboxBatchSize,
 			PollPeriod: cfg.Events.OutboxPollPeriod,
 		})
