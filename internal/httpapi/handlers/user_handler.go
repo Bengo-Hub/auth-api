@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Bengo-Hub/pagination"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
@@ -98,15 +98,7 @@ func (h *UserHandler) AdminListUsers(w http.ResponseWriter, r *http.Request) {
 	statusFilter := q.Get("status")
 	tenantFilter := q.Get("tenant_id")
 	search := strings.TrimSpace(q.Get("search"))
-	page, _ := strconv.Atoi(q.Get("page"))
-	limit, _ := strconv.Atoi(q.Get("limit"))
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 200 {
-		limit = 50
-	}
-	offset := (page - 1) * limit
+	p := pagination.Parse(r)
 
 	query := h.ent.User.Query().WithMemberships()
 
@@ -132,8 +124,8 @@ func (h *UserHandler) AdminListUsers(w http.ResponseWriter, r *http.Request) {
 
 	users, err := query.
 		Order(ent.Desc(user.FieldCreatedAt)).
-		Limit(limit).
-		Offset(offset).
+		Limit(p.Limit).
+		Offset(p.Offset).
 		All(r.Context())
 	if err != nil {
 		h.logger.Error("failed to list users", zap.Error(err))
@@ -146,15 +138,7 @@ func (h *UserHandler) AdminListUsers(w http.ResponseWriter, r *http.Request) {
 		out[i] = mapUser(u)
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"users": out,
-		"pagination": map[string]any{
-			"total":  total,
-			"page":   page,
-			"limit":  limit,
-			"pages":  (total + limit - 1) / limit,
-		},
-	})
+	writeJSON(w, http.StatusOK, pagination.NewResponse(out, total, p))
 }
 
 // AdminGetUser godoc
