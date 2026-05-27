@@ -76,10 +76,11 @@ type HTTPConfig struct {
 
 type DatabaseConfig struct {
 	URL             string        `env:"POSTGRES_URL"`
+	MigrateURL      string        `env:"POSTGRES_MIGRATE_URL"` // direct PG for migrate/seed; bypasses PgBouncer transaction mode
 	MaxOpenConns    int           `env:"POSTGRES_MAX_OPEN_CONNS" envDefault:"8"`
 	MaxIdleConns    int           `env:"POSTGRES_MAX_IDLE_CONNS" envDefault:"3"`
 	ConnMaxLifetime time.Duration `env:"POSTGRES_CONN_MAX_LIFETIME" envDefault:"15m"`
-	RunMigrations   bool          `env:"POSTGRES_RUN_MIGRATIONS" envDefault:"true"`
+	RunMigrations   bool          `env:"POSTGRES_RUN_MIGRATIONS" envDefault:"false"`
 }
 
 type RedisConfig struct {

@@ -17,6 +17,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
+	if dbCfg.MigrateURL != "" {
+		dbCfg.URL = dbCfg.MigrateURL
+	}
 
 	ctx := context.Background()
 	client, _, err := database.NewClient(ctx, dbCfg)
