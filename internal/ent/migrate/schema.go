@@ -788,6 +788,11 @@ var (
 				Unique:  true,
 				Columns: []*schema.Column{TenantMembershipsColumns[7], TenantMembershipsColumns[6]},
 			},
+			{
+				Name:    "tenantmembership_tenant_id",
+				Unique:  false,
+				Columns: []*schema.Column{TenantMembershipsColumns[6]},
+			},
 		},
 	}
 	// UsageMetricsColumns holds the columns for the "usage_metrics" table.

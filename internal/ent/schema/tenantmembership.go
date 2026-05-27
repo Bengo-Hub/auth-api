@@ -62,5 +62,6 @@ func (TenantMembership) Indexes() []ent.Index {
 		// Unique constraint: a user can only have one membership per tenant
 		index.Fields("user_id", "tenant_id").
 			Unique(),
+		index.Fields("tenant_id"),
 	}
 }
