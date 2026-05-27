@@ -480,30 +480,34 @@ func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	p := pagination.Parse(r)
 	search := r.URL.Query().Get("search")
 	query := h.ent.Tenant.Query().Where(tenant.StatusEQ("active"))
 
 	if search != "" {
-		// Case-insensitive search on name, slug or ID
-		query = query.Where(
-			tenant.Or(
-				tenant.NameContainsFold(search),
-				tenant.SlugContainsFold(search),
-			),
+		searchPred := tenant.Or(
+			tenant.NameContainsFold(search),
+			tenant.SlugContainsFold(search),
 		)
-		// If it's a valid UUID, search by ID as well
 		if id, err := uuid.Parse(search); err == nil {
-			query = query.Where(tenant.IDEQ(id))
+			searchPred = tenant.Or(searchPred, tenant.IDEQ(id))
 		}
+		query = query.Where(searchPred)
 	}
 
-	items, err := query.All(r.Context())
+	total, err := query.Count(r.Context())
+	if err != nil {
+		h.logger.Error("failed to count tenants", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to list tenants", nil)
+		return
+	}
+	items, err := query.Order(ent.Asc(tenant.FieldCreatedAt)).Limit(p.Limit).Offset(p.Offset).All(r.Context())
 	if err != nil {
 		h.logger.Error("failed to list tenants", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to list tenants", nil)
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, pagination.NewResponse(items, total, p))
 }
 
 func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
@@ -671,12 +675,19 @@ func (h *AdminHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
 		return
 	}
-	items, err := h.ent.OAuthClient.Query().Where(oauthclient.PublicEQ(true)).All(r.Context())
+	p := pagination.Parse(r)
+	q := h.ent.OAuthClient.Query().Where(oauthclient.PublicEQ(true))
+	total, err := q.Count(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to list clients", nil)
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	items, err := q.Limit(p.Limit).Offset(p.Offset).All(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to list clients", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, pagination.NewResponse(items, total, p))
 }
 
 // GetClient returns a single OAuth client by ID.
@@ -1224,18 +1235,21 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Parse pagination params using shared library (page, limit; default 20, max 100)
 	pg := pagination.Parse(r)
 	q := r.URL.Query()
 	searchQ := strings.ToLower(strings.TrimSpace(q.Get("search")))
 	roleFilter := strings.ToLower(strings.TrimSpace(q.Get("role")))
 	statusFilter := strings.TrimSpace(q.Get("status"))
 
-	// Fetch all memberships for this tenant (admin-only — tenant size is bounded)
-	members, err := h.ent.TenantMembership.Query().
+	memberQ := h.ent.TenantMembership.Query().
 		Where(tenantmembership.TenantID(tenantID)).
-		Order(ent.Asc(tenantmembership.FieldCreatedAt)).
-		All(r.Context())
+		Order(ent.Asc(tenantmembership.FieldCreatedAt))
+	if statusFilter != "" {
+		memberQ = memberQ.Where(tenantmembership.StatusEQ(statusFilter))
+	}
+
+	// Fetch memberships (with DB-level status filter; role/search need user join so kept in-memory)
+	members, err := memberQ.All(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to list tenant members", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "could not list members", nil)
@@ -1310,10 +1324,7 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 			}
 		}
 
-		// Apply filters
-		if statusFilter != "" && m.Status != statusFilter {
-			continue
-		}
+		// Apply in-memory filters (role, search — require user join for DB-level)
 		if roleFilter != "" {
 			found := false
 			for _, r := range roles {
