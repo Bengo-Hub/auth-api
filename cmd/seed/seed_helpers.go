@@ -297,7 +297,8 @@ func publishSeedUserEvent(ctx context.Context, client *ent.Client, tenantID, use
 // publishSeedPINEvent queues an auth.user.pin_set outbox event so pos-api's
 // auth event handler sets the POS PIN hash on the StaffMember row.
 // The pin_hash is bcrypt-hashed here so pos-api can verify with bcrypt.CompareHashAndPassword.
-func publishSeedPINEvent(ctx context.Context, client *ent.Client, tenantID, userID uuid.UUID, pin string) {
+// roles is included so pos-api can create the StaffMember with the correct role if it doesn't exist.
+func publishSeedPINEvent(ctx context.Context, client *ent.Client, tenantID, userID uuid.UUID, pin string, roles []string) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("  ⚠️  bcrypt PIN for %s: %v", userID, err)
@@ -307,5 +308,6 @@ func publishSeedPINEvent(ctx context.Context, client *ent.Client, tenantID, user
 		"user_id":  userID.String(),
 		"service":  "pos",
 		"pin_hash": string(hash),
+		"roles":    roles,
 	}, "pin_set")
 }

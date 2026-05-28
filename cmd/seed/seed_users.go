@@ -279,7 +279,7 @@ func seedDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Has
 		// Pos-api's auth.user.pin_set handler calls bcrypt.CompareHashAndPassword,
 		// so the hash must be bcrypt — publishSeedPINEvent handles the hashing.
 		if s.pin != "" {
-			publishSeedPINEvent(ctx, client, demoTenant.ID, staffUser.ID, s.pin)
+			publishSeedPINEvent(ctx, client, demoTenant.ID, staffUser.ID, s.pin, []string{s.role})
 		}
 	}
 	return nil
@@ -446,7 +446,7 @@ func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *passwo
 			"roles":       []string{"admin"},
 			"method":      "seed",
 		}, eventType)
-		publishSeedPINEvent(ctx, client, demoTenant.ID, demoTenantAdmin.ID, "0000")
+		publishSeedPINEvent(ctx, client, demoTenant.ID, demoTenantAdmin.ID, "0000", []string{"admin"})
 	}
 	return nil
 }
