@@ -79,11 +79,15 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			// Cross-platform demo tenant — covers all use-cases for platform demos.
 			// is_demo=true is written to metadata so all downstream services bypass subscription gating.
 			name: "Codevertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexitsolutions.com",
-			isDemo:   true,
-			useCases: []string{"hospitality", "retail", "quick_service", "pharmacy", "services", "logistics"},
-			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://demo.codevertexitsolutions.com",
+			isDemo: true,
+			useCases: []string{
+				"hospitality", "retail", "quick_service", "pharmacy", "services",
+				"logistics", "warehouse", "commercial_weighing", "axle_load_enforcement",
+			},
+			logoURL:      mediaBase + "/images/logo/codevertex.png",
+			website:      "https://demo.codevertexitsolutions.com",
 			contactEmail: "demo@codevertexitsolutions.com",
-			brandColors: map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
+			brandColors:  map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
 		},
 	}
 
@@ -223,12 +227,33 @@ var outletsByTenant = map[string][]outletDef{
 			address: "Demo Towers, Kilimani, Nairobi",
 			pinMsg:  "Welcome to Demo Beauty & Wellness — check appointments board",
 		},
-		// Logistics / warehouse outlet
+		// Logistics hub — syncs to logistics-api only (dispatch, routing, rider management)
 		{
 			slug: "demo-logistics", code: "LOGIS",
 			name: "Demo Logistics Hub", useCase: "logistics", isHQ: false,
 			address: "Demo Industrial Area, Nairobi",
 			pinMsg:  "Welcome to Demo Logistics Hub — report to dispatch supervisor",
+		},
+		// Inventory-only warehouse — stock storage with no POS/ordering
+		{
+			slug: "demo-warehouse", code: "WH",
+			name: "Demo Central Warehouse", useCase: "warehouse", isHQ: false,
+			address: "Demo Warehouse Park, Mombasa Road, Nairobi",
+			pinMsg:  "Welcome to Demo Central Warehouse — check inbound manifest",
+		},
+		// TruLoad: commercial weighbridge station
+		{
+			slug: "demo-commercial", code: "COMM",
+			name: "Demo Commercial Weighbridge", useCase: "commercial_weighing", isHQ: false,
+			address: "Demo Industrial Zone, Athi River, Kenya",
+			pinMsg:  "Welcome to Demo Commercial Weighbridge — log in to begin weighing session",
+		},
+		// TruLoad: axle load enforcement checkpoint
+		{
+			slug: "demo-enforcement", code: "ENF",
+			name: "Demo Axle Load Enforcement Hub", useCase: "axle_load_enforcement", isHQ: false,
+			address: "Demo Weigh Station, Nakuru Highway, Kenya",
+			pinMsg:  "Welcome to Demo Enforcement — report to station commander",
 		},
 	},
 	"mss": {
