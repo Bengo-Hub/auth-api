@@ -170,13 +170,18 @@ func seedAdminUser(ctx context.Context, client *ent.Client, hasher *password.Has
 
 // demoStaffSpec describes a demo staff user.
 // pin is the POS demo PIN (1-4 digits). Empty means no PIN is seeded for this account.
+// outletSlugs lists the outlet slugs (within codevertex-demo) this staff can log in at.
 // admin@demo.codevertexitsolutions.com (PIN 0000) is seeded separately in seedDemoTenantAdmin.
 type demoStaffSpec struct {
-	email string
-	name  string
-	role  string
-	pin   string
+	email       string
+	name        string
+	role        string
+	pin         string
+	outletSlugs []string
 }
+
+// allPOSOutlets lists all codevertex-demo outlet slugs that matter for POS login.
+var allPOSOutlets = []string{"demo-hospitality", "demo-retail", "demo-quick", "demo-pharmacy", "demo-services"}
 
 // demoStaff lists all cross-platform demo staff under codevertex-demo.
 // PIN layout: manager=1111, cashier=2222, waiter=3333, kitchen=4444, bar=5555,
@@ -185,26 +190,26 @@ type demoStaffSpec struct {
 // Auth-api publishes auth.user.created + auth.user.pin_set events so pos-api
 // creates StaffMember rows and sets PINs without service-level staff seeding.
 var demoStaff = []demoStaffSpec{
-	// POS roles
-	{"manager@demo.codevertexitsolutions.com", "Demo Manager", "manager", "1111"},
-	{"cashier@demo.codevertexitsolutions.com", "Demo Cashier", "cashier", "2222"},
-	{"waiter@demo.codevertexitsolutions.com", "Demo Waiter", "waiter", "3333"},
-	{"kitchen@demo.codevertexitsolutions.com", "Demo Kitchen", "kitchen", "4444"},
-	{"bar@demo.codevertexitsolutions.com", "Demo Bar Staff", "bar", "5555"},
-	{"receptionist@demo.codevertexitsolutions.com", "Demo Receptionist", "receptionist", "6666"},
+	// POS roles — outlet scope defines where the PIN can log in
+	{"manager@demo.codevertexitsolutions.com", "Demo Manager", "manager", "1111", allPOSOutlets},
+	{"cashier@demo.codevertexitsolutions.com", "Demo Cashier", "cashier", "2222", allPOSOutlets},
+	{"waiter@demo.codevertexitsolutions.com", "Demo Waiter", "waiter", "3333", []string{"demo-hospitality"}},
+	{"kitchen@demo.codevertexitsolutions.com", "Demo Kitchen", "kitchen", "4444", []string{"demo-hospitality", "demo-quick"}},
+	{"bar@demo.codevertexitsolutions.com", "Demo Bar Staff", "bar", "5555", []string{"demo-hospitality"}},
+	{"receptionist@demo.codevertexitsolutions.com", "Demo Receptionist", "receptionist", "6666", []string{"demo-hospitality", "demo-services"}},
 	// Pharmacy role
-	{"pharmacist@demo.codevertexitsolutions.com", "Grace Pharmacist", "pharmacist", "7777"},
+	{"pharmacist@demo.codevertexitsolutions.com", "Grace Pharmacist", "pharmacist", "7777", []string{"demo-pharmacy"}},
 	// Services roles (beauty salon / spa / wellness)
-	{"stylist@demo.codevertexitsolutions.com", "Demo Stylist", "stylist", "8888"},
-	{"therapist@demo.codevertexitsolutions.com", "Demo Therapist", "therapist", "9999"},
+	{"stylist@demo.codevertexitsolutions.com", "Demo Stylist", "stylist", "8888", []string{"demo-services"}},
+	{"therapist@demo.codevertexitsolutions.com", "Demo Therapist", "therapist", "9999", []string{"demo-services"}},
 	// Logistics roles (no POS PIN — these users don't log in at POS terminals)
-	{"rider@demo.codevertexitsolutions.com", "Demo Rider", "rider", ""},
-	{"driver@demo.codevertexitsolutions.com", "Demo Driver", "driver", ""},
-	{"coordinator@demo.codevertexitsolutions.com", "Demo Coordinator", "delivery_coordinator", ""},
+	{"rider@demo.codevertexitsolutions.com", "Demo Rider", "rider", "", nil},
+	{"driver@demo.codevertexitsolutions.com", "Demo Driver", "driver", "", nil},
+	{"coordinator@demo.codevertexitsolutions.com", "Demo Coordinator", "delivery_coordinator", "", nil},
 	// Cross-service roles
-	{"technician@demo.codevertexitsolutions.com", "Demo Technician", "technician", ""},
-	{"viewer@demo.codevertexitsolutions.com", "Demo Viewer", "viewer", ""},
-	{"customer@demo.codevertexitsolutions.com", "Demo Customer", "customer", ""},
+	{"technician@demo.codevertexitsolutions.com", "Demo Technician", "technician", "", nil},
+	{"viewer@demo.codevertexitsolutions.com", "Demo Viewer", "viewer", "", nil},
+	{"customer@demo.codevertexitsolutions.com", "Demo Customer", "customer", "", nil},
 }
 
 // seedDemoStaff seeds all demo staff users under the codevertex-demo tenant.
@@ -258,6 +263,12 @@ func seedDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Has
 			log.Printf("    ✓ Added %s role in %s", s.role, demoTenant.Slug)
 		}
 
+		// Resolve outlet IDs from slugs using the same deterministic function as pos-api seed.
+		outletIDStrs := make([]string, 0, len(s.outletSlugs))
+		for _, slug := range s.outletSlugs {
+			outletIDStrs = append(outletIDStrs, outletSeedID(demoTenant.Slug, slug).String())
+		}
+
 		// Publish outbox event so the running auth-api picks it up and syncs to
 		// downstream services (pos-api staff profiles, inventory users, etc.).
 		// New users get "created"; re-runs get "updated" to re-trigger provisioning.
@@ -265,7 +276,7 @@ func seedDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Has
 		if isNew {
 			eventType = "created"
 		}
-		publishSeedUserEvent(ctx, client, demoTenant.ID, staffUser.ID, map[string]any{
+		payload := map[string]any{
 			"user_id":     staffUser.ID.String(),
 			"email":       s.email,
 			"full_name":   s.name,
@@ -273,7 +284,12 @@ func seedDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Has
 			"tenant_slug": demoTenant.Slug,
 			"roles":       []string{s.role},
 			"method":      "seed",
-		}, eventType)
+		}
+		if len(outletIDStrs) > 0 {
+			payload["outlet_ids"] = outletIDStrs
+			payload["outlet_id"] = outletIDStrs[0] // backward-compat: primary outlet
+		}
+		publishSeedUserEvent(ctx, client, demoTenant.ID, staffUser.ID, payload, eventType)
 
 		// Publish PIN set event so pos-api sets the demo PIN on this StaffMember.
 		// Pos-api's auth.user.pin_set handler calls bcrypt.CompareHashAndPassword,
@@ -437,6 +453,11 @@ func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *passwo
 		if isNew {
 			eventType = "created"
 		}
+		// Admin is assigned to all POS outlets.
+		adminOutletIDs := make([]string, 0, len(allPOSOutlets))
+		for _, slug := range allPOSOutlets {
+			adminOutletIDs = append(adminOutletIDs, outletSeedID(demoTenant.Slug, slug).String())
+		}
 		publishSeedUserEvent(ctx, client, demoTenant.ID, demoTenantAdmin.ID, map[string]any{
 			"user_id":     demoTenantAdmin.ID.String(),
 			"email":       demoTenantAdminEmail,
@@ -444,6 +465,8 @@ func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *passwo
 			"tenant_id":   demoTenant.ID.String(),
 			"tenant_slug": demoTenant.Slug,
 			"roles":       []string{"admin"},
+			"outlet_ids":  adminOutletIDs,
+			"outlet_id":   adminOutletIDs[0],
 			"method":      "seed",
 		}, eventType)
 		publishSeedPINEvent(ctx, client, demoTenant.ID, demoTenantAdmin.ID, "0000", []string{"admin"})
