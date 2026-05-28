@@ -169,34 +169,42 @@ func seedAdminUser(ctx context.Context, client *ent.Client, hasher *password.Has
 }
 
 // demoStaffSpec describes a demo staff user.
+// pin is the POS demo PIN (1-4 digits). Empty means no PIN is seeded for this account.
+// admin@demo.codevertexitsolutions.com (PIN 0000) is seeded separately in seedDemoTenantAdmin.
 type demoStaffSpec struct {
 	email string
 	name  string
 	role  string
+	pin   string
 }
 
 // demoStaff lists all cross-platform demo staff under codevertex-demo.
-// These accounts cover every POS role so PIN login works for demos on any outlet.
-// Urban-loft staff emails have been migrated here; the urban-loft tenant now has
-// only its real admin user (admin@theurbanloftcafe.com).
+// PIN layout: manager=1111, cashier=2222, waiter=3333, kitchen=4444, bar=5555,
+//             receptionist=6666, pharmacist=7777, stylist=8888, therapist=9999.
+// Admin (0000) is in seedDemoTenantAdmin.
+// Auth-api publishes auth.user.created + auth.user.pin_set events so pos-api
+// creates StaffMember rows and sets PINs without service-level staff seeding.
 var demoStaff = []demoStaffSpec{
 	// POS roles
-	{"manager@demo.codevertexitsolutions.com", "Demo Manager", "manager"},
-	{"cashier@demo.codevertexitsolutions.com", "Demo Cashier", "cashier"},
-	{"waiter@demo.codevertexitsolutions.com", "Demo Waiter", "waiter"},
-	{"kitchen@demo.codevertexitsolutions.com", "Demo Kitchen", "kitchen"},
-	{"bar@demo.codevertexitsolutions.com", "Demo Bar Staff", "bar"},
-	{"receptionist@demo.codevertexitsolutions.com", "Demo Receptionist", "receptionist"},
-	// Logistics roles
-	{"rider@demo.codevertexitsolutions.com", "Demo Rider", "rider"},
-	{"driver@demo.codevertexitsolutions.com", "Demo Driver", "driver"},
-	{"coordinator@demo.codevertexitsolutions.com", "Demo Coordinator", "delivery_coordinator"},
-	// Cross-service roles
-	{"technician@demo.codevertexitsolutions.com", "Demo Technician", "technician"},
-	{"viewer@demo.codevertexitsolutions.com", "Demo Viewer", "viewer"},
-	{"customer@demo.codevertexitsolutions.com", "Demo Customer", "customer"},
+	{"manager@demo.codevertexitsolutions.com", "Demo Manager", "manager", "1111"},
+	{"cashier@demo.codevertexitsolutions.com", "Demo Cashier", "cashier", "2222"},
+	{"waiter@demo.codevertexitsolutions.com", "Demo Waiter", "waiter", "3333"},
+	{"kitchen@demo.codevertexitsolutions.com", "Demo Kitchen", "kitchen", "4444"},
+	{"bar@demo.codevertexitsolutions.com", "Demo Bar Staff", "bar", "5555"},
+	{"receptionist@demo.codevertexitsolutions.com", "Demo Receptionist", "receptionist", "6666"},
 	// Pharmacy role
-	{"pharmacist@demo.codevertexitsolutions.com", "Grace Pharmacist", "pharmacist"},
+	{"pharmacist@demo.codevertexitsolutions.com", "Grace Pharmacist", "pharmacist", "7777"},
+	// Services roles (beauty salon / spa / wellness)
+	{"stylist@demo.codevertexitsolutions.com", "Demo Stylist", "stylist", "8888"},
+	{"therapist@demo.codevertexitsolutions.com", "Demo Therapist", "therapist", "9999"},
+	// Logistics roles (no POS PIN — these users don't log in at POS terminals)
+	{"rider@demo.codevertexitsolutions.com", "Demo Rider", "rider", ""},
+	{"driver@demo.codevertexitsolutions.com", "Demo Driver", "driver", ""},
+	{"coordinator@demo.codevertexitsolutions.com", "Demo Coordinator", "delivery_coordinator", ""},
+	// Cross-service roles
+	{"technician@demo.codevertexitsolutions.com", "Demo Technician", "technician", ""},
+	{"viewer@demo.codevertexitsolutions.com", "Demo Viewer", "viewer", ""},
+	{"customer@demo.codevertexitsolutions.com", "Demo Customer", "customer", ""},
 }
 
 // seedDemoStaff seeds all demo staff users under the codevertex-demo tenant.
@@ -266,6 +274,13 @@ func seedDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Has
 			"roles":       []string{s.role},
 			"method":      "seed",
 		}, eventType)
+
+		// Publish PIN set event so pos-api sets the demo PIN on this StaffMember.
+		// Pos-api's auth.user.pin_set handler calls bcrypt.CompareHashAndPassword,
+		// so the hash must be bcrypt — publishSeedPINEvent handles the hashing.
+		if s.pin != "" {
+			publishSeedPINEvent(ctx, client, demoTenant.ID, staffUser.ID, s.pin)
+		}
 	}
 	return nil
 }
@@ -384,20 +399,23 @@ func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *passwo
 	}
 	demoTenantAdminHash, _ := hasher.Hash(demoTenantAdminPassword)
 
+	isNew := false
 	demoTenantAdmin, err := client.User.Create().
 		SetEmail(demoTenantAdminEmail).
 		SetPasswordHash(demoTenantAdminHash).
 		SetStatus("active").
 		SetPrimaryTenantID(demoTenant.ID.String()).
 		SetProfile(map[string]any{
-			"name":       "CodeVertex Demo Admin",
+			"name":       "Demo Admin",
 			"created_by": "seed",
+			"role":       "admin",
 		}).
 		Save(ctx)
 	if err != nil {
 		demoTenantAdmin, _ = client.User.Query().Where(user.EmailEQ(demoTenantAdminEmail)).Only(ctx)
 		log.Printf("✓ Demo tenant admin exists: %s", demoTenantAdminEmail)
 	} else {
+		isNew = true
 		log.Printf("✓ Created demo tenant admin: %s", demoTenantAdminEmail)
 	}
 
@@ -411,6 +429,24 @@ func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *passwo
 				SetUserID(demoTenantAdmin.ID).SetTenantID(demoTenant.ID).SetRoles([]string{"admin"}).Save(ctx)
 			log.Printf("  ✓ Added admin role in %s", demoTenant.Slug)
 		}
+
+		// Publish user event so pos-api creates a StaffMember for the demo admin.
+		// Then publish PIN 0000 so pos-api sets the PIN hash on that StaffMember.
+		// This is the same admin@demo.codevertexitsolutions.com — no separate account created.
+		eventType := "updated"
+		if isNew {
+			eventType = "created"
+		}
+		publishSeedUserEvent(ctx, client, demoTenant.ID, demoTenantAdmin.ID, map[string]any{
+			"user_id":     demoTenantAdmin.ID.String(),
+			"email":       demoTenantAdminEmail,
+			"full_name":   "Demo Admin",
+			"tenant_id":   demoTenant.ID.String(),
+			"tenant_slug": demoTenant.Slug,
+			"roles":       []string{"admin"},
+			"method":      "seed",
+		}, eventType)
+		publishSeedPINEvent(ctx, client, demoTenant.ID, demoTenantAdmin.ID, "0000")
 	}
 	return nil
 }

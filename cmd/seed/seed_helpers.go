@@ -19,6 +19,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // seedPlatformAPIKey seeds the legacy platform-internal-service-key.
@@ -291,4 +292,20 @@ func publishSeedUserEvent(ctx context.Context, client *ent.Client, tenantID, use
 	} else {
 		log.Printf("    ✓ Queued auth.user.%s → outbox for user %s", eventType, userID)
 	}
+}
+
+// publishSeedPINEvent queues an auth.user.pin_set outbox event so pos-api's
+// auth event handler sets the POS PIN hash on the StaffMember row.
+// The pin_hash is bcrypt-hashed here so pos-api can verify with bcrypt.CompareHashAndPassword.
+func publishSeedPINEvent(ctx context.Context, client *ent.Client, tenantID, userID uuid.UUID, pin string) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("  ⚠️  bcrypt PIN for %s: %v", userID, err)
+		return
+	}
+	publishSeedUserEvent(ctx, client, tenantID, userID, map[string]any{
+		"user_id":  userID.String(),
+		"service":  "pos",
+		"pin_hash": string(hash),
+	}, "pin_set")
 }
