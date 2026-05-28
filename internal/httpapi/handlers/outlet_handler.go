@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bengobox/auth-api/internal/ent"
@@ -11,6 +12,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/services/usecase"
 	"github.com/bengobox/auth-api/internal/token"
 	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/go-chi/chi/v5"
@@ -44,19 +46,20 @@ type outletRequest struct {
 }
 
 type outletResponse struct {
-	ID              string         `json:"id"`
-	TenantID        string         `json:"tenant_id"`
-	Code            string         `json:"code"`
-	Name            string         `json:"name"`
-	UseCase         string         `json:"use_case"`
-	Address         *string        `json:"address,omitempty"`
-	Timezone        *string        `json:"timezone,omitempty"`
-	IsHQ            bool           `json:"is_hq"`
-	Status          string         `json:"status"`
-	PinLoginMessage *string        `json:"pin_login_message,omitempty"`
-	Metadata        map[string]any `json:"metadata,omitempty"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
+	ID                 string         `json:"id"`
+	TenantID           string         `json:"tenant_id"`
+	Code               string         `json:"code"`
+	Name               string         `json:"name"`
+	UseCase            string         `json:"use_case"`
+	ApplicableServices []string       `json:"applicable_services"`
+	Address            *string        `json:"address,omitempty"`
+	Timezone           *string        `json:"timezone,omitempty"`
+	IsHQ               bool           `json:"is_hq"`
+	Status             string         `json:"status"`
+	PinLoginMessage    *string        `json:"pin_login_message,omitempty"`
+	Metadata           map[string]any `json:"metadata,omitempty"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
 }
 
 type selectOutletRequest struct {
@@ -66,19 +69,20 @@ type selectOutletRequest struct {
 
 func outletToResponse(o *ent.Outlet) outletResponse {
 	return outletResponse{
-		ID:              o.ID.String(),
-		TenantID:        o.TenantID.String(),
-		Code:            o.Code,
-		Name:            o.Name,
-		UseCase:         o.UseCase,
-		Address:         o.Address,
-		Timezone:        o.Timezone,
-		IsHQ:            o.IsHq,
-		Status:          o.Status,
-		PinLoginMessage: o.PinLoginMessage,
-		Metadata:        o.Metadata,
-		CreatedAt:       o.CreatedAt,
-		UpdatedAt:       o.UpdatedAt,
+		ID:                 o.ID.String(),
+		TenantID:           o.TenantID.String(),
+		Code:               o.Code,
+		Name:               o.Name,
+		UseCase:            o.UseCase,
+		ApplicableServices: usecase.ApplicableServices(o.UseCase),
+		Address:            o.Address,
+		Timezone:           o.Timezone,
+		IsHQ:               o.IsHq,
+		Status:             o.Status,
+		PinLoginMessage:    o.PinLoginMessage,
+		Metadata:           o.Metadata,
+		CreatedAt:          o.CreatedAt,
+		UpdatedAt:          o.UpdatedAt,
 	}
 }
 
@@ -197,6 +201,10 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 	if useCase == "" {
 		useCase = "hospitality"
 	}
+	if !usecase.IsValidUseCase(useCase) {
+		http.Error(w, "invalid use_case: must be one of "+strings.Join(usecase.KnownUseCases, ", "), http.StatusUnprocessableEntity)
+		return
+	}
 	status := req.Status
 	if status == "" {
 		status = "active"
@@ -237,12 +245,13 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.publishOutletEvent(r.Context(), t.ID, o.ID, "created", map[string]any{
-		"outlet_id":  o.ID.String(),
-		"tenant_id":  t.ID.String(),
-		"code":       o.Code,
-		"name":       o.Name,
-		"use_case":   o.UseCase,
-		"is_hq":      o.IsHq,
+		"outlet_id":           o.ID.String(),
+		"tenant_id":           t.ID.String(),
+		"code":                o.Code,
+		"name":                o.Name,
+		"use_case":            o.UseCase,
+		"is_hq":               o.IsHq,
+		"applicable_services": usecase.ApplicableServices(o.UseCase),
 	})
 
 	writeJSON(w, http.StatusCreated, outletToResponse(o))
@@ -290,6 +299,11 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 			Exec(r.Context()) //nolint:errcheck
 	}
 
+	if req.UseCase != "" && !usecase.IsValidUseCase(req.UseCase) {
+		http.Error(w, "invalid use_case: must be one of "+strings.Join(usecase.KnownUseCases, ", "), http.StatusUnprocessableEntity)
+		return
+	}
+
 	update := h.ent.Outlet.UpdateOneID(outletID)
 	if req.Name != "" {
 		update = update.SetName(req.Name)
@@ -322,13 +336,14 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.publishOutletEvent(r.Context(), t.ID, o.ID, "updated", map[string]any{
-		"outlet_id":  o.ID.String(),
-		"tenant_id":  t.ID.String(),
-		"code":       o.Code,
-		"name":       o.Name,
-		"use_case":   o.UseCase,
-		"is_hq":      o.IsHq,
-		"status":     o.Status,
+		"outlet_id":           o.ID.String(),
+		"tenant_id":           t.ID.String(),
+		"code":                o.Code,
+		"name":                o.Name,
+		"use_case":            o.UseCase,
+		"is_hq":               o.IsHq,
+		"status":              o.Status,
+		"applicable_services": usecase.ApplicableServices(o.UseCase),
 	})
 
 	writeJSON(w, http.StatusOK, outletToResponse(o))
