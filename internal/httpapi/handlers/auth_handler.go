@@ -288,6 +288,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		IPAddress:     clientIP(r),
 		UserAgent:     userAgent(r),
 		ClientID:      req.ClientID,
+		ServiceID:     req.ServiceID,
 		SelectedPlan:  req.SelectedPlan,
 		OrgAction:     req.OrgAction,
 		NewOrg:        newOrg,
@@ -669,6 +670,7 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 		IPAddress:  clientIP(r),
 		UserAgent:  userAgent(r),
 		TenantSlug: req.TenantSlug,
+		ServiceID:  req.ServiceID,
 	})
 	if err != nil {
 		h.handleError(w, r, err)
@@ -1015,6 +1017,9 @@ type registerRequest struct {
 	TenantSlug string         `json:"tenant_slug"`
 	Profile    map[string]any `json:"profile"`
 	ClientID   string         `json:"client_id"`
+	// ServiceID identifies the originating service (e.g. "truload", "logistics") so
+	// notifications-api can resolve the correct per-service app URL in the welcome email.
+	ServiceID string `json:"service_id,omitempty"`
 	// SelectedPlan is REQUIRED at registration time. The plan code (e.g. "STARTER", "GROWTH",
 	// "PROFESSIONAL") is recorded on the new tenant so subscription-api can create the trial
 	// subscription. The user MUST have selected a plan in the signup wizard before submitting.
@@ -1046,6 +1051,9 @@ type refreshRequest struct {
 type passwordResetRequest struct {
 	Email      string `json:"email"`
 	TenantSlug string `json:"tenant_slug"`
+	// ServiceID identifies which service the user is resetting from (e.g. "truload").
+	// Used to build a per-service reset link instead of the generic SSO reset page.
+	ServiceID string `json:"service_id,omitempty"`
 }
 
 type passwordResetConfirmRequest struct {
