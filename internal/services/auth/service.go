@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -1056,12 +1057,16 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 		UserAgent:  in.UserAgent,
 	})
 
+	// Build per-tenant reset link. Prefer app_url from tenant metadata (set when tenant has
+	// a dedicated deployed app, e.g. kuraweigh.kura.go.ke for KURA). Fall back to auth-ui.
+	resetLink := buildResetLink(tenantEntity.Metadata, tenantEntity.Slug, userEntity.Email, tokenPlain)
+
 	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "password_reset.requested", map[string]any{
 		"user_id":    userEntity.ID.String(),
 		"email":      userEntity.Email,
 		"full_name":  profileStr(userEntity.Profile, "name"),
 		"tenant_id":  tenantEntity.ID.String(),
-		"reset_link": fmt.Sprintf("https://accounts.codevertexitsolutions.com/reset-password?token=%s", tokenPlain),
+		"reset_link": resetLink,
 	})
 
 	return tokenPlain, nil
@@ -2088,6 +2093,28 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 }
 
 // AcceptTerms marks the user as having accepted the platform terms of service.
+// buildResetLink constructs the password-reset URL for a tenant.
+// If the tenant metadata contains an "app_url" entry (the per-tenant deployed app domain,
+// e.g. "https://kuraweigh.kura.go.ke"), the link is built as:
+//
+//	{appURL}/{slug}/auth/reset-password?email={email}&token={token}
+//
+// Otherwise it falls back to the shared auth-ui URL.
+func buildResetLink(metadata map[string]any, slug, email, token string) string {
+	const fallback = "https://accounts.codevertexitsolutions.com/reset-password"
+	appURL := ""
+	if metadata != nil {
+		if v, ok := metadata["app_url"].(string); ok {
+			appURL = strings.TrimRight(v, "/")
+		}
+	}
+	if appURL == "" {
+		return fmt.Sprintf("%s?token=%s", fallback, token)
+	}
+	base := appURL + "/" + slug + "/auth/reset-password"
+	return fmt.Sprintf("%s?email=%s&token=%s", base, url.QueryEscape(email), token)
+}
+
 func (s *Service) AcceptTerms(ctx context.Context, userID uuid.UUID) error {
 	now := time.Now()
 	err := s.entClient.User.UpdateOneID(userID).
