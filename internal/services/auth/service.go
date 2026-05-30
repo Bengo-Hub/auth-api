@@ -162,6 +162,10 @@ type RegisterInput struct {
 	IPAddress  string
 	UserAgent  string
 	ClientID   string
+	// ServiceID identifies the service context of the registration (e.g. "truload", "logistics").
+	// When set, it is included in the auth.user.created event so notifications-api can resolve
+	// the correct per-service app URL for the welcome email link.
+	ServiceID string
 	// SelectedPlan is the subscription plan code chosen by the user in the signup wizard.
 	// Required for new org creation ("create_new") to bootstrap the tenant subscription.
 	// Accepted values: "STARTER" | "GROWTH" | "PROFESSIONAL" (or any valid plan code).
@@ -268,6 +272,9 @@ type PasswordResetRequestInput struct {
 	TenantSlug string
 	IPAddress  string
 	UserAgent  string
+	// ServiceID identifies the service context of the reset request (e.g. "truload", "logistics").
+	// When set, buildResetLink uses service_urls[service_id] from tenant metadata as the base URL.
+	ServiceID string
 }
 
 // PasswordResetConfirmInput resets password.
@@ -497,7 +504,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 	})
 
 	// Publish user.created event for downstream service sync
-	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
+	createdPayload := map[string]any{
 		"user_id":     userEntity.ID.String(),
 		"email":       userEntity.Email,
 		"full_name":   profileStr(userEntity.Profile, "name"),
@@ -506,7 +513,11 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		"tenant_slug": tenantEntity.Slug,
 		"roles":       []string{initialRole},
 		"method":      "email",
-	})
+	}
+	if in.ServiceID != "" {
+		createdPayload["service_id"] = in.ServiceID
+	}
+	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", createdPayload)
 
 	return s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
@@ -1059,15 +1070,19 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 
 	// Build per-tenant reset link. Prefer app_url from tenant metadata (set when tenant has
 	// a dedicated deployed app, e.g. kuraweigh.kura.go.ke for KURA). Fall back to auth-ui.
-	resetLink := buildResetLink(tenantEntity.Metadata, tenantEntity.Slug, userEntity.Email, tokenPlain)
+	resetLink := buildResetLink(tenantEntity.Metadata, tenantEntity.Slug, in.ServiceID, userEntity.Email, tokenPlain)
 
-	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "password_reset.requested", map[string]any{
+	resetPayload := map[string]any{
 		"user_id":    userEntity.ID.String(),
 		"email":      userEntity.Email,
 		"full_name":  profileStr(userEntity.Profile, "name"),
 		"tenant_id":  tenantEntity.ID.String(),
 		"reset_link": resetLink,
-	})
+	}
+	if in.ServiceID != "" {
+		resetPayload["service_id"] = in.ServiceID
+	}
+	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "password_reset.requested", resetPayload)
 
 	return tokenPlain, nil
 }
@@ -2100,12 +2115,25 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 //	{appURL}/{slug}/auth/reset-password?email={email}&token={token}
 //
 // Otherwise it falls back to the shared auth-ui URL.
-func buildResetLink(metadata map[string]any, slug, email, token string) string {
+// buildResetLink constructs the password-reset URL for a tenant.
+// Resolution order: service_urls[serviceID] → app_url → SSO accounts fallback.
+func buildResetLink(metadata map[string]any, slug, serviceID, email, token string) string {
 	const fallback = "https://accounts.codevertexitsolutions.com/reset-password"
 	appURL := ""
 	if metadata != nil {
-		if v, ok := metadata["app_url"].(string); ok {
-			appURL = strings.TrimRight(v, "/")
+		// Prefer per-service URL when a serviceID is known.
+		if serviceID != "" {
+			if svcURLs, ok := metadata["service_urls"].(map[string]any); ok {
+				if v, ok := svcURLs[serviceID].(string); ok && v != "" {
+					appURL = strings.TrimRight(v, "/")
+				}
+			}
+		}
+		// Fall back to tenant-level app_url.
+		if appURL == "" {
+			if v, ok := metadata["app_url"].(string); ok {
+				appURL = strings.TrimRight(v, "/")
+			}
 		}
 	}
 	if appURL == "" {
