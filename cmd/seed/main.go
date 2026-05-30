@@ -61,24 +61,19 @@ func main() {
 		log.Fatalf("seed admin user: %v", err)
 	}
 
-	// 5. Seed codevertex-demo tenant admin (index 6 / last)
+	// 5. Seed codevertex-demo tenant admin (last in list)
 	demoTenant := tenantEntities[len(tenantEntities)-1]
 	if err := seedDemoTenantAdmin(ctx, client, hasher, demoTenant); err != nil {
 		log.Printf("⚠️  seed demo tenant admin: %v", err)
 	}
 
-	// 6. Seed Urban Loft Cafe tenant admin (index 2)
-	if err := seedUrbanLoftAdmin(ctx, client, hasher, tenantEntities[2]); err != nil {
-		log.Printf("⚠️  seed urban loft admin: %v", err)
-	}
-
-	// 7. Seed cross-platform demo staff under codevertex-demo
+	// 6. Seed cross-platform demo staff under codevertex-demo
 	if err := seedDemoStaff(ctx, client, hasher, demoTenant); err != nil {
 		log.Printf("⚠️  seed demo staff: %v", err)
 	}
 
-	// 8. Seed KURA admin (index 3)
-	if err := seedKURAAdmin(ctx, client, hasher, tenantEntities[3]); err != nil {
+	// 7. Seed KURA admin (index 2)
+	if err := seedKURAAdmin(ctx, client, hasher, tenantEntities[2]); err != nil {
 		log.Printf("⚠️  seed kura admin: %v", err)
 	}
 

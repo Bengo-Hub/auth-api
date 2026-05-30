@@ -55,13 +55,6 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			brandColors: map[string]any{"primary": "#1e3a5f", "secondary": "#4a90d9", "accent": "#f0ad4e"},
 		},
 		{
-			name: "Urban Loft Cafe", slug: "urban-loft", baseDomain: "theurbanloftcafe.com",
-			useCases: []string{"hospitality"},
-			logoURL: mediaBase + "/images/logo/urban-loft.png", website: "https://theurbanloftcafe.com",
-			contactEmail: "info@theurbanloftcafe.com",
-			brandColors: map[string]any{"primary": "#6b2a1b", "secondary": "#f36a0c", "accent": "#ea8022"},
-		},
-		{
 			name: "Kenya Urban Roads Authority (KURA)", slug: "kura", baseDomain: "kura.go.ke",
 			useCases: []string{"logistics"},
 			logoURL: mediaBase + "/images/logo/kura.png", website: "https://kura.go.ke",
@@ -180,17 +173,6 @@ type outletDef struct {
 // Downstream services reference these UUIDs (computed via outletSeedID) for warehouse,
 // device, order, and staff scoping — never create outlets independently in those services.
 var outletsByTenant = map[string][]outletDef{
-	"urban-loft": {
-		{
-			slug:    "busia",
-			code:    "BUSIA",
-			name:    "Urban Loft Cafe Busia",
-			useCase: "hospitality",
-			isHQ:    true,
-			address: "Busia Town, Busia, Kenya",
-			pinMsg:  "Welcome to Urban Loft Cafe — Shift starts 7:00 AM",
-		},
-	},
 	"codevertex-demo": {
 		// HQ outlet — hospitality (hotel, bar, restaurant)
 		{
