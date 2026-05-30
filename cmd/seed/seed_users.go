@@ -354,58 +354,6 @@ func seedTenantStaffUsers(ctx context.Context, client *ent.Client, hasher *passw
 	return nil
 }
 
-// seedUrbanLoftAdmin seeds the tenant-specific admin for Urban Loft Cafe.
-func seedUrbanLoftAdmin(ctx context.Context, client *ent.Client, hasher *password.Hasher, urbanLoftTenant *tenantRef) error {
-	tenantAdminEmail := "admin@theurbanloftcafe.com"
-	tenantAdminPassword := os.Getenv("SEED_TENANT_ADMIN_PASSWORD")
-	if tenantAdminPassword == "" {
-		tenantAdminPassword = "TenantAdmin2024!" // default for local dev; override via env in production
-	}
-	tenantAdminHash, _ := hasher.Hash(tenantAdminPassword)
-
-	tenantAdmin, err := client.User.Create().
-		SetEmail(tenantAdminEmail).
-		SetPasswordHash(tenantAdminHash).
-		SetStatus("active").
-		SetPrimaryTenantID(urbanLoftTenant.ID.String()).
-		SetProfile(map[string]any{
-			"name":       "Urban Loft Admin",
-			"created_by": "seed",
-		}).
-		Save(ctx)
-	if err != nil {
-		tenantAdmin, err = client.User.Query().Where(user.EmailEQ(tenantAdminEmail)).Only(ctx)
-		if err != nil {
-			log.Printf("⚠️  seed tenant admin: %v", err)
-			return nil
-		}
-		log.Printf("✓ Tenant admin exists: %s", tenantAdminEmail)
-	} else {
-		log.Printf("✓ Created tenant admin: %s", tenantAdminEmail)
-	}
-
-	if tenantAdmin != nil {
-		exists, _ := client.TenantMembership.Query().
-			Where(
-				tenantmembership.UserID(tenantAdmin.ID),
-				tenantmembership.TenantID(urbanLoftTenant.ID),
-			).Exist(ctx)
-		if !exists {
-			_, err = client.TenantMembership.Create().
-				SetUserID(tenantAdmin.ID).
-				SetTenantID(urbanLoftTenant.ID).
-				SetRoles([]string{"admin"}).
-				Save(ctx)
-			if err != nil {
-				log.Printf("  ⚠️  Error creating tenant admin membership: %v", err)
-			} else {
-				log.Printf("  ✓ Added admin role in %s", urbanLoftTenant.Slug)
-			}
-		}
-	}
-	return nil
-}
-
 // seedDemoTenantAdmin seeds the codevertex-demo tenant admin.
 func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *password.Hasher, demoTenant *tenantRef) error {
 	demoTenantAdminEmail := "admin@demo.codevertexitsolutions.com"
@@ -503,7 +451,6 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "notifications-ui", Name: "BengoBox Notifications UI", ProductionHost: "notifications.codevertexitsolutions.com", Public: true},
 		{ID: "ordering-ui", Name: "BengoBox Ordering UI", ProductionHost: "ordersapp.codevertexitsolutions.com", Public: true},
 		{ID: "rider-app", Name: "BengoBox Rider App", ProductionHost: "riderapp.codevertexitsolutions.com", Public: true},
-		{ID: "cafe-website", Name: "Urban Loft Cafe Website", ProductionHost: "theurbanloftcafe.com", Public: true},
 		{ID: "codevertex-website", Name: "Codevertex Africa Limited Website", ProductionHost: "codevertexitsolutions.com", Public: true},
 		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", ProductionHost: "pricing.codevertexitsolutions.com", Public: true},
 		{ID: "treasury-ui", Name: "BengoBox Treasury UI", ProductionHost: "books.codevertexitsolutions.com", Public: true},
