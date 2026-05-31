@@ -323,3 +323,89 @@ func publishSeedPINEvent(ctx context.Context, client *ent.Client, tenantID, user
 		"roles":    roles,
 	}, "pin_set")
 }
+
+// backfillTenantRedirectURIs ensures every active tenant in the DB has
+// /{slug}/auth/callback redirect URIs registered on all OAuth clients.
+//
+// The seed's seedOAuthClients only adds URIs for the hard-coded seed tenants.
+// Any tenant created via the admin API or registration form after the seed ran
+// gets its URIs appended at creation time via AppendTenantRedirectURIs — but
+// that can fail silently (e.g. when OAuth clients didn't exist yet at that
+// moment). This function is the safety net: it runs every seed and is fully
+// idempotent (no-ops when URIs already present).
+func backfillTenantRedirectURIs(ctx context.Context, client *ent.Client, seedSlugs map[string]bool) error {
+	// Load all OAuth clients once.
+	oauthClients, err := client.OAuthClient.Query().All(ctx)
+	if err != nil {
+		return fmt.Errorf("query oauth clients: %w", err)
+	}
+	if len(oauthClients) == 0 {
+		return nil
+	}
+
+	// Load all active tenants from the DB — not just the seed set.
+	type tenantRow struct {
+		ID   interface{}
+		Slug string
+	}
+	allTenants, err := client.Tenant.Query().All(ctx)
+	if err != nil {
+		return fmt.Errorf("query tenants: %w", err)
+	}
+
+	for _, t := range allTenants {
+		if seedSlugs[t.Slug] {
+			continue // already handled by seedOAuthClients
+		}
+		slug := t.Slug
+		added := false
+		for _, c := range oauthClients {
+			// Derive the production host from the first https://*.../auth/callback URI.
+			prodHost := ""
+			for _, u := range c.RedirectUris {
+				if strings.HasPrefix(u, "https://") && strings.HasSuffix(u, "/auth/callback") {
+					trimmed := strings.TrimPrefix(u, "https://")
+					prodHost = strings.SplitN(trimmed, "/", 2)[0]
+					break
+				}
+			}
+			if prodHost == "" {
+				continue
+			}
+			prodURI := "https://" + prodHost + "/" + slug + "/auth/callback"
+			localURI := "http://localhost:3000/" + slug + "/auth/callback"
+
+			var changed bool
+			uris := c.RedirectUris
+			if !containsRedirectURI(uris, prodURI) {
+				uris = append(uris, prodURI)
+				changed = true
+			}
+			if !containsRedirectURI(uris, localURI) {
+				uris = append(uris, localURI)
+				changed = true
+			}
+			if !changed {
+				continue
+			}
+			if _, err := c.Update().SetRedirectUris(uris).Save(ctx); err != nil {
+				log.Printf("  ⚠️  update redirect URIs for client %s / tenant %s: %v", c.ClientID, slug, err)
+				continue
+			}
+			added = true
+		}
+		if added {
+			log.Printf("  ✓ Backfilled redirect URIs for tenant: %s", slug)
+		}
+	}
+	return nil
+}
+
+func containsRedirectURI(uris []string, target string) bool {
+	for _, u := range uris {
+		if strings.EqualFold(strings.TrimSpace(u), strings.TrimSpace(target)) {
+			return true
+		}
+	}
+	return false
+}

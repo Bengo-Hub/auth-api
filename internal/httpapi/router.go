@@ -55,8 +55,9 @@ type AuthHandlers struct {
 	MFAConsumeBackupCode         http.HandlerFunc
 	AdminCreateTenant            http.HandlerFunc
 	AdminListTenants             http.HandlerFunc
-	AdminUpdateTenant            http.HandlerFunc
-	AdminDeleteTenant            http.HandlerFunc
+	AdminUpdateTenant                  http.HandlerFunc
+	AdminDeleteTenant                  http.HandlerFunc
+	AdminProvisionTenantOAuthRedirects http.HandlerFunc
 	AdminCreateClient            http.HandlerFunc
 	AdminListClients             http.HandlerFunc
 	AdminGetClient               http.HandlerFunc
@@ -330,6 +331,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Route("/tenants/{tenant_id}", func(r chi.Router) {
 					r.Put("/", deps.AuthHandlers.AdminUpdateTenant)
 					r.Delete("/", deps.AuthHandlers.AdminDeleteTenant)
+					r.Post("/provision-oauth-redirects", deps.AuthHandlers.AdminProvisionTenantOAuthRedirects)
 					r.Route("/members", func(r chi.Router) {
 						r.Post("/", deps.AuthHandlers.AddTenantMember)
 						r.Get("/", deps.AuthHandlers.ListTenantMembers)
