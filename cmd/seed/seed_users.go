@@ -458,6 +458,9 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "inventory-ui", Name: "BengoBox Inventory UI", ProductionHost: "inventory.codevertexitsolutions.com", Public: true},
 		{ID: "logistics-ui", Name: "BengoBox Logistics UI", ProductionHost: "logistics.codevertexitsolutions.com", Public: true},
 		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexitsolutions.com", Public: true},
+		{ID: "marketflow-ui", Name: "MarketFlow UI", ProductionHost: "marketflow.codevertexitsolutions.com", Public: true},
+		{ID: "truload-ui", Name: "TruLoad Frontend", ProductionHost: "truload.codevertexitsolutions.com", Public: true},
+		{ID: "ticketing-ui", Name: "Codevertex Ticketing UI", ProductionHost: "ticketing.codevertexitsolutions.com", Public: true},
 	}
 
 	// Collect all tenant slugs for OAuth redirect URI generation.
@@ -490,6 +493,15 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 	authUIExtra := []string{"https://sso.codevertexitsolutions.com/auth/callback"}
 	// codevertex-website is reachable on both apex and www
 	cvWebsiteExtra := []string{"https://www.codevertexitsolutions.com/auth/callback"}
+	// truload-ui serves three hostnames: the standard codevertexitsolutions.com subdomain
+	// plus external KURA and MSS domains for axle-load enforcement tenants.
+	truloadExtra := []string{
+		"https://kuraweigh.kura.go.ke/auth/callback",
+		"https://kuraweigh.kura.go.ke/kura/auth/callback",
+		"https://kuraweightest.masterspace.co.ke/auth/callback",
+		"https://kuraweightest.masterspace.co.ke/kura/auth/callback",
+		"https://kuraweightest.masterspace.co.ke/mss/auth/callback",
+	}
 
 	oauthClients := make([]oauthClientSpec, 0, len(clients))
 	for _, c := range clients {
@@ -499,6 +511,9 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		}
 		if c.ID == "codevertex-website" {
 			uris = append(uris, cvWebsiteExtra...)
+		}
+		if c.ID == "truload-ui" {
+			uris = append(uris, truloadExtra...)
 		}
 		oauthClients = append(oauthClients, oauthClientSpec{
 			ID:           c.ID,

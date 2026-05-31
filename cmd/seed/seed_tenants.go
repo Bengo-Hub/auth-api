@@ -128,24 +128,42 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			}
 			log.Printf("✓ Created tenant: %s (%s) base_domain=%s", t.name, t.slug, t.baseDomain)
 		} else {
-			upd := tenantEntity.Update().
-				SetMetadata(meta).
-				SetNillableLogoURL(&t.logoURL).
-				SetBrandColors(t.brandColors)
-			if t.website != "" {
-				upd = upd.SetNillableWebsite(&t.website)
+			// Tenant already exists. Only enforce platform invariant metadata flags
+			// (is_platform_owner, is_demo, base_domain, billing_mode).
+			// All user-configurable fields (logo, brand colours, contact info, use cases)
+			// are left untouched so admin customisations made via auth-ui are preserved.
+			existingMeta := tenantEntity.Metadata
+			if existingMeta == nil {
+				existingMeta = map[string]any{}
 			}
-			if t.contactEmail != "" {
-				upd = upd.SetNillableContactEmail(&t.contactEmail)
+			for k, v := range meta {
+				existingMeta[k] = v
 			}
-			if t.contactPhone != "" {
-				upd = upd.SetNillableContactPhone(&t.contactPhone)
+			upd := tenantEntity.Update().SetMetadata(existingMeta)
+			// Backfill optional fields only when they are still unset (never overwrite).
+			if tenantEntity.LogoURL == nil && t.logoURL != "" {
+				upd = upd.SetLogoURL(t.logoURL)
 			}
-			if len(t.useCases) > 0 {
+			if tenantEntity.BrandColors == nil && len(t.brandColors) > 0 {
+				upd = upd.SetBrandColors(t.brandColors)
+			}
+			if tenantEntity.Website == nil && t.website != "" {
+				upd = upd.SetWebsite(t.website)
+			}
+			if tenantEntity.ContactEmail == nil && t.contactEmail != "" {
+				upd = upd.SetContactEmail(t.contactEmail)
+			}
+			if tenantEntity.ContactPhone == nil && t.contactPhone != "" {
+				upd = upd.SetContactPhone(t.contactPhone)
+			}
+			if len(tenantEntity.UseCases) == 0 && len(t.useCases) > 0 {
 				upd = upd.SetUseCase(t.useCases[0]).SetUseCases(t.useCases)
 			}
-			_, _ = upd.Save(ctx)
-			log.Printf("✓ Tenant exists (updated): %s (%s)", t.name, t.slug)
+			if _, err2 := upd.Save(ctx); err2 != nil {
+				log.Printf("⚠️  update tenant metadata %s: %v", t.slug, err2)
+			} else {
+				log.Printf("✓ Tenant exists (metadata synced): %s (%s)", t.name, t.slug)
+			}
 		}
 
 		refs = append(refs, &tenantRef{
@@ -268,18 +286,35 @@ func seedOutletsForTenant(ctx context.Context, client *ent.Client, tenantID uuid
 
 		existing, err := client.Outlet.Query().Where(entoutlet.ID(id)).Only(ctx)
 		if err == nil {
-			// Update mutable fields on re-run
+			// Always sync seed-structural fields (code, use_case, is_hq, status).
+			// For the demo tenant, also reset display/UX fields so demo state stays
+			// predictable across deployments.
+			// For real tenants, preserve name, address, and PIN message — these may
+			// have been customised via the POS admin or auth-ui and must not be reset.
 			upd := existing.Update().
 				SetCode(d.code).
-				SetName(d.name).
 				SetUseCase(d.useCase).
 				SetIsHq(d.isHQ).
 				SetStatus("active")
-			if d.address != "" {
-				upd = upd.SetNillableAddress(&d.address)
-			}
-			if d.pinMsg != "" {
-				upd = upd.SetNillablePinLoginMessage(&d.pinMsg)
+			if tenantSlug == "codevertex-demo" {
+				upd = upd.SetName(d.name)
+				if d.address != "" {
+					upd = upd.SetNillableAddress(&d.address)
+				}
+				if d.pinMsg != "" {
+					upd = upd.SetNillablePinLoginMessage(&d.pinMsg)
+				}
+			} else {
+				// Backfill only when unset.
+				if existing.Name == "" {
+					upd = upd.SetName(d.name)
+				}
+				if existing.Address == nil && d.address != "" {
+					upd = upd.SetNillableAddress(&d.address)
+				}
+				if existing.PinLoginMessage == nil && d.pinMsg != "" {
+					upd = upd.SetNillablePinLoginMessage(&d.pinMsg)
+				}
 			}
 			if _, err2 := upd.Save(ctx); err2 != nil {
 				log.Printf("  ⚠️  update outlet %s/%s: %v", tenantSlug, d.slug, err2)

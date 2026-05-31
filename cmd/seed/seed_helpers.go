@@ -141,10 +141,12 @@ func seedIntegrations(ctx context.Context, client *ent.Client, apiBaseURL string
 				clientSecret = os.Getenv("GIT_APP_SECRET")
 			}
 		}
-		if clientID == "" {
+		// Track whether real credentials were provided before falling back to demo placeholders.
+		// When hasRealCreds=false the seed must NOT overwrite an existing record — doing so
+		// would destroy credentials that were configured via the admin UI.
+		hasRealCreds := clientID != "" && clientSecret != ""
+		if !hasRealCreds {
 			clientID = fmt.Sprintf("demo_%s_client_id", app.name)
-		}
-		if clientSecret == "" {
 			clientSecret = fmt.Sprintf("demo_%s_client_secret", app.name)
 		}
 
@@ -164,8 +166,6 @@ func seedIntegrations(ctx context.Context, client *ent.Client, apiBaseURL string
 			}
 		}
 
-		credsJSON, _ := json.Marshal(creds)
-
 		exists, err := client.IntegrationConfig.Query().
 			Where(integrationconfig.Name(app.name), integrationconfig.TenantIDIsNil()).
 			Exist(ctx)
@@ -175,6 +175,14 @@ func seedIntegrations(ctx context.Context, client *ent.Client, apiBaseURL string
 		}
 
 		if exists {
+			if !hasRealCreds {
+				// Record already configured (via admin UI or a previous seed with real creds).
+				// No env credentials supplied — skip to avoid overwriting admin-configured values.
+				log.Printf("  ✓ Integration %s already configured — skipping (set %s_CLIENT_ID/SECRET env vars to update)", app.name, strings.ToUpper(app.name))
+				continue
+			}
+			// Real credentials explicitly provided: sync them.
+			credsJSON, _ := json.Marshal(creds)
 			_, err = client.IntegrationConfig.Update().
 				Where(integrationconfig.Name(app.name), integrationconfig.TenantIDIsNil()).
 				SetEncryptedCredentials(string(credsJSON)).
@@ -182,6 +190,7 @@ func seedIntegrations(ctx context.Context, client *ent.Client, apiBaseURL string
 				SetStatus("active").
 				Save(ctx)
 		} else {
+			credsJSON, _ := json.Marshal(creds)
 			err = client.IntegrationConfig.Create().
 				SetName(app.name).
 				SetDisplayName(app.displayName).

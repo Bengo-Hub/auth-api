@@ -1092,8 +1092,17 @@ func (h *AdminHandler) UpdateIntegrationStatus(w http.ResponseWriter, r *http.Re
 
 type addTenantMemberRequest struct {
 	UserID   string   `json:"user_id"`
+	Email    string   `json:"email,omitempty"` // alternative to user_id; resolved server-side
 	Roles    []string `json:"roles"`
 	OutletID string   `json:"outlet_id,omitempty"`
+}
+
+// updateMemberRequest is used by UpdateTenantMember. All fields are optional:
+// - roles: only updated when non-empty; omit to leave roles unchanged
+// - outlet_id: non-empty UUID sets it; empty string or absent clears it
+type updateMemberRequest struct {
+	Roles    []string `json:"roles"`
+	OutletID *string  `json:"outlet_id"` // pointer: nil = omitted (no change), "" = clear
 }
 
 type tenantMemberResponse struct {
@@ -1123,14 +1132,33 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req addTenantMemberRequest
-	if err := decodeJSON(r, &req); err != nil || req.UserID == "" {
-		writeError(w, http.StatusBadRequest, "invalid_request", "user_id is required", nil)
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
 		return
 	}
 
-	userID, err := uuid.Parse(req.UserID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+	// Resolve user: accept either user_id (UUID) or email for invite-by-email flows.
+	var userID uuid.UUID
+	if req.UserID != "" {
+		if id, pErr := uuid.Parse(req.UserID); pErr != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+			return
+		} else {
+			userID = id
+		}
+	} else if req.Email != "" {
+		u, uErr := h.ent.User.Query().Where(user.EmailEQ(strings.ToLower(strings.TrimSpace(req.Email)))).Only(r.Context())
+		if uErr != nil {
+			if ent.IsNotFound(uErr) {
+				writeError(w, http.StatusNotFound, "not_found", "no user found with that email — they must register first", nil)
+			} else {
+				writeError(w, http.StatusInternalServerError, "server_error", "user lookup failed", nil)
+			}
+			return
+		}
+		userID = u.ID
+	} else {
+		writeError(w, http.StatusBadRequest, "invalid_request", "user_id or email is required", nil)
 		return
 	}
 
@@ -1385,7 +1413,7 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req addTenantMemberRequest
+	var req updateMemberRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
 		return
@@ -1407,10 +1435,17 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	upd := membership.Update().SetRoles(req.Roles)
+	upd := membership.Update()
+	// Only overwrite roles when the caller explicitly supplies them.
+	if len(req.Roles) > 0 {
+		upd = upd.SetRoles(req.Roles)
+	}
 	var outletIDPtr *uuid.UUID
-	if req.OutletID != "" {
-		if oid, oErr := uuid.Parse(req.OutletID); oErr == nil {
+	if req.OutletID != nil {
+		if *req.OutletID == "" {
+			// Explicit empty string → clear outlet assignment.
+			upd = upd.ClearOutletID()
+		} else if oid, oErr := uuid.Parse(*req.OutletID); oErr == nil {
 			upd = upd.SetOutletID(oid)
 			outletIDPtr = &oid
 		}
@@ -1426,7 +1461,7 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 	eventPayload := map[string]any{
 		"user_id":   userID.String(),
 		"tenant_id": tenantID.String(),
-		"roles":     req.Roles,
+		"roles":     updated.Roles,
 	}
 	if outletIDPtr != nil {
 		eventPayload["outlet_id"] = outletIDPtr.String()
