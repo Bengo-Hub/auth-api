@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -631,6 +632,43 @@ func (h *AdminHandler) DeleteTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+// ProvisionTenantOAuthRedirects ensures the tenant's /{slug}/auth/callback URIs are
+// registered on all OAuth clients. Idempotent — safe to call multiple times.
+// Called automatically on tenant creation; this endpoint lets admins re-trigger it
+// retroactively for tenants that were created before OAuth clients existed.
+// POST /api/v1/admin/tenants/{tenant_id}/provision-oauth-redirects
+func (h *AdminHandler) ProvisionTenantOAuthRedirects(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	tenantID, err := uuid.Parse(chi.URLParam(r, "tenant_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+	t, err := h.ent.Tenant.Get(r.Context(), tenantID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
+		} else {
+			writeError(w, http.StatusInternalServerError, "server_error", "failed to load tenant", nil)
+		}
+		return
+	}
+	if err := auth.AppendTenantRedirectURIs(r.Context(), h.ent, t.Slug); err != nil {
+		h.logger.Error("failed to provision tenant redirect URIs",
+			zap.String("tenant_slug", t.Slug), zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to provision redirect URIs", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status":  "provisioned",
+		"slug":    t.Slug,
+		"message": fmt.Sprintf("Redirect URIs provisioned for tenant: %s", t.Slug),
+	})
 }
 
 // Clients

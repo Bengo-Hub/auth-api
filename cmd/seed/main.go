@@ -101,6 +101,18 @@ func main() {
 		log.Printf("⚠️  seed oauth clients: %v", err)
 	}
 
+	// 13b. Backfill redirect URIs for tenants created after the seed (e.g. via admin UI).
+	// seedOAuthClients only covers the 5 hard-coded seed tenants; this step ensures
+	// every other active tenant in the DB also gets its /{slug}/auth/callback URIs registered.
+	log.Println("Backfilling redirect URIs for post-seed tenants...")
+	seedSlugSet := make(map[string]bool, len(tenantEntities))
+	for _, te := range tenantEntities {
+		seedSlugSet[te.Slug] = true
+	}
+	if err := backfillTenantRedirectURIs(ctx, client, seedSlugSet); err != nil {
+		log.Printf("⚠️  backfill redirect URIs: %v", err)
+	}
+
 	// 14. Seed legacy platform API key
 	log.Println("Seeding platform API key (legacy)...")
 	if err := seedPlatformAPIKey(ctx, client, tenantEntities[0].ID); err != nil {
