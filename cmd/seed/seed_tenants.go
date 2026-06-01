@@ -69,6 +69,13 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			brandColors: map[string]any{"primary": "#2d3436", "secondary": "#0984e3", "accent": "#00cec9"},
 		},
 		{
+			name: "Urban Loft Cafe", slug: "urban-loft", baseDomain: "urbanloftcafe.co.ke",
+			useCases: []string{"hospitality"},
+			logoURL:  mediaBase + "/images/logo/urban-loft.png", website: "https://urbanloftcafe.co.ke",
+			contactEmail: "info@urbanloftcafe.co.ke",
+			brandColors: map[string]any{"primary": "#3E2723", "secondary": "#795548", "accent": "#FFC107"},
+		},
+		{
 			// Cross-platform demo tenant — covers all use-cases for platform demos.
 			// is_demo=true is written to metadata so all downstream services bypass subscription gating.
 			name: "Codevertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexitsolutions.com",
