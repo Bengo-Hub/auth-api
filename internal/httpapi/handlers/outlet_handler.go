@@ -247,6 +247,7 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 	h.publishOutletEvent(r.Context(), t.ID, o.ID, "created", map[string]any{
 		"outlet_id":           o.ID.String(),
 		"tenant_id":           t.ID.String(),
+		"tenant_slug":         t.Slug,
 		"code":                o.Code,
 		"name":                o.Name,
 		"use_case":            o.UseCase,
@@ -338,6 +339,7 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 	h.publishOutletEvent(r.Context(), t.ID, o.ID, "updated", map[string]any{
 		"outlet_id":           o.ID.String(),
 		"tenant_id":           t.ID.String(),
+		"tenant_slug":         t.Slug,
 		"code":                o.Code,
 		"name":                o.Name,
 		"use_case":            o.UseCase,
@@ -548,6 +550,7 @@ func (h *OutletHandler) RepublishOutletEvents(w http.ResponseWriter, r *http.Req
 		h.publishOutletEvent(r.Context(), t.ID, o.ID, eventType, map[string]any{
 			"outlet_id":           o.ID.String(),
 			"tenant_id":           t.ID.String(),
+			"tenant_slug":         t.Slug,
 			"code":                o.Code,
 			"name":                o.Name,
 			"use_case":            o.UseCase,
