@@ -40,7 +40,7 @@ type Claims struct {
 	// Subscription claims (enriched from subscription-service)
 	SubscriptionPlan     string         `json:"sub_plan,omitempty"`     // Plan code (STARTER, GROWTH, PROFESSIONAL)
 	SubscriptionStatus   string         `json:"sub_status,omitempty"`   // Status (ACTIVE, TRIAL, EXPIRED, etc.)
-	SubscriptionFeatures []string       `json:"sub_features,omitempty"` // Feature codes enabled for this plan
+	SubscriptionFeatures []string       `json:"subscription_features,omitempty"` // Feature codes enabled for this plan (must match authclient Claims field)
 	SubscriptionLimits   map[string]int `json:"sub_limits,omitempty"`   // Plan limits (max_outlets, max_riders, etc.)
 	SubscriptionExpires  *int64         `json:"sub_expires,omitempty"`  // Current period end as Unix timestamp
 
