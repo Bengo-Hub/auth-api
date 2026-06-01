@@ -195,7 +195,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	equityPortalHandler := handlers.NewEquityPortalHandler(entClient, tokenSvc, cfg.Token.Issuer, cfg.App.AuthUIURL, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
-		OutletHandler: outletHandler,
+		OutletHandler:      outletHandler,
+		InternalServiceKey: cfg.Subscription.APIKey,
 		HealthHandler:       handlers.Health,
 		MetricsHandler:      promhttp.Handler(),
 		UserHandler:         userHandler,

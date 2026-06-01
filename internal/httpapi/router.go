@@ -25,6 +25,8 @@ type RouterDeps struct {
 	RateLimitLogin       func(http.Handler) http.Handler
 	RateLimitToken       func(http.Handler) http.Handler
 	MetricsHandler       http.Handler
+	// InternalServiceKey gates internal S2S endpoints (X-API-Key header).
+	InternalServiceKey string
 }
 
 // AuthHandlers groups the HTTP handlers for auth routes.
@@ -450,6 +452,15 @@ func NewRouter(deps RouterDeps) http.Handler {
 		}
 	})
 
+	// Internal S2S endpoints — secured by INTERNAL_SERVICE_KEY (X-API-Key header).
+	// Not exposed via CORS; cluster-internal callers only.
+	if deps.OutletHandler != nil && deps.InternalServiceKey != "" {
+		r.Group(func(r chi.Router) {
+			r.Use(requireInternalKey(deps.InternalServiceKey))
+			r.Post("/internal/outlets/republish", deps.OutletHandler.RepublishOutletEvents)
+		})
+	}
+
 	// Short-link redirect — public, outside /api/v1 prefix.
 	// GET /p/{code}  →  302  →  /equity-holder/?token=<JWT>  (on auth-ui)
 	if deps.EquityPortalHandler != nil {
@@ -457,4 +468,17 @@ func NewRouter(deps RouterDeps) http.Handler {
 	}
 
 	return r
+}
+
+// requireInternalKey returns middleware that validates the X-API-Key header.
+func requireInternalKey(key string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("X-API-Key") != key {
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
