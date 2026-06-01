@@ -1622,8 +1622,8 @@ func (h *AdminHandler) SetUserServicePIN(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Verify user exists in this tenant.
-	_, err = h.ent.TenantMembership.Query().
+	// Verify user exists in this tenant and fetch their roles.
+	membership, err := h.ent.TenantMembership.Query().
 		Where(
 			tenantmembership.UserID(userID),
 			tenantmembership.TenantID(tenantID),
@@ -1651,6 +1651,7 @@ func (h *AdminHandler) SetUserServicePIN(w http.ResponseWriter, r *http.Request)
 		"tenant_id": tenantID.String(),
 		"service":   req.Service,
 		"pin_hash":  string(hash),
+		"roles":     membership.Roles,
 	})
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "pin_set"})
