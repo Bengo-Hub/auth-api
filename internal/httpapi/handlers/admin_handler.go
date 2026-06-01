@@ -1658,13 +1658,21 @@ func (h *AdminHandler) SetUserServicePIN(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	// Resolve tenant slug so downstream services (pos-api) can sync tenant + outlets
+	// on demand without a separate lookup.
+	tenantSlug := ""
+	if t, tErr := h.ent.Tenant.Get(r.Context(), tenantID); tErr == nil {
+		tenantSlug = t.Slug
+	}
+
 	h.publishEvent(r.Context(), tenantID, "auth.user", userID, "pin_set", map[string]any{
-		"user_id":   userID.String(),
-		"tenant_id": tenantID.String(),
-		"service":   req.Service,
-		"pin_hash":  string(hash),
-		"roles":     membership.Roles,
-		"full_name": fullName,
+		"user_id":     userID.String(),
+		"tenant_id":   tenantID.String(),
+		"tenant_slug": tenantSlug,
+		"service":     req.Service,
+		"pin_hash":    string(hash),
+		"roles":       membership.Roles,
+		"full_name":   fullName,
 	})
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "pin_set"})
