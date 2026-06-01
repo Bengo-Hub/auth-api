@@ -392,6 +392,9 @@ func backfillTenantRedirectURIs(ctx context.Context, client *ent.Client, seedSlu
 				log.Printf("  ⚠️  update redirect URIs for client %s / tenant %s: %v", c.ClientID, slug, err)
 				continue
 			}
+			// Update in-memory slice so the next non-seed tenant iteration starts
+			// from the full URI list rather than the stale pre-save value.
+			c.RedirectUris = uris
 			added = true
 		}
 		if added {
