@@ -1646,12 +1646,25 @@ func (h *AdminHandler) SetUserServicePIN(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Resolve the user's display name for pos-api StaffMember creation.
+	fullName := ""
+	if u, uErr := h.ent.User.Get(r.Context(), userID); uErr == nil {
+		fullName = profileStr(u.Profile, "name")
+		if fullName == "" {
+			fullName = profileStr(u.Profile, "full_name")
+		}
+		if fullName == "" {
+			fullName = u.Email
+		}
+	}
+
 	h.publishEvent(r.Context(), tenantID, "auth.user", userID, "pin_set", map[string]any{
 		"user_id":   userID.String(),
 		"tenant_id": tenantID.String(),
 		"service":   req.Service,
 		"pin_hash":  string(hash),
 		"roles":     membership.Roles,
+		"full_name": fullName,
 	})
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "pin_set"})
