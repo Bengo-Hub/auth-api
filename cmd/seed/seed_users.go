@@ -58,12 +58,14 @@ func seedDemoUser(ctx context.Context, client *ent.Client, hasher *password.Hash
 		log.Printf("✓ Created demo user: %s", demoEmail)
 	}
 
-	// Add demo user membership to all tenants except the platform-owner (codevertex).
-	// Membership in codevertex would not elevate the JWT (primary_tenant drives
-	// is_platform_owner), but it's still incorrect for a demo/client account.
+	// Add demo user membership to all tenants except the platform-owner (codevertex)
+	// and real client tenants that should not be polluted with demo accounts.
 	for _, tenantEnt := range tenantEntities {
 		if tenantEnt.Slug == "codevertex" {
 			continue // demo user must never be a member of the platform-owner tenant
+		}
+		if tenantEnt.Slug == "urban-loft" {
+			continue // production client tenant — no demo accounts
 		}
 		exists, err := client.TenantMembership.Query().
 			Where(
@@ -304,7 +306,12 @@ func seedDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Has
 // seedTenantStaffUsers seeds a generic staff user for every tenant.
 func seedTenantStaffUsers(ctx context.Context, client *ent.Client, hasher *password.Hasher, tenantEntities []*tenantRef) error {
 	log.Println("Seeding staff users for all tenants...")
+	// Production client tenants that manage their own real users — skip generic seed accounts.
+	skipSlugs := map[string]bool{"urban-loft": true}
 	for _, te := range tenantEntities {
+		if skipSlugs[te.Slug] {
+			continue
+		}
 		staffEmail := fmt.Sprintf("staff@%s.com", te.Slug)
 		staffPassword := os.Getenv("SEED_STAFF_PASSWORD")
 		if staffPassword == "" {
