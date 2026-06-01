@@ -69,10 +69,10 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			brandColors: map[string]any{"primary": "#2d3436", "secondary": "#0984e3", "accent": "#00cec9"},
 		},
 		{
-			name: "Urban Loft Cafe", slug: "urban-loft", baseDomain: "urbanloftcafe.co.ke",
+			name: "Urban Loft Cafe", slug: "urban-loft", baseDomain: "theurbanloftcafe.com",
 			useCases: []string{"hospitality"},
-			logoURL:  mediaBase + "/images/logo/urban-loft.png", website: "https://urbanloftcafe.co.ke",
-			contactEmail: "info@urbanloftcafe.co.ke",
+			logoURL:  mediaBase + "/images/logo/urban-loft.png", website: "https://theurbanloftcafe.com",
+			contactEmail: "info@theurbanloftcafe.com",
 			brandColors: map[string]any{"primary": "#3E2723", "secondary": "#795548", "accent": "#FFC107"},
 		},
 		{
