@@ -291,14 +291,15 @@ func NewRouter(deps RouterDeps) http.Handler {
 		r.Route("/tenants", func(r chi.Router) {
 			r.Post("/", deps.AuthHandlers.PublicCreateTenant)
 			r.Get("/by-slug/{slug}", deps.AuthHandlers.PublicGetTenantBySlug)
-			// Outlet management (tenant admin — auth required)
+			// Outlet management — GET is public (outlet info is not sensitive),
+			// mutations require authentication.
 			if deps.OutletHandler != nil {
-				r.Group(func(r chi.Router) {
-					if deps.RequireAuthHandler != nil {
-						r.Use(deps.RequireAuthHandler)
-					}
-					r.Route("/{slug}/outlets", func(r chi.Router) {
-						r.Get("/", deps.OutletHandler.ListOutlets)
+				r.Route("/{slug}/outlets", func(r chi.Router) {
+					r.Get("/", deps.OutletHandler.ListOutlets)
+					r.Group(func(r chi.Router) {
+						if deps.RequireAuthHandler != nil {
+							r.Use(deps.RequireAuthHandler)
+						}
 						r.Post("/", deps.OutletHandler.CreateOutlet)
 						r.Put("/{outlet_id}", deps.OutletHandler.UpdateOutlet)
 						r.Delete("/{outlet_id}", deps.OutletHandler.ArchiveOutlet)
