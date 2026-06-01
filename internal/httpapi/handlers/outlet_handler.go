@@ -512,3 +512,56 @@ func (h *OutletHandler) GetCurrentOutlet(w http.ResponseWriter, r *http.Request)
 
 	writeJSON(w, http.StatusOK, map[string]any{"outlet": outletToResponse(o)})
 }
+
+// RepublishOutletEvents POST /internal/outlets/republish?slug={tenantSlug}
+// Re-publishes auth.outlet.updated events for all active outlets of the given tenant.
+// Secured by INTERNAL_SERVICE_KEY (X-API-Key header). Used to re-sync downstream
+// services (ordering-backend, pos-api) when NATS events have expired from the stream.
+func (h *OutletHandler) RepublishOutletEvents(w http.ResponseWriter, r *http.Request) {
+	slug := r.URL.Query().Get("slug")
+	if slug == "" {
+		http.Error(w, "slug query param required", http.StatusBadRequest)
+		return
+	}
+
+	t, err := h.resolveTenantFromSlug(r.Context(), slug)
+	if err != nil {
+		http.Error(w, "tenant not found", http.StatusNotFound)
+		return
+	}
+
+	outlets, err := h.ent.Outlet.Query().
+		Where(outlet.TenantID(t.ID)).
+		All(r.Context())
+	if err != nil {
+		h.logger.Error("republish: query outlets", zap.Error(err))
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	count := 0
+	for _, o := range outlets {
+		eventType := "updated"
+		if o.Status == "archived" {
+			eventType = "archived"
+		}
+		h.publishOutletEvent(r.Context(), t.ID, o.ID, eventType, map[string]any{
+			"outlet_id":           o.ID.String(),
+			"tenant_id":           t.ID.String(),
+			"code":                o.Code,
+			"name":                o.Name,
+			"use_case":            o.UseCase,
+			"is_hq":               o.IsHq,
+			"status":              o.Status,
+			"applicable_services": usecase.ApplicableServices(o.UseCase),
+		})
+		count++
+	}
+
+	h.logger.Info("outlet events republished", zap.String("tenant", slug), zap.Int("count", count))
+	writeJSON(w, http.StatusOK, map[string]any{
+		"republished": count,
+		"tenant":      slug,
+	})
+}
+
