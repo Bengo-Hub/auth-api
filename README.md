@@ -115,6 +115,49 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 | POST   | `/api/v1/admin/usage/increment`  | Increment usage counter         |
 | POST   | `/api/v1/admin/keys/rotate`      | Reload signing keys             |
 
+### Platform user management (platform owners only)
+
+`/api/v1/admin/users` is gated to platform owners (primary tenant `codevertex`).
+
+| Method | Path                              | Description                     |
+|--------|-----------------------------------|---------------------------------|
+| GET    | `/api/v1/admin/users`            | List all users                  |
+| POST   | `/api/v1/admin/users`            | Create user (temp password + welcome email) |
+| GET    | `/api/v1/admin/users/{id}`       | Get user (incl. memberships)    |
+| PATCH  | `/api/v1/admin/users/{id}`       | Update email / profile          |
+| DELETE | `/api/v1/admin/users/{id}`       | Soft-delete user                |
+| POST   | `/api/v1/admin/users/{id}/suspend` `/deactivate` `/activate` | Change account status |
+| POST   | `/api/v1/admin/users/{id}/reset-password` | Set password directly (no current pw); returns temp pw if generated |
+| POST   | `/api/v1/admin/users/{id}/send-password-reset` | Send standard reset email |
+| POST   | `/api/v1/admin/users/{id}/mfa-enforcement` | Enforce/clear 2FA (`{enforced}`) |
+
+SSO-level roles are edited per tenant via the tenant-member endpoints below
+(platform owners bypass the tenant-scope check).
+
+### Tenant member management (tenant admins, scoped to their own tenant)
+
+`requireTenantAdmin` enforces that a tenant admin/superuser may only act on their
+own `tenant_id`; platform owners bypass the check. Members whose primary tenant is
+the platform tenant are hidden from non-platform requesters.
+
+| Method | Path                              | Description                     |
+|--------|-----------------------------------|---------------------------------|
+| GET    | `/api/v1/admin/tenants/{id}/members` | List members                |
+| POST   | `/api/v1/admin/tenants/{id}/members` | Add member by `user_id`/`email`; unknown email auto-creates the account (temp password + welcome email), optional `name`/`phone`/`pin`/`service` |
+| PUT    | `/api/v1/admin/tenants/{id}/members/{user_id}` | Update `roles` / `outlet_id` / `status` (active\|suspended\|deactivated) |
+| DELETE | `/api/v1/admin/tenants/{id}/members/{user_id}` | Remove member       |
+| POST   | `/api/v1/admin/tenants/{id}/members/{user_id}/service-pin` | Set 4-digit service PIN |
+
+### Self-service profile
+
+| Method | Path                              | Description                     |
+|--------|-----------------------------------|---------------------------------|
+| PATCH  | `/api/v1/auth/me`                | Update own profile (name, phone, bio, country, timezone, locale, `notification_settings`); busts the `/me` cache |
+| POST   | `/api/v1/auth/me/change-password` | Change own password (current + new); clears `must_change_password` |
+
+`/api/v1/auth/me` returns `must_change_password: true` for admin-provisioned/reset
+accounts; the dashboard gates access to the password-change screen until cleared.
+
 ### MFA
 - TOTP enrollment/confirmation and backup codes under `/api/v1/auth/mfa/*` (requires auth).
 

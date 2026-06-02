@@ -760,6 +760,12 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		out["mfa_enabled"] = mfaEnabled
 	}
 
+	// Surface the force-password-change flag so the UI can gate the dashboard
+	// until an admin-provisioned/reset account picks a new password.
+	if v, ok := userEntity.Profile["must_change_password"].(bool); ok && v {
+		out["must_change_password"] = true
+	}
+
 	// Resolve and embed the primary tenant as a nested object so frontend
 	// useAuth and test_sso_me_endpoint can read tenant.id / tenant.slug directly.
 	if userEntity.PrimaryTenantID != "" {
@@ -1212,6 +1218,9 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, r, err)
 		return
 	}
+
+	// Bust the /me cache so must_change_password clears immediately on reload.
+	invalidateMeCacheKeys(r.Context(), h.redis, h.redisNamespace, userID)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "password_changed"})
 }

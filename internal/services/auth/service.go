@@ -2093,7 +2093,17 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 		return fmt.Errorf("hash new password: %w", err)
 	}
 
-	if err := s.entClient.User.UpdateOneID(in.UserID).SetPasswordHash(newHash).Exec(ctx); err != nil {
+	update := s.entClient.User.UpdateOneID(in.UserID).SetPasswordHash(newHash)
+	// Clear the force-change flag for admin-provisioned/reset accounts.
+	if v, ok := u.Profile["must_change_password"].(bool); ok && v {
+		profile := make(map[string]any, len(u.Profile))
+		for k, val := range u.Profile {
+			profile[k] = val
+		}
+		delete(profile, "must_change_password")
+		update = update.SetProfile(profile)
+	}
+	if err := update.Exec(ctx); err != nil {
 		return fmt.Errorf("update password: %w", err)
 	}
 

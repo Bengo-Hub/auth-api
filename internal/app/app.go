@@ -184,12 +184,12 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		webAuthnHandler = handlers.NewWebAuthnHandler(webAuthnService, authService, logger, redisClient, cfg.Redis.Namespace)
 	}
 
-	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, logger)
+	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger)
 	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 	appHandler := handlers.NewAppHandler(entClient, logger)
-	userHandler := handlers.NewUserHandler(entClient, logger)
+	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger)
 	legalHandler := handlers.NewLegalHandler(entClient, logger)
 	referralLinkHandler := handlers.NewReferralLinkHandler(entClient, logger)
 	equityPortalHandler := handlers.NewEquityPortalHandler(entClient, tokenSvc, cfg.Token.Issuer, cfg.App.AuthUIURL, logger)

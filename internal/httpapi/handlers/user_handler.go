@@ -1,16 +1,21 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/Bengo-Hub/pagination"
+	"github.com/bengobox/auth-api/internal/ent/mfasettings"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/password"
+	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	"github.com/bengobox/auth-api/internal/ent"
@@ -18,14 +23,24 @@ import (
 
 // UserHandler provides platform-admin user management APIs.
 type UserHandler struct {
-	ent    *ent.Client
-	logger *zap.Logger
+	ent            *ent.Client
+	logger         *zap.Logger
+	hasher         *password.Hasher
+	auth           AuthService // for admin-initiated password-reset emails
+	redis          *redis.Client
+	redisNamespace string
+	authUIURL      string
 }
 
-func NewUserHandler(entClient *ent.Client, logger *zap.Logger) *UserHandler {
+func NewUserHandler(entClient *ent.Client, hasher *password.Hasher, authSvc AuthService, redisClient *redis.Client, redisNamespace, authUIURL string, logger *zap.Logger) *UserHandler {
 	return &UserHandler{
-		ent:    entClient,
-		logger: logger.Named("user_handler"),
+		ent:            entClient,
+		logger:         logger.Named("user_handler"),
+		hasher:         hasher,
+		auth:           authSvc,
+		redis:          redisClient,
+		redisNamespace: redisNamespace,
+		authUIURL:      authUIURL,
 	}
 }
 
@@ -290,6 +305,292 @@ func (h *UserHandler) AdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type createUserRequest struct {
+	Email           string `json:"email"`
+	Name            string `json:"name,omitempty"`
+	Phone           string `json:"phone,omitempty"`
+	Password        string `json:"password,omitempty"` // optional; generated if empty
+	PrimaryTenantID string `json:"primary_tenant_id,omitempty"`
+}
+
+// AdminCreateUser creates a new user account directly (platform admin only).
+// POST /api/v1/admin/users
+// When no password is supplied a temporary one is generated and returned ONCE;
+// the user is flagged to change it on first interactive login. A welcome event
+// is published so notifications-service can email the SSO login link.
+func (h *UserHandler) AdminCreateUser(w http.ResponseWriter, r *http.Request) {
+	if !h.requirePlatformAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
+		return
+	}
+
+	var req createUserRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid request body", nil)
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if email == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "email is required", nil)
+		return
+	}
+
+	tempPassword := strings.TrimSpace(req.Password)
+	generated := false
+	if tempPassword == "" {
+		tempPassword = generateTempPassword()
+		generated = true
+	}
+	hash, err := h.hasher.Hash(tempPassword)
+	if err != nil {
+		h.logger.Error("hash password", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not create user", nil)
+		return
+	}
+
+	profile := map[string]any{"must_change_password": true}
+	if strings.TrimSpace(req.Name) != "" {
+		profile["name"] = strings.TrimSpace(req.Name)
+	}
+	if strings.TrimSpace(req.Phone) != "" {
+		profile["phone"] = strings.TrimSpace(req.Phone)
+	}
+
+	create := h.ent.User.Create().
+		SetEmail(email).
+		SetPasswordHash(hash).
+		SetStatus("active").
+		SetProfile(profile)
+	if strings.TrimSpace(req.PrimaryTenantID) != "" {
+		create = create.SetPrimaryTenantID(strings.TrimSpace(req.PrimaryTenantID))
+	}
+
+	u, err := create.Save(r.Context())
+	if err != nil {
+		if ent.IsConstraintError(err) {
+			writeError(w, http.StatusConflict, "conflict", "email already in use", nil)
+			return
+		}
+		h.logger.Error("create user", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not create user", nil)
+		return
+	}
+
+	// Welcome event so notifications-service can email the SSO login link.
+	tenantID := uuid.Nil
+	if u.PrimaryTenantID != "" {
+		if tid, pErr := uuid.Parse(u.PrimaryTenantID); pErr == nil {
+			tenantID = tid
+		}
+	}
+	writeOutboxEvent(r.Context(), h.ent, h.logger, tenantID, "auth.user", u.ID, "created", map[string]any{
+		"user_id":              u.ID.String(),
+		"email":                u.Email,
+		"full_name":            profileStr(u.Profile, "name"),
+		"method":               "admin_provisioned",
+		"welcome":              true,
+		"must_change_password": true,
+		"login_url":            h.authUIURL,
+	})
+
+	resp := mapUser(u)
+	out := map[string]any{
+		"id":             resp.ID,
+		"email":          resp.Email,
+		"status":         resp.Status,
+		"primary_tenant_id": resp.PrimaryTenantID,
+		"profile":        resp.Profile,
+		"created_at":     resp.CreatedAt,
+		"updated_at":     resp.UpdatedAt,
+	}
+	if generated {
+		out["temp_password"] = tempPassword
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+type adminResetPasswordRequest struct {
+	NewPassword string `json:"new_password,omitempty"` // optional; generated if empty
+}
+
+// AdminResetPassword sets a user's password directly without the current
+// password (platform admin only). POST /api/v1/admin/users/{user_id}/reset-password
+// Generates a temporary password when none is supplied and returns it ONCE.
+func (h *UserHandler) AdminResetPassword(w http.ResponseWriter, r *http.Request) {
+	if !h.requirePlatformAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
+		return
+	}
+	userID, err := uuid.Parse(chi.URLParam(r, "user_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "invalid user ID", nil)
+		return
+	}
+
+	var req adminResetPasswordRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid request body", nil)
+		return
+	}
+
+	newPassword := strings.TrimSpace(req.NewPassword)
+	generated := false
+	if newPassword == "" {
+		newPassword = generateTempPassword()
+		generated = true
+	}
+	hash, err := h.hasher.Hash(newPassword)
+	if err != nil {
+		h.logger.Error("hash password", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not reset password", nil)
+		return
+	}
+
+	u, err := h.ent.User.Get(r.Context(), userID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "user not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
+		return
+	}
+
+	// Force a change on next interactive login.
+	profile := make(map[string]any)
+	for k, v := range u.Profile {
+		profile[k] = v
+	}
+	profile["must_change_password"] = true
+
+	if err := h.ent.User.UpdateOneID(userID).SetPasswordHash(hash).SetProfile(profile).Exec(r.Context()); err != nil {
+		h.logger.Error("reset password", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not reset password", nil)
+		return
+	}
+	h.invalidateMeCache(r.Context(), userID)
+	h.logger.Info("admin reset user password", zap.String("user_id", userID.String()))
+
+	out := map[string]any{"id": userID, "status": "password_reset"}
+	if generated {
+		out["temp_password"] = newPassword
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// AdminSendPasswordResetEmail triggers the standard password-reset email for a
+// user (platform admin only). POST /api/v1/admin/users/{user_id}/send-password-reset
+func (h *UserHandler) AdminSendPasswordResetEmail(w http.ResponseWriter, r *http.Request) {
+	if !h.requirePlatformAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
+		return
+	}
+	userID, err := uuid.Parse(chi.URLParam(r, "user_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "invalid user ID", nil)
+		return
+	}
+
+	u, err := h.ent.User.Get(r.Context(), userID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "user not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
+		return
+	}
+
+	// Resolve the user's tenant slug (RequestPasswordReset is tenant-scoped and
+	// verifies membership). Prefer the primary tenant, else the first membership.
+	slug := ""
+	if u.PrimaryTenantID != "" {
+		if tid, pErr := uuid.Parse(u.PrimaryTenantID); pErr == nil {
+			if t, tErr := h.ent.Tenant.Get(r.Context(), tid); tErr == nil {
+				slug = t.Slug
+			}
+		}
+	}
+	if slug == "" {
+		if m, mErr := h.ent.TenantMembership.Query().Where(tenantmembership.UserID(userID)).WithTenant().First(r.Context()); mErr == nil && m.Edges.Tenant != nil {
+			slug = m.Edges.Tenant.Slug
+		}
+	}
+	if slug == "" {
+		writeError(w, http.StatusBadRequest, "no_tenant", "user has no tenant to scope the reset email", nil)
+		return
+	}
+
+	resetInput := auth.PasswordResetRequestInput{
+		Email:      u.Email,
+		TenantSlug: slug,
+		IPAddress:  clientIP(r),
+		UserAgent:  userAgent(r),
+	}
+	if _, err := h.auth.RequestPasswordReset(r.Context(), resetInput); err != nil {
+		h.logger.Warn("admin send password reset email failed", zap.Error(err), zap.String("user_id", userID.String()))
+		// Do not leak whether the account/membership exists.
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "reset_email_sent"})
+}
+
+type adminMfaEnforcementRequest struct {
+	Enforced bool `json:"enforced"`
+}
+
+// AdminSetMfaEnforcement records whether 2FA is enforced for a user (platform
+// admin only). POST /api/v1/admin/users/{user_id}/mfa-enforcement
+// Sets/clears MFASettings.enforced_at. Step-up enforcement at login is a follow-up.
+func (h *UserHandler) AdminSetMfaEnforcement(w http.ResponseWriter, r *http.Request) {
+	if !h.requirePlatformAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
+		return
+	}
+	userID, err := uuid.Parse(chi.URLParam(r, "user_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "invalid user ID", nil)
+		return
+	}
+	var req adminMfaEnforcementRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid request body", nil)
+		return
+	}
+
+	existing, _ := h.ent.MFASettings.Query().Where(mfasettings.UserID(userID)).Only(r.Context())
+	if existing == nil {
+		create := h.ent.MFASettings.Create().SetUserID(userID)
+		if req.Enforced {
+			create = create.SetEnforcedAt(time.Now())
+		}
+		if _, err := create.Save(r.Context()); err != nil {
+			h.logger.Error("create mfa settings", zap.Error(err))
+			writeError(w, http.StatusInternalServerError, "server_error", "could not update 2FA enforcement", nil)
+			return
+		}
+	} else {
+		upd := existing.Update()
+		if req.Enforced {
+			upd = upd.SetEnforcedAt(time.Now())
+		} else {
+			upd = upd.ClearEnforcedAt()
+		}
+		if _, err := upd.Save(r.Context()); err != nil {
+			h.logger.Error("update mfa settings", zap.Error(err))
+			writeError(w, http.StatusInternalServerError, "server_error", "could not update 2FA enforcement", nil)
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"id": userID, "mfa_enforced": req.Enforced})
+}
+
+// invalidateMeCache deletes any cached /me responses for a user so a subsequent
+// load reflects profile/password/status changes immediately.
+func (h *UserHandler) invalidateMeCache(ctx context.Context, userID uuid.UUID) {
+	invalidateMeCacheKeys(ctx, h.redis, h.redisNamespace, userID)
+}
+
 // UpdateMyProfile lets any authenticated user update their own profile fields
 // stored in the profile JSON column. Merges the provided fields into the
 // existing profile so callers only need to send what changed.
@@ -311,6 +612,7 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 		ProfilePictureURL string         `json:"profile_picture_url,omitempty"`
 		Phone             string         `json:"phone,omitempty"`
 		Bio               string         `json:"bio,omitempty"`
+		Country           string         `json:"country,omitempty"`
 		Timezone          string         `json:"timezone,omitempty"`
 		Locale            string         `json:"locale,omitempty"`
 		Preferences       map[string]any `json:"preferences,omitempty"`
@@ -345,6 +647,9 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	if req.Bio != "" {
 		profile["bio"] = req.Bio
 	}
+	if req.Country != "" {
+		profile["country"] = req.Country
+	}
 	if req.Timezone != "" {
 		profile["timezone"] = req.Timezone
 	}
@@ -378,5 +683,7 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to update profile", nil)
 		return
 	}
+	// Bust the cached /me response so a reload reflects the change immediately.
+	h.invalidateMeCache(r.Context(), userID)
 	writeJSON(w, http.StatusOK, mapUser(updated))
 }
