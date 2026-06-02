@@ -382,6 +382,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 				if deps.UserHandler != nil {
 					r.Route("/users", func(r chi.Router) {
 						r.Get("/", deps.UserHandler.AdminListUsers)
+						r.Post("/", deps.UserHandler.AdminCreateUser)
 						r.Route("/{user_id}", func(r chi.Router) {
 							r.Get("/", deps.UserHandler.AdminGetUser)
 							r.Patch("/", deps.UserHandler.AdminUpdateUser)
@@ -389,6 +390,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 							r.Post("/suspend", deps.UserHandler.AdminSuspendUser)
 							r.Post("/deactivate", deps.UserHandler.AdminDeactivateUser)
 							r.Post("/activate", deps.UserHandler.AdminActivateUser)
+							r.Post("/reset-password", deps.UserHandler.AdminResetPassword)
+							r.Post("/send-password-reset", deps.UserHandler.AdminSendPasswordResetEmail)
+							r.Post("/mfa-enforcement", deps.UserHandler.AdminSetMfaEnforcement)
 						})
 					})
 				}

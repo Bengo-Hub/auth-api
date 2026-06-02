@@ -2,23 +2,21 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 	"unicode"
 
-	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/Bengo-Hub/pagination"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
-	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/password"
 	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/entitlements"
 	"github.com/bengobox/auth-api/internal/services/integrations"
@@ -40,9 +38,11 @@ type AdminHandler struct {
 	tokens       *token.Service
 	integrations *integrations.Service
 	subClient    *subscriptionclient.Client
+	hasher       *password.Hasher
+	authUIURL    string
 }
 
-func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSvc *integrations.Service, subClient *subscriptionclient.Client, logger *zap.Logger) *AdminHandler {
+func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSvc *integrations.Service, subClient *subscriptionclient.Client, hasher *password.Hasher, authUIURL string, logger *zap.Logger) *AdminHandler {
 	return &AdminHandler{
 		ent:          entClient,
 		logger:       logger,
@@ -51,6 +51,8 @@ func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSv
 		tokens:       tokens,
 		integrations: integrationSvc,
 		subClient:    subClient,
+		hasher:       hasher,
+		authUIURL:    authUIURL,
 	}
 }
 
@@ -84,37 +86,43 @@ func (h *AdminHandler) requireAdmin(r *http.Request) bool {
 	return false
 }
 
-// publishTenantEvent writes a tenant.created event to the outbox for async NATS publishing.
+// requireTenantAdmin authorizes admin actions that target a specific tenant.
+// Platform owners and S2S admin-scoped tokens bypass the tenant check. A tenant
+// admin/superuser is only allowed when their token's tenant matches the target
+// tenant — this prevents cross-tenant writes (a tenant A admin acting on tenant B).
+func (h *AdminHandler) requireTenantAdmin(r *http.Request, tenantID uuid.UUID) bool {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok || claims == nil {
+		return false
+	}
+
+	// Platform owners (primary tenant = "codevertex") bypass all RBAC.
+	if claims.IsPlatformOwner {
+		return true
+	}
+
+	// Service-to-service tokens with explicit admin scope (no tenant binding).
+	for _, s := range claims.Scope {
+		if s == "admin" || s == "auth.admin" {
+			return true
+		}
+	}
+
+	// Tenant admins may only act on their own tenant.
+	if claims.TenantID == "" || claims.TenantID != tenantID.String() {
+		return false
+	}
+	for _, role := range claims.Roles {
+		if role == "superuser" || role == "admin" {
+			return true
+		}
+	}
+	return false
+}
+
+// publishEvent writes a domain event to the outbox for async NATS publishing.
 func (h *AdminHandler) publishEvent(ctx context.Context, tenantID uuid.UUID, aggregateType string, aggregateID uuid.UUID, eventType string, data map[string]any) {
-	event := sharedevents.Event{
-		ID:            uuid.New(),
-		TenantID:      tenantID,
-		AggregateType: aggregateType,
-		AggregateID:   aggregateID,
-		EventType:     eventType,
-		Payload:       data,
-		Timestamp:    time.Now().UTC(),
-		Version:      "1.0",
-	}
-
-	payload, err := json.Marshal(event)
-	if err != nil {
-		h.logger.Warn("failed to marshal event", zap.Error(err), zap.String("event_type", eventType))
-		return
-	}
-
-	err = h.ent.OutboxEvent.Create().
-		SetTenantID(tenantID).
-		SetAggregateType(aggregateType).
-		SetAggregateID(aggregateID).
-		SetEventType(eventType).
-		SetPayload(payload).
-		SetStatus(outboxevent.StatusPENDING).
-		SetAttempts(0).
-		Exec(ctx)
-	if err != nil {
-		h.logger.Warn("failed to write outbox event", zap.Error(err), zap.String("event_type", eventType))
-	}
+	writeOutboxEvent(ctx, h.ent, h.logger, tenantID, aggregateType, aggregateID, eventType, data)
 }
 
 func (h *AdminHandler) publishTenantEvent(ctx context.Context, tenantID uuid.UUID, name, slug, useCase, createdBy string) {
@@ -1133,14 +1141,24 @@ type addTenantMemberRequest struct {
 	Email    string   `json:"email,omitempty"` // alternative to user_id; resolved server-side
 	Roles    []string `json:"roles"`
 	OutletID string   `json:"outlet_id,omitempty"`
+	// Direct-add fields: when email is not an existing user, the account is
+	// created on the fly (#3). Name/Phone seed the profile; PIN (4 digits) is
+	// optionally provisioned for the given Service (default "pos") so terminal
+	// login works immediately and independently of the SSO password.
+	Name    string `json:"name,omitempty"`
+	Phone   string `json:"phone,omitempty"`
+	PIN     string `json:"pin,omitempty"`
+	Service string `json:"service,omitempty"`
 }
 
 // updateMemberRequest is used by UpdateTenantMember. All fields are optional:
 // - roles: only updated when non-empty; omit to leave roles unchanged
 // - outlet_id: non-empty UUID sets it; empty string or absent clears it
+// - status: non-empty sets the membership status (active|suspended|deactivated)
 type updateMemberRequest struct {
 	Roles    []string `json:"roles"`
 	OutletID *string  `json:"outlet_id"` // pointer: nil = omitted (no change), "" = clear
+	Status   string   `json:"status,omitempty"`
 }
 
 type tenantMemberResponse struct {
@@ -1152,20 +1170,22 @@ type tenantMemberResponse struct {
 	OutletID  *string  `json:"outlet_id,omitempty"`
 	CreatedAt string   `json:"created_at"`
 	UpdatedAt string   `json:"updated_at"`
+	// TempPassword is returned ONCE when a direct-add created a brand-new account,
+	// so the admin can relay it. Never persisted in plaintext, never emailed.
+	TempPassword string `json:"temp_password,omitempty"`
 }
 
 // AddTenantMember adds a user to a tenant with specified roles.
 // POST /api/v1/admin/tenants/{tenant_id}/members
 func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdmin(r) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
-
 	tenantIDStr := chi.URLParam(r, "tenant_id")
 	tenantID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+	if !h.requireTenantAdmin(r, tenantID) {
+		writeError(w, http.StatusForbidden, "forbidden", "tenant admin required", nil)
 		return
 	}
 
@@ -1175,8 +1195,10 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve user: accept either user_id (UUID) or email for invite-by-email flows.
+	// Resolve user: accept either user_id (UUID) or email. For invite/direct-add
+	// by email, create the account on the fly when it does not yet exist (#3).
 	var userID uuid.UUID
+	var tempPassword string // set only when a brand-new account is created
 	if req.UserID != "" {
 		if id, pErr := uuid.Parse(req.UserID); pErr != nil {
 			writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
@@ -1185,16 +1207,49 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			userID = id
 		}
 	} else if req.Email != "" {
-		u, uErr := h.ent.User.Query().Where(user.EmailEQ(strings.ToLower(strings.TrimSpace(req.Email)))).Only(r.Context())
-		if uErr != nil {
-			if ent.IsNotFound(uErr) {
-				writeError(w, http.StatusNotFound, "not_found", "no user found with that email — they must register first", nil)
-			} else {
-				writeError(w, http.StatusInternalServerError, "server_error", "user lookup failed", nil)
+		email := strings.ToLower(strings.TrimSpace(req.Email))
+		u, uErr := h.ent.User.Query().Where(user.EmailEQ(email)).Only(r.Context())
+		if uErr == nil {
+			userID = u.ID
+		} else if ent.IsNotFound(uErr) {
+			// Direct-add: create a new active account with a temporary password.
+			// The user must change it on first interactive (SSO) login; a PIN
+			// (if provided below) works for terminal login independently.
+			tempPassword = generateTempPassword()
+			hash, hErr := h.hasher.Hash(tempPassword)
+			if hErr != nil {
+				h.logger.Error("hash temp password", zap.Error(hErr))
+				writeError(w, http.StatusInternalServerError, "server_error", "could not create account", nil)
+				return
 			}
+			profile := map[string]any{"must_change_password": true}
+			if strings.TrimSpace(req.Name) != "" {
+				profile["name"] = strings.TrimSpace(req.Name)
+			}
+			if strings.TrimSpace(req.Phone) != "" {
+				profile["phone"] = strings.TrimSpace(req.Phone)
+			}
+			created, cErr := h.ent.User.Create().
+				SetEmail(email).
+				SetPasswordHash(hash).
+				SetStatus("active").
+				SetPrimaryTenantID(tenantID.String()).
+				SetProfile(profile).
+				Save(r.Context())
+			if cErr != nil {
+				if ent.IsConstraintError(cErr) {
+					writeError(w, http.StatusConflict, "conflict", "email already in use", nil)
+					return
+				}
+				h.logger.Error("create direct-add user", zap.Error(cErr))
+				writeError(w, http.StatusInternalServerError, "server_error", "could not create account", nil)
+				return
+			}
+			userID = created.ID
+		} else {
+			writeError(w, http.StatusInternalServerError, "server_error", "user lookup failed", nil)
 			return
 		}
-		userID = u.ID
 	} else {
 		writeError(w, http.StatusBadRequest, "invalid_request", "user_id or email is required", nil)
 		return
@@ -1265,7 +1320,20 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		if outletID != nil {
 			payload["outlet_id"] = outletID.String()
 		}
+		// For brand-new accounts, flag a welcome email with the SSO login link.
+		// The plaintext temp password is never emitted — only the login URL is.
+		if tempPassword != "" {
+			payload["welcome"] = true
+			payload["must_change_password"] = true
+			payload["login_url"] = h.authUIURL
+		}
 		h.publishEvent(r.Context(), tenantID, "auth.user", userID, "created", payload)
+
+		// Optionally provision a service PIN so terminal (POS) login works
+		// immediately. Mirrors SetUserServicePIN: hash + publish pin_set.
+		if req.PIN != "" {
+			h.provisionMemberPIN(r.Context(), tenantID, userID, tenantSlug, req.Service, req.PIN, req.Roles, profileStr(u.Profile, "name"), u.Email)
+		}
 	}
 
 	var outletIDStr *string
@@ -1274,14 +1342,52 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		outletIDStr = &s
 	}
 	writeJSON(w, http.StatusCreated, tenantMemberResponse{
-		ID:        membership.ID.String(),
-		UserID:    membership.UserID.String(),
-		TenantID:  membership.TenantID.String(),
-		Roles:     membership.Roles,
-		Status:    membership.Status,
-		OutletID:  outletIDStr,
-		CreatedAt: membership.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: membership.UpdatedAt.Format(time.RFC3339),
+		ID:           membership.ID.String(),
+		UserID:       membership.UserID.String(),
+		TenantID:     membership.TenantID.String(),
+		Roles:        membership.Roles,
+		Status:       membership.Status,
+		OutletID:     outletIDStr,
+		CreatedAt:    membership.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    membership.UpdatedAt.Format(time.RFC3339),
+		TempPassword: tempPassword,
+	})
+}
+
+// provisionMemberPIN hashes a 4-digit service PIN and publishes auth.user.pin_set
+// so downstream services (pos-api etc.) can store the hash. Best-effort: invalid
+// PINs are skipped with a warning rather than failing the add. Shared by the
+// direct-add flow and SetUserServicePIN.
+func (h *AdminHandler) provisionMemberPIN(ctx context.Context, tenantID, userID uuid.UUID, tenantSlug, service, pin string, roles []string, fullName, email string) {
+	if len(pin) != 4 {
+		h.logger.Warn("skipping PIN provision: pin must be 4 digits")
+		return
+	}
+	for _, ch := range pin {
+		if !unicode.IsDigit(ch) {
+			h.logger.Warn("skipping PIN provision: pin must be numeric")
+			return
+		}
+	}
+	if service == "" {
+		service = "pos"
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
+	if err != nil {
+		h.logger.Error("Failed to hash PIN", zap.Error(err))
+		return
+	}
+	if fullName == "" {
+		fullName = email
+	}
+	h.publishEvent(ctx, tenantID, "auth.user", userID, "pin_set", map[string]any{
+		"user_id":     userID.String(),
+		"tenant_id":   tenantID.String(),
+		"tenant_slug": tenantSlug,
+		"service":     service,
+		"pin_hash":    string(hash),
+		"roles":       roles,
+		"full_name":   fullName,
 	})
 }
 
@@ -1289,16 +1395,29 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/admin/tenants/{tenant_id}/members
 // Query params: page, limit, search (email/name), role, status
 func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdmin(r) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
-
 	tenantIDStr := chi.URLParam(r, "tenant_id")
 	tenantID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
 		return
+	}
+	if !h.requireTenantAdmin(r, tenantID) {
+		writeError(w, http.StatusForbidden, "forbidden", "tenant admin required", nil)
+		return
+	}
+
+	// Determine whether the requester is a platform owner. Non-platform users
+	// must NOT see platform staff (e.g. admin@codevertexitsolutions.com) even
+	// though those accounts hold a membership in every tenant (#1).
+	requesterIsPlatform := false
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil {
+		requesterIsPlatform = claims.IsPlatformOwner
+	}
+	platformTenantID := ""
+	if !requesterIsPlatform {
+		if pt, ptErr := h.ent.Tenant.Query().Where(tenant.SlugEQ("codevertex")).Only(r.Context()); ptErr == nil {
+			platformTenantID = pt.ID.String()
+		}
 	}
 
 	pg := pagination.Parse(r)
@@ -1357,6 +1476,14 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 
 	all := make([]memberEntry, 0, len(members))
 	for _, m := range members {
+		// Hide platform staff from non-platform requesters (#1): any member whose
+		// primary tenant is the platform ("codevertex") tenant is platform staff.
+		if platformTenantID != "" {
+			if u, ok := userMap[m.UserID]; ok && u.PrimaryTenantID == platformTenantID {
+				continue
+			}
+		}
+
 		roles := m.Roles
 		if roles == nil {
 			roles = []string{"member"}
@@ -1431,17 +1558,16 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 // UpdateTenantMember updates a member's roles.
 // PUT /api/v1/admin/tenants/{tenant_id}/members/{user_id}
 func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdmin(r) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
-
 	tenantIDStr := chi.URLParam(r, "tenant_id")
 	userIDStr := chi.URLParam(r, "user_id")
 
 	tenantID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+	if !h.requireTenantAdmin(r, tenantID) {
+		writeError(w, http.StatusForbidden, "forbidden", "tenant admin required", nil)
 		return
 	}
 
@@ -1477,6 +1603,17 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 	// Only overwrite roles when the caller explicitly supplies them.
 	if len(req.Roles) > 0 {
 		upd = upd.SetRoles(req.Roles)
+	}
+	// Tenant-scoped lifecycle: suspend/activate/deactivate a member (#3). This is
+	// distinct from the platform-wide user.status managed by platform admins.
+	if req.Status != "" {
+		switch req.Status {
+		case "active", "suspended", "deactivated", "inactive":
+			upd = upd.SetStatus(req.Status)
+		default:
+			writeError(w, http.StatusBadRequest, "invalid_request", "status must be active, suspended, deactivated or inactive", nil)
+			return
+		}
 	}
 	var outletIDPtr *uuid.UUID
 	if req.OutletID != nil {
@@ -1526,17 +1663,16 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 // RemoveTenantMember removes a user from a tenant.
 // DELETE /api/v1/admin/tenants/{tenant_id}/members/{user_id}
 func (h *AdminHandler) RemoveTenantMember(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdmin(r) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
-
 	tenantIDStr := chi.URLParam(r, "tenant_id")
 	userIDStr := chi.URLParam(r, "user_id")
 
 	tenantID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+	if !h.requireTenantAdmin(r, tenantID) {
+		writeError(w, http.StatusForbidden, "forbidden", "tenant admin required", nil)
 		return
 	}
 
@@ -1579,17 +1715,16 @@ type setUserServicePINRequest struct {
 // POST /api/v1/admin/tenants/{tenant_id}/members/{user_id}/service-pin
 // Publishes auth.user.pin_set so downstream services (pos-api etc.) can store the PIN hash.
 func (h *AdminHandler) SetUserServicePIN(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdmin(r) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
-
 	tenantIDStr := chi.URLParam(r, "tenant_id")
 	userIDStr := chi.URLParam(r, "user_id")
 
 	tenantID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+	if !h.requireTenantAdmin(r, tenantID) {
+		writeError(w, http.StatusForbidden, "forbidden", "tenant admin required", nil)
 		return
 	}
 
