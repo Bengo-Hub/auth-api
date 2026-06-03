@@ -1,6 +1,6 @@
 module github.com/bengobox/auth-api
 
-go 1.25.0
+go 1.26.0
 
 require (
 	ariga.io/atlas v1.1.0
