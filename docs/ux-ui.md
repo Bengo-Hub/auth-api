@@ -2,7 +2,7 @@
 
 **Last Updated**: March 6, 2026
 
-This document defines the API patterns that frontend consumers (auth-ui, ordering-frontend, POS, other BengoBox services) must follow when integrating with `authapi.codevertexitsolutions.com`.
+This document defines the API patterns that frontend consumers (auth-ui, ordering-frontend, POS, other BengoBox services) must follow when integrating with `sso.codevertexitsolutions.com`.
 
 ---
 
@@ -11,7 +11,7 @@ This document defines the API patterns that frontend consumers (auth-ui, orderin
 | Environment | URL |
 |-------------|-----|
 | Local | `http://localhost:4101/api/v1` |
-| Production | `https://authapi.codevertexitsolutions.com/api/v1` |
+| Production | `https://sso.codevertexitsolutions.com/api/v1` |
 
 ---
 
@@ -262,8 +262,8 @@ Use `shared-auth-client` middleware for automatic JWT + API key validation:
 import authclient "github.com/Bengo-Hub/shared-auth-client"
 
 validator := authclient.NewValidator(authclient.DefaultConfig(
-    "https://authapi.codevertexitsolutions.com/api/v1/.well-known/jwks.json",
-    "https://authapi.codevertexitsolutions.com",
+    "https://sso.codevertexitsolutions.com/api/v1/.well-known/jwks.json",
+    "https://sso.codevertexitsolutions.com",
 ))
 apiKeyValidator := authclient.NewAPIKeyValidator(
     os.Getenv("AUTH_SERVICE_URL"), nil,

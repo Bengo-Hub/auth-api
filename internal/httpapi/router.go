@@ -165,7 +165,6 @@ func NewRouter(deps RouterDeps) http.Handler {
 				origin == "https://inventory.codevertexitsolutions.com" ||
 				origin == "https://logistics.codevertexitsolutions.com" ||
 				origin == "https://riderapp.codevertexitsolutions.com" ||
-				origin == "https://bengobox.codevertexitsolutions.com" ||
 				origin == "https://erp.codevertexitsolutions.com" {
 				return true
 			}

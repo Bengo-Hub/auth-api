@@ -115,7 +115,7 @@ Specific tasks:
 **Owner**: Backend
 
 - [ ] Verify CORS allows all production BengoBox frontend origins:
-  - `https://auth.codevertexitsolutions.com`
+  - `https://accounts.codevertexitsolutions.com`
   - `https://ordersapp.codevertexitsolutions.com`
   - `https://pos.codevertexitsolutions.com`
   - `https://notifications.codevertexitsolutions.com`

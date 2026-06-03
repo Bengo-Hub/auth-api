@@ -59,7 +59,7 @@ type AppConfig struct {
 type WebAuthnConfig struct {
 	RPID          string   `env:"RPID" envDefault:"codevertexitsolutions.com"`
 	RPDisplayName string   `env:"RP_DISPLAY_NAME" envDefault:"Codevertex Platform"`
-	RPOrigins     []string `env:"RP_ORIGINS" envSeparator:"," envDefault:"https://accounts.codevertexitsolutions.com,https://pos.codevertexitsolutions.com,https://inventory.codevertexitsolutions.com,https://ordering.codevertexitsolutions.com"`
+	RPOrigins     []string `env:"RP_ORIGINS" envSeparator:"," envDefault:"https://accounts.codevertexitsolutions.com,https://pos.codevertexitsolutions.com,https://inventory.codevertexitsolutions.com,https://ordersapp.codevertexitsolutions.com"`
 }
 
 type HTTPConfig struct {
