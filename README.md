@@ -38,12 +38,12 @@ go run ./cmd/server
 
 Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In production, the canonical issuer and domain are:
 
-- Issuer: `https://auth.codevertexitsolutions.com`
-- OIDC discovery: `https://auth.codevertexitsolutions.com/api/v1/.well-known/openid-configuration`
-- Authorization: `https://auth.codevertexitsolutions.com/api/v1/authorize`
-- Token: `https://auth.codevertexitsolutions.com/api/v1/token`
-- JWKS: `https://auth.codevertexitsolutions.com/api/v1/.well-known/jwks.json`
-- UserInfo: `https://auth.codevertexitsolutions.com/api/v1/userinfo`
+- Issuer: `https://sso.codevertexitsolutions.com`
+- OIDC discovery: `https://sso.codevertexitsolutions.com/api/v1/.well-known/openid-configuration`
+- Authorization: `https://sso.codevertexitsolutions.com/api/v1/authorize`
+- Token: `https://sso.codevertexitsolutions.com/api/v1/token`
+- JWKS: `https://sso.codevertexitsolutions.com/api/v1/.well-known/jwks.json`
+- UserInfo: `https://sso.codevertexitsolutions.com/api/v1/userinfo`
 
 ### Tenant in authorize URL and token
 
