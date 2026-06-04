@@ -463,6 +463,7 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "treasury-ui", Name: "BengoBox Treasury UI", ProductionHost: "books.codevertexitsolutions.com", Public: true},
 		{ID: "pos-ui", Name: "BengoBox POS UI", ProductionHost: "pos.codevertexitsolutions.com", Public: true},
 		{ID: "inventory-ui", Name: "BengoBox Inventory UI", ProductionHost: "inventory.codevertexitsolutions.com", Public: true},
+		{ID: "erp-ui", Name: "BengoBox ERP UI", ProductionHost: "erp.codevertexitsolutions.com", Public: true},
 		{ID: "logistics-ui", Name: "BengoBox Logistics UI", ProductionHost: "logistics.codevertexitsolutions.com", Public: true},
 		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexitsolutions.com", Public: true},
 		{ID: "marketflow-ui", Name: "MarketFlow UI", ProductionHost: "marketflow.codevertexitsolutions.com", Public: true},
@@ -521,6 +522,11 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		}
 		if c.ID == "truload-ui" {
 			uris = append(uris, truloadExtra...)
+		}
+		// erp-ui is served on both the codevertex host (above) and the masterspace
+		// tenant host — add the masterspace base + per-tenant callbacks too.
+		if c.ID == "erp-ui" {
+			uris = append(uris, buildRedirects("erp.masterspace.co.ke")...)
 		}
 		oauthClients = append(oauthClients, oauthClientSpec{
 			ID:           c.ID,
