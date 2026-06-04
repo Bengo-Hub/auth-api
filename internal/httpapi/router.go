@@ -168,13 +168,20 @@ func NewRouter(deps RouterDeps) http.Handler {
 				origin == "https://erp.codevertexitsolutions.com" {
 				return true
 			}
-			// Allow any subdomain of codevertexitsolutions.com (https only)
-			const suffix = ".codevertexitsolutions.com"
+			// Allow any subdomain of codevertexitsolutions.com OR masterspace.co.ke
+			// (https only). masterspace.co.ke is the primary tenant's custom domain:
+			// the ERP UI is served at https://erp.masterspace.co.ke and must be able
+			// to POST the OIDC token exchange to this auth-service cross-origin
+			// (otherwise the browser blocks it with "Failed to fetch" / no CORS
+			// header). erp.codevertexitsolutions.com is already covered by the first
+			// suffix. Keep this in sync with cmd/seed buildRedirects() hosts.
 			const httpsPrefix = "https://"
-			if len(origin) > len(httpsPrefix)+len(suffix) &&
-				origin[:len(httpsPrefix)] == httpsPrefix &&
-				origin[len(origin)-len(suffix):] == suffix {
-				return true
+			for _, suffix := range []string{".codevertexitsolutions.com", ".masterspace.co.ke"} {
+				if len(origin) > len(httpsPrefix)+len(suffix) &&
+					origin[:len(httpsPrefix)] == httpsPrefix &&
+					origin[len(origin)-len(suffix):] == suffix {
+					return true
+				}
 			}
 			return false
 		},
