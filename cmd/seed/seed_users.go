@@ -303,6 +303,107 @@ func seedDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Has
 	return nil
 }
 
+// erpDemoStaffSpec describes a demo ERP user (HR + internal-ops Django service).
+// role is the global JWT role auth-api issues; it matches an ERP Django group name
+// 1:1 so the ERP JIT (authmanagement/sso.py ERP_SERVICE_ROLES) assigns that group.
+// ERP users do not log in at POS terminals, so there is no PIN/outlet scope here.
+type erpDemoStaffSpec struct {
+	email string
+	name  string
+	role  string
+}
+
+// erpDemoStaff lists one demo user per ERP service role under codevertex-demo.
+// Roles mirror erp-api core/security.py + core/management/commands/seed_initial.py and
+// the ERP_SERVICE_ROLES set in authmanagement/sso.py. Logging in as e.g.
+// hr.manager@demo.codevertexitsolutions.com yields the "hr_manager" global role, which
+// the ERP JIT maps to the hr_manager Django group → service permissions sync.
+//
+// "staff" and "receptionist" demo coverage: receptionist already has a POS demo user in
+// demoStaff above (receptionist@demo... role=receptionist), and every tenant gets a
+// staff@{slug} user via seedTenantStaffUsers (staff@codevertex-demo.com, role=staff).
+// They are intentionally NOT duplicated here. The 11 entries below complete the set of
+// 13 ERP roles so there is at least one demo user per role in codevertex-demo.
+var erpDemoStaff = []erpDemoStaffSpec{
+	{"superusers@demo.codevertexitsolutions.com", "Demo ERP Superuser", "superusers"},
+	{"ceo@demo.codevertexitsolutions.com", "Demo CEO", "ceo"},
+	{"hr.manager@demo.codevertexitsolutions.com", "Demo HR Manager", "hr_manager"},
+	{"hr.assistant@demo.codevertexitsolutions.com", "Demo HR Assistant", "hr_assistant"},
+	{"ict.manager@demo.codevertexitsolutions.com", "Demo ICT Manager", "ict_manager"},
+	{"ict.officer@demo.codevertexitsolutions.com", "Demo ICT Officer", "ict_officer"},
+	{"operations.manager@demo.codevertexitsolutions.com", "Demo Operations Manager", "operations_manager"},
+	{"finance.manager@demo.codevertexitsolutions.com", "Demo Finance Manager", "finance_manager"},
+	{"procurement.manager@demo.codevertexitsolutions.com", "Demo Procurement Manager", "procurement_manager"},
+	{"sales.manager@demo.codevertexitsolutions.com", "Demo Sales Manager", "sales_manager"},
+	{"secretary@demo.codevertexitsolutions.com", "Demo Secretary", "secretary"},
+}
+
+// seedERPDemoStaff seeds one demo user per ERP service role under codevertex-demo.
+// Mirrors seedDemoStaff (user + tenant membership carrying the role as the global role +
+// an auth.user outbox event) but without POS PIN/outlet scope, since ERP users are not
+// POS terminal operators. Idempotent: re-runs find the existing user, re-use the
+// seedMembership guard, and re-publish an "updated" event to re-trigger provisioning.
+func seedERPDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Hasher, demoTenant *tenantRef) error {
+	log.Println("Seeding ERP demo staff under codevertex-demo...")
+	demoStaffPassword := os.Getenv("SEED_DEMO_STAFF_PASSWORD")
+	if demoStaffPassword == "" {
+		demoStaffPassword = "DemoStaff2024!"
+	}
+
+	for _, s := range erpDemoStaff {
+		staffHash, hashErr := hasher.Hash(demoStaffPassword)
+		if hashErr != nil {
+			log.Printf("  ⚠️  hash password for %s: %v", s.email, hashErr)
+			continue
+		}
+		isNew := false
+		staffUser, createErr := client.User.Create().
+			SetEmail(s.email).
+			SetPasswordHash(staffHash).
+			SetStatus("active").
+			SetPrimaryTenantID(demoTenant.ID.String()).
+			SetProfile(map[string]any{
+				"name":       s.name,
+				"created_by": "seed",
+				"role":       s.role,
+			}).
+			Save(ctx)
+		if createErr != nil {
+			staffUser, createErr = client.User.Query().Where(user.EmailEQ(s.email)).Only(ctx)
+			if createErr != nil {
+				log.Printf("  ⚠️  seed erp demo staff %s: %v", s.email, createErr)
+				continue
+			}
+			log.Printf("  ✓ ERP demo staff exists: %s (%s)", s.email, s.role)
+		} else {
+			isNew = true
+			log.Printf("  ✓ Created ERP demo staff: %s (%s)", s.email, s.role)
+		}
+
+		// Reuse the shared membership helper to attach the ERP role as the global role.
+		seedMembership(ctx, client, staffUser.ID, demoTenant.ID, demoTenant.Slug, s.role)
+
+		// Publish outbox event so the running auth-api syncs this user to downstream
+		// services (erp-api JIT-provisions the CustomUser shadow + Django group on first
+		// SSO login; the event lets eager provisioners pick it up too).
+		// New users get "created"; re-runs get "updated" to re-trigger provisioning.
+		eventType := "updated"
+		if isNew {
+			eventType = "created"
+		}
+		publishSeedUserEvent(ctx, client, demoTenant.ID, staffUser.ID, map[string]any{
+			"user_id":     staffUser.ID.String(),
+			"email":       s.email,
+			"full_name":   s.name,
+			"tenant_id":   demoTenant.ID.String(),
+			"tenant_slug": demoTenant.Slug,
+			"roles":       []string{s.role},
+			"method":      "seed",
+		}, eventType)
+	}
+	return nil
+}
+
 // seedTenantStaffUsers seeds a generic staff user for every tenant.
 func seedTenantStaffUsers(ctx context.Context, client *ent.Client, hasher *password.Hasher, tenantEntities []*tenantRef) error {
 	log.Println("Seeding staff users for all tenants...")
