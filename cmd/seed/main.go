@@ -51,6 +51,16 @@ func main() {
 
 	hasher := password.NewHasher(cfg.Security)
 
+	// Targeted run: provision ONLY the Masterspace (mss) staff for SSO, then exit.
+	// Used in-cluster: `SEED_ONLY=mss-users SEED_MSS_PASSWORD=... /app/seed`.
+	if os.Getenv("SEED_ONLY") == "mss-users" {
+		if err := seedMasterspaceUsers(ctx, client, hasher, tenantEntities); err != nil {
+			log.Fatalf("seed masterspace users: %v", err)
+		}
+		log.Println("✅ Masterspace users seeded.")
+		return
+	}
+
 	// 3. Seed demo user (primary tenant = codevertex-demo, last in list)
 	if err := seedDemoUser(ctx, client, hasher, tenantEntities); err != nil {
 		log.Fatalf("seed demo user: %v", err)
@@ -87,6 +97,11 @@ func main() {
 	// 9. Seed generic staff users for all tenants
 	if err := seedTenantStaffUsers(ctx, client, hasher, tenantEntities); err != nil {
 		log.Printf("⚠️  seed tenant staff users: %v", err)
+	}
+
+	// 9b. Seed real Masterspace (mss) staff for SSO.
+	if err := seedMasterspaceUsers(ctx, client, hasher, tenantEntities); err != nil {
+		log.Printf("⚠️  seed masterspace users: %v", err)
 	}
 
 	// 10. Seed permissions and role-permission mappings
