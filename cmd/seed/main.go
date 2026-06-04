@@ -72,6 +72,13 @@ func main() {
 		log.Printf("⚠️  seed demo staff: %v", err)
 	}
 
+	// 6b. Seed ERP demo staff (one user per ERP service role) under codevertex-demo.
+	// These carry ERP role names (hr_manager, ceo, ict_officer, …) as global roles so
+	// the erp-api JIT mapping (authmanagement/sso.py) can be exercised end-to-end.
+	if err := seedERPDemoStaff(ctx, client, hasher, demoTenant); err != nil {
+		log.Printf("⚠️  seed erp demo staff: %v", err)
+	}
+
 	// 7. Seed KURA admin (index 2)
 	if err := seedKURAAdmin(ctx, client, hasher, tenantEntities[2]); err != nil {
 		log.Printf("⚠️  seed kura admin: %v", err)

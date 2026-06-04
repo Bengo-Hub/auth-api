@@ -203,6 +203,88 @@ var rolePerms = map[string][]string{
 		"auth.profile.view",
 		"auth.notifications.view",
 	},
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// ERP service roles (erp-api: decomposed HR + internal-ops Django service).
+	// These map 1:1 by name to the ERP's Django groups (core/security.py +
+	// core/management/commands/seed_initial.py). The ERP JIT (authmanagement/sso.py
+	// ERP_SERVICE_ROLES) assigns the matching Django group when it sees a global JWT
+	// role with the same name, then ensure_rbac_provisioned syncs that group's
+	// fine-grained model permissions. Per the Trinity Authorization Pattern, erp-api
+	// owns its own fine-grained RBAC — so auth-api only seeds auth.* self-service
+	// permissions here (the same as the other service roles above: cashier, waiter,
+	// pharmacist, etc.). auth-api's job is purely to ISSUE these role names as global
+	// roles; the ERP resolves the actual hrm/finance/procurement permissions locally.
+	//
+	// NOTE: "staff" and "receptionist" are ERP roles too, but already defined above
+	// (ESS / front-office) — their existing auth.* perms are reused as-is; do not
+	// re-add them here (duplicate map keys are a compile error).
+
+	// superusers — ERP all-access group (Permission.objects.all()). Plural form is the
+	// ERP's own group name (distinct from the platform "superuser"). All permissions.
+	"superusers": {}, // all permissions (populated at seed time)
+	// ceo — read-only across the entire ERP (READ_ALL: every view_ permission).
+	"ceo": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// hr_manager — full manage on HR modules + approvals (view/add/change/delete).
+	"hr_manager": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// hr_assistant — HR modules without delete (view/add/change).
+	"hr_assistant": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// ict_manager — change/manage on technical/system modules (view/add/change).
+	"ict_manager": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+		"auth.users.view", "auth.users.change",
+	},
+	// ict_officer — read-only on technical/system modules (view).
+	"ict_officer": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// operations_manager — internal-ops management role (erp seed_initial group).
+	"operations_manager": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+		"auth.users.view",
+	},
+	// finance_manager — finance management role (erp seed_initial group).
+	"finance_manager": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// procurement_manager — procurement management role (erp seed_initial group).
+	"procurement_manager": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// sales_manager — sales/CRM management role (erp seed_initial group).
+	"sales_manager": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// secretary — front-office read-only (employees/attendance/leave + CRM view).
+	"secretary": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
 }
 
 // seedPermissions upserts all service permissions and returns a map of code → ID.
