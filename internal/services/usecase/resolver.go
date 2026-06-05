@@ -25,6 +25,7 @@ var KnownUseCases = []string{
 	"logistics",
 	"commercial_weighing",
 	"axle_load_enforcement",
+	"manufacturing",
 }
 
 // ApplicableServices returns which downstream services receive outlet sync events
@@ -35,7 +36,7 @@ func ApplicableServices(useCase string) []string {
 		return []string{"pos-api", "ordering-backend", "inventory-api"}
 	case "pharmacy", "services":
 		return []string{"pos-api", "inventory-api"}
-	case "warehouse":
+	case "warehouse", "manufacturing":
 		return []string{"inventory-api"}
 	case "logistics":
 		return []string{"logistics-api"}
@@ -174,6 +175,18 @@ func (s *Service) ResolveConfig(ctx context.Context, useCase string) *Config {
 				"catalog_nomenclature":  "Cases",
 				"item_nomenclature":     "Weighing",
 				"category_nomenclature": "Offence Type",
+			},
+		}
+	case "manufacturing":
+		return &Config{
+			UseCase:            "manufacturing",
+			DisplayName:        "Manufacturing",
+			ApplicableServices: applicable,
+			Features:           []string{"bill_of_materials", "production_batches", "raw_material_consumption", "quality_control"},
+			Settings: map[string]any{
+				"catalog_nomenclature":  "Bill of Materials",
+				"item_nomenclature":     "Product",
+				"category_nomenclature": "Product Line",
 			},
 		}
 	default:

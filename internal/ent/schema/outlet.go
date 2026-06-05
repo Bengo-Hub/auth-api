@@ -41,7 +41,7 @@ func (Outlet) Fields() []ent.Field {
 		// Controls which modules are visible in pos-ui and inventory-ui for this outlet.
 		field.String("use_case").
 			Default("hospitality").
-			Comment("Primary use case: hospitality | quick_service | retail | pharmacy | services | warehouse | logistics | commercial_weighing | axle_load_enforcement"),
+			Comment("Primary use case: hospitality | quick_service | retail | pharmacy | services | warehouse | logistics | commercial_weighing | axle_load_enforcement | manufacturing"),
 
 		// ── Location ─────────────────────────────────────────────────────────
 		field.String("address").

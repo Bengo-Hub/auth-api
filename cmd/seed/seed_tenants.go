@@ -248,6 +248,13 @@ var outletsByTenant = map[string][]outletDef{
 			address: "Demo Warehouse Park, Mombasa Road, Nairobi",
 			pinMsg:  "Welcome to Demo Central Warehouse — check inbound manifest",
 		},
+		// Manufacturing facility — BOM-driven production, syncs to inventory-api only
+		{
+			slug: "demo-manufacturing", code: "MFG",
+			name: "Demo Production Facility", useCase: "manufacturing", isHQ: false,
+			address: "Demo Industrial Park, Athi River, Kenya",
+			pinMsg:  "Welcome to Demo Manufacturing — check the production schedule",
+		},
 		// TruLoad: commercial weighbridge station
 		{
 			slug: "demo-commercial", code: "COMM",
