@@ -61,6 +61,18 @@ func main() {
 		return
 	}
 
+	// Targeted run: re-register OAuth client redirect URIs ONLY (idempotent, no password resets),
+	// then exit. Needed when a client's redirect_uris change (e.g. erp-ui served on a tenant host
+	// like erp.masterspace.co.ke) — otherwise the token exchange fails with 400 (redirect mismatch).
+	// Used in-cluster: `SEED_ONLY=oauth-clients /app/seed`.
+	if os.Getenv("SEED_ONLY") == "oauth-clients" {
+		if err := seedOAuthClients(ctx, client, tenantEntities); err != nil {
+			log.Fatalf("seed oauth clients: %v", err)
+		}
+		log.Println("✅ OAuth clients re-registered.")
+		return
+	}
+
 	// 3. Seed demo user (primary tenant = codevertex-demo, last in list)
 	if err := seedDemoUser(ctx, client, hasher, tenantEntities); err != nil {
 		log.Fatalf("seed demo user: %v", err)
