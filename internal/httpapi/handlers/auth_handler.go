@@ -766,10 +766,17 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		out["must_change_password"] = true
 	}
 
-	// Resolve and embed the primary tenant as a nested object so frontend
+	// Resolve and embed the ACTIVE tenant as a nested object so frontend
 	// useAuth and test_sso_me_endpoint can read tenant.id / tenant.slug directly.
-	if userEntity.PrimaryTenantID != "" {
-		if tenantID, parseErr := uuid.Parse(userEntity.PrimaryTenantID); parseErr == nil {
+	// Prefer the tenant the token was minted for (claims.TenantID): for a platform
+	// owner signing into another tenant this differs from their primary tenant, and
+	// the token's tenant is the correct active context. Fall back to primary tenant.
+	activeTenantID := userEntity.PrimaryTenantID
+	if claims.TenantID != "" {
+		activeTenantID = claims.TenantID
+	}
+	if activeTenantID != "" {
+		if tenantID, parseErr := uuid.Parse(activeTenantID); parseErr == nil {
 			if tenantEntity, tErr := h.service.GetTenant(r.Context(), tenantID); tErr == nil {
 				tenantView := tenantViewFromEnt(tenantEntity)
 				// Inject subscription_features from JWT claims (not stored in DB).
@@ -785,11 +792,14 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 				out["tenant"] = tenantView
 				out["tenant_id"] = tenantEntity.ID.String()
 				out["tenant_slug"] = tenantEntity.Slug
-				if tenantEntity.Slug == "codevertex" {
+				// Platform-owner status is independent of the active tenant: it holds
+				// when the token carries the claim (set at mint for platform-tenant
+				// members) or the active tenant is the platform tenant itself.
+				if claims.IsPlatformOwner || tenantEntity.Slug == "codevertex" {
 					out["is_platform_owner"] = true
 				}
 			} else {
-				h.logger.Warn("failed to load primary tenant in /me", zap.Error(tErr))
+				h.logger.Warn("failed to load active tenant in /me", zap.Error(tErr))
 			}
 		}
 	}

@@ -18,6 +18,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// platformTenantSlug is the slug of the platform/owner tenant. Members of this
+// tenant are platform owners and may sign into ANY tenant — mirroring how the
+// is_platform_owner claim grants cross-tenant access across the other services.
+const platformTenantSlug = "codevertex"
+
 // RolesPermissionsProvider returns roles and canonical permission codes for a user (for JWT claims).
 type RolesPermissionsProvider interface {
 	GetUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) (roles []string, permissions []string, err error)
@@ -128,9 +133,10 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_redirect", "redirect not allowed", nil)
 		return
 	}
-	// Validate that user is a member of the requested tenant
+	// Validate that user is a member of the requested tenant.
+	// Platform owners bypass this — they may authorize against any tenant.
 	tenantFromURL := q.Get("tenant")
-	if tenantFromURL != "" {
+	if tenantFromURL != "" && !claims.IsPlatformOwner {
 		userID := parseUUID(claims.Subject)
 		memberships, err := h.oidc.GetUserMemberships(r.Context(), userID)
 		if err != nil {
@@ -227,6 +233,16 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	var roles []string
 	var tenantID *uuid.UUID
 	var tenantSlug string
+	// Platform owners (members of the platform tenant) may obtain a token scoped to
+	// ANY tenant — the same cross-tenant access the is_platform_owner claim grants in
+	// pos-api / treasury / inventory.
+	isPlatformOwner := false
+	for _, m := range memberships {
+		if m.TenantSlug == platformTenantSlug {
+			isPlatformOwner = true
+			break
+		}
+	}
 	// Collect all roles and resolve requested tenant
 	requestedSlug, _ := authCode.Metadata["tenant_slug"].(string)
 	for _, m := range memberships {
@@ -237,7 +253,22 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 			tenantSlug = m.TenantSlug
 		}
 	}
-	// If a specific tenant was requested but user is not a member, reject the token exchange
+	// Platform owner signing into a tenant they are not a member of: resolve that
+	// tenant directly so the token is scoped to it (e.g. cross-tenant POS support).
+	if requestedSlug != "" && tenantID == nil && isPlatformOwner {
+		if t, err := h.oidc.TenantBySlug(r.Context(), requestedSlug); err == nil && t != nil {
+			tid := t.ID
+			tenantID = &tid
+			tenantSlug = t.Slug
+		} else {
+			h.logger.Warn("platform owner requested unknown tenant",
+				zap.String("user_id", userEntity.ID.String()),
+				zap.String("requested_tenant", requestedSlug),
+				zap.Error(err))
+		}
+	}
+	// If a specific tenant was requested but the user is neither a member nor a
+	// platform owner (or the tenant doesn't exist), reject the token exchange.
 	if requestedSlug != "" && tenantID == nil {
 		h.logger.Warn("token exchange denied: user not a member of requested tenant",
 			zap.String("user_id", userEntity.ID.String()),
@@ -279,15 +310,16 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 
 	// Mint access token with roles, permissions, and tenant info
 	access, accessExp, err := h.tokenSvc.MintAccessToken(token.AccessTokenInput{
-		UserID:      userEntity.ID,
-		TenantID:    tenantID,
-		TenantSlug:  tenantSlug,
-		SessionID:   sessionID,
-		Email:       userEntity.Email,
-		Scopes:      scopes,
-		Roles:       roles,
-		Permissions: permissions,
-		Audience:    []string{client.ClientID, h.cfg.Token.Audience},
+		UserID:          userEntity.ID,
+		TenantID:        tenantID,
+		TenantSlug:      tenantSlug,
+		SessionID:       sessionID,
+		Email:           userEntity.Email,
+		Scopes:          scopes,
+		Roles:           roles,
+		Permissions:     permissions,
+		IsPlatformOwner: isPlatformOwner,
+		Audience:        []string{client.ClientID, h.cfg.Token.Audience},
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "mint access token failed", nil)
