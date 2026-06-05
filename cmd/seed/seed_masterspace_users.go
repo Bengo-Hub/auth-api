@@ -55,11 +55,16 @@ func seedMasterspaceUsers(ctx context.Context, client *ent.Client, hasher *passw
 		return fmt.Errorf("hash mss password: %w", err)
 	}
 
-	log.Printf("Seeding %d Masterspace (mss) users...", len(masterspaceStaff))
+	// Forced password change is OPT-IN (SEED_MSS_FORCE_CHANGE=true). Default OFF so the temp
+	// password logs in directly — a must_change_password=true otherwise detours the SSO flow
+	// to the auth-ui password-change page and breaks login into downstream apps.
+	forceChange := os.Getenv("SEED_MSS_FORCE_CHANGE") == "true"
+
+	log.Printf("Seeding %d Masterspace (mss) users (force_change=%v)...", len(masterspaceStaff), forceChange)
 	for _, s := range masterspaceStaff {
 		profile := map[string]any{
 			"name":                 s.Name,
-			"must_change_password": true,
+			"must_change_password": forceChange,
 			"created_by":           "seed:mss",
 			"role":                 s.Role,
 		}
