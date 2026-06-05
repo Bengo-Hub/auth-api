@@ -15,6 +15,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
+	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
@@ -259,6 +260,12 @@ func (s *Service) UserInfoPayloadFull(ctx context.Context, u *ent.User) map[stri
 // GetUserByID fetches user by ID.
 func (s *Service) GetUserByID(ctx context.Context, id uuid.UUID) (*ent.User, error) {
 	return s.entClient.User.Get(ctx, id)
+}
+
+// TenantBySlug resolves a tenant by its slug. Used to mint a tenant-scoped token
+// for a platform owner who is signing into a tenant they are not a member of.
+func (s *Service) TenantBySlug(ctx context.Context, slug string) (*ent.Tenant, error) {
+	return s.entClient.Tenant.Query().Where(tenant.SlugEQ(slug)).Only(ctx)
 }
 
 func firstProfileString(profile map[string]any, key, fallback string) string {
