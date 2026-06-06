@@ -28,14 +28,22 @@ type RolesPermissionsProvider interface {
 	GetUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) (roles []string, permissions []string, err error)
 }
 
+// SubscriptionEnricher populates subscription claims (plan, status, features, limits)
+// on a token input so OIDC-issued access tokens carry the same entitlements as the
+// REST login/refresh flow. Implemented by auth.Service. Fail-open by contract.
+type SubscriptionEnricher interface {
+	EnrichAccessTokenInput(ctx context.Context, tenantID uuid.UUID, in *token.AccessTokenInput)
+}
+
 // OIDCHandler serves OIDC discovery and grant endpoints.
 type OIDCHandler struct {
 	cfg        *config.Config
 	oidc       *oidc.Service
 	auth       *authmiddleware.Auth
-	tokenSvc   *token.Service
-	rolesPerms RolesPermissionsProvider // optional: for permissions in access token
-	logger     *zap.Logger
+	tokenSvc    *token.Service
+	rolesPerms  RolesPermissionsProvider // optional: for permissions in access token
+	subEnricher SubscriptionEnricher     // optional: for subscription claims in access token
+	logger      *zap.Logger
 }
 
 // NewOIDCHandler constructs a handler.
@@ -51,7 +59,7 @@ func NewOIDCHandler(cfg *config.Config, svc *oidc.Service, auth *authmiddleware.
 
 // NewOIDCHandlerWithRolesPermissions constructs a handler with optional provider for JWT permissions.
 func NewOIDCHandlerWithRolesPermissions(cfg *config.Config, svc *oidc.Service, auth *authmiddleware.Auth, tokenSvc *token.Service, rolesPerms RolesPermissionsProvider, logger *zap.Logger) *OIDCHandler {
-	return &OIDCHandler{
+	h := &OIDCHandler{
 		cfg:        cfg,
 		oidc:       svc,
 		auth:       auth,
@@ -59,6 +67,12 @@ func NewOIDCHandlerWithRolesPermissions(cfg *config.Config, svc *oidc.Service, a
 		rolesPerms: rolesPerms,
 		logger:     logger,
 	}
+	// The provider passed in (auth.Service) also enriches subscription claims;
+	// reuse it so OIDC-issued tokens carry entitlements like the REST flow.
+	if enr, ok := rolesPerms.(SubscriptionEnricher); ok {
+		h.subEnricher = enr
+	}
+	return h
 }
 
 // WellKnownConfig returns OIDC discovery document.
@@ -309,7 +323,7 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mint access token with roles, permissions, and tenant info
-	access, accessExp, err := h.tokenSvc.MintAccessToken(token.AccessTokenInput{
+	tokenInput := token.AccessTokenInput{
 		UserID:          userEntity.ID,
 		TenantID:        tenantID,
 		TenantSlug:      tenantSlug,
@@ -320,7 +334,15 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		Permissions:     permissions,
 		IsPlatformOwner: isPlatformOwner,
 		Audience:        []string{client.ClientID, h.cfg.Token.Audience},
-	})
+	}
+	// Enrich with subscription claims so OIDC-issued tokens gate features identically
+	// to the REST login/refresh flow (fail-open). Without this, services that read
+	// SubscriptionFeatures from the JWT (e.g. inventory-api RequireFeature) reject
+	// entitled tenants with feature_not_available.
+	if tenantID != nil && h.subEnricher != nil {
+		h.subEnricher.EnrichAccessTokenInput(r.Context(), *tenantID, &tokenInput)
+	}
+	access, accessExp, err := h.tokenSvc.MintAccessToken(tokenInput)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "mint access token failed", nil)
 		return
