@@ -1332,6 +1332,70 @@ func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*Auth
 	return s.issueSessionWithExisting(ctx, sessionEntity, in.Tenant, refreshPlain, in.IPAddress, in.UserAgent, in.Scopes)
 }
 
+// EnrichTokenWithSubscription fetches the tenant's subscription from subscription-service
+// and populates subscription claims (plan, status, features, limits, expiry, billing mode)
+// on the token input. It is non-blocking and fail-open: on any error or missing
+// configuration the token is issued without subscription data rather than failing login.
+// When tenantEntity is non-nil it is also enriched with the subscription tier so the
+// AuthResult reflects the current plan. Shared by the REST login/refresh flow and the
+// OIDC token endpoint so every issued access token carries consistent entitlements.
+func (s *Service) EnrichTokenWithSubscription(ctx context.Context, tenantID uuid.UUID, in *token.AccessTokenInput, tenantEntity *ent.Tenant) {
+	if in == nil || s.subscriptionCl == nil || !s.cfg.Subscription.Enabled {
+		return
+	}
+
+	sub, err := s.subscriptionCl.GetTenantSubscription(ctx, tenantID)
+	if err != nil {
+		s.logger.Warn("failed to fetch subscription for JWT enrichment",
+			zap.String("tenant_id", tenantID.String()),
+			zap.Error(err),
+		)
+		// Continue without subscription data (fail-open)
+		return
+	}
+	if sub == nil {
+		return
+	}
+
+	in.SubscriptionPlan = sub.PlanCode
+	in.SubscriptionStatus = sub.Status
+	in.SubscriptionFeatures = sub.Features
+	in.SubscriptionLimits = sub.Limits
+	// One-time perpetual licences never expire: omit the JWT expiry so the
+	// subscription gate treats them as permanently active.
+	if !sub.IsPerpetual {
+		in.SubscriptionExpires = &sub.CurrentPeriodEnd
+	}
+	// Resolve the active billing scenario from subscription-service. A
+	// service_charge tenant bypasses subscription gating (pays per txn).
+	// A billing_mode already set from tenant metadata takes precedence.
+	if in.BillingMode == "" && sub.BillingMode != "" && sub.BillingMode != "recurring" {
+		in.BillingMode = sub.BillingMode
+	}
+
+	// Enrich tenantEntity with subscription details for the AuthResult
+	if tenantEntity != nil {
+		tenantEntity.SubscriptionPlan = strPtr(sub.PlanCode)
+		tenantEntity.SubscriptionStatus = strPtr(sub.Status)
+		tenantEntity.SubscriptionExpiresAt = &sub.CurrentPeriodEnd
+
+		// Map map[string]int to map[string]any for tier_limits
+		limits := make(map[string]any)
+		for k, v := range sub.Limits {
+			limits[k] = v
+		}
+		tenantEntity.TierLimits = limits
+	}
+}
+
+// EnrichAccessTokenInput enriches only the token input with subscription claims
+// (no tenant entity). It is the OIDC-friendly form consumed by the OIDC token
+// endpoint via the handlers.SubscriptionEnricher interface, keeping that package
+// free of an ent dependency.
+func (s *Service) EnrichAccessTokenInput(ctx context.Context, tenantID uuid.UUID, in *token.AccessTokenInput) {
+	s.EnrichTokenWithSubscription(ctx, tenantID, in, nil)
+}
+
 func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *ent.Session, tenantEntity *ent.Tenant, refreshToken string, ip string, ua string, scopes []string) (*AuthResult, error) {
 	userEntity := sessionEntity.Edges.User
 	if userEntity == nil {
@@ -1419,36 +1483,9 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		}
 	}
 
-	// Fetch subscription data for tenant (non-blocking, fail-open)
-	if tenantIDPtr != nil && s.subscriptionCl != nil && s.cfg.Subscription.Enabled {
-		sub, err := s.subscriptionCl.GetTenantSubscription(ctx, *tenantIDPtr)
-		if err != nil {
-			s.logger.Warn("failed to fetch subscription for JWT enrichment",
-				zap.String("tenant_id", tenantIDPtr.String()),
-				zap.Error(err),
-			)
-			// Continue without subscription data (fail-open)
-		} else if sub != nil {
-			tokenInput.SubscriptionPlan = sub.PlanCode
-			tokenInput.SubscriptionStatus = sub.Status
-			tokenInput.SubscriptionFeatures = sub.Features
-			tokenInput.SubscriptionLimits = sub.Limits
-			tokenInput.SubscriptionExpires = &sub.CurrentPeriodEnd
-
-			// Enrich tenantEntity with subscription details for the AuthResult
-			if tenantEntity != nil {
-				tenantEntity.SubscriptionPlan = strPtr(sub.PlanCode)
-				tenantEntity.SubscriptionStatus = strPtr(sub.Status)
-				tenantEntity.SubscriptionExpiresAt = &sub.CurrentPeriodEnd
-
-				// Map map[string]int to map[string]any for tier_limits
-				limits := make(map[string]any)
-				for k, v := range sub.Limits {
-					limits[k] = v
-				}
-				tenantEntity.TierLimits = limits
-			}
-		}
+	// Fetch subscription data for tenant and enrich JWT claims (non-blocking, fail-open).
+	if tenantIDPtr != nil {
+		s.EnrichTokenWithSubscription(ctx, *tenantIDPtr, &tokenInput, tenantEntity)
 	}
 
 	// Apply branding defaults if missing
