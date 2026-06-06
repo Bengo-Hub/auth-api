@@ -28,6 +28,13 @@ type TenantSubscription struct {
 	CurrentPeriodEnd   time.Time      `json:"current_period_end"`
 	Features           []string       `json:"features"`
 	Limits             map[string]int `json:"limits"`
+	// Scenario resolution from subscription-service. BillingMode is one of
+	// "recurring" | "one_time" | "service_charge"; IsPerpetual marks a paid
+	// one-time licence that must never expire (JWT omits expiry for these).
+	BillingCycle string `json:"billing_cycle"`
+	BillingMode  string `json:"billing_mode"`
+	PlanType     string `json:"plan_type"`
+	IsPerpetual  bool   `json:"is_perpetual"`
 }
 
 // SubscriptionPlan represents a plan from subscription-service.
