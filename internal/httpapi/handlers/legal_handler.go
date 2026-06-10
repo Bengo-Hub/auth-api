@@ -376,6 +376,35 @@ func (h *LegalHandler) UpdateApplication(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to update application", nil)
 		return
 	}
+
+	// Emit a domain event on status change so downstream services can react. The
+	// "approved" event in particular carries enough context for treasury-api to auto-create
+	// the equity holder (closing the previously-manual handoff) once KYC + EPA are complete.
+	if req.Status != "" {
+		payload := map[string]any{
+			"application_id": app.ID.String(),
+			"tenant_id":      app.TenantID.String(),
+			"status":         string(app.Status),
+		}
+		if app.EpaAcceptanceID != nil {
+			payload["epa_acceptance_id"] = app.EpaAcceptanceID.String()
+			// Surface the signed EPA version so treasury can record which agreement governs the holder.
+			if acc, accErr := h.ent.LegalAcceptance.Get(r.Context(), *app.EpaAcceptanceID); accErr == nil {
+				payload["epa_doc_version"] = acc.DocVersion
+				payload["epa_accepted_at"] = acc.AcceptedAt.Format(time.RFC3339)
+			}
+		}
+		if app.TreasuryHolderID != nil {
+			payload["treasury_holder_id"] = app.TreasuryHolderID.String()
+		}
+		eventType := "status_updated"
+		if app.Status == equityholderapplication.StatusApproved {
+			eventType = "approved"
+		}
+		writeOutboxEvent(r.Context(), h.ent, h.logger, app.TenantID,
+			"auth.equity_holder_application", app.ID, eventType, payload)
+	}
+
 	writeJSON(w, http.StatusOK, toApplicationResponse(app))
 }
 
