@@ -35,6 +35,8 @@ type TenantSubscription struct {
 	BillingMode  string `json:"billing_mode"`
 	PlanType     string `json:"plan_type"`
 	IsPerpetual  bool   `json:"is_perpetual"`
+	// AllowOverage is the tenant's opt-in extra-usage master switch (pay-as-you-go).
+	AllowOverage bool `json:"allow_overage"`
 }
 
 // SubscriptionPlan represents a plan from subscription-service.
