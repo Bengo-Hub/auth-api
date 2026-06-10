@@ -45,8 +45,9 @@ type Claims struct {
 	SubscriptionExpires  *int64         `json:"sub_expires,omitempty"`  // Current period end as Unix timestamp
 
 	// Billing model and demo flags
-	BillingMode string `json:"billing_mode,omitempty"` // "service_charge" bypasses subscription gating
-	IsDemo      bool   `json:"is_demo,omitempty"`      // true for demo tenant/users
+	BillingMode  string `json:"billing_mode,omitempty"`     // "service_charge" bypasses subscription gating
+	IsDemo       bool   `json:"is_demo,omitempty"`          // true for demo tenant/users
+	AllowOverage bool   `json:"sub_allow_overage,omitempty"` // tenant opted in to pay-as-you-go extra usage
 
 	jwt.RegisteredClaims
 }
@@ -78,8 +79,9 @@ type AccessTokenInput struct {
 	SubscriptionExpires  *time.Time
 
 	// Billing model and demo flags
-	BillingMode string // "service_charge" bypasses subscription gating
-	IsDemo      bool   // true for demo tenant/users
+	BillingMode  string // "service_charge" bypasses subscription gating
+	IsDemo       bool   // true for demo tenant/users
+	AllowOverage bool   // tenant opted in to pay-as-you-go extra usage
 }
 
 // Service handles JWT minting and verification.
@@ -182,6 +184,9 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	}
 	if input.IsDemo {
 		claims.IsDemo = true
+	}
+	if input.AllowOverage {
+		claims.AllowOverage = true
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
