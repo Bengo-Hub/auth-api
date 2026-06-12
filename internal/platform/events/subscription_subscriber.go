@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	eventslib "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/google/uuid"
@@ -38,7 +39,7 @@ func NewSubscriptionSubscriber(entClient *ent.Client, redis *redis.Client, names
 // Start subscribes to tenant.subscription.updated on the provided NATS connection.
 // Returns immediately; messages are processed asynchronously.
 func (s *SubscriptionSubscriber) Start(conn *nats.Conn) error {
-	sub, err := conn.Subscribe("tenant.subscription.updated", s.handle)
+	sub, err := eventslib.QueueSubscribe(s.logger, conn, "tenant.subscription.updated", "auth-subcache", s.handle)
 	if err != nil {
 		return err
 	}
