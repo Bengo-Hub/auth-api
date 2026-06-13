@@ -148,6 +148,33 @@ var rolePerms = map[string][]string{
 		"auth.profile.view", "auth.profile.change",
 		"auth.preferences.view", "auth.preferences.change",
 	},
+	// barista — hospitality coffee-bar staff (café). Takes orders, runs the till, and prepares
+	// drinks. Like the other POS staff roles, pos.*.* permissions are owned by pos-api's POSRoleV2
+	// table — auth-api only issues the global role name + auth.* self-service permissions here.
+	"barista": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+	},
+	// accountant — finance/back-office role. Manages inventory, purchases, and treasury subject to
+	// the tenant's subscription-allowed features and limits. Treasury's fine-grained permissions are
+	// resolved locally by treasury-api (its own "accountant" role via mapGlobalRoleToTreasuryRole);
+	// inventory's are resolved by inventory-api ("accountant" role). auth-api seeds the inventory.*
+	// permissions it owns here (so GET /me exposes them for nav guards), plus ordering read access
+	// for reconciliation and auth.* self-service.
+	"accountant": {
+		// Inventory (auth-api owns inventory.* permission seeding for global roles)
+		"inventory.items.view", "inventory.items.change",
+		"inventory.categories.view",
+		"inventory.warehouses.view",
+		"inventory.stock.view", "inventory.stock.change", "inventory.stock.manage",
+		"inventory.recipes.view",
+		// Ordering visibility for sales reconciliation/reporting
+		"ordering.orders.view", "ordering.analytics.view",
+		// Auth self-service
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
 	// pharmacist — licensed pharmacy dispenser.
 	// POS-specific permissions (pos.pharmacy.*) are managed by pos-api's POSRoleV2 table.
 	"pharmacist": {
