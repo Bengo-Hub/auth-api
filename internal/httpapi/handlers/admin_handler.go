@@ -1555,6 +1555,109 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, pagination.NewResponse(all[start:end], total, pg))
 }
 
+// S2SListTenantUsers lists a tenant's active members for service-to-service callers.
+// GET /api/v1/s2s/{tenant}/users  (auth: INTERNAL_SERVICE_KEY via X-API-Key middleware)
+//
+// {tenant} accepts either the tenant UUID or its slug. Returns active memberships only,
+// as [{id,email,name,roles,outlet_id}] where id is the auth user id. Reuses the same
+// TenantMembership + User read path as the JWT-admin ListTenantMembers. erp-api's
+// employee backfill consumes this to project auth users into employees.
+func (h *AdminHandler) S2SListTenantUsers(w http.ResponseWriter, r *http.Request) {
+	tenantRef := strings.TrimSpace(chi.URLParam(r, "tenant"))
+	if tenantRef == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "tenant is required", nil)
+		return
+	}
+
+	// Resolve {tenant} as a UUID first, then fall back to slug.
+	var t *ent.Tenant
+	if tid, err := uuid.Parse(tenantRef); err == nil {
+		t, err = h.ent.Tenant.Get(r.Context(), tid)
+		if err != nil && !ent.IsNotFound(err) {
+			h.logger.Error("S2S list users: get tenant by id", zap.Error(err))
+			writeError(w, http.StatusInternalServerError, "server_error", "could not resolve tenant", nil)
+			return
+		}
+	}
+	if t == nil {
+		tt, err := h.ent.Tenant.Query().Where(tenant.SlugEQ(tenantRef)).Only(r.Context())
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
+			return
+		}
+		if err != nil {
+			h.logger.Error("S2S list users: get tenant by slug", zap.Error(err))
+			writeError(w, http.StatusInternalServerError, "server_error", "could not resolve tenant", nil)
+			return
+		}
+		t = tt
+	}
+
+	members, err := h.ent.TenantMembership.Query().
+		Where(
+			tenantmembership.TenantID(t.ID),
+			tenantmembership.StatusEQ("active"),
+		).
+		Order(ent.Asc(tenantmembership.FieldCreatedAt)).
+		All(r.Context())
+	if err != nil {
+		h.logger.Error("S2S list users: query memberships", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not list users", nil)
+		return
+	}
+
+	userIDs := make([]uuid.UUID, 0, len(members))
+	for _, m := range members {
+		userIDs = append(userIDs, m.UserID)
+	}
+	userMap := make(map[uuid.UUID]*ent.User, len(userIDs))
+	if len(userIDs) > 0 {
+		users, uErr := h.ent.User.Query().Where(user.IDIn(userIDs...)).All(r.Context())
+		if uErr != nil {
+			h.logger.Error("S2S list users: batch-fetch users", zap.Error(uErr))
+			writeError(w, http.StatusInternalServerError, "server_error", "could not list users", nil)
+			return
+		}
+		for _, u := range users {
+			userMap[u.ID] = u
+		}
+	}
+
+	type s2sUser struct {
+		ID       string   `json:"id"`
+		Email    string   `json:"email"`
+		Name     string   `json:"name"`
+		Roles    []string `json:"roles"`
+		OutletID *string  `json:"outlet_id,omitempty"`
+	}
+	out := make([]s2sUser, 0, len(members))
+	for _, m := range members {
+		roles := m.Roles
+		if roles == nil {
+			roles = []string{"member"}
+		}
+		var outletIDStr *string
+		if m.OutletID != nil {
+			s := m.OutletID.String()
+			outletIDStr = &s
+		}
+		entry := s2sUser{ID: m.UserID.String(), Roles: roles, OutletID: outletIDStr}
+		if u, ok := userMap[m.UserID]; ok {
+			entry.Email = u.Email
+			if u.Profile != nil {
+				if v, ok := u.Profile["name"].(string); ok && v != "" {
+					entry.Name = v
+				} else if v, ok := u.Profile["full_name"].(string); ok && v != "" {
+					entry.Name = v
+				}
+			}
+		}
+		out = append(out, entry)
+	}
+
+	writeJSON(w, http.StatusOK, out)
+}
+
 // UpdateTenantMember updates a member's roles.
 // PUT /api/v1/admin/tenants/{tenant_id}/members/{user_id}
 func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request) {

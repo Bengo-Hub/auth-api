@@ -263,6 +263,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			ListTenantMembers:     adminHandler.ListTenantMembers,
 			UpdateTenantMember:    adminHandler.UpdateTenantMember,
 			RemoveTenantMember:    adminHandler.RemoveTenantMember,
+			S2SListTenantUsers:    adminHandler.S2SListTenantUsers,
 			SetUserServicePIN:     adminHandler.SetUserServicePIN,
 			DeveloperListClients:  developerHandler.ListClients,
 			DeveloperCreateClient: developerHandler.CreateClient,
