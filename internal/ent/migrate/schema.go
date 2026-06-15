@@ -528,6 +528,33 @@ var (
 			},
 		},
 	}
+	// PasswordPoliciesColumns holds the columns for the "password_policies" table.
+	PasswordPoliciesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "tenant_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "min_length", Type: field.TypeInt, Default: 8},
+		{Name: "require_upper", Type: field.TypeBool, Default: true},
+		{Name: "require_lower", Type: field.TypeBool, Default: true},
+		{Name: "require_digit", Type: field.TypeBool, Default: true},
+		{Name: "require_symbol", Type: field.TypeBool, Default: false},
+		{Name: "expiry_days", Type: field.TypeInt, Default: 0},
+		{Name: "reuse_block_count", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// PasswordPoliciesTable holds the schema information for the "password_policies" table.
+	PasswordPoliciesTable = &schema.Table{
+		Name:       "password_policies",
+		Columns:    PasswordPoliciesColumns,
+		PrimaryKey: []*schema.Column{PasswordPoliciesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "passwordpolicy_tenant_id",
+				Unique:  true,
+				Columns: []*schema.Column{PasswordPoliciesColumns[1]},
+			},
+		},
+	}
 	// PasswordResetTokensColumns holds the columns for the "password_reset_tokens" table.
 	PasswordResetTokensColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -636,6 +663,30 @@ var (
 				Name:    "referrallink_is_active",
 				Unique:  false,
 				Columns: []*schema.Column{ReferralLinksColumns[6]},
+			},
+		},
+	}
+	// RolesColumns holds the columns for the "roles" table.
+	RolesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "role_code", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "is_system", Type: field.TypeBool, Default: false},
+		{Name: "scope", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// RolesTable holds the schema information for the "roles" table.
+	RolesTable = &schema.Table{
+		Name:       "roles",
+		Columns:    RolesColumns,
+		PrimaryKey: []*schema.Column{RolesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "role_is_system",
+				Unique:  false,
+				Columns: []*schema.Column{RolesColumns[4]},
 			},
 		},
 	}
@@ -924,10 +975,12 @@ var (
 		OauthClientsTable,
 		OutboxEventsTable,
 		OutletsTable,
+		PasswordPoliciesTable,
 		PasswordResetTokensTable,
 		PermissionsTable,
 		PortalShortLinksTable,
 		ReferralLinksTable,
+		RolesTable,
 		RolePermissionsTable,
 		SessionsTable,
 		TenantsTable,

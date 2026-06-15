@@ -19,6 +19,7 @@ type RouterDeps struct {
 	ReferralLinkHandler  *handlers.ReferralLinkHandler
 	EquityPortalHandler  *handlers.EquityPortalHandler
 	OutletHandler        *handlers.OutletHandler
+	RBACHandler          *handlers.RBACHandler
 	EquityPortalAuth     func(http.Handler) http.Handler
 	RequireAuthHandler   func(http.Handler) http.Handler
 	TryAuthHandler       func(http.Handler) http.Handler
@@ -401,6 +402,23 @@ func NewRouter(deps RouterDeps) http.Handler {
 							r.Post("/mfa-enforcement", deps.UserHandler.AdminSetMfaEnforcement)
 						})
 					})
+				}
+				// Layer-1 RBAC / security management (platform admins only).
+				if deps.RBACHandler != nil {
+					r.Get("/permissions", deps.RBACHandler.ListPermissions)
+					r.Route("/roles", func(r chi.Router) {
+						r.Get("/", deps.RBACHandler.ListRoles)
+						r.Post("/", deps.RBACHandler.CreateRole)
+						r.Route("/{role_code}", func(r chi.Router) {
+							r.Get("/", deps.RBACHandler.GetRole)
+							r.Put("/", deps.RBACHandler.UpdateRole)
+							r.Delete("/", deps.RBACHandler.DeleteRole)
+							r.Put("/permissions", deps.RBACHandler.SetRolePermissions)
+						})
+					})
+					r.Get("/audit-logs", deps.RBACHandler.ListAuditLogs)
+					r.Get("/password-policy", deps.RBACHandler.GetPasswordPolicy)
+					r.Put("/password-policy", deps.RBACHandler.UpdatePasswordPolicy)
 				}
 			})
 		})

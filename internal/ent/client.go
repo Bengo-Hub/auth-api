@@ -33,10 +33,12 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/outlet"
+	"github.com/bengobox/auth-api/internal/ent/passwordpolicy"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
+	"github.com/bengobox/auth-api/internal/ent/role"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -86,6 +88,8 @@ type Client struct {
 	OutboxEvent *OutboxEventClient
 	// Outlet is the client for interacting with the Outlet builders.
 	Outlet *OutletClient
+	// PasswordPolicy is the client for interacting with the PasswordPolicy builders.
+	PasswordPolicy *PasswordPolicyClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
 	PasswordResetToken *PasswordResetTokenClient
 	// Permission is the client for interacting with the Permission builders.
@@ -94,6 +98,8 @@ type Client struct {
 	PortalShortLink *PortalShortLinkClient
 	// ReferralLink is the client for interacting with the ReferralLink builders.
 	ReferralLink *ReferralLinkClient
+	// Role is the client for interacting with the Role builders.
+	Role *RoleClient
 	// RolePermission is the client for interacting with the RolePermission builders.
 	RolePermission *RolePermissionClient
 	// Session is the client for interacting with the Session builders.
@@ -138,10 +144,12 @@ func (c *Client) init() {
 	c.OAuthClient = NewOAuthClientClient(c.config)
 	c.OutboxEvent = NewOutboxEventClient(c.config)
 	c.Outlet = NewOutletClient(c.config)
+	c.PasswordPolicy = NewPasswordPolicyClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
 	c.Permission = NewPermissionClient(c.config)
 	c.PortalShortLink = NewPortalShortLinkClient(c.config)
 	c.ReferralLink = NewReferralLinkClient(c.config)
+	c.Role = NewRoleClient(c.config)
 	c.RolePermission = NewRolePermissionClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.Tenant = NewTenantClient(c.config)
@@ -259,10 +267,12 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		OAuthClient:             NewOAuthClientClient(cfg),
 		OutboxEvent:             NewOutboxEventClient(cfg),
 		Outlet:                  NewOutletClient(cfg),
+		PasswordPolicy:          NewPasswordPolicyClient(cfg),
 		PasswordResetToken:      NewPasswordResetTokenClient(cfg),
 		Permission:              NewPermissionClient(cfg),
 		PortalShortLink:         NewPortalShortLinkClient(cfg),
 		ReferralLink:            NewReferralLinkClient(cfg),
+		Role:                    NewRoleClient(cfg),
 		RolePermission:          NewRolePermissionClient(cfg),
 		Session:                 NewSessionClient(cfg),
 		Tenant:                  NewTenantClient(cfg),
@@ -307,10 +317,12 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		OAuthClient:             NewOAuthClientClient(cfg),
 		OutboxEvent:             NewOutboxEventClient(cfg),
 		Outlet:                  NewOutletClient(cfg),
+		PasswordPolicy:          NewPasswordPolicyClient(cfg),
 		PasswordResetToken:      NewPasswordResetTokenClient(cfg),
 		Permission:              NewPermissionClient(cfg),
 		PortalShortLink:         NewPortalShortLinkClient(cfg),
 		ReferralLink:            NewReferralLinkClient(cfg),
+		Role:                    NewRoleClient(cfg),
 		RolePermission:          NewRolePermissionClient(cfg),
 		Session:                 NewSessionClient(cfg),
 		Tenant:                  NewTenantClient(cfg),
@@ -352,9 +364,10 @@ func (c *Client) Use(hooks ...Hook) {
 		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
 		c.LegalAcceptance, c.LegalDocument, c.LoginAttempt, c.MFABackupCode,
 		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent, c.Outlet,
-		c.PasswordResetToken, c.Permission, c.PortalShortLink, c.ReferralLink,
-		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserIdentity, c.WebAuthnCredential,
+		c.PasswordPolicy, c.PasswordResetToken, c.Permission, c.PortalShortLink,
+		c.ReferralLink, c.Role, c.RolePermission, c.Session, c.Tenant,
+		c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
+		c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -368,9 +381,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
 		c.LegalAcceptance, c.LegalDocument, c.LoginAttempt, c.MFABackupCode,
 		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent, c.Outlet,
-		c.PasswordResetToken, c.Permission, c.PortalShortLink, c.ReferralLink,
-		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserIdentity, c.WebAuthnCredential,
+		c.PasswordPolicy, c.PasswordResetToken, c.Permission, c.PortalShortLink,
+		c.ReferralLink, c.Role, c.RolePermission, c.Session, c.Tenant,
+		c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
+		c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -413,6 +427,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.OutboxEvent.mutate(ctx, m)
 	case *OutletMutation:
 		return c.Outlet.mutate(ctx, m)
+	case *PasswordPolicyMutation:
+		return c.PasswordPolicy.mutate(ctx, m)
 	case *PasswordResetTokenMutation:
 		return c.PasswordResetToken.mutate(ctx, m)
 	case *PermissionMutation:
@@ -421,6 +437,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PortalShortLink.mutate(ctx, m)
 	case *ReferralLinkMutation:
 		return c.ReferralLink.mutate(ctx, m)
+	case *RoleMutation:
+		return c.Role.mutate(ctx, m)
 	case *RolePermissionMutation:
 		return c.RolePermission.mutate(ctx, m)
 	case *SessionMutation:
@@ -2767,6 +2785,139 @@ func (c *OutletClient) mutate(ctx context.Context, m *OutletMutation) (Value, er
 	}
 }
 
+// PasswordPolicyClient is a client for the PasswordPolicy schema.
+type PasswordPolicyClient struct {
+	config
+}
+
+// NewPasswordPolicyClient returns a client for the PasswordPolicy from the given config.
+func NewPasswordPolicyClient(c config) *PasswordPolicyClient {
+	return &PasswordPolicyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `passwordpolicy.Hooks(f(g(h())))`.
+func (c *PasswordPolicyClient) Use(hooks ...Hook) {
+	c.hooks.PasswordPolicy = append(c.hooks.PasswordPolicy, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `passwordpolicy.Intercept(f(g(h())))`.
+func (c *PasswordPolicyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PasswordPolicy = append(c.inters.PasswordPolicy, interceptors...)
+}
+
+// Create returns a builder for creating a PasswordPolicy entity.
+func (c *PasswordPolicyClient) Create() *PasswordPolicyCreate {
+	mutation := newPasswordPolicyMutation(c.config, OpCreate)
+	return &PasswordPolicyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PasswordPolicy entities.
+func (c *PasswordPolicyClient) CreateBulk(builders ...*PasswordPolicyCreate) *PasswordPolicyCreateBulk {
+	return &PasswordPolicyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PasswordPolicyClient) MapCreateBulk(slice any, setFunc func(*PasswordPolicyCreate, int)) *PasswordPolicyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PasswordPolicyCreateBulk{err: fmt.Errorf("calling to PasswordPolicyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PasswordPolicyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PasswordPolicyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PasswordPolicy.
+func (c *PasswordPolicyClient) Update() *PasswordPolicyUpdate {
+	mutation := newPasswordPolicyMutation(c.config, OpUpdate)
+	return &PasswordPolicyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PasswordPolicyClient) UpdateOne(_m *PasswordPolicy) *PasswordPolicyUpdateOne {
+	mutation := newPasswordPolicyMutation(c.config, OpUpdateOne, withPasswordPolicy(_m))
+	return &PasswordPolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PasswordPolicyClient) UpdateOneID(id uuid.UUID) *PasswordPolicyUpdateOne {
+	mutation := newPasswordPolicyMutation(c.config, OpUpdateOne, withPasswordPolicyID(id))
+	return &PasswordPolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PasswordPolicy.
+func (c *PasswordPolicyClient) Delete() *PasswordPolicyDelete {
+	mutation := newPasswordPolicyMutation(c.config, OpDelete)
+	return &PasswordPolicyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PasswordPolicyClient) DeleteOne(_m *PasswordPolicy) *PasswordPolicyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PasswordPolicyClient) DeleteOneID(id uuid.UUID) *PasswordPolicyDeleteOne {
+	builder := c.Delete().Where(passwordpolicy.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PasswordPolicyDeleteOne{builder}
+}
+
+// Query returns a query builder for PasswordPolicy.
+func (c *PasswordPolicyClient) Query() *PasswordPolicyQuery {
+	return &PasswordPolicyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePasswordPolicy},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PasswordPolicy entity by its id.
+func (c *PasswordPolicyClient) Get(ctx context.Context, id uuid.UUID) (*PasswordPolicy, error) {
+	return c.Query().Where(passwordpolicy.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PasswordPolicyClient) GetX(ctx context.Context, id uuid.UUID) *PasswordPolicy {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *PasswordPolicyClient) Hooks() []Hook {
+	return c.hooks.PasswordPolicy
+}
+
+// Interceptors returns the client interceptors.
+func (c *PasswordPolicyClient) Interceptors() []Interceptor {
+	return c.inters.PasswordPolicy
+}
+
+func (c *PasswordPolicyClient) mutate(ctx context.Context, m *PasswordPolicyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PasswordPolicyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PasswordPolicyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PasswordPolicyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PasswordPolicyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PasswordPolicy mutation op: %q", m.Op())
+	}
+}
+
 // PasswordResetTokenClient is a client for the PasswordResetToken schema.
 type PasswordResetTokenClient struct {
 	config
@@ -3312,6 +3463,139 @@ func (c *ReferralLinkClient) mutate(ctx context.Context, m *ReferralLinkMutation
 		return (&ReferralLinkDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ReferralLink mutation op: %q", m.Op())
+	}
+}
+
+// RoleClient is a client for the Role schema.
+type RoleClient struct {
+	config
+}
+
+// NewRoleClient returns a client for the Role from the given config.
+func NewRoleClient(c config) *RoleClient {
+	return &RoleClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `role.Hooks(f(g(h())))`.
+func (c *RoleClient) Use(hooks ...Hook) {
+	c.hooks.Role = append(c.hooks.Role, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `role.Intercept(f(g(h())))`.
+func (c *RoleClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Role = append(c.inters.Role, interceptors...)
+}
+
+// Create returns a builder for creating a Role entity.
+func (c *RoleClient) Create() *RoleCreate {
+	mutation := newRoleMutation(c.config, OpCreate)
+	return &RoleCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Role entities.
+func (c *RoleClient) CreateBulk(builders ...*RoleCreate) *RoleCreateBulk {
+	return &RoleCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RoleClient) MapCreateBulk(slice any, setFunc func(*RoleCreate, int)) *RoleCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RoleCreateBulk{err: fmt.Errorf("calling to RoleClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RoleCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RoleCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Role.
+func (c *RoleClient) Update() *RoleUpdate {
+	mutation := newRoleMutation(c.config, OpUpdate)
+	return &RoleUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RoleClient) UpdateOne(_m *Role) *RoleUpdateOne {
+	mutation := newRoleMutation(c.config, OpUpdateOne, withRole(_m))
+	return &RoleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RoleClient) UpdateOneID(id uuid.UUID) *RoleUpdateOne {
+	mutation := newRoleMutation(c.config, OpUpdateOne, withRoleID(id))
+	return &RoleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Role.
+func (c *RoleClient) Delete() *RoleDelete {
+	mutation := newRoleMutation(c.config, OpDelete)
+	return &RoleDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RoleClient) DeleteOne(_m *Role) *RoleDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RoleClient) DeleteOneID(id uuid.UUID) *RoleDeleteOne {
+	builder := c.Delete().Where(role.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RoleDeleteOne{builder}
+}
+
+// Query returns a query builder for Role.
+func (c *RoleClient) Query() *RoleQuery {
+	return &RoleQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRole},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Role entity by its id.
+func (c *RoleClient) Get(ctx context.Context, id uuid.UUID) (*Role, error) {
+	return c.Query().Where(role.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RoleClient) GetX(ctx context.Context, id uuid.UUID) *Role {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *RoleClient) Hooks() []Hook {
+	return c.hooks.Role
+}
+
+// Interceptors returns the client interceptors.
+func (c *RoleClient) Interceptors() []Interceptor {
+	return c.inters.Role
+}
+
+func (c *RoleClient) mutate(ctx context.Context, m *RoleMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RoleCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RoleUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RoleUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RoleDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Role mutation op: %q", m.Op())
 	}
 }
 
@@ -4641,18 +4925,18 @@ type (
 		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
 		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
 		LegalAcceptance, LegalDocument, LoginAttempt, MFABackupCode, MFASettings,
-		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordResetToken,
-		Permission, PortalShortLink, ReferralLink, RolePermission, Session, Tenant,
-		TenantMembership, UsageMetric, User, UserIdentity,
-		WebAuthnCredential []ent.Hook
+		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordPolicy,
+		PasswordResetToken, Permission, PortalShortLink, ReferralLink, Role,
+		RolePermission, Session, Tenant, TenantMembership, UsageMetric, User,
+		UserIdentity, WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
 		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
 		LegalAcceptance, LegalDocument, LoginAttempt, MFABackupCode, MFASettings,
-		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordResetToken,
-		Permission, PortalShortLink, ReferralLink, RolePermission, Session, Tenant,
-		TenantMembership, UsageMetric, User, UserIdentity,
-		WebAuthnCredential []ent.Interceptor
+		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordPolicy,
+		PasswordResetToken, Permission, PortalShortLink, ReferralLink, Role,
+		RolePermission, Session, Tenant, TenantMembership, UsageMetric, User,
+		UserIdentity, WebAuthnCredential []ent.Interceptor
 	}
 )

@@ -57,6 +57,9 @@ type OutboxEvent func(*sql.Selector)
 // Outlet is the predicate function for outlet builders.
 type Outlet func(*sql.Selector)
 
+// PasswordPolicy is the predicate function for passwordpolicy builders.
+type PasswordPolicy func(*sql.Selector)
+
 // PasswordResetToken is the predicate function for passwordresettoken builders.
 type PasswordResetToken func(*sql.Selector)
 
@@ -68,6 +71,9 @@ type PortalShortLink func(*sql.Selector)
 
 // ReferralLink is the predicate function for referrallink builders.
 type ReferralLink func(*sql.Selector)
+
+// Role is the predicate function for role builders.
+type Role func(*sql.Selector)
 
 // RolePermission is the predicate function for rolepermission builders.
 type RolePermission func(*sql.Selector)

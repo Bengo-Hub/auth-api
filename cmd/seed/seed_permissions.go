@@ -74,6 +74,10 @@ var servicePerms = map[string][]string{
 		"auth.profile.view", "auth.profile.change",
 		"auth.preferences.view", "auth.preferences.change",
 		"auth.notifications.view", "auth.notifications.manage",
+		// Layer-1 RBAC / security administration (auth-ui platform pages).
+		"auth.roles.manage",
+		"auth.audit.view",
+		"auth.security.manage",
 	},
 }
 

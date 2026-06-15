@@ -29,10 +29,12 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/outlet"
+	"github.com/bengobox/auth-api/internal/ent/passwordpolicy"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
+	"github.com/bengobox/auth-api/internal/ent/role"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -118,10 +120,12 @@ func checkColumn(t, c string) error {
 			oauthclient.Table:             oauthclient.ValidColumn,
 			outboxevent.Table:             outboxevent.ValidColumn,
 			outlet.Table:                  outlet.ValidColumn,
+			passwordpolicy.Table:          passwordpolicy.ValidColumn,
 			passwordresettoken.Table:      passwordresettoken.ValidColumn,
 			permission.Table:              permission.ValidColumn,
 			portalshortlink.Table:         portalshortlink.ValidColumn,
 			referrallink.Table:            referrallink.ValidColumn,
+			role.Table:                    role.ValidColumn,
 			rolepermission.Table:          rolepermission.ValidColumn,
 			session.Table:                 session.ValidColumn,
 			tenant.Table:                  tenant.ValidColumn,
