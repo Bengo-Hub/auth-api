@@ -1344,6 +1344,14 @@ func (s *Service) EnrichTokenWithSubscription(ctx context.Context, tenantID uuid
 		return
 	}
 
+	// Demo + platform-owner tenants are exempt from subscriptions and own no subscription
+	// record. Skip enrichment entirely so their token carries NO subscription claims (no
+	// stale trial/plan) — gating is bypassed via IsDemo/IsPlatformOwner instead. The caller
+	// sets these flags on `in` before calling (REST + OIDC paths).
+	if in.IsDemo || in.IsPlatformOwner {
+		return
+	}
+
 	sub, err := s.subscriptionCl.GetTenantSubscription(ctx, tenantID)
 	if err != nil {
 		s.logger.Warn("failed to fetch subscription for JWT enrichment",
@@ -1456,6 +1464,14 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 	}
 	if tenantEntity != nil {
 		tokenInput.TenantSlug = tenantEntity.Slug
+
+		// Platform owner may also be flagged via metadata (in addition to the canonical
+		// "codevertex" slug) so a renamed/secondary platform tenant still bypasses gating.
+		if powner, ok := tenantEntity.Metadata["is_platform_owner"]; ok {
+			if v, ok := powner.(bool); ok && v {
+				tokenInput.IsPlatformOwner = true
+			}
+		}
 
 		// Populate billing_mode from tenant metadata (set by platform admin)
 		if meta, ok := tenantEntity.Metadata["billing_mode"]; ok {

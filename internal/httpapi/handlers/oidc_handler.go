@@ -333,6 +333,7 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		Roles:           roles,
 		Permissions:     permissions,
 		IsPlatformOwner: isPlatformOwner,
+		IsDemo:          tenantSlug == "codevertex-demo",
 		Audience:        []string{client.ClientID, h.cfg.Token.Audience},
 	}
 	// Enrich with subscription claims so OIDC-issued tokens gate features identically
