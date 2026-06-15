@@ -224,6 +224,43 @@ var rolePerms = map[string][]string{
 		"auth.profile.view", "auth.profile.change",
 		"auth.preferences.view", "auth.preferences.change",
 	},
+	// ─────────────────────────────────────────────────────────────────────────
+	// ISP-billing service roles (isp-billing decentralized to SSO).
+	// Platform-owner + ISP-provider admins log in via auth-api; the isp-billing
+	// service (ispbilling.codevertexitsolutions.com UI, ispbillingapi. API) maps
+	// these global role names to its own fine-grained isp.*.* RBAC locally. Per the
+	// Trinity Authorization Pattern, auth-api ONLY seeds the global role names + the
+	// auth.* self-service (and sensible cross-service read) permissions it owns here.
+	//
+	// isp_admin — ISP provider administrator. Manages the provider's users + full
+	// self-service; isp.*.* (subscribers, plans, routers, billing) resolved by isp-billing.
+	"isp_admin": {
+		"auth.users.view", "auth.users.add", "auth.users.change",
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view", "auth.notifications.manage",
+	},
+	// isp_technician — ISP field technician. Installs/services subscriber links.
+	// Mirrors the existing cross-service "technician" role's logistics task/zone access
+	// for field dispatch, plus auth.* self-service.
+	"isp_technician": {
+		"logistics.tasks.view", "logistics.tasks.change",
+		"logistics.zones.view",
+		"logistics.fleet.view",
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+	},
+	// isp_customer — ISP subscriber (end-user/consumer). Self-service only.
+	"isp_customer": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// isp_viewer — read-only ISP observer/reporting role. Self-service + notifications view.
+	"isp_viewer": {
+		"auth.profile.view",
+		"auth.notifications.view",
+	},
 	// viewer — read-only cross-service role for auditors, observers, and reporting users.
 	// Can view data across services but cannot create, modify, or delete anything.
 	"viewer": {
