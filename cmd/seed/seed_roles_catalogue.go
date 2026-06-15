@@ -63,6 +63,15 @@ var logisticsRoles = map[string]bool{
 	"technician":           true,
 }
 
+// ispRoles are ISP-billing provider/subscriber roles (scope = isp). isp-billing
+// maps these global role names to its own fine-grained isp.*.* RBAC locally.
+var ispRoles = map[string]bool{
+	"isp_admin":      true,
+	"isp_technician": true,
+	"isp_customer":   true,
+	"isp_viewer":     true,
+}
+
 // roleScope infers a coarse scope grouping for a role code.
 func roleScope(code string) string {
 	switch {
@@ -72,6 +81,8 @@ func roleScope(code string) string {
 		return "pos"
 	case logisticsRoles[code]:
 		return "logistics"
+	case ispRoles[code]:
+		return "isp"
 	case platformSystemRoles[code]:
 		return "platform"
 	default:

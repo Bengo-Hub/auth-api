@@ -212,6 +212,23 @@ var demoStaff = []demoStaffSpec{
 	{"technician@demo.codevertexitsolutions.com", "Demo Technician", "technician", "", nil},
 	{"viewer@demo.codevertexitsolutions.com", "Demo Viewer", "viewer", "", nil},
 	{"customer@demo.codevertexitsolutions.com", "Demo Customer", "customer", "", nil},
+
+	// Inventory outlet managers — non-HQ (role=manager, NOT admin), one per use_case
+	// so the inventory-ui per-use_case side-menu gating and page nomenclature can be
+	// exercised by logging in as a single-outlet manager. No POS PIN: these users log
+	// into inventory-ui via SSO, not at a POS terminal. The auth.user event carries
+	// outlet_ids, which inventory-api's UserOutlet subscriber projects into assignments.
+	// admin@demo (role=admin) stays HQ and sees the full "All Outlets" superset.
+	{"mgr.hospitality@demo.codevertexitsolutions.com", "Demo Hospitality Manager", "manager", "", []string{"demo-hospitality"}},
+	{"mgr.retail@demo.codevertexitsolutions.com", "Demo Retail Manager", "manager", "", []string{"demo-retail"}},
+	{"mgr.quick@demo.codevertexitsolutions.com", "Demo Quick-Service Manager", "manager", "", []string{"demo-quick"}},
+	{"mgr.pharmacy@demo.codevertexitsolutions.com", "Demo Pharmacy Manager", "manager", "", []string{"demo-pharmacy"}},
+	{"mgr.services@demo.codevertexitsolutions.com", "Demo Services Manager", "manager", "", []string{"demo-services"}},
+	{"mgr.warehouse@demo.codevertexitsolutions.com", "Demo Warehouse Manager", "manager", "", []string{"demo-warehouse"}},
+	{"mgr.mfg@demo.codevertexitsolutions.com", "Demo Manufacturing Manager", "manager", "", []string{"demo-manufacturing"}},
+	// Multi-location manager — assigned to 3 outlets across POS + non-POS use_cases to
+	// prove the select-outlet multi-location flow (user must pick one before entering).
+	{"mgr.multi@demo.codevertexitsolutions.com", "Demo Multi-Outlet Manager", "manager", "", []string{"demo-retail", "demo-pharmacy", "demo-manufacturing"}},
 }
 
 // seedDemoStaff seeds all demo staff users under the codevertex-demo tenant.
@@ -570,6 +587,7 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "marketflow-ui", Name: "MarketFlow UI", ProductionHost: "marketflow.codevertexitsolutions.com", Public: true},
 		{ID: "truload-ui", Name: "TruLoad Frontend", ProductionHost: "truload.codevertexitsolutions.com", Public: true},
 		{ID: "ticketing-ui", Name: "Codevertex Ticketing UI", ProductionHost: "ticketing.codevertexitsolutions.com", Public: true},
+		{ID: "isp-billing-ui", Name: "BengoBox ISP Billing UI", ProductionHost: "ispbilling.codevertexitsolutions.com", Public: true},
 	}
 
 	// Collect all tenant slugs for OAuth redirect URI generation.
