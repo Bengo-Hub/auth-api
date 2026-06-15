@@ -102,6 +102,8 @@ type AuthHandlers struct {
 	ListTenantMembers  http.HandlerFunc
 	UpdateTenantMember http.HandlerFunc
 	RemoveTenantMember http.HandlerFunc
+	// S2SListTenantUsers lists a tenant's active members for S2S callers (X-API-Key).
+	S2SListTenantUsers http.HandlerFunc
 	SetUserServicePIN  http.HandlerFunc
 	// Public integrations info
 	ListActiveIntegrations http.HandlerFunc
@@ -482,10 +484,16 @@ func NewRouter(deps RouterDeps) http.Handler {
 
 	// Internal S2S endpoints — secured by INTERNAL_SERVICE_KEY (X-API-Key header).
 	// Not exposed via CORS; cluster-internal callers only.
-	if deps.OutletHandler != nil && deps.InternalServiceKey != "" {
+	if deps.InternalServiceKey != "" {
 		r.Group(func(r chi.Router) {
 			r.Use(requireInternalKey(deps.InternalServiceKey))
-			r.Post("/internal/outlets/republish", deps.OutletHandler.RepublishOutletEvents)
+			if deps.OutletHandler != nil {
+				r.Post("/internal/outlets/republish", deps.OutletHandler.RepublishOutletEvents)
+			}
+			// S2S tenant user listing (erp-api employee backfill).
+			if deps.AuthHandlers.S2SListTenantUsers != nil {
+				r.Get("/api/v1/s2s/{tenant}/users", deps.AuthHandlers.S2SListTenantUsers)
+			}
 		})
 	}
 
