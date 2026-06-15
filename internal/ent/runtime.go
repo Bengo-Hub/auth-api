@@ -22,10 +22,12 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/outlet"
+	"github.com/bengobox/auth-api/internal/ent/passwordpolicy"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
+	"github.com/bengobox/auth-api/internal/ent/role"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/schema"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -498,6 +500,50 @@ func init() {
 	outletDescID := outletFields[0].Descriptor()
 	// outlet.DefaultID holds the default value on creation for the id field.
 	outlet.DefaultID = outletDescID.Default.(func() uuid.UUID)
+	passwordpolicyFields := schema.PasswordPolicy{}.Fields()
+	_ = passwordpolicyFields
+	// passwordpolicyDescMinLength is the schema descriptor for min_length field.
+	passwordpolicyDescMinLength := passwordpolicyFields[2].Descriptor()
+	// passwordpolicy.DefaultMinLength holds the default value on creation for the min_length field.
+	passwordpolicy.DefaultMinLength = passwordpolicyDescMinLength.Default.(int)
+	// passwordpolicyDescRequireUpper is the schema descriptor for require_upper field.
+	passwordpolicyDescRequireUpper := passwordpolicyFields[3].Descriptor()
+	// passwordpolicy.DefaultRequireUpper holds the default value on creation for the require_upper field.
+	passwordpolicy.DefaultRequireUpper = passwordpolicyDescRequireUpper.Default.(bool)
+	// passwordpolicyDescRequireLower is the schema descriptor for require_lower field.
+	passwordpolicyDescRequireLower := passwordpolicyFields[4].Descriptor()
+	// passwordpolicy.DefaultRequireLower holds the default value on creation for the require_lower field.
+	passwordpolicy.DefaultRequireLower = passwordpolicyDescRequireLower.Default.(bool)
+	// passwordpolicyDescRequireDigit is the schema descriptor for require_digit field.
+	passwordpolicyDescRequireDigit := passwordpolicyFields[5].Descriptor()
+	// passwordpolicy.DefaultRequireDigit holds the default value on creation for the require_digit field.
+	passwordpolicy.DefaultRequireDigit = passwordpolicyDescRequireDigit.Default.(bool)
+	// passwordpolicyDescRequireSymbol is the schema descriptor for require_symbol field.
+	passwordpolicyDescRequireSymbol := passwordpolicyFields[6].Descriptor()
+	// passwordpolicy.DefaultRequireSymbol holds the default value on creation for the require_symbol field.
+	passwordpolicy.DefaultRequireSymbol = passwordpolicyDescRequireSymbol.Default.(bool)
+	// passwordpolicyDescExpiryDays is the schema descriptor for expiry_days field.
+	passwordpolicyDescExpiryDays := passwordpolicyFields[7].Descriptor()
+	// passwordpolicy.DefaultExpiryDays holds the default value on creation for the expiry_days field.
+	passwordpolicy.DefaultExpiryDays = passwordpolicyDescExpiryDays.Default.(int)
+	// passwordpolicyDescReuseBlockCount is the schema descriptor for reuse_block_count field.
+	passwordpolicyDescReuseBlockCount := passwordpolicyFields[8].Descriptor()
+	// passwordpolicy.DefaultReuseBlockCount holds the default value on creation for the reuse_block_count field.
+	passwordpolicy.DefaultReuseBlockCount = passwordpolicyDescReuseBlockCount.Default.(int)
+	// passwordpolicyDescCreatedAt is the schema descriptor for created_at field.
+	passwordpolicyDescCreatedAt := passwordpolicyFields[9].Descriptor()
+	// passwordpolicy.DefaultCreatedAt holds the default value on creation for the created_at field.
+	passwordpolicy.DefaultCreatedAt = passwordpolicyDescCreatedAt.Default.(func() time.Time)
+	// passwordpolicyDescUpdatedAt is the schema descriptor for updated_at field.
+	passwordpolicyDescUpdatedAt := passwordpolicyFields[10].Descriptor()
+	// passwordpolicy.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	passwordpolicy.DefaultUpdatedAt = passwordpolicyDescUpdatedAt.Default.(func() time.Time)
+	// passwordpolicy.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	passwordpolicy.UpdateDefaultUpdatedAt = passwordpolicyDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// passwordpolicyDescID is the schema descriptor for id field.
+	passwordpolicyDescID := passwordpolicyFields[0].Descriptor()
+	// passwordpolicy.DefaultID holds the default value on creation for the id field.
+	passwordpolicy.DefaultID = passwordpolicyDescID.Default.(func() uuid.UUID)
 	passwordresettokenFields := schema.PasswordResetToken{}.Fields()
 	_ = passwordresettokenFields
 	// passwordresettokenDescTokenHash is the schema descriptor for token_hash field.
@@ -604,6 +650,34 @@ func init() {
 	referrallinkDescID := referrallinkFields[0].Descriptor()
 	// referrallink.DefaultID holds the default value on creation for the id field.
 	referrallink.DefaultID = referrallinkDescID.Default.(func() uuid.UUID)
+	roleFields := schema.Role{}.Fields()
+	_ = roleFields
+	// roleDescRoleCode is the schema descriptor for role_code field.
+	roleDescRoleCode := roleFields[1].Descriptor()
+	// role.RoleCodeValidator is a validator for the "role_code" field. It is called by the builders before save.
+	role.RoleCodeValidator = roleDescRoleCode.Validators[0].(func(string) error)
+	// roleDescName is the schema descriptor for name field.
+	roleDescName := roleFields[2].Descriptor()
+	// role.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	role.NameValidator = roleDescName.Validators[0].(func(string) error)
+	// roleDescIsSystem is the schema descriptor for is_system field.
+	roleDescIsSystem := roleFields[4].Descriptor()
+	// role.DefaultIsSystem holds the default value on creation for the is_system field.
+	role.DefaultIsSystem = roleDescIsSystem.Default.(bool)
+	// roleDescCreatedAt is the schema descriptor for created_at field.
+	roleDescCreatedAt := roleFields[6].Descriptor()
+	// role.DefaultCreatedAt holds the default value on creation for the created_at field.
+	role.DefaultCreatedAt = roleDescCreatedAt.Default.(func() time.Time)
+	// roleDescUpdatedAt is the schema descriptor for updated_at field.
+	roleDescUpdatedAt := roleFields[7].Descriptor()
+	// role.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	role.DefaultUpdatedAt = roleDescUpdatedAt.Default.(func() time.Time)
+	// role.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	role.UpdateDefaultUpdatedAt = roleDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// roleDescID is the schema descriptor for id field.
+	roleDescID := roleFields[0].Descriptor()
+	// role.DefaultID holds the default value on creation for the id field.
+	role.DefaultID = roleDescID.Default.(func() uuid.UUID)
 	rolepermissionFields := schema.RolePermission{}.Fields()
 	_ = rolepermissionFields
 	// rolepermissionDescRoleName is the schema descriptor for role_name field.

@@ -26,7 +26,7 @@ type Outlet struct {
 	Code string `json:"code,omitempty"`
 	// Human-readable display name shown on PIN login and header
 	Name string `json:"name,omitempty"`
-	// Primary use case: hospitality | quick_service | retail | pharmacy | services | warehouse | logistics
+	// Primary use case: hospitality | quick_service | retail | pharmacy | services | warehouse | logistics | commercial_weighing | axle_load_enforcement | manufacturing
 	UseCase string `json:"use_case,omitempty"`
 	// Physical address of this outlet/branch
 	Address *string `json:"address,omitempty"`

@@ -306,7 +306,7 @@ func (s *Service) GetTenant(ctx context.Context, id uuid.UUID) (*ent.Tenant, err
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, error) {
 	// Password validation is skipped for OAuth registrations (empty password).
 	if in.Password != "" {
-		if err := s.validatePassword(in.Password); err != nil {
+		if err := s.ValidatePassword(ctx, in.Password); err != nil {
 			return nil, err
 		}
 	}
@@ -1089,7 +1089,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 
 // ConfirmPasswordReset validates reset token and updates password.
 func (s *Service) ConfirmPasswordReset(ctx context.Context, in PasswordResetConfirmInput) error {
-	if err := s.validatePassword(in.NewPassword); err != nil {
+	if err := s.ValidatePassword(ctx, in.NewPassword); err != nil {
 		return err
 	}
 	hash := hashToken(in.Token)
@@ -2110,7 +2110,7 @@ type ChangePasswordInput struct {
 
 // ChangePassword verifies the current password and sets a new one for an authenticated user.
 func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) error {
-	if err := s.validatePassword(in.NewPassword); err != nil {
+	if err := s.ValidatePassword(ctx, in.NewPassword); err != nil {
 		return err
 	}
 

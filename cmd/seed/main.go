@@ -125,6 +125,14 @@ func main() {
 		log.Printf("⚠️  seed roles: %v", err)
 	}
 
+	// 11. Seed the metadata-only Role catalogue + default password policy (Layer-1 RBAC admin).
+	if err := seedRolesCatalogue(ctx, client); err != nil {
+		log.Printf("⚠️  seed role catalogue: %v", err)
+	}
+	if err := seedDefaultPasswordPolicy(ctx, client); err != nil {
+		log.Printf("⚠️  seed default password policy: %v", err)
+	}
+
 	// 12. Seed platform-level OAuth integration configurations (social logins)
 	if err := seedIntegrations(ctx, client, cfg.Token.Issuer); err != nil {
 		log.Printf("⚠️  Failed to seed integrations: %v", err)

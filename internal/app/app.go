@@ -193,6 +193,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	legalHandler := handlers.NewLegalHandler(entClient, logger)
 	referralLinkHandler := handlers.NewReferralLinkHandler(entClient, logger)
 	equityPortalHandler := handlers.NewEquityPortalHandler(entClient, tokenSvc, cfg.Token.Issuer, cfg.App.AuthUIURL, logger)
+	rbacHandler := handlers.NewRBACHandler(authService, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
 		OutletHandler:      outletHandler,
@@ -203,6 +204,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		LegalHandler:        legalHandler,
 		ReferralLinkHandler: referralLinkHandler,
 		EquityPortalHandler: equityPortalHandler,
+		RBACHandler:         rbacHandler,
 		EquityPortalAuth:    handlers.EquityPortalAuth(tokenSvc),
 		AuthHandlers: httpapi.AuthHandlers{
 			Register:                     authHandler.Register,

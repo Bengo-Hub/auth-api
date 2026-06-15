@@ -213,6 +213,18 @@ func (f OutletFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OutletMutation", m)
 }
 
+// The PasswordPolicyFunc type is an adapter to allow the use of ordinary
+// function as PasswordPolicy mutator.
+type PasswordPolicyFunc func(context.Context, *ent.PasswordPolicyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PasswordPolicyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PasswordPolicyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasswordPolicyMutation", m)
+}
+
 // The PasswordResetTokenFunc type is an adapter to allow the use of ordinary
 // function as PasswordResetToken mutator.
 type PasswordResetTokenFunc func(context.Context, *ent.PasswordResetTokenMutation) (ent.Value, error)
@@ -259,6 +271,18 @@ func (f ReferralLinkFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ReferralLinkMutation", m)
+}
+
+// The RoleFunc type is an adapter to allow the use of ordinary
+// function as Role mutator.
+type RoleFunc func(context.Context, *ent.RoleMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f RoleFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.RoleMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RoleMutation", m)
 }
 
 // The RolePermissionFunc type is an adapter to allow the use of ordinary
