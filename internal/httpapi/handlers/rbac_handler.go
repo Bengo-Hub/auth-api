@@ -292,6 +292,51 @@ func (h *RBACHandler) SetRolePermissions(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// ─── Service-role registry (S2S) ──────────────────────────────────────────────
+
+type syncServiceRolesRequest struct {
+	Service string `json:"service"`
+	Roles   []struct {
+		RoleCode    string `json:"role_code"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Scope       string `json:"scope"`
+	} `json:"roles"`
+}
+
+// SyncServiceRoles idempotently upserts an owning service's role catalogue into
+// the auth role registry. Gated by INTERNAL_SERVICE_KEY (X-API-Key) at the router,
+// so there is no JWT-admin check here. Idempotent by role_code (no duplicates).
+// POST /api/v1/s2s/roles/sync
+func (h *RBACHandler) SyncServiceRoles(w http.ResponseWriter, r *http.Request) {
+	var req syncServiceRolesRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
+		return
+	}
+	in := make([]auth.ServiceRoleInput, 0, len(req.Roles))
+	for _, role := range req.Roles {
+		scope := strings.TrimSpace(role.Scope)
+		if scope == "" {
+			scope = strings.TrimSpace(req.Service)
+		}
+		in = append(in, auth.ServiceRoleInput{
+			RoleCode:    role.RoleCode,
+			Name:        role.Name,
+			Description: role.Description,
+			Scope:       scope,
+		})
+	}
+	synced, err := h.svc.SyncServiceRoles(r.Context(), in)
+	if err != nil {
+		h.logger.Error("sync service roles", zap.String("service", req.Service), zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to sync roles", nil)
+		return
+	}
+	h.logger.Info("service roles synced", zap.String("service", req.Service), zap.Int("count", synced))
+	writeJSON(w, http.StatusOK, map[string]any{"synced": true, "count": synced})
+}
+
 // ─── Audit logs ───────────────────────────────────────────────────────────────
 
 // ListAuditLogs returns a paginated, filterable audit-log listing.

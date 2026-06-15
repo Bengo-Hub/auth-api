@@ -470,6 +470,73 @@ func (s *Service) SetRolePermissions(ctx context.Context, code string, permissio
 	return out, nil
 }
 
+// ─── Service-role registry (S2S) ──────────────────────────────────────────────
+
+// ServiceRoleInput is one role pushed by an owning service (erp/pos/...) into the
+// auth role registry. The owning service is the source of truth for the role's
+// metadata; auth keeps a COPY to support assignment + global→service resolution.
+type ServiceRoleInput struct {
+	RoleCode    string
+	Name        string
+	Description string
+	Scope       string
+}
+
+// SyncServiceRoles idempotently UPSERTs the supplied service roles into the auth
+// role registry, keyed on role_code (UNIQUE). It NEVER creates duplicates: an
+// existing role row is updated in place (name/description/scope), and is_system is
+// PRESERVED on existing rows. Returns the number of roles synced (created+updated).
+//
+// Idempotency proof: each role is resolved by its UNIQUE role_code; a found row is
+// updated (no insert), a missing row is created. Re-running with the same payload
+// is a no-op beyond touching updated_at, so repeated S2S calls cannot duplicate roles.
+func (s *Service) SyncServiceRoles(ctx context.Context, roles []ServiceRoleInput) (int, error) {
+	synced := 0
+	for _, in := range roles {
+		code := strings.TrimSpace(in.RoleCode)
+		if code == "" {
+			continue
+		}
+		name := strings.TrimSpace(in.Name)
+		if name == "" {
+			name = code
+		}
+		existing, err := s.entClient.Role.Query().Where(role.RoleCodeEQ(code)).Only(ctx)
+		switch {
+		case err == nil:
+			// Update-in-place: preserve is_system, refresh metadata + scope.
+			upd := existing.Update().SetName(name).SetDescription(in.Description)
+			if in.Scope != "" {
+				upd.SetScope(in.Scope)
+			}
+			if _, err := upd.Save(ctx); err != nil {
+				return synced, fmt.Errorf("update role %q: %w", code, err)
+			}
+		case ent.IsNotFound(err):
+			create := s.entClient.Role.Create().
+				SetRoleCode(code).
+				SetName(name).
+				SetIsSystem(true). // service-owned catalogue roles are system roles in auth
+				SetDescription(in.Description)
+			if in.Scope != "" {
+				create.SetScope(in.Scope)
+			}
+			if _, err := create.Save(ctx); err != nil {
+				if ent.IsConstraintError(err) {
+					// Lost a race; the row now exists — treat as synced (still no duplicate).
+					synced++
+					continue
+				}
+				return synced, fmt.Errorf("create role %q: %w", code, err)
+			}
+		default:
+			return synced, fmt.Errorf("query role %q: %w", code, err)
+		}
+		synced++
+	}
+	return synced, nil
+}
+
 // ─── Audit logs ───────────────────────────────────────────────────────────────
 
 // WriteAuditLog persists an audit entry (thin wrapper over the audit logger).

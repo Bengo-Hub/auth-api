@@ -494,6 +494,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 			if deps.AuthHandlers.S2SListTenantUsers != nil {
 				r.Get("/api/v1/s2s/{tenant}/users", deps.AuthHandlers.S2SListTenantUsers)
 			}
+			// S2S service-role registry: owning services push their role catalogue
+			// here; idempotent upsert by role_code (no duplicate roles).
+			if deps.RBACHandler != nil {
+				r.Post("/api/v1/s2s/roles/sync", deps.RBACHandler.SyncServiceRoles)
+			}
 		})
 	}
 
