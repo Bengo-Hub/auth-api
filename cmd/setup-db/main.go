@@ -17,9 +17,14 @@ import (
 func main() {
 	_ = godotenv.Load()
 
+	// setup-db creates the database/role via admin DDL, which must bypass PgBouncer's
+	// transaction pooling. Prefer the direct connection (POSTGRES_MIGRATE_URL) like cmd/migrate.
 	// Standardized: POSTGRES_URL (matches config.go DatabaseConfig env tag)
 	// Legacy fallbacks kept for backward compatibility with older values.yaml
-	dbURL := os.Getenv("POSTGRES_URL")
+	dbURL := os.Getenv("POSTGRES_MIGRATE_URL")
+	if dbURL == "" {
+		dbURL = os.Getenv("POSTGRES_URL")
+	}
 	if dbURL == "" {
 		dbURL = os.Getenv("AUTH_DB_URL")
 	}
