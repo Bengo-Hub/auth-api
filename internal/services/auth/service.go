@@ -383,7 +383,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		plan := defaultTrialPlan(primaryUseCase, meta, in.SelectedPlan)
 
 		if s.subscriptionCl != nil {
-			sub, err := s.subscriptionCl.CreateTrialSubscription(ctx, tenantEntity.ID, plan)
+			sub, err := s.subscriptionCl.CreateTrialSubscription(ctx, tenantEntity.ID, plan, tenantEntity.Slug, tenantEntity.Name)
 			if err != nil {
 				s.logger.Warn("failed to provision trial subscription",
 					zap.String("tenant_id", tenantEntity.ID.String()),

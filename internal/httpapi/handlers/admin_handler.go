@@ -223,7 +223,7 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if plan != "" && h.subClient != nil {
-		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan)
+		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan, t.Slug, t.Name)
 		if err != nil {
 			h.logger.Warn("failed to provision trial subscription", zap.String("tenant_id", t.ID.String()), zap.Error(err))
 		} else {
@@ -360,7 +360,7 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 	}
 
 	if plan != "" && h.subClient != nil {
-		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan)
+		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan, t.Slug, t.Name)
 		if err != nil {
 			h.logger.Warn("failed to provision trial subscription", zap.String("tenant_id", t.ID.String()), zap.Error(err))
 		} else {
