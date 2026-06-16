@@ -66,6 +66,9 @@ type PasswordResetToken func(*sql.Selector)
 // Permission is the predicate function for permission builders.
 type Permission func(*sql.Selector)
 
+// PlatformBackupSetting is the predicate function for platformbackupsetting builders.
+type PlatformBackupSetting func(*sql.Selector)
+
 // PortalShortLink is the predicate function for portalshortlink builders.
 type PortalShortLink func(*sql.Selector)
 

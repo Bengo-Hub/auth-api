@@ -117,8 +117,10 @@ type AuthHandlers struct {
 	SendOTP   http.HandlerFunc
 	VerifyOTP http.HandlerFunc
 	// Platform backup management
-	ListBackups    http.HandlerFunc
-	DownloadBackup http.HandlerFunc
+	ListBackups          http.HandlerFunc
+	DownloadBackup       http.HandlerFunc
+	GetBackupSettings    http.HandlerFunc
+	UpdateBackupSettings http.HandlerFunc
 	// Outlet / branch management
 	OutletHandler *handlers.OutletHandler
 	// WebAuthn / passkey biometric authentication
@@ -386,6 +388,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 				}
 				// Platform backup management (platform admins only)
 				r.Get("/backups", deps.AuthHandlers.ListBackups)
+				// Auto-backup activation settings — register the static path BEFORE the
+				// {filename} wildcard so GET /backups/settings is never shadowed.
+				r.Get("/backups/settings", deps.AuthHandlers.GetBackupSettings)
+				r.Put("/backups/settings", deps.AuthHandlers.UpdateBackupSettings)
 				r.Get("/backups/{filename}", deps.AuthHandlers.DownloadBackup)
 				// Platform user management (platform admins only)
 				if deps.UserHandler != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/bengobox/auth-api/internal/httpapi"
 	"github.com/bengobox/auth-api/internal/httpapi/handlers"
 	httpmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/modules/platformbackup"
 	eventslib "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/password"
 	platformevents "github.com/bengobox/auth-api/internal/platform/events"
@@ -185,6 +186,9 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	}
 
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger)
+	// Platform-wide auto-backup activation (single-row, opt-in, default OFF).
+	platformBackupSvc := platformbackup.NewService(entClient)
+	backupHandler := handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled, platformBackupSvc)
 	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
@@ -283,9 +287,11 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			// OTP (email verification for Vera AI ticket flow)
 			SendOTP:   authHandler.SendOTP,
 			VerifyOTP: authHandler.VerifyOTP,
-			// Platform backup management
-			ListBackups:    handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled).ListBackups,
-			DownloadBackup: handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled).DownloadBackup,
+			// Platform backup management (single shared handler instance)
+			ListBackups:          backupHandler.ListBackups,
+			DownloadBackup:       backupHandler.DownloadBackup,
+			GetBackupSettings:    backupHandler.GetSettings,
+			UpdateBackupSettings: backupHandler.UpdateSettings,
 			// WebAuthn / passkey biometric login
 			WebAuthnBeginRegistration:    webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.BeginRegistration }),
 			WebAuthnFinishRegistration:   webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.FinishRegistration }),
@@ -318,6 +324,16 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			subSubscriber = nil
 		}
 	}
+
+	// Start the platform-wide pg_dumpall DR backup scheduler. The master switch is
+	// cfg.Backup.ScheduleEnabled (default true); the actual backup run is still gated by
+	// the DB-stored auto_enabled flag (opt-in, default OFF). DSN reuses the same connection
+	// string the ent client connects with (cfg.Database.URL).
+	platformbackup.NewScheduler(platformBackupSvc, sqlDB, platformbackup.SchedulerConfig{
+		Enabled:   cfg.Backup.ScheduleEnabled,
+		BackupDir: cfg.Backup.Dir,
+		DSN:       cfg.Database.URL,
+	}, logger).Start(ctx)
 
 	return &App{
 		cfg:                    cfg,

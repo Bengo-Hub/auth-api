@@ -25,6 +25,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/passwordpolicy"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/platformbackupsetting"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
 	"github.com/bengobox/auth-api/internal/ent/role"
@@ -572,6 +573,34 @@ func init() {
 	permissionDescAction := permissionFields[2].Descriptor()
 	// permission.ActionValidator is a validator for the "action" field. It is called by the builders before save.
 	permission.ActionValidator = permissionDescAction.Validators[0].(func(string) error)
+	platformbackupsettingFields := schema.PlatformBackupSetting{}.Fields()
+	_ = platformbackupsettingFields
+	// platformbackupsettingDescAutoEnabled is the schema descriptor for auto_enabled field.
+	platformbackupsettingDescAutoEnabled := platformbackupsettingFields[2].Descriptor()
+	// platformbackupsetting.DefaultAutoEnabled holds the default value on creation for the auto_enabled field.
+	platformbackupsetting.DefaultAutoEnabled = platformbackupsettingDescAutoEnabled.Default.(bool)
+	// platformbackupsettingDescScheduleHour is the schema descriptor for schedule_hour field.
+	platformbackupsettingDescScheduleHour := platformbackupsettingFields[3].Descriptor()
+	// platformbackupsetting.DefaultScheduleHour holds the default value on creation for the schedule_hour field.
+	platformbackupsetting.DefaultScheduleHour = platformbackupsettingDescScheduleHour.Default.(int)
+	// platformbackupsettingDescRetentionDays is the schema descriptor for retention_days field.
+	platformbackupsettingDescRetentionDays := platformbackupsettingFields[4].Descriptor()
+	// platformbackupsetting.DefaultRetentionDays holds the default value on creation for the retention_days field.
+	platformbackupsetting.DefaultRetentionDays = platformbackupsettingDescRetentionDays.Default.(int)
+	// platformbackupsettingDescCreatedAt is the schema descriptor for created_at field.
+	platformbackupsettingDescCreatedAt := platformbackupsettingFields[5].Descriptor()
+	// platformbackupsetting.DefaultCreatedAt holds the default value on creation for the created_at field.
+	platformbackupsetting.DefaultCreatedAt = platformbackupsettingDescCreatedAt.Default.(func() time.Time)
+	// platformbackupsettingDescUpdatedAt is the schema descriptor for updated_at field.
+	platformbackupsettingDescUpdatedAt := platformbackupsettingFields[6].Descriptor()
+	// platformbackupsetting.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	platformbackupsetting.DefaultUpdatedAt = platformbackupsettingDescUpdatedAt.Default.(func() time.Time)
+	// platformbackupsetting.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	platformbackupsetting.UpdateDefaultUpdatedAt = platformbackupsettingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// platformbackupsettingDescID is the schema descriptor for id field.
+	platformbackupsettingDescID := platformbackupsettingFields[0].Descriptor()
+	// platformbackupsetting.DefaultID holds the default value on creation for the id field.
+	platformbackupsetting.DefaultID = platformbackupsettingDescID.Default.(func() uuid.UUID)
 	portalshortlinkFields := schema.PortalShortLink{}.Fields()
 	_ = portalshortlinkFields
 	// portalshortlinkDescCode is the schema descriptor for code field.

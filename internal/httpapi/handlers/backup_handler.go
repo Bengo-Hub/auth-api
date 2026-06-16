@@ -9,26 +9,68 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bengobox/auth-api/internal/modules/platformbackup"
 	"github.com/go-chi/chi/v5"
 )
 
 // BackupHandler provides endpoints for platform admins to list and download PostgreSQL backups.
 // Backups are served by an internal nginx service (backup-server) in the infra namespace.
+// It also exposes the single-row platform auto-backup activation settings (opt-in, default OFF).
 type BackupHandler struct {
 	backupServiceURL string
 	enabled          bool
 	httpClient       *http.Client
+	settings         *platformbackup.Service
 }
 
-// NewBackupHandler creates a handler that proxies backup requests to the internal backup-server.
-func NewBackupHandler(backupServiceURL string, enabled bool) *BackupHandler {
+// NewBackupHandler creates a handler that proxies backup requests to the internal backup-server
+// and manages the platform auto-backup activation settings.
+func NewBackupHandler(backupServiceURL string, enabled bool, settings *platformbackup.Service) *BackupHandler {
 	return &BackupHandler{
 		backupServiceURL: strings.TrimRight(backupServiceURL, "/"),
 		enabled:          enabled,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Minute, // backups can be large
 		},
+		settings: settings,
 	}
+}
+
+// GetSettings returns the platform auto-backup activation settings
+// (GET /api/v1/admin/backups/settings). Admin-only via the /admin + RequireAuth group.
+func (h *BackupHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	if h.settings == nil {
+		http.Error(w, `{"error":"backup settings unavailable"}`, http.StatusServiceUnavailable)
+		return
+	}
+	s, err := h.settings.Get(r.Context())
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to load settings: %s"}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(s)
+}
+
+// UpdateSettings upserts the platform auto-backup activation settings
+// (PUT /api/v1/admin/backups/settings). Admin-only via the /admin + RequireAuth group.
+func (h *BackupHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+	if h.settings == nil {
+		http.Error(w, `{"error":"backup settings unavailable"}`, http.StatusServiceUnavailable)
+		return
+	}
+	var in platformbackup.Settings
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+	s, err := h.settings.Upsert(r.Context(), in)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to save settings: %s"}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(s)
 }
 
 // ListBackups returns the backup manifest (GET /api/v1/platform/backups).

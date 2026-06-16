@@ -31,6 +31,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/passwordpolicy"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
+	"github.com/bengobox/auth-api/internal/ent/platformbackupsetting"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
@@ -75,6 +76,7 @@ const (
 	TypePasswordPolicy          = "PasswordPolicy"
 	TypePasswordResetToken      = "PasswordResetToken"
 	TypePermission              = "Permission"
+	TypePlatformBackupSetting   = "PlatformBackupSetting"
 	TypePortalShortLink         = "PortalShortLink"
 	TypeReferralLink            = "ReferralLink"
 	TypeRole                    = "Role"
@@ -17606,6 +17608,677 @@ func (m *PermissionMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *PermissionMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Permission edge %s", name)
+}
+
+// PlatformBackupSettingMutation represents an operation that mutates the PlatformBackupSetting nodes in the graph.
+type PlatformBackupSettingMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *uuid.UUID
+	singleton         *string
+	auto_enabled      *bool
+	schedule_hour     *int
+	addschedule_hour  *int
+	retention_days    *int
+	addretention_days *int
+	created_at        *time.Time
+	updated_at        *time.Time
+	clearedFields     map[string]struct{}
+	done              bool
+	oldValue          func(context.Context) (*PlatformBackupSetting, error)
+	predicates        []predicate.PlatformBackupSetting
+}
+
+var _ ent.Mutation = (*PlatformBackupSettingMutation)(nil)
+
+// platformbackupsettingOption allows management of the mutation configuration using functional options.
+type platformbackupsettingOption func(*PlatformBackupSettingMutation)
+
+// newPlatformBackupSettingMutation creates new mutation for the PlatformBackupSetting entity.
+func newPlatformBackupSettingMutation(c config, op Op, opts ...platformbackupsettingOption) *PlatformBackupSettingMutation {
+	m := &PlatformBackupSettingMutation{
+		config:        c,
+		op:            op,
+		typ:           TypePlatformBackupSetting,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withPlatformBackupSettingID sets the ID field of the mutation.
+func withPlatformBackupSettingID(id uuid.UUID) platformbackupsettingOption {
+	return func(m *PlatformBackupSettingMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *PlatformBackupSetting
+		)
+		m.oldValue = func(ctx context.Context) (*PlatformBackupSetting, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().PlatformBackupSetting.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withPlatformBackupSetting sets the old PlatformBackupSetting of the mutation.
+func withPlatformBackupSetting(node *PlatformBackupSetting) platformbackupsettingOption {
+	return func(m *PlatformBackupSettingMutation) {
+		m.oldValue = func(context.Context) (*PlatformBackupSetting, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m PlatformBackupSettingMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m PlatformBackupSettingMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of PlatformBackupSetting entities.
+func (m *PlatformBackupSettingMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *PlatformBackupSettingMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *PlatformBackupSettingMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().PlatformBackupSetting.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSingleton sets the "singleton" field.
+func (m *PlatformBackupSettingMutation) SetSingleton(s string) {
+	m.singleton = &s
+}
+
+// Singleton returns the value of the "singleton" field in the mutation.
+func (m *PlatformBackupSettingMutation) Singleton() (r string, exists bool) {
+	v := m.singleton
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSingleton returns the old "singleton" field's value of the PlatformBackupSetting entity.
+// If the PlatformBackupSetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlatformBackupSettingMutation) OldSingleton(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSingleton is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSingleton requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSingleton: %w", err)
+	}
+	return oldValue.Singleton, nil
+}
+
+// ResetSingleton resets all changes to the "singleton" field.
+func (m *PlatformBackupSettingMutation) ResetSingleton() {
+	m.singleton = nil
+}
+
+// SetAutoEnabled sets the "auto_enabled" field.
+func (m *PlatformBackupSettingMutation) SetAutoEnabled(b bool) {
+	m.auto_enabled = &b
+}
+
+// AutoEnabled returns the value of the "auto_enabled" field in the mutation.
+func (m *PlatformBackupSettingMutation) AutoEnabled() (r bool, exists bool) {
+	v := m.auto_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAutoEnabled returns the old "auto_enabled" field's value of the PlatformBackupSetting entity.
+// If the PlatformBackupSetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlatformBackupSettingMutation) OldAutoEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAutoEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAutoEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAutoEnabled: %w", err)
+	}
+	return oldValue.AutoEnabled, nil
+}
+
+// ResetAutoEnabled resets all changes to the "auto_enabled" field.
+func (m *PlatformBackupSettingMutation) ResetAutoEnabled() {
+	m.auto_enabled = nil
+}
+
+// SetScheduleHour sets the "schedule_hour" field.
+func (m *PlatformBackupSettingMutation) SetScheduleHour(i int) {
+	m.schedule_hour = &i
+	m.addschedule_hour = nil
+}
+
+// ScheduleHour returns the value of the "schedule_hour" field in the mutation.
+func (m *PlatformBackupSettingMutation) ScheduleHour() (r int, exists bool) {
+	v := m.schedule_hour
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScheduleHour returns the old "schedule_hour" field's value of the PlatformBackupSetting entity.
+// If the PlatformBackupSetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlatformBackupSettingMutation) OldScheduleHour(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScheduleHour is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScheduleHour requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScheduleHour: %w", err)
+	}
+	return oldValue.ScheduleHour, nil
+}
+
+// AddScheduleHour adds i to the "schedule_hour" field.
+func (m *PlatformBackupSettingMutation) AddScheduleHour(i int) {
+	if m.addschedule_hour != nil {
+		*m.addschedule_hour += i
+	} else {
+		m.addschedule_hour = &i
+	}
+}
+
+// AddedScheduleHour returns the value that was added to the "schedule_hour" field in this mutation.
+func (m *PlatformBackupSettingMutation) AddedScheduleHour() (r int, exists bool) {
+	v := m.addschedule_hour
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetScheduleHour resets all changes to the "schedule_hour" field.
+func (m *PlatformBackupSettingMutation) ResetScheduleHour() {
+	m.schedule_hour = nil
+	m.addschedule_hour = nil
+}
+
+// SetRetentionDays sets the "retention_days" field.
+func (m *PlatformBackupSettingMutation) SetRetentionDays(i int) {
+	m.retention_days = &i
+	m.addretention_days = nil
+}
+
+// RetentionDays returns the value of the "retention_days" field in the mutation.
+func (m *PlatformBackupSettingMutation) RetentionDays() (r int, exists bool) {
+	v := m.retention_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRetentionDays returns the old "retention_days" field's value of the PlatformBackupSetting entity.
+// If the PlatformBackupSetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlatformBackupSettingMutation) OldRetentionDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRetentionDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRetentionDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRetentionDays: %w", err)
+	}
+	return oldValue.RetentionDays, nil
+}
+
+// AddRetentionDays adds i to the "retention_days" field.
+func (m *PlatformBackupSettingMutation) AddRetentionDays(i int) {
+	if m.addretention_days != nil {
+		*m.addretention_days += i
+	} else {
+		m.addretention_days = &i
+	}
+}
+
+// AddedRetentionDays returns the value that was added to the "retention_days" field in this mutation.
+func (m *PlatformBackupSettingMutation) AddedRetentionDays() (r int, exists bool) {
+	v := m.addretention_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRetentionDays resets all changes to the "retention_days" field.
+func (m *PlatformBackupSettingMutation) ResetRetentionDays() {
+	m.retention_days = nil
+	m.addretention_days = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *PlatformBackupSettingMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *PlatformBackupSettingMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the PlatformBackupSetting entity.
+// If the PlatformBackupSetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlatformBackupSettingMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *PlatformBackupSettingMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *PlatformBackupSettingMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *PlatformBackupSettingMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the PlatformBackupSetting entity.
+// If the PlatformBackupSetting object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PlatformBackupSettingMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *PlatformBackupSettingMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the PlatformBackupSettingMutation builder.
+func (m *PlatformBackupSettingMutation) Where(ps ...predicate.PlatformBackupSetting) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the PlatformBackupSettingMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *PlatformBackupSettingMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.PlatformBackupSetting, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *PlatformBackupSettingMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *PlatformBackupSettingMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (PlatformBackupSetting).
+func (m *PlatformBackupSettingMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *PlatformBackupSettingMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.singleton != nil {
+		fields = append(fields, platformbackupsetting.FieldSingleton)
+	}
+	if m.auto_enabled != nil {
+		fields = append(fields, platformbackupsetting.FieldAutoEnabled)
+	}
+	if m.schedule_hour != nil {
+		fields = append(fields, platformbackupsetting.FieldScheduleHour)
+	}
+	if m.retention_days != nil {
+		fields = append(fields, platformbackupsetting.FieldRetentionDays)
+	}
+	if m.created_at != nil {
+		fields = append(fields, platformbackupsetting.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, platformbackupsetting.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *PlatformBackupSettingMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case platformbackupsetting.FieldSingleton:
+		return m.Singleton()
+	case platformbackupsetting.FieldAutoEnabled:
+		return m.AutoEnabled()
+	case platformbackupsetting.FieldScheduleHour:
+		return m.ScheduleHour()
+	case platformbackupsetting.FieldRetentionDays:
+		return m.RetentionDays()
+	case platformbackupsetting.FieldCreatedAt:
+		return m.CreatedAt()
+	case platformbackupsetting.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *PlatformBackupSettingMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case platformbackupsetting.FieldSingleton:
+		return m.OldSingleton(ctx)
+	case platformbackupsetting.FieldAutoEnabled:
+		return m.OldAutoEnabled(ctx)
+	case platformbackupsetting.FieldScheduleHour:
+		return m.OldScheduleHour(ctx)
+	case platformbackupsetting.FieldRetentionDays:
+		return m.OldRetentionDays(ctx)
+	case platformbackupsetting.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case platformbackupsetting.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown PlatformBackupSetting field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PlatformBackupSettingMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case platformbackupsetting.FieldSingleton:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSingleton(v)
+		return nil
+	case platformbackupsetting.FieldAutoEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAutoEnabled(v)
+		return nil
+	case platformbackupsetting.FieldScheduleHour:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScheduleHour(v)
+		return nil
+	case platformbackupsetting.FieldRetentionDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRetentionDays(v)
+		return nil
+	case platformbackupsetting.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case platformbackupsetting.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PlatformBackupSetting field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *PlatformBackupSettingMutation) AddedFields() []string {
+	var fields []string
+	if m.addschedule_hour != nil {
+		fields = append(fields, platformbackupsetting.FieldScheduleHour)
+	}
+	if m.addretention_days != nil {
+		fields = append(fields, platformbackupsetting.FieldRetentionDays)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *PlatformBackupSettingMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case platformbackupsetting.FieldScheduleHour:
+		return m.AddedScheduleHour()
+	case platformbackupsetting.FieldRetentionDays:
+		return m.AddedRetentionDays()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PlatformBackupSettingMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case platformbackupsetting.FieldScheduleHour:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddScheduleHour(v)
+		return nil
+	case platformbackupsetting.FieldRetentionDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRetentionDays(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PlatformBackupSetting numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *PlatformBackupSettingMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *PlatformBackupSettingMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *PlatformBackupSettingMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown PlatformBackupSetting nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *PlatformBackupSettingMutation) ResetField(name string) error {
+	switch name {
+	case platformbackupsetting.FieldSingleton:
+		m.ResetSingleton()
+		return nil
+	case platformbackupsetting.FieldAutoEnabled:
+		m.ResetAutoEnabled()
+		return nil
+	case platformbackupsetting.FieldScheduleHour:
+		m.ResetScheduleHour()
+		return nil
+	case platformbackupsetting.FieldRetentionDays:
+		m.ResetRetentionDays()
+		return nil
+	case platformbackupsetting.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case platformbackupsetting.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown PlatformBackupSetting field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *PlatformBackupSettingMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *PlatformBackupSettingMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *PlatformBackupSettingMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *PlatformBackupSettingMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *PlatformBackupSettingMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *PlatformBackupSettingMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *PlatformBackupSettingMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown PlatformBackupSetting unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *PlatformBackupSettingMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown PlatformBackupSetting edge %s", name)
 }
 
 // PortalShortLinkMutation represents an operation that mutates the PortalShortLink nodes in the graph.
