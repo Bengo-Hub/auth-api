@@ -184,13 +184,17 @@ func (c *Client) GetTenantSubscription(ctx context.Context, tenantID uuid.UUID) 
 	return &sub, nil
 }
 // CreateTrialSubscription provisions a new trial subscription for a tenant.
-func (c *Client) CreateTrialSubscription(ctx context.Context, tenantID uuid.UUID, planCode string) (*TenantSubscription, error) {
+// slug and name seed the subscription service's local tenant projection on demand,
+// so provisioning at signup does not race the async auth.tenant.created sync.
+func (c *Client) CreateTrialSubscription(ctx context.Context, tenantID uuid.UUID, planCode, slug, name string) (*TenantSubscription, error) {
 	path := "/api/v1/subscription"
 
 	reqBody := map[string]any{
-		"tenant_id":  tenantID.String(),
-		"plan_code":  planCode,
-		"trial_days": 14, // Default trial period
+		"tenant_id":   tenantID.String(),
+		"plan_code":   planCode,
+		"trial_days":  14, // Default trial period
+		"tenant_slug": slug,
+		"tenant_name": name,
 	}
 
 	headers := make(map[string]string)
