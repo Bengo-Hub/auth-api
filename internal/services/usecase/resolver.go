@@ -26,6 +26,12 @@ var KnownUseCases = []string{
 	"commercial_weighing",
 	"axle_load_enforcement",
 	"manufacturing",
+	// ISP / hotspot providers onboard onto isp-billing. The signup form folds both
+	// "isp" and "hotspot" selections into use_case "isp" (the hotspot distinction is
+	// kept in tenant metadata.isp_business_type); "hotspot" is accepted here too for
+	// completeness.
+	"isp",
+	"hotspot",
 }
 
 // ApplicableServices returns which downstream services receive outlet sync events
@@ -38,10 +44,12 @@ func ApplicableServices(useCase string) []string {
 		return []string{"pos-api", "inventory-api"}
 	case "warehouse", "manufacturing":
 		return []string{"inventory-api"}
-	case "logistics":
+	case "logistics", "delivery", "courier", "distribution":
 		return []string{"logistics-api"}
-	case "commercial_weighing", "axle_load_enforcement":
+	case "commercial_weighing", "axle_load_enforcement", "weighbridge", "weighing":
 		return []string{"truload"}
+	case "isp", "hotspot", "pppoe", "wifi":
+		return []string{"isp-billing"}
 	default:
 		return []string{}
 	}
@@ -187,6 +195,18 @@ func (s *Service) ResolveConfig(ctx context.Context, useCase string) *Config {
 				"catalog_nomenclature":  "Bill of Materials",
 				"item_nomenclature":     "Product",
 				"category_nomenclature": "Product Line",
+			},
+		}
+	case "isp", "hotspot":
+		return &Config{
+			UseCase:            useCase,
+			DisplayName:        "ISP / Hotspot",
+			ApplicableServices: applicable,
+			Features:           []string{"hotspot_management", "pppoe_management", "voucher_system", "customer_management", "router_management"},
+			Settings: map[string]any{
+				"catalog_nomenclature":  "Packages",
+				"item_nomenclature":     "Plan",
+				"category_nomenclature": "Service Type",
 			},
 		}
 	default:
