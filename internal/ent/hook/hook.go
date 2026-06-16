@@ -249,6 +249,18 @@ func (f PermissionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PermissionMutation", m)
 }
 
+// The PlatformBackupSettingFunc type is an adapter to allow the use of ordinary
+// function as PlatformBackupSetting mutator.
+type PlatformBackupSettingFunc func(context.Context, *ent.PlatformBackupSettingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PlatformBackupSettingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PlatformBackupSettingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PlatformBackupSettingMutation", m)
+}
+
 // The PortalShortLinkFunc type is an adapter to allow the use of ordinary
 // function as PortalShortLink mutator.
 type PortalShortLinkFunc func(context.Context, *ent.PortalShortLinkMutation) (ent.Value, error)

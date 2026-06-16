@@ -598,6 +598,22 @@ var (
 			},
 		},
 	}
+	// PlatformBackupSettingsColumns holds the columns for the "platform_backup_settings" table.
+	PlatformBackupSettingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "singleton", Type: field.TypeString, Unique: true},
+		{Name: "auto_enabled", Type: field.TypeBool, Default: false},
+		{Name: "schedule_hour", Type: field.TypeInt, Default: 2},
+		{Name: "retention_days", Type: field.TypeInt, Default: 4},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// PlatformBackupSettingsTable holds the schema information for the "platform_backup_settings" table.
+	PlatformBackupSettingsTable = &schema.Table{
+		Name:       "platform_backup_settings",
+		Columns:    PlatformBackupSettingsColumns,
+		PrimaryKey: []*schema.Column{PlatformBackupSettingsColumns[0]},
+	}
 	// PortalShortLinksColumns holds the columns for the "portal_short_links" table.
 	PortalShortLinksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -978,6 +994,7 @@ var (
 		PasswordPoliciesTable,
 		PasswordResetTokensTable,
 		PermissionsTable,
+		PlatformBackupSettingsTable,
 		PortalShortLinksTable,
 		ReferralLinksTable,
 		RolesTable,
