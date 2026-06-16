@@ -103,8 +103,19 @@ func (h *OIDCHandler) JWKS(w http.ResponseWriter, r *http.Request) {
 func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
-		// Redirect to Auth UI login page
-		loginURL := h.cfg.App.AuthUIURL + "/login"
+		// Unauthenticated: send the user to the Auth UI. A "sign-up" hint
+		// (prompt=create or screen_hint=signup) routes new users to the signup
+		// wizard instead of login; the originating service's full authorize URL
+		// rides along as return_to so the flow lands back on its /auth/callback
+		// (with the PKCE verifier it stored) after signup → login completes.
+		dest := "/login"
+		if hint := r.URL.Query().Get("prompt"); hint == "create" || hint == "signup" {
+			dest = "/signup"
+		}
+		if hint := r.URL.Query().Get("screen_hint"); hint == "signup" || hint == "create" {
+			dest = "/signup"
+		}
+		loginURL := h.cfg.App.AuthUIURL + dest
 
 		// Preserve the original authorize request as return_to
 		fullAuthorizeURL := h.cfg.Token.Issuer + r.URL.RequestURI()

@@ -213,6 +213,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		AuthHandlers: httpapi.AuthHandlers{
 			Register:                     authHandler.Register,
 			RegisterOAuth:                authHandler.RegisterOAuth,
+			SendEmailCode:                authHandler.SendEmailCode,
+			VerifyEmailCode:              authHandler.VerifyEmailCode,
 			Login:                        authHandler.Login,
 			Refresh:                      authHandler.Refresh,
 			RequestPasswordReset:         authHandler.RequestPasswordReset,

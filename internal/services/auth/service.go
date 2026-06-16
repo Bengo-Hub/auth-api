@@ -302,6 +302,36 @@ func (s *Service) GetTenant(ctx context.Context, id uuid.UUID) (*ent.Tenant, err
 	return s.entClient.Tenant.Get(ctx, id)
 }
 
+// defaultTrialPlan picks the trial plan code for a newly-created tenant. An
+// explicit selection always wins. ISP/hotspot tenants are routed to their
+// isp-billing plan family (hotspot businesses → ISP_HOTSPOT_STARTER, KES 500;
+// PPPoE/ISP → ISP_PPPOE_STARTER, KES 1000) so subscription gating grants the
+// isp_billing features their dashboard requires. Everyone else gets STARTER.
+func defaultTrialPlan(useCase string, metadata map[string]any, selected string) string {
+	if selected != "" {
+		return selected
+	}
+	switch useCase {
+	case "isp", "hotspot":
+		bizType, _ := metadata["isp_business_type"].(string)
+		if useCase == "hotspot" || bizType == "hotspot" {
+			return "ISP_HOTSPOT_STARTER"
+		}
+		return "ISP_PPPOE_STARTER"
+	default:
+		return "STARTER"
+	}
+}
+
+// EmailExists reports whether a user already exists with the given email.
+// Used by the pre-signup email-verification flow to short-circuit fake/duplicate
+// signups and tell the caller to sign in instead.
+func (s *Service) EmailExists(ctx context.Context, email string) (bool, error) {
+	return s.entClient.User.Query().
+		Where(user.EmailEQ(normalizeEmail(email))).
+		Exist(ctx)
+}
+
 // Register creates a new user and returns session tokens.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, error) {
 	// Password validation is skipped for OAuth registrations (empty password).
@@ -348,11 +378,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 			}
 		}
 		// Publish tenant.created event for downstream service sync.
-		// Auto-assign STARTER plan with free trial for all new tenants.
-		plan := "STARTER"
-		if in.SelectedPlan != "" {
-			plan = in.SelectedPlan
-		}
+		// Auto-assign a trial plan. ISP/hotspot tenants must land on an isp-billing
+		// plan (not the generic STARTER) or subscription gating blocks their dashboard.
+		plan := defaultTrialPlan(primaryUseCase, meta, in.SelectedPlan)
 
 		if s.subscriptionCl != nil {
 			sub, err := s.subscriptionCl.CreateTrialSubscription(ctx, tenantEntity.ID, plan)

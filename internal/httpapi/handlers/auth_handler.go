@@ -52,6 +52,7 @@ type AuthService interface {
 	AcceptTerms(ctx context.Context, userID uuid.UUID) error
 	ChangePassword(ctx context.Context, in auth.ChangePasswordInput) error
 	SendOTPEmail(ctx context.Context, tenantID, userID uuid.UUID, email, otp string)
+	EmailExists(ctx context.Context, email string) (bool, error)
 }
 
 // UseCaseService describes the use case logic capabilities.
@@ -280,6 +281,19 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Email/password signups must verify their email via OTP first (the auth-ui
+	// signup wizard gates on /auth/email/verify-code). OAuth signups carry a
+	// provider-verified email and skip this. Enforced only when Redis is wired —
+	// the send/verify endpoints depend on it, so without Redis nobody could verify.
+	if req.Password != "" && h.redis != nil && h.redisNamespace != "" {
+		verified, _ := h.redis.Get(r.Context(), h.signupVerifiedKey(req.Email)).Result()
+		if verified != "1" {
+			writeError(w, http.StatusForbidden, "email_not_verified",
+				"Please verify your email address before creating an account.", nil)
+			return
+		}
+	}
+
 	result, err := h.service.Register(r.Context(), auth.RegisterInput{
 		Email:         req.Email,
 		Password:      req.Password,
@@ -298,6 +312,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.handleError(w, r, err)
 		return
+	}
+	// Consume the one-time email-verification marker so it cannot be reused.
+	if h.redis != nil && h.redisNamespace != "" {
+		_ = h.redis.Del(r.Context(), h.signupVerifiedKey(req.Email)).Err()
 	}
 	writeJSON(w, http.StatusCreated, h.toAuthResponse(result))
 }
@@ -1354,4 +1372,133 @@ func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		"verified":  true,
 		"otp_token": otpToken,
 	})
+}
+
+// ── Pre-signup email verification (unauthenticated) ──────────────────────────
+// These power the auth-ui signup wizard's "Verify Email" step. They are keyed by
+// email (not user id) because the user does not exist yet. The Register handler
+// requires the verified marker before creating an email/password account.
+
+func normalizeSignupEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func (h *AuthHandler) signupOTPKey(email string) string {
+	return h.redisNamespace + ":signup:otp:" + normalizeSignupEmail(email)
+}
+
+func (h *AuthHandler) signupVerifiedKey(email string) string {
+	return h.redisNamespace + ":signup:verified:" + normalizeSignupEmail(email)
+}
+
+func (h *AuthHandler) signupRateKey(email string) string {
+	return h.redisNamespace + ":signup:otp:rate:" + normalizeSignupEmail(email)
+}
+
+// SendEmailCode generates and emails a 6-digit verification code for a signup.
+// POST /api/v1/auth/email/send-code  body: {email, tenant_slug?}
+func (h *AuthHandler) SendEmailCode(w http.ResponseWriter, r *http.Request) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "email verification not configured", nil)
+		return
+	}
+
+	var req struct {
+		Email      string `json:"email"`
+		TenantSlug string `json:"tenant_slug"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	email := normalizeSignupEmail(req.Email)
+	if email == "" || !strings.Contains(email, "@") {
+		writeError(w, http.StatusBadRequest, "invalid_request", "a valid email is required", nil)
+		return
+	}
+
+	// Reject emails that already have an account — tell them to sign in instead.
+	if exists, err := h.service.EmailExists(r.Context(), email); err == nil && exists {
+		writeError(w, http.StatusConflict, "email_exists",
+			"An account with this email already exists. Please sign in.", nil)
+		return
+	}
+
+	// Simple per-email rate limit: max 5 codes per 10 minutes.
+	rateKey := h.signupRateKey(email)
+	count, _ := h.redis.Incr(r.Context(), rateKey).Result()
+	if count == 1 {
+		_ = h.redis.Expire(r.Context(), rateKey, 10*time.Minute).Err()
+	}
+	if count > 5 {
+		writeError(w, http.StatusTooManyRequests, "rate_limited",
+			"Too many verification attempts. Please try again later.", nil)
+		return
+	}
+
+	otp, err := generateOTP()
+	if err != nil {
+		h.logger.Error("generate signup otp", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to generate code", nil)
+		return
+	}
+	// Store the hash for 10 minutes — one active code per email at a time.
+	_ = h.redis.Set(r.Context(), h.signupOTPKey(email), hashOTP(otp), 10*time.Minute).Err()
+
+	// Resolve a tenant for email branding: the provided slug (when joining an
+	// existing org), otherwise the platform tenant "codevertex".
+	brandingSlug := strings.TrimSpace(req.TenantSlug)
+	if brandingSlug == "" {
+		brandingSlug = "codevertex"
+	}
+	tenantID := uuid.Nil
+	if t, terr := h.service.GetTenantBySlug(r.Context(), brandingSlug); terr == nil && t != nil {
+		tenantID = t.ID
+	}
+	// Use a fresh per-send UUID so notifications-api's idempotency key (keyed by
+	// user_id + 5-min bucket) does not de-duplicate legitimate resends.
+	h.service.SendOTPEmail(r.Context(), tenantID, uuid.New(), email, otp)
+
+	writeJSON(w, http.StatusOK, map[string]any{"sent": true})
+}
+
+// VerifyEmailCode confirms a signup verification code and marks the email verified.
+// POST /api/v1/auth/email/verify-code  body: {email, code}
+func (h *AuthHandler) VerifyEmailCode(w http.ResponseWriter, r *http.Request) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "email verification not configured", nil)
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	email := normalizeSignupEmail(req.Email)
+	code := strings.TrimSpace(req.Code)
+	if email == "" || code == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "email and code are required", nil)
+		return
+	}
+
+	stored, err := h.redis.Get(r.Context(), h.signupOTPKey(email)).Result()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "code_expired", "The code has expired or was not sent. Request a new one.", nil)
+		return
+	}
+	if stored != hashOTP(code) {
+		writeError(w, http.StatusBadRequest, "code_invalid", "The verification code is incorrect.", nil)
+		return
+	}
+
+	// Consume the code and mark the email verified for 30 minutes (long enough to
+	// finish the rest of the signup wizard).
+	_ = h.redis.Del(r.Context(), h.signupOTPKey(email)).Err()
+	_ = h.redis.Set(r.Context(), h.signupVerifiedKey(email), "1", 30*time.Minute).Err()
+
+	writeJSON(w, http.StatusOK, map[string]any{"verified": true})
 }

@@ -34,6 +34,8 @@ type RouterDeps struct {
 type AuthHandlers struct {
 	Register                     http.HandlerFunc
 	RegisterOAuth                http.HandlerFunc
+	SendEmailCode                http.HandlerFunc
+	VerifyEmailCode              http.HandlerFunc
 	Login                        http.HandlerFunc
 	Refresh                      http.HandlerFunc
 	RequestPasswordReset         http.HandlerFunc
@@ -228,6 +230,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/use-case/config", deps.AuthHandlers.GetUseCaseConfig)
 			r.Post("/register", deps.AuthHandlers.Register)
 			r.Post("/register/oauth", deps.AuthHandlers.RegisterOAuth)
+			// Pre-signup email verification (unauthenticated).
+			r.Post("/email/send-code", deps.AuthHandlers.SendEmailCode)
+			r.Post("/email/verify-code", deps.AuthHandlers.VerifyEmailCode)
 			if deps.RateLimitLogin != nil {
 				r.With(deps.RateLimitLogin).Post("/login", deps.AuthHandlers.Login)
 			} else {
