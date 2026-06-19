@@ -17,6 +17,7 @@ import (
 	"github.com/bengobox/auth-api/internal/httpapi/handlers"
 	httpmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/modules/platformbackup"
+	"github.com/bengobox/auth-api/internal/modules/platformbackup/destination"
 	eventslib "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/password"
 	platformevents "github.com/bengobox/auth-api/internal/platform/events"
@@ -189,6 +190,12 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	// Platform-wide auto-backup activation (single-row, opt-in, default OFF).
 	platformBackupSvc := platformbackup.NewService(entClient)
 	backupHandler := handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled, platformBackupSvc)
+	// Pluggable remote destination for the platform pg_dumpall backup (rclone mirror;
+	// PVC remains the durable primary + fallback). Config stored encrypted in
+	// IntegrationConfig (SECRET_KEY-derived AES-256-GCM); platform-owner managed.
+	backupDestStore := destination.NewStore(entClient, destination.NewSecretKeyCipher(), logger)
+	backupDestUploader := destination.NewUploader(backupDestStore, logger)
+	backupDestHandler := handlers.NewBackupDestinationHandler(backupDestStore, backupDestUploader, logger)
 	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
@@ -290,10 +297,13 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			SendOTP:   authHandler.SendOTP,
 			VerifyOTP: authHandler.VerifyOTP,
 			// Platform backup management (single shared handler instance)
-			ListBackups:          backupHandler.ListBackups,
-			DownloadBackup:       backupHandler.DownloadBackup,
-			GetBackupSettings:    backupHandler.GetSettings,
-			UpdateBackupSettings: backupHandler.UpdateSettings,
+			ListBackups:             backupHandler.ListBackups,
+			DownloadBackup:          backupHandler.DownloadBackup,
+			GetBackupSettings:       backupHandler.GetSettings,
+			UpdateBackupSettings:    backupHandler.UpdateSettings,
+			GetBackupDestination:    backupDestHandler.Get,
+			UpdateBackupDestination: backupDestHandler.Update,
+			TestBackupDestination:   backupDestHandler.Test,
 			// WebAuthn / passkey biometric login
 			WebAuthnBeginRegistration:    webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.BeginRegistration }),
 			WebAuthnFinishRegistration:   webAuthnHandlerFunc(webAuthnHandler, func(h *handlers.WebAuthnHandler) http.HandlerFunc { return h.FinishRegistration }),
@@ -335,7 +345,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		Enabled:   cfg.Backup.ScheduleEnabled,
 		BackupDir: cfg.Backup.Dir,
 		DSN:       cfg.Database.URL,
-	}, logger).Start(ctx)
+	}, logger).WithUploader(backupDestUploader).Start(ctx)
 
 	return &App{
 		cfg:                    cfg,
