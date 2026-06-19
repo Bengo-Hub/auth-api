@@ -264,6 +264,60 @@ func (_u *TenantUpdate) ClearUseCases() *TenantUpdate {
 	return _u
 }
 
+// SetTaxPin sets the "tax_pin" field.
+func (_u *TenantUpdate) SetTaxPin(v string) *TenantUpdate {
+	_u.mutation.SetTaxPin(v)
+	return _u
+}
+
+// SetNillableTaxPin sets the "tax_pin" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableTaxPin(v *string) *TenantUpdate {
+	if v != nil {
+		_u.SetTaxPin(*v)
+	}
+	return _u
+}
+
+// ClearTaxPin clears the value of the "tax_pin" field.
+func (_u *TenantUpdate) ClearTaxPin() *TenantUpdate {
+	_u.mutation.ClearTaxPin()
+	return _u
+}
+
+// SetVatRegistered sets the "vat_registered" field.
+func (_u *TenantUpdate) SetVatRegistered(v bool) *TenantUpdate {
+	_u.mutation.SetVatRegistered(v)
+	return _u
+}
+
+// SetNillableVatRegistered sets the "vat_registered" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableVatRegistered(v *bool) *TenantUpdate {
+	if v != nil {
+		_u.SetVatRegistered(*v)
+	}
+	return _u
+}
+
+// SetVatRegisteredOn sets the "vat_registered_on" field.
+func (_u *TenantUpdate) SetVatRegisteredOn(v time.Time) *TenantUpdate {
+	_u.mutation.SetVatRegisteredOn(v)
+	return _u
+}
+
+// SetNillableVatRegisteredOn sets the "vat_registered_on" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableVatRegisteredOn(v *time.Time) *TenantUpdate {
+	if v != nil {
+		_u.SetVatRegisteredOn(*v)
+	}
+	return _u
+}
+
+// ClearVatRegisteredOn clears the value of the "vat_registered_on" field.
+func (_u *TenantUpdate) ClearVatRegisteredOn() *TenantUpdate {
+	_u.mutation.ClearVatRegisteredOn()
+	return _u
+}
+
 // SetSubscriptionPlan sets the "subscription_plan" field.
 func (_u *TenantUpdate) SetSubscriptionPlan(v string) *TenantUpdate {
 	_u.mutation.SetSubscriptionPlan(v)
@@ -587,6 +641,21 @@ func (_u *TenantUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.UseCasesCleared() {
 		_spec.ClearField(tenant.FieldUseCases, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.TaxPin(); ok {
+		_spec.SetField(tenant.FieldTaxPin, field.TypeString, value)
+	}
+	if _u.mutation.TaxPinCleared() {
+		_spec.ClearField(tenant.FieldTaxPin, field.TypeString)
+	}
+	if value, ok := _u.mutation.VatRegistered(); ok {
+		_spec.SetField(tenant.FieldVatRegistered, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.VatRegisteredOn(); ok {
+		_spec.SetField(tenant.FieldVatRegisteredOn, field.TypeTime, value)
+	}
+	if _u.mutation.VatRegisteredOnCleared() {
+		_spec.ClearField(tenant.FieldVatRegisteredOn, field.TypeTime)
 	}
 	if value, ok := _u.mutation.SubscriptionPlan(); ok {
 		_spec.SetField(tenant.FieldSubscriptionPlan, field.TypeString, value)
@@ -969,6 +1038,60 @@ func (_u *TenantUpdateOne) ClearUseCases() *TenantUpdateOne {
 	return _u
 }
 
+// SetTaxPin sets the "tax_pin" field.
+func (_u *TenantUpdateOne) SetTaxPin(v string) *TenantUpdateOne {
+	_u.mutation.SetTaxPin(v)
+	return _u
+}
+
+// SetNillableTaxPin sets the "tax_pin" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableTaxPin(v *string) *TenantUpdateOne {
+	if v != nil {
+		_u.SetTaxPin(*v)
+	}
+	return _u
+}
+
+// ClearTaxPin clears the value of the "tax_pin" field.
+func (_u *TenantUpdateOne) ClearTaxPin() *TenantUpdateOne {
+	_u.mutation.ClearTaxPin()
+	return _u
+}
+
+// SetVatRegistered sets the "vat_registered" field.
+func (_u *TenantUpdateOne) SetVatRegistered(v bool) *TenantUpdateOne {
+	_u.mutation.SetVatRegistered(v)
+	return _u
+}
+
+// SetNillableVatRegistered sets the "vat_registered" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableVatRegistered(v *bool) *TenantUpdateOne {
+	if v != nil {
+		_u.SetVatRegistered(*v)
+	}
+	return _u
+}
+
+// SetVatRegisteredOn sets the "vat_registered_on" field.
+func (_u *TenantUpdateOne) SetVatRegisteredOn(v time.Time) *TenantUpdateOne {
+	_u.mutation.SetVatRegisteredOn(v)
+	return _u
+}
+
+// SetNillableVatRegisteredOn sets the "vat_registered_on" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableVatRegisteredOn(v *time.Time) *TenantUpdateOne {
+	if v != nil {
+		_u.SetVatRegisteredOn(*v)
+	}
+	return _u
+}
+
+// ClearVatRegisteredOn clears the value of the "vat_registered_on" field.
+func (_u *TenantUpdateOne) ClearVatRegisteredOn() *TenantUpdateOne {
+	_u.mutation.ClearVatRegisteredOn()
+	return _u
+}
+
 // SetSubscriptionPlan sets the "subscription_plan" field.
 func (_u *TenantUpdateOne) SetSubscriptionPlan(v string) *TenantUpdateOne {
 	_u.mutation.SetSubscriptionPlan(v)
@@ -1322,6 +1445,21 @@ func (_u *TenantUpdateOne) sqlSave(ctx context.Context) (_node *Tenant, err erro
 	}
 	if _u.mutation.UseCasesCleared() {
 		_spec.ClearField(tenant.FieldUseCases, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.TaxPin(); ok {
+		_spec.SetField(tenant.FieldTaxPin, field.TypeString, value)
+	}
+	if _u.mutation.TaxPinCleared() {
+		_spec.ClearField(tenant.FieldTaxPin, field.TypeString)
+	}
+	if value, ok := _u.mutation.VatRegistered(); ok {
+		_spec.SetField(tenant.FieldVatRegistered, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.VatRegisteredOn(); ok {
+		_spec.SetField(tenant.FieldVatRegisteredOn, field.TypeTime, value)
+	}
+	if _u.mutation.VatRegisteredOnCleared() {
+		_spec.ClearField(tenant.FieldVatRegisteredOn, field.TypeTime)
 	}
 	if value, ok := _u.mutation.SubscriptionPlan(); ok {
 		_spec.SetField(tenant.FieldSubscriptionPlan, field.TypeString, value)

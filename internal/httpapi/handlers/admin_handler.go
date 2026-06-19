@@ -125,13 +125,28 @@ func (h *AdminHandler) publishEvent(ctx context.Context, tenantID uuid.UUID, agg
 	writeOutboxEvent(ctx, h.ent, h.logger, tenantID, aggregateType, aggregateID, eventType, data)
 }
 
-func (h *AdminHandler) publishTenantEvent(ctx context.Context, tenantID uuid.UUID, name, slug, useCase, createdBy string) {
-	h.publishEvent(ctx, tenantID, "auth.tenant", tenantID, "created", map[string]any{
-		"tenant_id":  tenantID.String(),
-		"name":       name,
-		"slug":       slug,
-		"use_case":   useCase,
-		"created_by": createdBy,
+func (h *AdminHandler) publishTenantEvent(ctx context.Context, t *ent.Tenant, createdBy string) {
+	h.publishTenantLifecycleEvent(ctx, t, "created", createdBy)
+}
+
+// publishTenantLifecycleEvent emits auth.tenant.{created|updated} carrying the
+// business identity + tax/KRA details so downstream services (treasury-api) can
+// sync the tenant's invoice issuer block and payment-details config.
+func (h *AdminHandler) publishTenantLifecycleEvent(ctx context.Context, t *ent.Tenant, eventType, actor string) {
+	useCase := ""
+	if t.UseCase != nil {
+		useCase = *t.UseCase
+	}
+	h.publishEvent(ctx, t.ID, "auth.tenant", t.ID, eventType, map[string]any{
+		"tenant_id":         t.ID.String(),
+		"name":              t.Name,
+		"slug":              t.Slug,
+		"use_case":          useCase,
+		"created_by":        actor,
+		"tax_pin":           t.TaxPin,
+		"vat_registered":    t.VatRegistered,
+		"vat_registered_on": t.VatRegisteredOn,
+		"country":           t.Country,
 	})
 }
 
@@ -159,8 +174,28 @@ type tenantRequest struct {
 	Timezone         string                 `json:"timezone,omitempty"`
 	TierLimits       map[string]any         `json:"tier_limits,omitempty"`
 	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+	// Tax / KRA compliance (Zoho Books-style). Pointers so update can tell
+	// "field omitted" (nil) from "explicitly cleared" (empty/false).
+	TaxPin          *string `json:"tax_pin,omitempty"`           // KRA PIN
+	VatRegistered   *bool   `json:"vat_registered,omitempty"`    // registered for VAT?
+	VatRegisteredOn *string `json:"vat_registered_on,omitempty"` // ISO date (YYYY-MM-DD)
 	CreatedAt        *string                `json:"created_at,omitempty"`
 	UpdatedAt        *string                `json:"updated_at,omitempty"`
+}
+
+// parseTenantTaxDate parses an optional ISO date/timestamp string into *time.Time.
+func parseTenantTaxDate(s string) *time.Time {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return &t
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return &t
+	}
+	return nil
 }
 
 func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
@@ -178,6 +213,19 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		SetSlug(req.Slug).
 		SetUseCase(req.UseCase).
 		SetStatus("active")
+
+	// Tax / KRA compliance captured at onboarding.
+	if req.TaxPin != nil && strings.TrimSpace(*req.TaxPin) != "" {
+		create.SetTaxPin(strings.TrimSpace(*req.TaxPin))
+	}
+	if req.VatRegistered != nil {
+		create.SetVatRegistered(*req.VatRegistered)
+	}
+	if req.VatRegisteredOn != nil {
+		if d := parseTenantTaxDate(*req.VatRegisteredOn); d != nil {
+			create.SetVatRegisteredOn(*d)
+		}
+	}
 
 	// If tenant ID is provided, use it (for cross-service tenant sync)
 	if req.ID != "" {
@@ -247,7 +295,7 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	if t.UseCase != nil {
 		useCase = *t.UseCase
 	}
-	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, useCase, createdBy)
+	h.publishTenantEvent(r.Context(), t, createdBy)
 
 	// Initialize default HQ outlet — persisted to DB + event published.
 	// This is the source-of-truth record that downstream services (pos-api, inventory-api)
@@ -307,6 +355,19 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 		SetSlug(req.Slug).
 		SetUseCase(req.UseCase).
 		SetStatus("active")
+
+	// Tax / KRA compliance captured at onboarding.
+	if req.TaxPin != nil && strings.TrimSpace(*req.TaxPin) != "" {
+		create.SetTaxPin(strings.TrimSpace(*req.TaxPin))
+	}
+	if req.VatRegistered != nil {
+		create.SetVatRegistered(*req.VatRegistered)
+	}
+	if req.VatRegisteredOn != nil {
+		if d := parseTenantTaxDate(*req.VatRegisteredOn); d != nil {
+			create.SetVatRegisteredOn(*d)
+		}
+	}
 
 	// If tenant ID is provided, use it (for cross-service tenant sync with matching UUIDs)
 	if req.ID != "" {
@@ -378,7 +439,7 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 	if t.UseCase != nil {
 		useCase = *t.UseCase
 	}
-	h.publishTenantEvent(r.Context(), t.ID, t.Name, t.Slug, useCase, "self-service")
+	h.publishTenantEvent(r.Context(), t, "self-service")
 
 	// Initialize default HQ outlet in DB + publish auth.outlet.created.
 	hqName := "Main / HQ"
@@ -431,6 +492,10 @@ type PublicTenantResponse struct {
 	SubscriptionExpiresAt *time.Time     `json:"subscription_expires_at,omitempty"`
 	TierLimits            map[string]any `json:"tier_limits,omitempty"`
 	Metadata              map[string]any `json:"metadata,omitempty"`
+	// Tax / KRA compliance — consumed by treasury-ui to pre-fill payment-details.
+	TaxPin          *string    `json:"tax_pin,omitempty"`
+	VatRegistered   bool       `json:"vat_registered"`
+	VatRegisteredOn *time.Time `json:"vat_registered_on,omitempty"`
 }
 
 // GetTenantBySlugPublic retrieves a tenant by slug via public endpoint (for tenant auto-discovery and branding).
@@ -471,6 +536,9 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 		SubscriptionExpiresAt: t.SubscriptionExpiresAt,
 		TierLimits:            t.TierLimits,
 		Metadata:              t.Metadata,
+		TaxPin:                t.TaxPin,
+		VatRegistered:         t.VatRegistered,
+		VatRegisteredOn:       t.VatRegisteredOn,
 	}
 
 	if t.UseCase != nil {
@@ -575,6 +643,25 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 		update.SetTimezone(req.Timezone)
 	}
 
+	// Tax / KRA compliance — only touch fields that were explicitly supplied.
+	if req.TaxPin != nil {
+		if p := strings.TrimSpace(*req.TaxPin); p != "" {
+			update.SetTaxPin(p)
+		} else {
+			update.ClearTaxPin()
+		}
+	}
+	if req.VatRegistered != nil {
+		update.SetVatRegistered(*req.VatRegistered)
+	}
+	if req.VatRegisteredOn != nil {
+		if d := parseTenantTaxDate(*req.VatRegisteredOn); d != nil {
+			update.SetVatRegisteredOn(*d)
+		} else {
+			update.ClearVatRegisteredOn()
+		}
+	}
+
 	// Update metadata if provided
 	if req.Metadata != nil || req.ContactEmail != "" || req.ContactPhone != "" {
 		existing, _ := h.ent.Tenant.Get(r.Context(), id)
@@ -605,6 +692,15 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to update tenant", nil)
 		return
 	}
+
+	// Re-publish business identity + tax details so treasury-api can re-sync the
+	// tenant's invoice issuer block / payment-details config on profile edits.
+	actor := ""
+	if claims, _ := authmiddleware.ClaimsFromContext(r.Context()); claims != nil {
+		actor = claims.Subject
+	}
+	h.publishTenantLifecycleEvent(r.Context(), t, "updated", actor)
+
 	writeJSON(w, http.StatusOK, t)
 }
 

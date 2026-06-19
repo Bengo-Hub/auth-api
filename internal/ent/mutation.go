@@ -22138,6 +22138,9 @@ type TenantMutation struct {
 	use_case                *string
 	use_cases               *[]string
 	appenduse_cases         []string
+	tax_pin                 *string
+	vat_registered          *bool
+	vat_registered_on       *time.Time
 	subscription_plan       *string
 	subscription_status     *string
 	subscription_expires_at *time.Time
@@ -22876,6 +22879,140 @@ func (m *TenantMutation) ResetUseCases() {
 	delete(m.clearedFields, tenant.FieldUseCases)
 }
 
+// SetTaxPin sets the "tax_pin" field.
+func (m *TenantMutation) SetTaxPin(s string) {
+	m.tax_pin = &s
+}
+
+// TaxPin returns the value of the "tax_pin" field in the mutation.
+func (m *TenantMutation) TaxPin() (r string, exists bool) {
+	v := m.tax_pin
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTaxPin returns the old "tax_pin" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldTaxPin(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTaxPin is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTaxPin requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTaxPin: %w", err)
+	}
+	return oldValue.TaxPin, nil
+}
+
+// ClearTaxPin clears the value of the "tax_pin" field.
+func (m *TenantMutation) ClearTaxPin() {
+	m.tax_pin = nil
+	m.clearedFields[tenant.FieldTaxPin] = struct{}{}
+}
+
+// TaxPinCleared returns if the "tax_pin" field was cleared in this mutation.
+func (m *TenantMutation) TaxPinCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldTaxPin]
+	return ok
+}
+
+// ResetTaxPin resets all changes to the "tax_pin" field.
+func (m *TenantMutation) ResetTaxPin() {
+	m.tax_pin = nil
+	delete(m.clearedFields, tenant.FieldTaxPin)
+}
+
+// SetVatRegistered sets the "vat_registered" field.
+func (m *TenantMutation) SetVatRegistered(b bool) {
+	m.vat_registered = &b
+}
+
+// VatRegistered returns the value of the "vat_registered" field in the mutation.
+func (m *TenantMutation) VatRegistered() (r bool, exists bool) {
+	v := m.vat_registered
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVatRegistered returns the old "vat_registered" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldVatRegistered(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVatRegistered is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVatRegistered requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVatRegistered: %w", err)
+	}
+	return oldValue.VatRegistered, nil
+}
+
+// ResetVatRegistered resets all changes to the "vat_registered" field.
+func (m *TenantMutation) ResetVatRegistered() {
+	m.vat_registered = nil
+}
+
+// SetVatRegisteredOn sets the "vat_registered_on" field.
+func (m *TenantMutation) SetVatRegisteredOn(t time.Time) {
+	m.vat_registered_on = &t
+}
+
+// VatRegisteredOn returns the value of the "vat_registered_on" field in the mutation.
+func (m *TenantMutation) VatRegisteredOn() (r time.Time, exists bool) {
+	v := m.vat_registered_on
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVatRegisteredOn returns the old "vat_registered_on" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldVatRegisteredOn(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVatRegisteredOn is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVatRegisteredOn requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVatRegisteredOn: %w", err)
+	}
+	return oldValue.VatRegisteredOn, nil
+}
+
+// ClearVatRegisteredOn clears the value of the "vat_registered_on" field.
+func (m *TenantMutation) ClearVatRegisteredOn() {
+	m.vat_registered_on = nil
+	m.clearedFields[tenant.FieldVatRegisteredOn] = struct{}{}
+}
+
+// VatRegisteredOnCleared returns if the "vat_registered_on" field was cleared in this mutation.
+func (m *TenantMutation) VatRegisteredOnCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldVatRegisteredOn]
+	return ok
+}
+
+// ResetVatRegisteredOn resets all changes to the "vat_registered_on" field.
+func (m *TenantMutation) ResetVatRegisteredOn() {
+	m.vat_registered_on = nil
+	delete(m.clearedFields, tenant.FieldVatRegisteredOn)
+}
+
 // SetSubscriptionPlan sets the "subscription_plan" field.
 func (m *TenantMutation) SetSubscriptionPlan(s string) {
 	m.subscription_plan = &s
@@ -23384,7 +23521,7 @@ func (m *TenantMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TenantMutation) Fields() []string {
-	fields := make([]string, 0, 21)
+	fields := make([]string, 0, 24)
 	if m.name != nil {
 		fields = append(fields, tenant.FieldName)
 	}
@@ -23423,6 +23560,15 @@ func (m *TenantMutation) Fields() []string {
 	}
 	if m.use_cases != nil {
 		fields = append(fields, tenant.FieldUseCases)
+	}
+	if m.tax_pin != nil {
+		fields = append(fields, tenant.FieldTaxPin)
+	}
+	if m.vat_registered != nil {
+		fields = append(fields, tenant.FieldVatRegistered)
+	}
+	if m.vat_registered_on != nil {
+		fields = append(fields, tenant.FieldVatRegisteredOn)
 	}
 	if m.subscription_plan != nil {
 		fields = append(fields, tenant.FieldSubscriptionPlan)
@@ -23482,6 +23628,12 @@ func (m *TenantMutation) Field(name string) (ent.Value, bool) {
 		return m.UseCase()
 	case tenant.FieldUseCases:
 		return m.UseCases()
+	case tenant.FieldTaxPin:
+		return m.TaxPin()
+	case tenant.FieldVatRegistered:
+		return m.VatRegistered()
+	case tenant.FieldVatRegisteredOn:
+		return m.VatRegisteredOn()
 	case tenant.FieldSubscriptionPlan:
 		return m.SubscriptionPlan()
 	case tenant.FieldSubscriptionStatus:
@@ -23533,6 +23685,12 @@ func (m *TenantMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldUseCase(ctx)
 	case tenant.FieldUseCases:
 		return m.OldUseCases(ctx)
+	case tenant.FieldTaxPin:
+		return m.OldTaxPin(ctx)
+	case tenant.FieldVatRegistered:
+		return m.OldVatRegistered(ctx)
+	case tenant.FieldVatRegisteredOn:
+		return m.OldVatRegisteredOn(ctx)
 	case tenant.FieldSubscriptionPlan:
 		return m.OldSubscriptionPlan(ctx)
 	case tenant.FieldSubscriptionStatus:
@@ -23648,6 +23806,27 @@ func (m *TenantMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetUseCases(v)
+		return nil
+	case tenant.FieldTaxPin:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTaxPin(v)
+		return nil
+	case tenant.FieldVatRegistered:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVatRegistered(v)
+		return nil
+	case tenant.FieldVatRegisteredOn:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVatRegisteredOn(v)
 		return nil
 	case tenant.FieldSubscriptionPlan:
 		v, ok := value.(string)
@@ -23765,6 +23944,12 @@ func (m *TenantMutation) ClearedFields() []string {
 	if m.FieldCleared(tenant.FieldUseCases) {
 		fields = append(fields, tenant.FieldUseCases)
 	}
+	if m.FieldCleared(tenant.FieldTaxPin) {
+		fields = append(fields, tenant.FieldTaxPin)
+	}
+	if m.FieldCleared(tenant.FieldVatRegisteredOn) {
+		fields = append(fields, tenant.FieldVatRegisteredOn)
+	}
 	if m.FieldCleared(tenant.FieldSubscriptionPlan) {
 		fields = append(fields, tenant.FieldSubscriptionPlan)
 	}
@@ -23826,6 +24011,12 @@ func (m *TenantMutation) ClearField(name string) error {
 		return nil
 	case tenant.FieldUseCases:
 		m.ClearUseCases()
+		return nil
+	case tenant.FieldTaxPin:
+		m.ClearTaxPin()
+		return nil
+	case tenant.FieldVatRegisteredOn:
+		m.ClearVatRegisteredOn()
 		return nil
 	case tenant.FieldSubscriptionPlan:
 		m.ClearSubscriptionPlan()
@@ -23891,6 +24082,15 @@ func (m *TenantMutation) ResetField(name string) error {
 		return nil
 	case tenant.FieldUseCases:
 		m.ResetUseCases()
+		return nil
+	case tenant.FieldTaxPin:
+		m.ResetTaxPin()
+		return nil
+	case tenant.FieldVatRegistered:
+		m.ResetVatRegistered()
+		return nil
+	case tenant.FieldVatRegisteredOn:
+		m.ResetVatRegisteredOn()
 		return nil
 	case tenant.FieldSubscriptionPlan:
 		m.ResetSubscriptionPlan()

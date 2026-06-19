@@ -41,6 +41,12 @@ const (
 	FieldUseCase = "use_case"
 	// FieldUseCases holds the string denoting the use_cases field in the database.
 	FieldUseCases = "use_cases"
+	// FieldTaxPin holds the string denoting the tax_pin field in the database.
+	FieldTaxPin = "tax_pin"
+	// FieldVatRegistered holds the string denoting the vat_registered field in the database.
+	FieldVatRegistered = "vat_registered"
+	// FieldVatRegisteredOn holds the string denoting the vat_registered_on field in the database.
+	FieldVatRegisteredOn = "vat_registered_on"
 	// FieldSubscriptionPlan holds the string denoting the subscription_plan field in the database.
 	FieldSubscriptionPlan = "subscription_plan"
 	// FieldSubscriptionStatus holds the string denoting the subscription_status field in the database.
@@ -95,6 +101,9 @@ var Columns = []string{
 	FieldOrgSize,
 	FieldUseCase,
 	FieldUseCases,
+	FieldTaxPin,
+	FieldVatRegistered,
+	FieldVatRegisteredOn,
 	FieldSubscriptionPlan,
 	FieldSubscriptionStatus,
 	FieldSubscriptionExpiresAt,
@@ -126,6 +135,8 @@ var (
 	DefaultCountry string
 	// DefaultTimezone holds the default value on creation for the "timezone" field.
 	DefaultTimezone string
+	// DefaultVatRegistered holds the default value on creation for the "vat_registered" field.
+	DefaultVatRegistered bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -197,6 +208,21 @@ func ByOrgSize(opts ...sql.OrderTermOption) OrderOption {
 // ByUseCase orders the results by the use_case field.
 func ByUseCase(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUseCase, opts...).ToFunc()
+}
+
+// ByTaxPin orders the results by the tax_pin field.
+func ByTaxPin(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTaxPin, opts...).ToFunc()
+}
+
+// ByVatRegistered orders the results by the vat_registered field.
+func ByVatRegistered(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVatRegistered, opts...).ToFunc()
+}
+
+// ByVatRegisteredOn orders the results by the vat_registered_on field.
+func ByVatRegisteredOn(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVatRegisteredOn, opts...).ToFunc()
 }
 
 // BySubscriptionPlan orders the results by the subscription_plan field.

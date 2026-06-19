@@ -269,17 +269,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newOrg *auth.NewOrgInput
-	if req.NewOrg != nil {
-		newOrg = &auth.NewOrgInput{
-			Name:         req.NewOrg.Name,
-			Slug:         req.NewOrg.Slug,
-			UseCase:      req.NewOrg.UseCase,
-			UseCases:     req.NewOrg.UseCases,
-			HQBranchName: req.NewOrg.HQBranchName,
-			Metadata:     req.NewOrg.Metadata,
-		}
-	}
+	newOrg := toNewOrgInput(req.NewOrg)
 
 	// Email/password signups must verify their email via OTP first (the auth-ui
 	// signup wizard gates on /auth/email/verify-code). OAuth signups carry a
@@ -335,17 +325,7 @@ func (h *AuthHandler) RegisterOAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newOrg *auth.NewOrgInput
-	if req.NewOrg != nil {
-		newOrg = &auth.NewOrgInput{
-			Name:         req.NewOrg.Name,
-			Slug:         req.NewOrg.Slug,
-			UseCase:      req.NewOrg.UseCase,
-			UseCases:     req.NewOrg.UseCases,
-			HQBranchName: req.NewOrg.HQBranchName,
-			Metadata:     req.NewOrg.Metadata,
-		}
-	}
+	newOrg := toNewOrgInput(req.NewOrg)
 
 	result, err := h.service.Register(r.Context(), auth.RegisterInput{
 		Email:         req.Email,
@@ -1043,6 +1023,37 @@ type newOrgRequest struct {
 	UseCases     []string       `json:"use_cases"`      // Multi-select use cases
 	HQBranchName string         `json:"hq_branch_name"` // e.g. "Main/HQ"
 	Metadata     map[string]any `json:"metadata,omitempty"`
+	// Tax / KRA compliance (Zoho Books-style onboarding). All optional.
+	TaxPin          string `json:"tax_pin,omitempty"`           // KRA PIN
+	VatRegistered   bool   `json:"vat_registered,omitempty"`    // registered for VAT?
+	VatRegisteredOn string `json:"vat_registered_on,omitempty"` // ISO date (YYYY-MM-DD)
+}
+
+// toNewOrgInput maps the wire newOrgRequest to the service NewOrgInput, parsing
+// optional tax fields. Returns nil when no new-org payload was supplied.
+func toNewOrgInput(req *newOrgRequest) *auth.NewOrgInput {
+	if req == nil {
+		return nil
+	}
+	in := &auth.NewOrgInput{
+		Name:          req.Name,
+		Slug:          req.Slug,
+		UseCase:       req.UseCase,
+		UseCases:      req.UseCases,
+		HQBranchName:  req.HQBranchName,
+		Metadata:      req.Metadata,
+		TaxPin:        strings.TrimSpace(req.TaxPin),
+		VatRegistered: req.VatRegistered,
+	}
+	if s := strings.TrimSpace(req.VatRegisteredOn); s != "" {
+		// Accept either a plain date (YYYY-MM-DD) or a full RFC3339 timestamp.
+		if t, err := time.Parse("2006-01-02", s); err == nil {
+			in.VatRegisteredOn = &t
+		} else if t, err := time.Parse(time.RFC3339, s); err == nil {
+			in.VatRegisteredOn = &t
+		}
+	}
+	return in
 }
 
 type registerRequest struct {

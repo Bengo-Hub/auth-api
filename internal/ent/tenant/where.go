@@ -111,6 +111,21 @@ func UseCase(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldUseCase, v))
 }
 
+// TaxPin applies equality check predicate on the "tax_pin" field. It's identical to TaxPinEQ.
+func TaxPin(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldTaxPin, v))
+}
+
+// VatRegistered applies equality check predicate on the "vat_registered" field. It's identical to VatRegisteredEQ.
+func VatRegistered(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldVatRegistered, v))
+}
+
+// VatRegisteredOn applies equality check predicate on the "vat_registered_on" field. It's identical to VatRegisteredOnEQ.
+func VatRegisteredOn(v time.Time) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldVatRegisteredOn, v))
+}
+
 // SubscriptionPlan applies equality check predicate on the "subscription_plan" field. It's identical to SubscriptionPlanEQ.
 func SubscriptionPlan(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldSubscriptionPlan, v))
@@ -954,6 +969,141 @@ func UseCasesIsNil() predicate.Tenant {
 // UseCasesNotNil applies the NotNil predicate on the "use_cases" field.
 func UseCasesNotNil() predicate.Tenant {
 	return predicate.Tenant(sql.FieldNotNull(FieldUseCases))
+}
+
+// TaxPinEQ applies the EQ predicate on the "tax_pin" field.
+func TaxPinEQ(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldTaxPin, v))
+}
+
+// TaxPinNEQ applies the NEQ predicate on the "tax_pin" field.
+func TaxPinNEQ(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNEQ(FieldTaxPin, v))
+}
+
+// TaxPinIn applies the In predicate on the "tax_pin" field.
+func TaxPinIn(vs ...string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldIn(FieldTaxPin, vs...))
+}
+
+// TaxPinNotIn applies the NotIn predicate on the "tax_pin" field.
+func TaxPinNotIn(vs ...string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotIn(FieldTaxPin, vs...))
+}
+
+// TaxPinGT applies the GT predicate on the "tax_pin" field.
+func TaxPinGT(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldGT(FieldTaxPin, v))
+}
+
+// TaxPinGTE applies the GTE predicate on the "tax_pin" field.
+func TaxPinGTE(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldGTE(FieldTaxPin, v))
+}
+
+// TaxPinLT applies the LT predicate on the "tax_pin" field.
+func TaxPinLT(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldLT(FieldTaxPin, v))
+}
+
+// TaxPinLTE applies the LTE predicate on the "tax_pin" field.
+func TaxPinLTE(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldLTE(FieldTaxPin, v))
+}
+
+// TaxPinContains applies the Contains predicate on the "tax_pin" field.
+func TaxPinContains(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldContains(FieldTaxPin, v))
+}
+
+// TaxPinHasPrefix applies the HasPrefix predicate on the "tax_pin" field.
+func TaxPinHasPrefix(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldHasPrefix(FieldTaxPin, v))
+}
+
+// TaxPinHasSuffix applies the HasSuffix predicate on the "tax_pin" field.
+func TaxPinHasSuffix(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldHasSuffix(FieldTaxPin, v))
+}
+
+// TaxPinIsNil applies the IsNil predicate on the "tax_pin" field.
+func TaxPinIsNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldIsNull(FieldTaxPin))
+}
+
+// TaxPinNotNil applies the NotNil predicate on the "tax_pin" field.
+func TaxPinNotNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotNull(FieldTaxPin))
+}
+
+// TaxPinEqualFold applies the EqualFold predicate on the "tax_pin" field.
+func TaxPinEqualFold(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEqualFold(FieldTaxPin, v))
+}
+
+// TaxPinContainsFold applies the ContainsFold predicate on the "tax_pin" field.
+func TaxPinContainsFold(v string) predicate.Tenant {
+	return predicate.Tenant(sql.FieldContainsFold(FieldTaxPin, v))
+}
+
+// VatRegisteredEQ applies the EQ predicate on the "vat_registered" field.
+func VatRegisteredEQ(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldVatRegistered, v))
+}
+
+// VatRegisteredNEQ applies the NEQ predicate on the "vat_registered" field.
+func VatRegisteredNEQ(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNEQ(FieldVatRegistered, v))
+}
+
+// VatRegisteredOnEQ applies the EQ predicate on the "vat_registered_on" field.
+func VatRegisteredOnEQ(v time.Time) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldVatRegisteredOn, v))
+}
+
+// VatRegisteredOnNEQ applies the NEQ predicate on the "vat_registered_on" field.
+func VatRegisteredOnNEQ(v time.Time) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNEQ(FieldVatRegisteredOn, v))
+}
+
+// VatRegisteredOnIn applies the In predicate on the "vat_registered_on" field.
+func VatRegisteredOnIn(vs ...time.Time) predicate.Tenant {
+	return predicate.Tenant(sql.FieldIn(FieldVatRegisteredOn, vs...))
+}
+
+// VatRegisteredOnNotIn applies the NotIn predicate on the "vat_registered_on" field.
+func VatRegisteredOnNotIn(vs ...time.Time) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotIn(FieldVatRegisteredOn, vs...))
+}
+
+// VatRegisteredOnGT applies the GT predicate on the "vat_registered_on" field.
+func VatRegisteredOnGT(v time.Time) predicate.Tenant {
+	return predicate.Tenant(sql.FieldGT(FieldVatRegisteredOn, v))
+}
+
+// VatRegisteredOnGTE applies the GTE predicate on the "vat_registered_on" field.
+func VatRegisteredOnGTE(v time.Time) predicate.Tenant {
+	return predicate.Tenant(sql.FieldGTE(FieldVatRegisteredOn, v))
+}
+
+// VatRegisteredOnLT applies the LT predicate on the "vat_registered_on" field.
+func VatRegisteredOnLT(v time.Time) predicate.Tenant {
+	return predicate.Tenant(sql.FieldLT(FieldVatRegisteredOn, v))
+}
+
+// VatRegisteredOnLTE applies the LTE predicate on the "vat_registered_on" field.
+func VatRegisteredOnLTE(v time.Time) predicate.Tenant {
+	return predicate.Tenant(sql.FieldLTE(FieldVatRegisteredOn, v))
+}
+
+// VatRegisteredOnIsNil applies the IsNil predicate on the "vat_registered_on" field.
+func VatRegisteredOnIsNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldIsNull(FieldVatRegisteredOn))
+}
+
+// VatRegisteredOnNotNil applies the NotNil predicate on the "vat_registered_on" field.
+func VatRegisteredOnNotNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotNull(FieldVatRegisteredOn))
 }
 
 // SubscriptionPlanEQ applies the EQ predicate on the "subscription_plan" field.
