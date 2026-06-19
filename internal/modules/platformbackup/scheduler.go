@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/bengobox/auth-api/internal/modules/platformbackup/destination"
 )
 
 // schedulerAdvisoryLockKey is a fixed, service-unique key for the Postgres session
@@ -35,10 +37,11 @@ type SchedulerConfig struct {
 // only one replica performs the work. The backup ONLY runs when the DB-stored
 // auto_enabled flag is true (opt-in; default OFF).
 type Scheduler struct {
-	svc *Service
-	db  *sql.DB
-	cfg SchedulerConfig
-	log *zap.Logger
+	svc      *Service
+	db       *sql.DB
+	cfg      SchedulerConfig
+	log      *zap.Logger
+	uploader *destination.Uploader // optional; mirrors each dump to a configured remote
 }
 
 // NewScheduler builds the platform backup scheduler.
@@ -47,6 +50,14 @@ func NewScheduler(svc *Service, db *sql.DB, cfg SchedulerConfig, log *zap.Logger
 		cfg.BackupDir = "/data/backups"
 	}
 	return &Scheduler{svc: svc, db: db, cfg: cfg, log: log.Named("platformbackup.Scheduler")}
+}
+
+// WithUploader attaches a best-effort remote mirror for each written dump. When
+// set, the local PVC copy remains the durable primary + fallback. Returns the
+// scheduler for chaining.
+func (sc *Scheduler) WithUploader(u *destination.Uploader) *Scheduler {
+	sc.uploader = u
+	return sc
 }
 
 // Start launches the scheduler goroutine. It runs a churn-only pass immediately on startup,
@@ -191,6 +202,12 @@ func (sc *Scheduler) runPlatformBackup(ctx context.Context) error {
 	}
 
 	sc.log.Info("platform backup written", zap.String("file", outPath))
+
+	// Best-effort mirror to a configured remote destination. The PVC copy above
+	// is the durable primary + fallback; a mirror failure never fails the backup.
+	if sc.uploader != nil {
+		_ = sc.uploader.Mirror(ctx, outPath, filepath.Base(outPath))
+	}
 	return nil
 }
 

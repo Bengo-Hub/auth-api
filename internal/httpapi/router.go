@@ -119,10 +119,13 @@ type AuthHandlers struct {
 	SendOTP   http.HandlerFunc
 	VerifyOTP http.HandlerFunc
 	// Platform backup management
-	ListBackups          http.HandlerFunc
-	DownloadBackup       http.HandlerFunc
-	GetBackupSettings    http.HandlerFunc
-	UpdateBackupSettings http.HandlerFunc
+	ListBackups             http.HandlerFunc
+	DownloadBackup          http.HandlerFunc
+	GetBackupSettings       http.HandlerFunc
+	UpdateBackupSettings    http.HandlerFunc
+	GetBackupDestination    http.HandlerFunc
+	UpdateBackupDestination http.HandlerFunc
+	TestBackupDestination   http.HandlerFunc
 	// Outlet / branch management
 	OutletHandler *handlers.OutletHandler
 	// WebAuthn / passkey biometric authentication
@@ -397,6 +400,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 				// {filename} wildcard so GET /backups/settings is never shadowed.
 				r.Get("/backups/settings", deps.AuthHandlers.GetBackupSettings)
 				r.Put("/backups/settings", deps.AuthHandlers.UpdateBackupSettings)
+				// Remote backup destination (rclone mirror) — static paths before the
+				// {filename} wildcard so they are never shadowed.
+				r.Get("/backups/destination", deps.AuthHandlers.GetBackupDestination)
+				r.Put("/backups/destination", deps.AuthHandlers.UpdateBackupDestination)
+				r.Post("/backups/destination/test", deps.AuthHandlers.TestBackupDestination)
 				r.Get("/backups/{filename}", deps.AuthHandlers.DownloadBackup)
 				// Platform user management (platform admins only)
 				if deps.UserHandler != nil {
