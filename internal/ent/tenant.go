@@ -45,6 +45,12 @@ type Tenant struct {
 	UseCase *string `json:"use_case,omitempty"`
 	// Business use cases (multi-select): hospitality, retail, e_commerce, quick_service, food_delivery, grocery, manufacturing, warehousing, logistics, weighbridge, services, pharmacy, other
 	UseCases []string `json:"use_cases,omitempty"`
+	// KRA PIN / Tax registration number (e.g. P051XXXXXXXX)
+	TaxPin *string `json:"tax_pin,omitempty"`
+	// Whether this business is registered for VAT
+	VatRegistered bool `json:"vat_registered,omitempty"`
+	// Date the business was registered for VAT (only meaningful when vat_registered=true)
+	VatRegisteredOn *time.Time `json:"vat_registered_on,omitempty"`
 	// Active plan code: STARTER | GROWTH | PROFESSIONAL (denormalized from subscription-api)
 	SubscriptionPlan *string `json:"subscription_plan,omitempty"`
 	// ACTIVE | TRIAL | EXPIRED | CANCELLED (denormalized from subscription-api)
@@ -103,9 +109,11 @@ func (*Tenant) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case tenant.FieldBrandColors, tenant.FieldUseCases, tenant.FieldTierLimits, tenant.FieldMetadata:
 			values[i] = new([]byte)
-		case tenant.FieldName, tenant.FieldSlug, tenant.FieldStatus, tenant.FieldContactEmail, tenant.FieldContactPhone, tenant.FieldLogoURL, tenant.FieldWebsite, tenant.FieldCountry, tenant.FieldTimezone, tenant.FieldOrgSize, tenant.FieldUseCase, tenant.FieldSubscriptionPlan, tenant.FieldSubscriptionStatus, tenant.FieldSubscriptionID:
+		case tenant.FieldVatRegistered:
+			values[i] = new(sql.NullBool)
+		case tenant.FieldName, tenant.FieldSlug, tenant.FieldStatus, tenant.FieldContactEmail, tenant.FieldContactPhone, tenant.FieldLogoURL, tenant.FieldWebsite, tenant.FieldCountry, tenant.FieldTimezone, tenant.FieldOrgSize, tenant.FieldUseCase, tenant.FieldTaxPin, tenant.FieldSubscriptionPlan, tenant.FieldSubscriptionStatus, tenant.FieldSubscriptionID:
 			values[i] = new(sql.NullString)
-		case tenant.FieldSubscriptionExpiresAt, tenant.FieldCreatedAt, tenant.FieldUpdatedAt:
+		case tenant.FieldVatRegisteredOn, tenant.FieldSubscriptionExpiresAt, tenant.FieldCreatedAt, tenant.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		case tenant.FieldID:
 			values[i] = new(uuid.UUID)
@@ -219,6 +227,26 @@ func (_m *Tenant) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.UseCases); err != nil {
 					return fmt.Errorf("unmarshal field use_cases: %w", err)
 				}
+			}
+		case tenant.FieldTaxPin:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field tax_pin", values[i])
+			} else if value.Valid {
+				_m.TaxPin = new(string)
+				*_m.TaxPin = value.String
+			}
+		case tenant.FieldVatRegistered:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field vat_registered", values[i])
+			} else if value.Valid {
+				_m.VatRegistered = value.Bool
+			}
+		case tenant.FieldVatRegisteredOn:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field vat_registered_on", values[i])
+			} else if value.Valid {
+				_m.VatRegisteredOn = new(time.Time)
+				*_m.VatRegisteredOn = value.Time
 			}
 		case tenant.FieldSubscriptionPlan:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -376,6 +404,19 @@ func (_m *Tenant) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("use_cases=")
 	builder.WriteString(fmt.Sprintf("%v", _m.UseCases))
+	builder.WriteString(", ")
+	if v := _m.TaxPin; v != nil {
+		builder.WriteString("tax_pin=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("vat_registered=")
+	builder.WriteString(fmt.Sprintf("%v", _m.VatRegistered))
+	builder.WriteString(", ")
+	if v := _m.VatRegisteredOn; v != nil {
+		builder.WriteString("vat_registered_on=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	if v := _m.SubscriptionPlan; v != nil {
 		builder.WriteString("subscription_plan=")

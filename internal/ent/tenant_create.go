@@ -176,6 +176,48 @@ func (_c *TenantCreate) SetUseCases(v []string) *TenantCreate {
 	return _c
 }
 
+// SetTaxPin sets the "tax_pin" field.
+func (_c *TenantCreate) SetTaxPin(v string) *TenantCreate {
+	_c.mutation.SetTaxPin(v)
+	return _c
+}
+
+// SetNillableTaxPin sets the "tax_pin" field if the given value is not nil.
+func (_c *TenantCreate) SetNillableTaxPin(v *string) *TenantCreate {
+	if v != nil {
+		_c.SetTaxPin(*v)
+	}
+	return _c
+}
+
+// SetVatRegistered sets the "vat_registered" field.
+func (_c *TenantCreate) SetVatRegistered(v bool) *TenantCreate {
+	_c.mutation.SetVatRegistered(v)
+	return _c
+}
+
+// SetNillableVatRegistered sets the "vat_registered" field if the given value is not nil.
+func (_c *TenantCreate) SetNillableVatRegistered(v *bool) *TenantCreate {
+	if v != nil {
+		_c.SetVatRegistered(*v)
+	}
+	return _c
+}
+
+// SetVatRegisteredOn sets the "vat_registered_on" field.
+func (_c *TenantCreate) SetVatRegisteredOn(v time.Time) *TenantCreate {
+	_c.mutation.SetVatRegisteredOn(v)
+	return _c
+}
+
+// SetNillableVatRegisteredOn sets the "vat_registered_on" field if the given value is not nil.
+func (_c *TenantCreate) SetNillableVatRegisteredOn(v *time.Time) *TenantCreate {
+	if v != nil {
+		_c.SetVatRegisteredOn(*v)
+	}
+	return _c
+}
+
 // SetSubscriptionPlan sets the "subscription_plan" field.
 func (_c *TenantCreate) SetSubscriptionPlan(v string) *TenantCreate {
 	_c.mutation.SetSubscriptionPlan(v)
@@ -363,6 +405,10 @@ func (_c *TenantCreate) defaults() {
 		v := tenant.DefaultTimezone
 		_c.mutation.SetTimezone(v)
 	}
+	if _, ok := _c.mutation.VatRegistered(); !ok {
+		v := tenant.DefaultVatRegistered
+		_c.mutation.SetVatRegistered(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := tenant.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -397,6 +443,9 @@ func (_c *TenantCreate) check() error {
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Tenant.status"`)}
+	}
+	if _, ok := _c.mutation.VatRegistered(); !ok {
+		return &ValidationError{Name: "vat_registered", err: errors.New(`ent: missing required field "Tenant.vat_registered"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Tenant.created_at"`)}
@@ -491,6 +540,18 @@ func (_c *TenantCreate) createSpec() (*Tenant, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.UseCases(); ok {
 		_spec.SetField(tenant.FieldUseCases, field.TypeJSON, value)
 		_node.UseCases = value
+	}
+	if value, ok := _c.mutation.TaxPin(); ok {
+		_spec.SetField(tenant.FieldTaxPin, field.TypeString, value)
+		_node.TaxPin = &value
+	}
+	if value, ok := _c.mutation.VatRegistered(); ok {
+		_spec.SetField(tenant.FieldVatRegistered, field.TypeBool, value)
+		_node.VatRegistered = value
+	}
+	if value, ok := _c.mutation.VatRegisteredOn(); ok {
+		_spec.SetField(tenant.FieldVatRegisteredOn, field.TypeTime, value)
+		_node.VatRegisteredOn = &value
 	}
 	if value, ok := _c.mutation.SubscriptionPlan(); ok {
 		_spec.SetField(tenant.FieldSubscriptionPlan, field.TypeString, value)
@@ -821,6 +882,54 @@ func (u *TenantUpsert) UpdateUseCases() *TenantUpsert {
 // ClearUseCases clears the value of the "use_cases" field.
 func (u *TenantUpsert) ClearUseCases() *TenantUpsert {
 	u.SetNull(tenant.FieldUseCases)
+	return u
+}
+
+// SetTaxPin sets the "tax_pin" field.
+func (u *TenantUpsert) SetTaxPin(v string) *TenantUpsert {
+	u.Set(tenant.FieldTaxPin, v)
+	return u
+}
+
+// UpdateTaxPin sets the "tax_pin" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateTaxPin() *TenantUpsert {
+	u.SetExcluded(tenant.FieldTaxPin)
+	return u
+}
+
+// ClearTaxPin clears the value of the "tax_pin" field.
+func (u *TenantUpsert) ClearTaxPin() *TenantUpsert {
+	u.SetNull(tenant.FieldTaxPin)
+	return u
+}
+
+// SetVatRegistered sets the "vat_registered" field.
+func (u *TenantUpsert) SetVatRegistered(v bool) *TenantUpsert {
+	u.Set(tenant.FieldVatRegistered, v)
+	return u
+}
+
+// UpdateVatRegistered sets the "vat_registered" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateVatRegistered() *TenantUpsert {
+	u.SetExcluded(tenant.FieldVatRegistered)
+	return u
+}
+
+// SetVatRegisteredOn sets the "vat_registered_on" field.
+func (u *TenantUpsert) SetVatRegisteredOn(v time.Time) *TenantUpsert {
+	u.Set(tenant.FieldVatRegisteredOn, v)
+	return u
+}
+
+// UpdateVatRegisteredOn sets the "vat_registered_on" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateVatRegisteredOn() *TenantUpsert {
+	u.SetExcluded(tenant.FieldVatRegisteredOn)
+	return u
+}
+
+// ClearVatRegisteredOn clears the value of the "vat_registered_on" field.
+func (u *TenantUpsert) ClearVatRegisteredOn() *TenantUpsert {
+	u.SetNull(tenant.FieldVatRegisteredOn)
 	return u
 }
 
@@ -1244,6 +1353,62 @@ func (u *TenantUpsertOne) UpdateUseCases() *TenantUpsertOne {
 func (u *TenantUpsertOne) ClearUseCases() *TenantUpsertOne {
 	return u.Update(func(s *TenantUpsert) {
 		s.ClearUseCases()
+	})
+}
+
+// SetTaxPin sets the "tax_pin" field.
+func (u *TenantUpsertOne) SetTaxPin(v string) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetTaxPin(v)
+	})
+}
+
+// UpdateTaxPin sets the "tax_pin" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateTaxPin() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateTaxPin()
+	})
+}
+
+// ClearTaxPin clears the value of the "tax_pin" field.
+func (u *TenantUpsertOne) ClearTaxPin() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearTaxPin()
+	})
+}
+
+// SetVatRegistered sets the "vat_registered" field.
+func (u *TenantUpsertOne) SetVatRegistered(v bool) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetVatRegistered(v)
+	})
+}
+
+// UpdateVatRegistered sets the "vat_registered" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateVatRegistered() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateVatRegistered()
+	})
+}
+
+// SetVatRegisteredOn sets the "vat_registered_on" field.
+func (u *TenantUpsertOne) SetVatRegisteredOn(v time.Time) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetVatRegisteredOn(v)
+	})
+}
+
+// UpdateVatRegisteredOn sets the "vat_registered_on" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateVatRegisteredOn() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateVatRegisteredOn()
+	})
+}
+
+// ClearVatRegisteredOn clears the value of the "vat_registered_on" field.
+func (u *TenantUpsertOne) ClearVatRegisteredOn() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearVatRegisteredOn()
 	})
 }
 
@@ -1854,6 +2019,62 @@ func (u *TenantUpsertBulk) UpdateUseCases() *TenantUpsertBulk {
 func (u *TenantUpsertBulk) ClearUseCases() *TenantUpsertBulk {
 	return u.Update(func(s *TenantUpsert) {
 		s.ClearUseCases()
+	})
+}
+
+// SetTaxPin sets the "tax_pin" field.
+func (u *TenantUpsertBulk) SetTaxPin(v string) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetTaxPin(v)
+	})
+}
+
+// UpdateTaxPin sets the "tax_pin" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateTaxPin() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateTaxPin()
+	})
+}
+
+// ClearTaxPin clears the value of the "tax_pin" field.
+func (u *TenantUpsertBulk) ClearTaxPin() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearTaxPin()
+	})
+}
+
+// SetVatRegistered sets the "vat_registered" field.
+func (u *TenantUpsertBulk) SetVatRegistered(v bool) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetVatRegistered(v)
+	})
+}
+
+// UpdateVatRegistered sets the "vat_registered" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateVatRegistered() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateVatRegistered()
+	})
+}
+
+// SetVatRegisteredOn sets the "vat_registered_on" field.
+func (u *TenantUpsertBulk) SetVatRegisteredOn(v time.Time) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetVatRegisteredOn(v)
+	})
+}
+
+// UpdateVatRegisteredOn sets the "vat_registered_on" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateVatRegisteredOn() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateVatRegisteredOn()
+	})
+}
+
+// ClearVatRegisteredOn clears the value of the "vat_registered_on" field.
+func (u *TenantUpsertBulk) ClearVatRegisteredOn() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearVatRegisteredOn()
 	})
 }
 

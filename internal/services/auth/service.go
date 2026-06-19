@@ -151,6 +151,10 @@ type NewOrgInput struct {
 	UseCases     []string // Multi-select use cases
 	HQBranchName string
 	Metadata     map[string]any
+	// Tax / KRA compliance captured during onboarding (Zoho Books-style org profile).
+	TaxPin          string     // KRA PIN
+	VatRegistered   bool       // Whether the business is registered for VAT
+	VatRegisteredOn *time.Time // Date of VAT registration (when VatRegistered=true)
 }
 
 // RegisterInput captures registration payload.
@@ -359,9 +363,16 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 			SetSlug(in.NewOrg.Slug).
 			SetUseCase(primaryUseCase).
 			SetUseCases(in.NewOrg.UseCases).
+			SetVatRegistered(in.NewOrg.VatRegistered).
 			SetStatus("active")
 		if len(meta) > 0 {
 			create = create.SetMetadata(meta)
+		}
+		if in.NewOrg.TaxPin != "" {
+			create = create.SetTaxPin(in.NewOrg.TaxPin)
+		}
+		if in.NewOrg.VatRegisteredOn != nil {
+			create = create.SetVatRegisteredOn(*in.NewOrg.VatRegisteredOn)
 		}
 		tenantEntity, err = create.Save(ctx)
 		if err != nil {
@@ -410,13 +421,17 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		}
 
 		s.publishEvent(ctx, tenantEntity.ID, "auth.tenant", tenantEntity.ID, "created", map[string]any{
-			"tenant_id":       tenantEntity.ID.String(),
-			"name":            tenantEntity.Name,
-			"slug":            tenantEntity.Slug,
-			"use_case":        tenantEntity.UseCase,
-			"subscription_id": tenantEntity.SubscriptionID,
-			"selected_plan":   tenantEntity.SubscriptionPlan,
-			"created_by":      in.Email,
+			"tenant_id":         tenantEntity.ID.String(),
+			"name":              tenantEntity.Name,
+			"slug":              tenantEntity.Slug,
+			"use_case":          tenantEntity.UseCase,
+			"subscription_id":   tenantEntity.SubscriptionID,
+			"selected_plan":     tenantEntity.SubscriptionPlan,
+			"created_by":        in.Email,
+			"tax_pin":           tenantEntity.TaxPin,
+			"vat_registered":    tenantEntity.VatRegistered,
+			"vat_registered_on": tenantEntity.VatRegisteredOn,
+			"country":           tenantEntity.Country,
 		})
 
 		// Initialize default HQ outlet — persist to DB + publish auth.outlet.created.

@@ -787,6 +787,9 @@ var (
 		{Name: "org_size", Type: field.TypeString, Nullable: true},
 		{Name: "use_case", Type: field.TypeString, Nullable: true},
 		{Name: "use_cases", Type: field.TypeJSON, Nullable: true},
+		{Name: "tax_pin", Type: field.TypeString, Nullable: true},
+		{Name: "vat_registered", Type: field.TypeBool, Default: false},
+		{Name: "vat_registered_on", Type: field.TypeTime, Nullable: true},
 		{Name: "subscription_plan", Type: field.TypeString, Nullable: true},
 		{Name: "subscription_status", Type: field.TypeString, Nullable: true},
 		{Name: "subscription_expires_at", Type: field.TypeTime, Nullable: true},
@@ -815,7 +818,7 @@ var (
 			{
 				Name:    "tenant_subscription_plan",
 				Unique:  false,
-				Columns: []*schema.Column{TenantsColumns[14]},
+				Columns: []*schema.Column{TenantsColumns[17]},
 			},
 		},
 	}

@@ -82,6 +82,21 @@ func (Tenant) Fields() []ent.Field {
 			Optional().
 			Comment("Business use cases (multi-select): hospitality, retail, e_commerce, quick_service, food_delivery, grocery, manufacturing, warehousing, logistics, weighbridge, services, pharmacy, other"),
 
+		// ── Tax / KRA Compliance ──────────────────────────────────────────────
+		// Captured during onboarding (Zoho Books-style org profile) and synced to
+		// treasury-api so the tenant's tax PIN + VAT status appear on their invoices.
+		field.String("tax_pin").
+			Optional().
+			Nillable().
+			Comment("KRA PIN / Tax registration number (e.g. P051XXXXXXXX)"),
+		field.Bool("vat_registered").
+			Default(false).
+			Comment("Whether this business is registered for VAT"),
+		field.Time("vat_registered_on").
+			Optional().
+			Nillable().
+			Comment("Date the business was registered for VAT (only meaningful when vat_registered=true)"),
+
 		// ── Subscription Tier Cache ────────────────────────────────────────────
 		// Denormalized from subscription-api for fast JWT enrichment and auth checks.
 		// Updated via background sync whenever the subscription changes.
