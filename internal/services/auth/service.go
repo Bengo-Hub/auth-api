@@ -1508,6 +1508,10 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 	if tenantEntity != nil {
 		tokenInput.TenantSlug = tenantEntity.Slug
 
+		// Platform-granted subscription exemption (auth is the source of truth). Stamped as the
+		// sub_exempt JWT claim so every downstream service bypasses subscription gating.
+		tokenInput.SubscriptionExempt = tenantEntity.SubscriptionExempt
+
 		// Platform owner may also be flagged via metadata (in addition to the canonical
 		// "codevertex" slug) so a renamed/secondary platform tenant still bypasses gating.
 		if powner, ok := tenantEntity.Metadata["is_platform_owner"]; ok {

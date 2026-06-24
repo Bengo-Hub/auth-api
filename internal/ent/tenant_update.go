@@ -74,6 +74,20 @@ func (_u *TenantUpdate) SetNillableStatus(v *string) *TenantUpdate {
 	return _u
 }
 
+// SetSubscriptionExempt sets the "subscription_exempt" field.
+func (_u *TenantUpdate) SetSubscriptionExempt(v bool) *TenantUpdate {
+	_u.mutation.SetSubscriptionExempt(v)
+	return _u
+}
+
+// SetNillableSubscriptionExempt sets the "subscription_exempt" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableSubscriptionExempt(v *bool) *TenantUpdate {
+	if v != nil {
+		_u.SetSubscriptionExempt(*v)
+	}
+	return _u
+}
+
 // SetContactEmail sets the "contact_email" field.
 func (_u *TenantUpdate) SetContactEmail(v string) *TenantUpdate {
 	_u.mutation.SetContactEmail(v)
@@ -577,6 +591,9 @@ func (_u *TenantUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(tenant.FieldStatus, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.SubscriptionExempt(); ok {
+		_spec.SetField(tenant.FieldSubscriptionExempt, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.ContactEmail(); ok {
 		_spec.SetField(tenant.FieldContactEmail, field.TypeString, value)
 	}
@@ -844,6 +861,20 @@ func (_u *TenantUpdateOne) SetStatus(v string) *TenantUpdateOne {
 func (_u *TenantUpdateOne) SetNillableStatus(v *string) *TenantUpdateOne {
 	if v != nil {
 		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetSubscriptionExempt sets the "subscription_exempt" field.
+func (_u *TenantUpdateOne) SetSubscriptionExempt(v bool) *TenantUpdateOne {
+	_u.mutation.SetSubscriptionExempt(v)
+	return _u
+}
+
+// SetNillableSubscriptionExempt sets the "subscription_exempt" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableSubscriptionExempt(v *bool) *TenantUpdateOne {
+	if v != nil {
+		_u.SetSubscriptionExempt(*v)
 	}
 	return _u
 }
@@ -1380,6 +1411,9 @@ func (_u *TenantUpdateOne) sqlSave(ctx context.Context) (_node *Tenant, err erro
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(tenant.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SubscriptionExempt(); ok {
+		_spec.SetField(tenant.FieldSubscriptionExempt, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.ContactEmail(); ok {
 		_spec.SetField(tenant.FieldContactEmail, field.TypeString, value)

@@ -71,6 +71,11 @@ func Status(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldStatus, v))
 }
 
+// SubscriptionExempt applies equality check predicate on the "subscription_exempt" field. It's identical to SubscriptionExemptEQ.
+func SubscriptionExempt(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldSubscriptionExempt, v))
+}
+
 // ContactEmail applies equality check predicate on the "contact_email" field. It's identical to ContactEmailEQ.
 func ContactEmail(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldContactEmail, v))
@@ -349,6 +354,16 @@ func StatusEqualFold(v string) predicate.Tenant {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// SubscriptionExemptEQ applies the EQ predicate on the "subscription_exempt" field.
+func SubscriptionExemptEQ(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldSubscriptionExempt, v))
+}
+
+// SubscriptionExemptNEQ applies the NEQ predicate on the "subscription_exempt" field.
+func SubscriptionExemptNEQ(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNEQ(FieldSubscriptionExempt, v))
 }
 
 // ContactEmailEQ applies the EQ predicate on the "contact_email" field.

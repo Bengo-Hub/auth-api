@@ -52,6 +52,20 @@ func (_c *TenantCreate) SetNillableStatus(v *string) *TenantCreate {
 	return _c
 }
 
+// SetSubscriptionExempt sets the "subscription_exempt" field.
+func (_c *TenantCreate) SetSubscriptionExempt(v bool) *TenantCreate {
+	_c.mutation.SetSubscriptionExempt(v)
+	return _c
+}
+
+// SetNillableSubscriptionExempt sets the "subscription_exempt" field if the given value is not nil.
+func (_c *TenantCreate) SetNillableSubscriptionExempt(v *bool) *TenantCreate {
+	if v != nil {
+		_c.SetSubscriptionExempt(*v)
+	}
+	return _c
+}
+
 // SetContactEmail sets the "contact_email" field.
 func (_c *TenantCreate) SetContactEmail(v string) *TenantCreate {
 	_c.mutation.SetContactEmail(v)
@@ -397,6 +411,10 @@ func (_c *TenantCreate) defaults() {
 		v := tenant.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.SubscriptionExempt(); !ok {
+		v := tenant.DefaultSubscriptionExempt
+		_c.mutation.SetSubscriptionExempt(v)
+	}
 	if _, ok := _c.mutation.Country(); !ok {
 		v := tenant.DefaultCountry
 		_c.mutation.SetCountry(v)
@@ -443,6 +461,9 @@ func (_c *TenantCreate) check() error {
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Tenant.status"`)}
+	}
+	if _, ok := _c.mutation.SubscriptionExempt(); !ok {
+		return &ValidationError{Name: "subscription_exempt", err: errors.New(`ent: missing required field "Tenant.subscription_exempt"`)}
 	}
 	if _, ok := _c.mutation.VatRegistered(); !ok {
 		return &ValidationError{Name: "vat_registered", err: errors.New(`ent: missing required field "Tenant.vat_registered"`)}
@@ -500,6 +521,10 @@ func (_c *TenantCreate) createSpec() (*Tenant, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(tenant.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.SubscriptionExempt(); ok {
+		_spec.SetField(tenant.FieldSubscriptionExempt, field.TypeBool, value)
+		_node.SubscriptionExempt = value
 	}
 	if value, ok := _c.mutation.ContactEmail(); ok {
 		_spec.SetField(tenant.FieldContactEmail, field.TypeString, value)
@@ -702,6 +727,18 @@ func (u *TenantUpsert) SetStatus(v string) *TenantUpsert {
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *TenantUpsert) UpdateStatus() *TenantUpsert {
 	u.SetExcluded(tenant.FieldStatus)
+	return u
+}
+
+// SetSubscriptionExempt sets the "subscription_exempt" field.
+func (u *TenantUpsert) SetSubscriptionExempt(v bool) *TenantUpsert {
+	u.Set(tenant.FieldSubscriptionExempt, v)
+	return u
+}
+
+// UpdateSubscriptionExempt sets the "subscription_exempt" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateSubscriptionExempt() *TenantUpsert {
+	u.SetExcluded(tenant.FieldSubscriptionExempt)
 	return u
 }
 
@@ -1143,6 +1180,20 @@ func (u *TenantUpsertOne) SetStatus(v string) *TenantUpsertOne {
 func (u *TenantUpsertOne) UpdateStatus() *TenantUpsertOne {
 	return u.Update(func(s *TenantUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetSubscriptionExempt sets the "subscription_exempt" field.
+func (u *TenantUpsertOne) SetSubscriptionExempt(v bool) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetSubscriptionExempt(v)
+	})
+}
+
+// UpdateSubscriptionExempt sets the "subscription_exempt" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateSubscriptionExempt() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateSubscriptionExempt()
 	})
 }
 
@@ -1809,6 +1860,20 @@ func (u *TenantUpsertBulk) SetStatus(v string) *TenantUpsertBulk {
 func (u *TenantUpsertBulk) UpdateStatus() *TenantUpsertBulk {
 	return u.Update(func(s *TenantUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetSubscriptionExempt sets the "subscription_exempt" field.
+func (u *TenantUpsertBulk) SetSubscriptionExempt(v bool) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetSubscriptionExempt(v)
+	})
+}
+
+// UpdateSubscriptionExempt sets the "subscription_exempt" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateSubscriptionExempt() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateSubscriptionExempt()
 	})
 }
 
