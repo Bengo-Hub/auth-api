@@ -25,6 +25,8 @@ type Tenant struct {
 	Slug string `json:"slug,omitempty"`
 	// active | inactive | suspended
 	Status string `json:"status,omitempty"`
+	// Platform-granted exemption: when true the tenant bypasses ALL subscription billing + gating. Stamped into the JWT as sub_exempt. Platform-admin only.
+	SubscriptionExempt bool `json:"subscription_exempt,omitempty"`
 	// Primary billing and alerts email for this organisation
 	ContactEmail *string `json:"contact_email,omitempty"`
 	// Primary contact phone (E.164 format)
@@ -109,7 +111,7 @@ func (*Tenant) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case tenant.FieldBrandColors, tenant.FieldUseCases, tenant.FieldTierLimits, tenant.FieldMetadata:
 			values[i] = new([]byte)
-		case tenant.FieldVatRegistered:
+		case tenant.FieldSubscriptionExempt, tenant.FieldVatRegistered:
 			values[i] = new(sql.NullBool)
 		case tenant.FieldName, tenant.FieldSlug, tenant.FieldStatus, tenant.FieldContactEmail, tenant.FieldContactPhone, tenant.FieldLogoURL, tenant.FieldWebsite, tenant.FieldCountry, tenant.FieldTimezone, tenant.FieldOrgSize, tenant.FieldUseCase, tenant.FieldTaxPin, tenant.FieldSubscriptionPlan, tenant.FieldSubscriptionStatus, tenant.FieldSubscriptionID:
 			values[i] = new(sql.NullString)
@@ -155,6 +157,12 @@ func (_m *Tenant) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
+			}
+		case tenant.FieldSubscriptionExempt:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field subscription_exempt", values[i])
+			} else if value.Valid {
+				_m.SubscriptionExempt = value.Bool
 			}
 		case tenant.FieldContactEmail:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -358,6 +366,9 @@ func (_m *Tenant) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("subscription_exempt=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SubscriptionExempt))
 	builder.WriteString(", ")
 	if v := _m.ContactEmail; v != nil {
 		builder.WriteString("contact_email=")

@@ -21,6 +21,8 @@ const (
 	FieldSlug = "slug"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldSubscriptionExempt holds the string denoting the subscription_exempt field in the database.
+	FieldSubscriptionExempt = "subscription_exempt"
 	// FieldContactEmail holds the string denoting the contact_email field in the database.
 	FieldContactEmail = "contact_email"
 	// FieldContactPhone holds the string denoting the contact_phone field in the database.
@@ -91,6 +93,7 @@ var Columns = []string{
 	FieldName,
 	FieldSlug,
 	FieldStatus,
+	FieldSubscriptionExempt,
 	FieldContactEmail,
 	FieldContactPhone,
 	FieldLogoURL,
@@ -131,6 +134,8 @@ var (
 	SlugValidator func(string) error
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
+	// DefaultSubscriptionExempt holds the default value on creation for the "subscription_exempt" field.
+	DefaultSubscriptionExempt bool
 	// DefaultCountry holds the default value on creation for the "country" field.
 	DefaultCountry string
 	// DefaultTimezone holds the default value on creation for the "timezone" field.
@@ -168,6 +173,11 @@ func BySlug(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// BySubscriptionExempt orders the results by the subscription_exempt field.
+func BySubscriptionExempt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubscriptionExempt, opts...).ToFunc()
 }
 
 // ByContactEmail orders the results by the contact_email field.

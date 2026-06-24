@@ -35,6 +35,9 @@ func (Tenant) Fields() []ent.Field {
 		field.String("status").
 			Default("active").
 			Comment("active | inactive | suspended"),
+		field.Bool("subscription_exempt").
+			Default(false).
+			Comment("Platform-granted exemption: when true the tenant bypasses ALL subscription billing + gating. Stamped into the JWT as sub_exempt. Platform-admin only."),
 
 		// ── Contact & Branding ────────────────────────────────────────────────
 		field.String("contact_email").

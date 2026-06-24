@@ -48,6 +48,9 @@ type Claims struct {
 	BillingMode  string `json:"billing_mode,omitempty"`     // "service_charge" bypasses subscription gating
 	IsDemo       bool   `json:"is_demo,omitempty"`          // true for demo tenant/users
 	AllowOverage bool   `json:"sub_allow_overage,omitempty"` // tenant opted in to pay-as-you-go extra usage
+	// SubscriptionExempt = platform-granted per-tenant exemption (auth-api Tenant.subscription_exempt).
+	// Mirrors the shared-auth-client Claims field; bypasses ALL subscription gating downstream.
+	SubscriptionExempt bool `json:"sub_exempt,omitempty"`
 
 	jwt.RegisteredClaims
 }
@@ -82,6 +85,7 @@ type AccessTokenInput struct {
 	BillingMode  string // "service_charge" bypasses subscription gating
 	IsDemo       bool   // true for demo tenant/users
 	AllowOverage bool   // tenant opted in to pay-as-you-go extra usage
+	SubscriptionExempt bool // platform-granted per-tenant subscription exemption
 }
 
 // Service handles JWT minting and verification.
@@ -187,6 +191,9 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	}
 	if input.AllowOverage {
 		claims.AllowOverage = true
+	}
+	if input.SubscriptionExempt {
+		claims.SubscriptionExempt = true
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
