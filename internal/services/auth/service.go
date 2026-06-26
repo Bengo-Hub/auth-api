@@ -307,21 +307,21 @@ func (s *Service) GetTenant(ctx context.Context, id uuid.UUID) (*ent.Tenant, err
 }
 
 // defaultTrialPlan picks the trial plan code for a newly-created tenant. An
-// explicit selection always wins. ISP/hotspot tenants are routed to their
-// isp-billing plan family (hotspot businesses → ISP_HOTSPOT_STARTER, KES 500;
-// PPPoE/ISP → ISP_PPPOE_STARTER, KES 1000) so subscription gating grants the
-// isp_billing features their dashboard requires. Everyone else gets STARTER.
+// explicit selection always wins. ISP/hotspot/PPPoE tenants are all routed to the
+// single ISP_BILLING_STARTER plan (KES 500 base + 3% of hotspot revenue above
+// KES 10k + KES 35 per active PPPoE subscriber/mo, no feature limits) so subscription
+// gating grants the isp_billing features their dashboard requires. The former
+// ISP_HOTSPOT_STARTER / ISP_PPPOE_STARTER split was consolidated and retired in
+// subscriptions-api (cmd/seed/plans_isp_billing.go); returning those dead codes here
+// made ISP trial provisioning silently fall through to the generic STARTER. Everyone
+// else gets STARTER.
 func defaultTrialPlan(useCase string, metadata map[string]any, selected string) string {
 	if selected != "" {
 		return selected
 	}
 	switch useCase {
-	case "isp", "hotspot":
-		bizType, _ := metadata["isp_business_type"].(string)
-		if useCase == "hotspot" || bizType == "hotspot" {
-			return "ISP_HOTSPOT_STARTER"
-		}
-		return "ISP_PPPOE_STARTER"
+	case "isp", "hotspot", "pppoe":
+		return "ISP_BILLING_STARTER"
 	default:
 		return "STARTER"
 	}
