@@ -76,6 +76,11 @@ func SubscriptionExempt(v bool) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldSubscriptionExempt, v))
 }
 
+// IsDemo applies equality check predicate on the "is_demo" field. It's identical to IsDemoEQ.
+func IsDemo(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldIsDemo, v))
+}
+
 // ContactEmail applies equality check predicate on the "contact_email" field. It's identical to ContactEmailEQ.
 func ContactEmail(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldContactEmail, v))
@@ -364,6 +369,16 @@ func SubscriptionExemptEQ(v bool) predicate.Tenant {
 // SubscriptionExemptNEQ applies the NEQ predicate on the "subscription_exempt" field.
 func SubscriptionExemptNEQ(v bool) predicate.Tenant {
 	return predicate.Tenant(sql.FieldNEQ(FieldSubscriptionExempt, v))
+}
+
+// IsDemoEQ applies the EQ predicate on the "is_demo" field.
+func IsDemoEQ(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldIsDemo, v))
+}
+
+// IsDemoNEQ applies the NEQ predicate on the "is_demo" field.
+func IsDemoNEQ(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNEQ(FieldIsDemo, v))
 }
 
 // ContactEmailEQ applies the EQ predicate on the "contact_email" field.

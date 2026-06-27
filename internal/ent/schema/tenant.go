@@ -38,6 +38,9 @@ func (Tenant) Fields() []ent.Field {
 		field.Bool("subscription_exempt").
 			Default(false).
 			Comment("Platform-granted exemption: when true the tenant bypasses ALL subscription billing + gating. Stamped into the JWT as sub_exempt. Platform-admin only."),
+		field.Bool("is_demo").
+			Default(false).
+			Comment("Demo tenant flag: when true this tenant is a sandbox/demo and downstream services (treasury) exclude it from platform revenue. Additive, defaults false."),
 
 		// ── Contact & Branding ────────────────────────────────────────────────
 		field.String("contact_email").

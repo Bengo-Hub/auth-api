@@ -778,6 +778,7 @@ var (
 		{Name: "slug", Type: field.TypeString, Unique: true},
 		{Name: "status", Type: field.TypeString, Default: "active"},
 		{Name: "subscription_exempt", Type: field.TypeBool, Default: false},
+		{Name: "is_demo", Type: field.TypeBool, Default: false},
 		{Name: "contact_email", Type: field.TypeString, Nullable: true},
 		{Name: "contact_phone", Type: field.TypeString, Nullable: true},
 		{Name: "logo_url", Type: field.TypeString, Nullable: true},
@@ -819,7 +820,7 @@ var (
 			{
 				Name:    "tenant_subscription_plan",
 				Unique:  false,
-				Columns: []*schema.Column{TenantsColumns[18]},
+				Columns: []*schema.Column{TenantsColumns[19]},
 			},
 		},
 	}

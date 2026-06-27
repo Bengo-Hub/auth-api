@@ -66,6 +66,20 @@ func (_c *TenantCreate) SetNillableSubscriptionExempt(v *bool) *TenantCreate {
 	return _c
 }
 
+// SetIsDemo sets the "is_demo" field.
+func (_c *TenantCreate) SetIsDemo(v bool) *TenantCreate {
+	_c.mutation.SetIsDemo(v)
+	return _c
+}
+
+// SetNillableIsDemo sets the "is_demo" field if the given value is not nil.
+func (_c *TenantCreate) SetNillableIsDemo(v *bool) *TenantCreate {
+	if v != nil {
+		_c.SetIsDemo(*v)
+	}
+	return _c
+}
+
 // SetContactEmail sets the "contact_email" field.
 func (_c *TenantCreate) SetContactEmail(v string) *TenantCreate {
 	_c.mutation.SetContactEmail(v)
@@ -415,6 +429,10 @@ func (_c *TenantCreate) defaults() {
 		v := tenant.DefaultSubscriptionExempt
 		_c.mutation.SetSubscriptionExempt(v)
 	}
+	if _, ok := _c.mutation.IsDemo(); !ok {
+		v := tenant.DefaultIsDemo
+		_c.mutation.SetIsDemo(v)
+	}
 	if _, ok := _c.mutation.Country(); !ok {
 		v := tenant.DefaultCountry
 		_c.mutation.SetCountry(v)
@@ -464,6 +482,9 @@ func (_c *TenantCreate) check() error {
 	}
 	if _, ok := _c.mutation.SubscriptionExempt(); !ok {
 		return &ValidationError{Name: "subscription_exempt", err: errors.New(`ent: missing required field "Tenant.subscription_exempt"`)}
+	}
+	if _, ok := _c.mutation.IsDemo(); !ok {
+		return &ValidationError{Name: "is_demo", err: errors.New(`ent: missing required field "Tenant.is_demo"`)}
 	}
 	if _, ok := _c.mutation.VatRegistered(); !ok {
 		return &ValidationError{Name: "vat_registered", err: errors.New(`ent: missing required field "Tenant.vat_registered"`)}
@@ -525,6 +546,10 @@ func (_c *TenantCreate) createSpec() (*Tenant, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.SubscriptionExempt(); ok {
 		_spec.SetField(tenant.FieldSubscriptionExempt, field.TypeBool, value)
 		_node.SubscriptionExempt = value
+	}
+	if value, ok := _c.mutation.IsDemo(); ok {
+		_spec.SetField(tenant.FieldIsDemo, field.TypeBool, value)
+		_node.IsDemo = value
 	}
 	if value, ok := _c.mutation.ContactEmail(); ok {
 		_spec.SetField(tenant.FieldContactEmail, field.TypeString, value)
@@ -739,6 +764,18 @@ func (u *TenantUpsert) SetSubscriptionExempt(v bool) *TenantUpsert {
 // UpdateSubscriptionExempt sets the "subscription_exempt" field to the value that was provided on create.
 func (u *TenantUpsert) UpdateSubscriptionExempt() *TenantUpsert {
 	u.SetExcluded(tenant.FieldSubscriptionExempt)
+	return u
+}
+
+// SetIsDemo sets the "is_demo" field.
+func (u *TenantUpsert) SetIsDemo(v bool) *TenantUpsert {
+	u.Set(tenant.FieldIsDemo, v)
+	return u
+}
+
+// UpdateIsDemo sets the "is_demo" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateIsDemo() *TenantUpsert {
+	u.SetExcluded(tenant.FieldIsDemo)
 	return u
 }
 
@@ -1194,6 +1231,20 @@ func (u *TenantUpsertOne) SetSubscriptionExempt(v bool) *TenantUpsertOne {
 func (u *TenantUpsertOne) UpdateSubscriptionExempt() *TenantUpsertOne {
 	return u.Update(func(s *TenantUpsert) {
 		s.UpdateSubscriptionExempt()
+	})
+}
+
+// SetIsDemo sets the "is_demo" field.
+func (u *TenantUpsertOne) SetIsDemo(v bool) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetIsDemo(v)
+	})
+}
+
+// UpdateIsDemo sets the "is_demo" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateIsDemo() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateIsDemo()
 	})
 }
 
@@ -1874,6 +1925,20 @@ func (u *TenantUpsertBulk) SetSubscriptionExempt(v bool) *TenantUpsertBulk {
 func (u *TenantUpsertBulk) UpdateSubscriptionExempt() *TenantUpsertBulk {
 	return u.Update(func(s *TenantUpsert) {
 		s.UpdateSubscriptionExempt()
+	})
+}
+
+// SetIsDemo sets the "is_demo" field.
+func (u *TenantUpsertBulk) SetIsDemo(v bool) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetIsDemo(v)
+	})
+}
+
+// UpdateIsDemo sets the "is_demo" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateIsDemo() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateIsDemo()
 	})
 }
 

@@ -23,6 +23,8 @@ const (
 	FieldStatus = "status"
 	// FieldSubscriptionExempt holds the string denoting the subscription_exempt field in the database.
 	FieldSubscriptionExempt = "subscription_exempt"
+	// FieldIsDemo holds the string denoting the is_demo field in the database.
+	FieldIsDemo = "is_demo"
 	// FieldContactEmail holds the string denoting the contact_email field in the database.
 	FieldContactEmail = "contact_email"
 	// FieldContactPhone holds the string denoting the contact_phone field in the database.
@@ -94,6 +96,7 @@ var Columns = []string{
 	FieldSlug,
 	FieldStatus,
 	FieldSubscriptionExempt,
+	FieldIsDemo,
 	FieldContactEmail,
 	FieldContactPhone,
 	FieldLogoURL,
@@ -136,6 +139,8 @@ var (
 	DefaultStatus string
 	// DefaultSubscriptionExempt holds the default value on creation for the "subscription_exempt" field.
 	DefaultSubscriptionExempt bool
+	// DefaultIsDemo holds the default value on creation for the "is_demo" field.
+	DefaultIsDemo bool
 	// DefaultCountry holds the default value on creation for the "country" field.
 	DefaultCountry string
 	// DefaultTimezone holds the default value on creation for the "timezone" field.
@@ -178,6 +183,11 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 // BySubscriptionExempt orders the results by the subscription_exempt field.
 func BySubscriptionExempt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSubscriptionExempt, opts...).ToFunc()
+}
+
+// ByIsDemo orders the results by the is_demo field.
+func ByIsDemo(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsDemo, opts...).ToFunc()
 }
 
 // ByContactEmail orders the results by the contact_email field.

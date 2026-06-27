@@ -143,6 +143,7 @@ func (h *AdminHandler) publishTenantLifecycleEvent(ctx context.Context, t *ent.T
 		"slug":              t.Slug,
 		"use_case":          useCase,
 		"created_by":        actor,
+		"is_demo":           t.IsDemo,
 		"tax_pin":           t.TaxPin,
 		"vat_registered":    t.VatRegistered,
 		"vat_registered_on": t.VatRegisteredOn,
@@ -158,6 +159,7 @@ type tenantRequest struct {
 	Name             string                 `json:"name"`
 	Slug             string                 `json:"slug"`
 	Status           string                 `json:"status,omitempty"` // read-only; ignored on update
+	IsDemo           *bool                  `json:"is_demo,omitempty"` // platform-admin only; excludes from platform revenue
 	UseCase          string                 `json:"use_case,omitempty"`
 	UseCases         []string               `json:"use_cases,omitempty"`
 	ContactEmail     string                 `json:"contact_email,omitempty"`
@@ -225,6 +227,9 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		if d := parseTenantTaxDate(*req.VatRegisteredOn); d != nil {
 			create.SetVatRegisteredOn(*d)
 		}
+	}
+	if req.IsDemo != nil {
+		create.SetIsDemo(*req.IsDemo)
 	}
 
 	// If tenant ID is provided, use it (for cross-service tenant sync)
@@ -477,6 +482,7 @@ type PublicTenantResponse struct {
 	Name                  string         `json:"name"`
 	Slug                  string         `json:"slug"`
 	Status                string         `json:"status"`
+	IsDemo                bool           `json:"is_demo"`
 	ContactEmail          *string        `json:"contact_email,omitempty"`
 	ContactPhone          *string        `json:"contact_phone,omitempty"`
 	LogoURL               *string        `json:"logo_url,omitempty"`
@@ -523,6 +529,7 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 		Name:                  t.Name,
 		Slug:                  t.Slug,
 		Status:                t.Status,
+		IsDemo:                t.IsDemo,
 		ContactEmail:          t.ContactEmail,
 		ContactPhone:          t.ContactPhone,
 		LogoURL:               t.LogoURL,
@@ -653,6 +660,9 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.VatRegistered != nil {
 		update.SetVatRegistered(*req.VatRegistered)
+	}
+	if req.IsDemo != nil {
+		update.SetIsDemo(*req.IsDemo)
 	}
 	if req.VatRegisteredOn != nil {
 		if d := parseTenantTaxDate(*req.VatRegisteredOn); d != nil {

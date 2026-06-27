@@ -22128,6 +22128,7 @@ type TenantMutation struct {
 	slug                    *string
 	status                  *string
 	subscription_exempt     *bool
+	is_demo                 *bool
 	contact_email           *string
 	contact_phone           *string
 	logo_url                *string
@@ -22408,6 +22409,42 @@ func (m *TenantMutation) OldSubscriptionExempt(ctx context.Context) (v bool, err
 // ResetSubscriptionExempt resets all changes to the "subscription_exempt" field.
 func (m *TenantMutation) ResetSubscriptionExempt() {
 	m.subscription_exempt = nil
+}
+
+// SetIsDemo sets the "is_demo" field.
+func (m *TenantMutation) SetIsDemo(b bool) {
+	m.is_demo = &b
+}
+
+// IsDemo returns the value of the "is_demo" field in the mutation.
+func (m *TenantMutation) IsDemo() (r bool, exists bool) {
+	v := m.is_demo
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsDemo returns the old "is_demo" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldIsDemo(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsDemo is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsDemo requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsDemo: %w", err)
+	}
+	return oldValue.IsDemo, nil
+}
+
+// ResetIsDemo resets all changes to the "is_demo" field.
+func (m *TenantMutation) ResetIsDemo() {
+	m.is_demo = nil
 }
 
 // SetContactEmail sets the "contact_email" field.
@@ -23558,7 +23595,7 @@ func (m *TenantMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TenantMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 26)
 	if m.name != nil {
 		fields = append(fields, tenant.FieldName)
 	}
@@ -23570,6 +23607,9 @@ func (m *TenantMutation) Fields() []string {
 	}
 	if m.subscription_exempt != nil {
 		fields = append(fields, tenant.FieldSubscriptionExempt)
+	}
+	if m.is_demo != nil {
+		fields = append(fields, tenant.FieldIsDemo)
 	}
 	if m.contact_email != nil {
 		fields = append(fields, tenant.FieldContactEmail)
@@ -23650,6 +23690,8 @@ func (m *TenantMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case tenant.FieldSubscriptionExempt:
 		return m.SubscriptionExempt()
+	case tenant.FieldIsDemo:
+		return m.IsDemo()
 	case tenant.FieldContactEmail:
 		return m.ContactEmail()
 	case tenant.FieldContactPhone:
@@ -23709,6 +23751,8 @@ func (m *TenantMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldStatus(ctx)
 	case tenant.FieldSubscriptionExempt:
 		return m.OldSubscriptionExempt(ctx)
+	case tenant.FieldIsDemo:
+		return m.OldIsDemo(ctx)
 	case tenant.FieldContactEmail:
 		return m.OldContactEmail(ctx)
 	case tenant.FieldContactPhone:
@@ -23787,6 +23831,13 @@ func (m *TenantMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSubscriptionExempt(v)
+		return nil
+	case tenant.FieldIsDemo:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsDemo(v)
 		return nil
 	case tenant.FieldContactEmail:
 		v, ok := value.(string)
@@ -24106,6 +24157,9 @@ func (m *TenantMutation) ResetField(name string) error {
 		return nil
 	case tenant.FieldSubscriptionExempt:
 		m.ResetSubscriptionExempt()
+		return nil
+	case tenant.FieldIsDemo:
+		m.ResetIsDemo()
 		return nil
 	case tenant.FieldContactEmail:
 		m.ResetContactEmail()
