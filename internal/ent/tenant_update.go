@@ -88,6 +88,20 @@ func (_u *TenantUpdate) SetNillableSubscriptionExempt(v *bool) *TenantUpdate {
 	return _u
 }
 
+// SetIsDemo sets the "is_demo" field.
+func (_u *TenantUpdate) SetIsDemo(v bool) *TenantUpdate {
+	_u.mutation.SetIsDemo(v)
+	return _u
+}
+
+// SetNillableIsDemo sets the "is_demo" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableIsDemo(v *bool) *TenantUpdate {
+	if v != nil {
+		_u.SetIsDemo(*v)
+	}
+	return _u
+}
+
 // SetContactEmail sets the "contact_email" field.
 func (_u *TenantUpdate) SetContactEmail(v string) *TenantUpdate {
 	_u.mutation.SetContactEmail(v)
@@ -594,6 +608,9 @@ func (_u *TenantUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.SubscriptionExempt(); ok {
 		_spec.SetField(tenant.FieldSubscriptionExempt, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.IsDemo(); ok {
+		_spec.SetField(tenant.FieldIsDemo, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.ContactEmail(); ok {
 		_spec.SetField(tenant.FieldContactEmail, field.TypeString, value)
 	}
@@ -875,6 +892,20 @@ func (_u *TenantUpdateOne) SetSubscriptionExempt(v bool) *TenantUpdateOne {
 func (_u *TenantUpdateOne) SetNillableSubscriptionExempt(v *bool) *TenantUpdateOne {
 	if v != nil {
 		_u.SetSubscriptionExempt(*v)
+	}
+	return _u
+}
+
+// SetIsDemo sets the "is_demo" field.
+func (_u *TenantUpdateOne) SetIsDemo(v bool) *TenantUpdateOne {
+	_u.mutation.SetIsDemo(v)
+	return _u
+}
+
+// SetNillableIsDemo sets the "is_demo" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableIsDemo(v *bool) *TenantUpdateOne {
+	if v != nil {
+		_u.SetIsDemo(*v)
 	}
 	return _u
 }
@@ -1414,6 +1445,9 @@ func (_u *TenantUpdateOne) sqlSave(ctx context.Context) (_node *Tenant, err erro
 	}
 	if value, ok := _u.mutation.SubscriptionExempt(); ok {
 		_spec.SetField(tenant.FieldSubscriptionExempt, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.IsDemo(); ok {
+		_spec.SetField(tenant.FieldIsDemo, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.ContactEmail(); ok {
 		_spec.SetField(tenant.FieldContactEmail, field.TypeString, value)

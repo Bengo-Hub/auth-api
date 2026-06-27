@@ -577,20 +577,31 @@ func (h *WebhookHandler) HandleAuthUserCreated(ctx context.Context, event AuthUs
 
 #### Tenant Events
 
-**auth.tenant.created**
+**auth.tenant.created** / **auth.tenant.updated**
+
+The wire envelope uses `event_type` + `payload` (shared-events convention). Payload fields:
+
 ```json
 {
   "event_id": "uuid",
   "event_type": "auth.tenant.created",
   "timestamp": "2024-12-05T10:30:00Z",
-  "data": {
+  "payload": {
     "tenant_id": "tenant-uuid",
-    "tenant_slug": "tenant-slug",
     "name": "Tenant Name",
-    "status": "active"
+    "slug": "tenant-slug",
+    "use_case": "hospitality",
+    "created_by": "actor-id",
+    "is_demo": false,
+    "tax_pin": "P051XXXXXXXX",
+    "vat_registered": true,
+    "vat_registered_on": "2024-01-01T00:00:00Z",
+    "country": "KE"
   }
 }
 ```
+
+`is_demo` (bool) lets downstream consumers (treasury) exclude demo/sandbox tenants from platform revenue. Same payload shape is emitted for `auth.tenant.updated`.
 
 **auth.tenant.synced**
 ```json

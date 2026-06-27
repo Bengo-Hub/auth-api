@@ -27,6 +27,8 @@ type Tenant struct {
 	Status string `json:"status,omitempty"`
 	// Platform-granted exemption: when true the tenant bypasses ALL subscription billing + gating. Stamped into the JWT as sub_exempt. Platform-admin only.
 	SubscriptionExempt bool `json:"subscription_exempt,omitempty"`
+	// Demo tenant flag: when true this tenant is a sandbox/demo and downstream services (treasury) exclude it from platform revenue. Additive, defaults false.
+	IsDemo bool `json:"is_demo,omitempty"`
 	// Primary billing and alerts email for this organisation
 	ContactEmail *string `json:"contact_email,omitempty"`
 	// Primary contact phone (E.164 format)
@@ -111,7 +113,7 @@ func (*Tenant) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case tenant.FieldBrandColors, tenant.FieldUseCases, tenant.FieldTierLimits, tenant.FieldMetadata:
 			values[i] = new([]byte)
-		case tenant.FieldSubscriptionExempt, tenant.FieldVatRegistered:
+		case tenant.FieldSubscriptionExempt, tenant.FieldIsDemo, tenant.FieldVatRegistered:
 			values[i] = new(sql.NullBool)
 		case tenant.FieldName, tenant.FieldSlug, tenant.FieldStatus, tenant.FieldContactEmail, tenant.FieldContactPhone, tenant.FieldLogoURL, tenant.FieldWebsite, tenant.FieldCountry, tenant.FieldTimezone, tenant.FieldOrgSize, tenant.FieldUseCase, tenant.FieldTaxPin, tenant.FieldSubscriptionPlan, tenant.FieldSubscriptionStatus, tenant.FieldSubscriptionID:
 			values[i] = new(sql.NullString)
@@ -163,6 +165,12 @@ func (_m *Tenant) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field subscription_exempt", values[i])
 			} else if value.Valid {
 				_m.SubscriptionExempt = value.Bool
+			}
+		case tenant.FieldIsDemo:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_demo", values[i])
+			} else if value.Valid {
+				_m.IsDemo = value.Bool
 			}
 		case tenant.FieldContactEmail:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -369,6 +377,9 @@ func (_m *Tenant) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("subscription_exempt=")
 	builder.WriteString(fmt.Sprintf("%v", _m.SubscriptionExempt))
+	builder.WriteString(", ")
+	builder.WriteString("is_demo=")
+	builder.WriteString(fmt.Sprintf("%v", _m.IsDemo))
 	builder.WriteString(", ")
 	if v := _m.ContactEmail; v != nil {
 		builder.WriteString("contact_email=")

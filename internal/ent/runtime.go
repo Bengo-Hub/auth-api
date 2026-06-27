@@ -763,24 +763,28 @@ func init() {
 	tenantDescSubscriptionExempt := tenantFields[4].Descriptor()
 	// tenant.DefaultSubscriptionExempt holds the default value on creation for the subscription_exempt field.
 	tenant.DefaultSubscriptionExempt = tenantDescSubscriptionExempt.Default.(bool)
+	// tenantDescIsDemo is the schema descriptor for is_demo field.
+	tenantDescIsDemo := tenantFields[5].Descriptor()
+	// tenant.DefaultIsDemo holds the default value on creation for the is_demo field.
+	tenant.DefaultIsDemo = tenantDescIsDemo.Default.(bool)
 	// tenantDescCountry is the schema descriptor for country field.
-	tenantDescCountry := tenantFields[9].Descriptor()
+	tenantDescCountry := tenantFields[10].Descriptor()
 	// tenant.DefaultCountry holds the default value on creation for the country field.
 	tenant.DefaultCountry = tenantDescCountry.Default.(string)
 	// tenantDescTimezone is the schema descriptor for timezone field.
-	tenantDescTimezone := tenantFields[10].Descriptor()
+	tenantDescTimezone := tenantFields[11].Descriptor()
 	// tenant.DefaultTimezone holds the default value on creation for the timezone field.
 	tenant.DefaultTimezone = tenantDescTimezone.Default.(string)
 	// tenantDescVatRegistered is the schema descriptor for vat_registered field.
-	tenantDescVatRegistered := tenantFields[16].Descriptor()
+	tenantDescVatRegistered := tenantFields[17].Descriptor()
 	// tenant.DefaultVatRegistered holds the default value on creation for the vat_registered field.
 	tenant.DefaultVatRegistered = tenantDescVatRegistered.Default.(bool)
 	// tenantDescCreatedAt is the schema descriptor for created_at field.
-	tenantDescCreatedAt := tenantFields[24].Descriptor()
+	tenantDescCreatedAt := tenantFields[25].Descriptor()
 	// tenant.DefaultCreatedAt holds the default value on creation for the created_at field.
 	tenant.DefaultCreatedAt = tenantDescCreatedAt.Default.(func() time.Time)
 	// tenantDescUpdatedAt is the schema descriptor for updated_at field.
-	tenantDescUpdatedAt := tenantFields[25].Descriptor()
+	tenantDescUpdatedAt := tenantFields[26].Descriptor()
 	// tenant.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	tenant.DefaultUpdatedAt = tenantDescUpdatedAt.Default.(func() time.Time)
 	// tenant.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

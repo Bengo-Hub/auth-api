@@ -114,6 +114,7 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 				SetName(t.name).
 				SetSlug(t.slug).
 				SetStatus("active").
+				SetIsDemo(t.isDemo).
 				SetMetadata(meta).
 				SetNillableLogoURL(&t.logoURL).
 				SetBrandColors(t.brandColors)
@@ -146,7 +147,7 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			for k, v := range meta {
 				existingMeta[k] = v
 			}
-			upd := tenantEntity.Update().SetMetadata(existingMeta)
+			upd := tenantEntity.Update().SetMetadata(existingMeta).SetIsDemo(t.isDemo)
 			// Backfill optional fields only when they are still unset (never overwrite).
 			if tenantEntity.LogoURL == nil && t.logoURL != "" {
 				upd = upd.SetLogoURL(t.logoURL)
