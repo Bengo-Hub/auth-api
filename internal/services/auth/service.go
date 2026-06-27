@@ -322,6 +322,8 @@ func defaultTrialPlan(useCase string, metadata map[string]any, selected string) 
 	switch useCase {
 	case "isp", "hotspot", "pppoe":
 		return "ISP_BILLING_STARTER"
+	case "library":
+		return "LIBRARY_STARTER"
 	default:
 		return "STARTER"
 	}
