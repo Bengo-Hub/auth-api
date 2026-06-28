@@ -139,6 +139,80 @@ func (h *OutletHandler) publishOutletEvent(ctx context.Context, tenantID, outlet
 
 // ─── CRUD handlers ────────────────────────────────────────────────────────────
 
+// ensureHQOutlet get-or-creates a tenant's HQ "MAIN" outlet so a tenant is never
+// left with zero outlets (which would block the SSO "Select View" / outlet picker
+// with "No outlets found"). Auth-api OWNS outlets, so creating it here guarantees a
+// single stable UUID that every downstream service (inventory, pos, library,
+// treasury) mirrors via the auth.outlet.created event — UUID uniformity is automatic
+// because the UUID is minted once, by the owner, and propagated, never re-minted.
+//
+// Idempotent: the unique (tenant_id, code) index makes a concurrent second create
+// fail harmlessly, and we re-query on a lost race. Mirrors the get-or-create-HQ
+// pattern library-service uses in EnsureDefaultBranch.
+//
+// Returns the full outlet list for the tenant (existing or freshly seeded).
+func (h *OutletHandler) ensureHQOutlet(ctx context.Context, t *ent.Tenant) ([]*ent.Outlet, error) {
+	outlets, err := h.ent.Outlet.Query().
+		Where(outlet.TenantID(t.ID)).
+		Order(ent.Asc(outlet.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(outlets) > 0 {
+		return outlets, nil
+	}
+
+	// No outlets for this tenant — provision the default HQ "MAIN" outlet on the fly.
+	// Reuse the tenant's primary use_case so downstream route-gating is correct.
+	hqUseCase := "hospitality"
+	if t.UseCase != nil && *t.UseCase != "" && usecase.IsValidUseCase(*t.UseCase) {
+		hqUseCase = *t.UseCase
+	}
+	hqName := "Main / HQ"
+	if t.Name != "" {
+		hqName = t.Name + " HQ"
+	}
+
+	created, cerr := h.ent.Outlet.Create().
+		SetTenantID(t.ID).
+		SetCode("MAIN").
+		SetName(hqName).
+		SetUseCase(hqUseCase).
+		SetIsHq(true).
+		SetStatus("active").
+		Save(ctx)
+	if cerr != nil {
+		// Lost a race (another request created MAIN) — re-query and return whatever exists.
+		outlets, qerr := h.ent.Outlet.Query().
+			Where(outlet.TenantID(t.ID)).
+			Order(ent.Asc(outlet.FieldCreatedAt)).
+			All(ctx)
+		if qerr == nil && len(outlets) > 0 {
+			return outlets, nil
+		}
+		return nil, cerr
+	}
+
+	// Emit auth.outlet.created so inventory/pos/library/treasury mirror the SAME UUID.
+	h.publishOutletEvent(ctx, t.ID, created.ID, "created", map[string]any{
+		"outlet_id":           created.ID.String(),
+		"tenant_id":           t.ID.String(),
+		"tenant_slug":         t.Slug,
+		"code":                created.Code,
+		"name":                created.Name,
+		"use_case":            created.UseCase,
+		"is_hq":               created.IsHq,
+		"status":              created.Status,
+		"applicable_services": usecase.ApplicableServices(created.UseCase),
+	})
+	h.logger.Info("auto-provisioned default HQ outlet for tenant with none",
+		zap.String("tenant_slug", t.Slug),
+		zap.String("outlet_id", created.ID.String()))
+
+	return []*ent.Outlet{created}, nil
+}
+
 // ListOutlets GET /api/v1/tenants/{slug}/outlets
 func (h *OutletHandler) ListOutlets(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
@@ -148,10 +222,10 @@ func (h *OutletHandler) ListOutlets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	outlets, err := h.ent.Outlet.Query().
-		Where(outlet.TenantID(t.ID)).
-		Order(ent.Asc(outlet.FieldCreatedAt)).
-		All(r.Context())
+	// Never let the SSO outlet picker hit "No outlets found": get-or-create the HQ
+	// MAIN outlet when the tenant has none (heals tenants provisioned before HQ
+	// auto-creation existed, or whose HQ event was never delivered).
+	outlets, err := h.ensureHQOutlet(r.Context(), t)
 	if err != nil {
 		h.logger.Error("list outlets", zap.Error(err))
 		http.Error(w, "internal error", http.StatusInternalServerError)
