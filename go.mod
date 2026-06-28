@@ -6,7 +6,7 @@ require (
 	ariga.io/atlas v1.1.0
 	entgo.io/ent v0.14.5
 	github.com/Bengo-Hub/pagination v0.3.0
-	github.com/Bengo-Hub/shared-events v0.5.0
+	github.com/Bengo-Hub/shared-events v0.5.1
 	github.com/Bengo-Hub/shared-password-hasher v0.1.1
 	github.com/Bengo-Hub/shared-service-client v0.3.0
 	github.com/caarlos0/env/v11 v11.3.1
@@ -17,7 +17,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
-	github.com/nats-io/nats.go v1.48.0
+	github.com/nats-io/nats.go v1.52.0
 	github.com/pquerna/otp v1.4.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/redis/go-redis/v9 v9.16.0
@@ -59,11 +59,11 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/nats-io/nkeys v0.4.11 // indirect
+	github.com/nats-io/nkeys v0.4.15 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
