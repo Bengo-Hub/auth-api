@@ -6,8 +6,11 @@ import (
 	"strings"
 	"time"
 
+	entsql "entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"github.com/Bengo-Hub/pagination"
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
+	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
@@ -99,7 +102,8 @@ func mapUser(u *ent.User) *userResponse {
 // @Produce json
 // @Param status query string false "Filter by status (active, suspended, deactivated)"
 // @Param tenant_id query string false "Filter by tenant membership"
-// @Param search query string false "Search by email (case-insensitive)"
+// @Param role query string false "Filter by role held in any (or the given) tenant membership"
+// @Param search query string false "Search by email or name (case-insensitive)"
 // @Param page query int false "Page number (1-based)"
 // @Param limit query int false "Page size (default 50)"
 // @Success 200 {object} map[string]any
@@ -112,6 +116,7 @@ func (h *UserHandler) AdminListUsers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	statusFilter := q.Get("status")
 	tenantFilter := q.Get("tenant_id")
+	roleFilter := strings.TrimSpace(q.Get("role"))
 	search := strings.TrimSpace(q.Get("search"))
 	p := pagination.Parse(r)
 
@@ -121,13 +126,32 @@ func (h *UserHandler) AdminListUsers(w http.ResponseWriter, r *http.Request) {
 		query = query.Where(user.StatusEQ(statusFilter))
 	}
 	if search != "" {
-		query = query.Where(user.EmailContainsFold(search))
+		// Match email OR the display name stored in profile->>'name' (case-insensitive).
+		like := "%" + search + "%"
+		query = query.Where(func(s *entsql.Selector) {
+			s.Where(entsql.Or(
+				entsql.ExprP(s.C(user.FieldEmail)+" ILIKE ?", like),
+				entsql.ExprP("("+s.C(user.FieldProfile)+"->>'name') ILIKE ?", like),
+			))
+		})
 	}
+
+	// tenant_id and role both constrain tenant memberships; when both are present
+	// they must be satisfied by the SAME membership (a user holding that role in
+	// that specific tenant), so they are ANDed inside one HasMembershipsWith.
+	var memberPreds []predicate.TenantMembership
 	if tenantFilter != "" {
-		tid, err := uuid.Parse(tenantFilter)
-		if err == nil {
-			query = query.Where(user.HasMembershipsWith(tenantmembership.TenantID(tid)))
+		if tid, err := uuid.Parse(tenantFilter); err == nil {
+			memberPreds = append(memberPreds, tenantmembership.TenantID(tid))
 		}
+	}
+	if roleFilter != "" {
+		memberPreds = append(memberPreds, func(s *entsql.Selector) {
+			s.Where(sqljson.ValueContains(tenantmembership.FieldRoles, roleFilter))
+		})
+	}
+	if len(memberPreds) > 0 {
+		query = query.Where(user.HasMembershipsWith(memberPreds...))
 	}
 
 	total, err := query.Clone().Count(r.Context())
