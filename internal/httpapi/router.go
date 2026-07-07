@@ -74,6 +74,7 @@ type AuthHandlers struct {
 	AdminRotateKeys              http.HandlerFunc
 	PublicCreateTenant           http.HandlerFunc
 	PublicGetTenantBySlug        http.HandlerFunc
+	PublicGetTenantByID          http.HandlerFunc
 	AdminCreateIntegrationConfig http.HandlerFunc
 	AdminGetIntegrationConfig    http.HandlerFunc
 	AdminListIntegrationConfigs  http.HandlerFunc
@@ -312,6 +313,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 		r.Route("/tenants", func(r chi.Router) {
 			r.Post("/", deps.AuthHandlers.PublicCreateTenant)
 			r.Get("/by-slug/{slug}", deps.AuthHandlers.PublicGetTenantBySlug)
+			r.Get("/by-id/{tenant_id}", deps.AuthHandlers.PublicGetTenantByID)
 			// Outlet management — GET is public (outlet info is not sensitive),
 			// mutations require authentication.
 			if deps.OutletHandler != nil {

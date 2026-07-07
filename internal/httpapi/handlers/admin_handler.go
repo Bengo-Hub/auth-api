@@ -524,6 +524,39 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get tenant", nil)
 		return
 	}
+	writeJSON(w, http.StatusOK, publicTenantResponseFrom(t))
+}
+
+// GetTenantByIDPublic retrieves a tenant by UUID via public endpoint. Mirrors
+// GetTenantBySlugPublic but keyed by ID — used by S2S consumers that only carry a
+// tenant_id (e.g. notifications-api's event-driven tenant resolver) to dynamically
+// sync a local tenant projection without requiring a prior slug lookup.
+// No authentication required (same trust boundary as by-slug: non-sensitive fields only).
+func (h *AdminHandler) GetTenantByIDPublic(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "tenant_id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+
+	t, err := h.ent.Tenant.Query().
+		Where(tenant.IDEQ(id)).
+		Only(r.Context())
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to get tenant", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, publicTenantResponseFrom(t))
+}
+
+// publicTenantResponseFrom builds the shared public tenant response shape from an ent
+// Tenant row. Shared by the by-slug and by-id public lookup endpoints.
+func publicTenantResponseFrom(t *ent.Tenant) PublicTenantResponse {
 	resp := PublicTenantResponse{
 		ID:                    t.ID.String(),
 		Name:                  t.Name,
@@ -555,7 +588,7 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 		resp.UseCases = t.UseCases
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	return resp
 }
 
 func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {

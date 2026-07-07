@@ -266,6 +266,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminRotateKeys:              adminHandler.RotateKeys,
 			PublicCreateTenant:           adminHandler.CreateTenantPublic,
 			PublicGetTenantBySlug:        adminHandler.GetTenantBySlugPublic,
+			PublicGetTenantByID:          adminHandler.GetTenantByIDPublic,
 			AdminCreateIntegrationConfig: adminHandler.CreateIntegrationConfig,
 			AdminGetIntegrationConfig:    adminHandler.GetIntegrationConfig,
 			AdminListIntegrationConfigs:  adminHandler.ListIntegrationConfigs,
