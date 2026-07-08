@@ -3,7 +3,7 @@
   "info": {
     "title": "Auth Service API",
     "version": "1.0.0",
-    "description": "SSO/OIDC provider for BengoBox platform. Demo: demo@bengobox.dev / DemoUser2024!"
+    "description": "SSO/OIDC provider for Codevertex platform. Demo: demo@bengobox.dev / DemoUser2024!"
   },
   "servers": [
     { "url": "https://sso.codevertexitsolutions.com", "description": "Production (default)" },

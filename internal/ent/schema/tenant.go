@@ -11,7 +11,7 @@ import (
 )
 
 // Tenant holds the schema definition for the Tenant entity.
-// This is the source of truth for all tenant identities in the BengoBox platform.
+// This is the source of truth for all tenant identities in the Codevertex platform.
 // Every other service that integrates with SSO must sync tenant data from auth-api
 // using the public GET /api/v1/tenants/by-slug/{slug} endpoint to obtain the real UUID.
 type Tenant struct {

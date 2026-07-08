@@ -8,7 +8,7 @@ Examples of behaviour that contributes to a positive environment include:
 - Demonstrating empathy and kindness toward others.
 - Being respectful of differing opinions, viewpoints, and experiences.
 - Giving and gracefully accepting constructive feedback.
-- Focusing on what is best for the BengoBox community.
+- Focusing on what is best for the Codevertex community.
 - Showing responsibility when handling sensitive identity/security topics.
 
 Examples of unacceptable behaviour include:

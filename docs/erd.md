@@ -1,6 +1,6 @@
 # Auth Service – Entity Relationship Overview
 
-The auth service acts as the central identity provider (OIDC/OAuth2) for all BengoBox properties.  
+The auth service acts as the central identity provider (OIDC/OAuth2) for all Codevertex properties.  
 Schema definitions are managed with Ent, and all tables are multi-tenant and auditable.
 
 > **Conventions**
@@ -15,7 +15,7 @@ Schema definitions are managed with Ent, and all tables are multi-tenant and aud
 
 | Table | Key Columns | Purpose / Notes |
 |-------|-------------|-----------------|
-| `tenants` | `id`, `slug`, `name`, `status`, `created_at`, `updated_at` | Organisations subscribed to BengoBox services. `slug` is the canonical identifier shared across all Go microservices. |
+| `tenants` | `id`, `slug`, `name`, `status`, `created_at`, `updated_at` | Organisations subscribed to Codevertex services. `slug` is the canonical identifier shared across all Go microservices. |
 | `tenant_domains` | `id`, `tenant_id`, `domain`, `cookie_mode`, `is_primary`, `created_at`, `updated_at` | Allowed login domains / cookie scopes for SSO. |
 | `users` | `id`, `tenant_id`, `email`, `phone`, `password_hash`, `status`, `metadata`, `last_login_at`, `created_at`, `updated_at` | Canonical user record. `email` unique per tenant. |
 | `user_profiles` | `user_id (PK)`, `display_name`, `avatar_url`, `locale`, `timezone`, `attributes_json`, `updated_at` | Lightweight profile extensions exposed via `/userinfo`. |

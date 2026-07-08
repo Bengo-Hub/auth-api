@@ -2,14 +2,14 @@
 
 ## Overview
 
-The Auth Service is the central identity provider for all BengoBox services. This document details all integration points, protocols, data flows, and implementation guidelines for services integrating with auth-service.
+The Auth Service is the central identity provider for all Codevertex services. This document details all integration points, protocols, data flows, and implementation guidelines for services integrating with auth-service.
 
 ---
 
 ## Table of Contents
 
 1. [Integration Patterns](#integration-patterns)
-2. [Internal BengoBox Service Integrations](#internal-bengobox-service-integrations)
+2. [Internal Codevertex Service Integrations](#internal-bengobox-service-integrations)
 3. [External Third-Party Integrations](#external-third-party-integrations)
 4. [User & Tenant Synchronization](#user--tenant-synchronization)
 5. [Event-Driven Architecture](#event-driven-architecture)
@@ -174,7 +174,7 @@ r.Use(authMiddleware.RequireAuth)
 
 ---
 
-## Internal BengoBox Service Integrations
+## Internal Codevertex Service Integrations
 
 ### Ordering-Backend
 

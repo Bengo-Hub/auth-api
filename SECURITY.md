@@ -1,6 +1,6 @@
 # Security Policy
 
-Identity and access management is a critical component of the BengoBox platform. We take security seriously and ask that you do too.
+Identity and access management is a critical component of the Codevertex platform. We take security seriously and ask that you do too.
 
 ## Supported Versions
 

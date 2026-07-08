@@ -1,7 +1,7 @@
 ## Auth Service Delivery Plan
 
 ### Vision & Mandate
-- Deliver a unified authentication, authorization, and identity orchestration platform for the entire BengoBox ecosystem (ordering-backend, POS, inventory, logistics, treasury, notifications, ERP, partner APIs) with a canonical `tenant_slug` propagated to all services.
+- Deliver a unified authentication, authorization, and identity orchestration platform for the entire Codevertex ecosystem (ordering-backend, POS, inventory, logistics, treasury, notifications, ERP, partner APIs) with a canonical `tenant_slug` propagated to all services.
 - Provide standards-compliant OAuth2/OpenID Connect capabilities to power Single Sign-On (SSO) across web, mobile, kiosk, and service-to-service flows.
 - Establish a secure foundation for multi-tenant, multi-brand operations with fine-grained policy enforcement, while delegating application-specific RBAC to downstream services.
 - Ensure extensibility for future identity protocols (SAML, SCIM, FIDO2) and marketplace integrations.
@@ -93,7 +93,7 @@
 - [x] **Sprint 6 – MFA & Risk Controls:** TOTP, backup codes, policies, integration with notifications for SMS/email OTP.
 - [x] **Sprint 7 – Tenant & Client Admin:** tenant management APIs, client registry UI, scope management, service accounts.
 - [x] **Sprint 8 – Subscription & Usage:** entitlement checks (treasury), usage metering, plan gating, billing events.
-- [ ] **Sprint 9 – Integrations:** SDKs, service integration guides, migration of existing services, SSO across BengoBox apps.
+- [ ] **Sprint 9 – Integrations:** SDKs, service integration guides, migration of existing services, SSO across Codevertex apps.
 - [x] **Sprint 10 – Hardening & Launch:** key rotation workflows, rate limiting, analytics, monitoring dashboards, chaos testing, production rollout.
 - [x] **Sprint 11 – JWT Claims Enrichment:** Embed subscription data in JWT at login time (see below). ✅ COMPLETE — subscription client wired in `mintTokensForUser`; claims embedded at login/refresh; 5 min Redis cache; graceful fallback.
 - [x] **Sprint 12 – API Key Management:** Full API key lifecycle for service-to-service authentication. ✅ COMPLETE — `api_keys` schema, `bng_*` token generation, validate/create/list/revoke endpoints; `App` entity with `bng_app_*` GitHub-style S2S tokens; prefix routing in `ValidateAPIKey`.
@@ -211,6 +211,6 @@ Currently, services must make per-request calls to subscription-service to check
 
 ### Immediate Actions
 - Align with treasury on entitlement payloads and billing events.
-- Define service integration playbook (redirect URIs, claims mapping) for all BengoBox teams.
+- Define service integration playbook (redirect URIs, claims mapping) for all Codevertex teams.
 - Finalize threat model, choose crypto/key management strategy (KMS/HSM).
 - Kick off Sprint 0 after sign-off and environment provisioning.

@@ -1,6 +1,6 @@
 # OAuth Provider Setup Guide
 
-This guide covers registering OAuth applications with Google, Microsoft, and GitHub, and wiring them into the BengoBox auth-service.
+This guide covers registering OAuth applications with Google, Microsoft, and GitHub, and wiring them into the Codevertex auth-service.
 
 ---
 
@@ -21,7 +21,7 @@ This guide covers registering OAuth applications with Google, Microsoft, and Git
 
 ## Architecture Overview
 
-There are **two distinct callback layers** in the BengoBox OAuth flow — do not confuse them:
+There are **two distinct callback layers** in the Codevertex OAuth flow — do not confuse them:
 
 | Layer | Who calls it | Purpose |
 | --- | --- | --- |
@@ -110,7 +110,7 @@ Google (and optionally Microsoft) also require JavaScript origins. These are the
 
 1. Open the [Azure Portal → App registrations](https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade).
 2. Click **New registration**.
-3. **Name**: e.g. `BengoBox SSO`.
+3. **Name**: e.g. `Codevertex SSO`.
 4. **Supported account types**:
    - *Accounts in any organizational directory and personal Microsoft accounts* (multi-tenant + personal) — maps to `tenant_id="common"` in auth-api.
    - Or restrict to a specific org if you want SSO locked to one Azure AD tenant.
@@ -135,7 +135,7 @@ Google (and optionally Microsoft) also require JavaScript origins. These are the
 
 1. Open [GitHub → Settings → Developer settings → OAuth Apps](https://github.com/settings/developers).
 2. Click **New OAuth App**.
-3. **Application name**: e.g. `BengoBox SSO`.
+3. **Application name**: e.g. `Codevertex SSO`.
 4. **Homepage URL**: `https://codevertexitsolutions.com`.
 5. **Authorization callback URL**: `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/github/callback`.
 6. Click **Register application**. Copy the **Client ID**.
@@ -281,6 +281,6 @@ In auth-ui, the `OAuthButton` component reads the active tenant from the subdoma
 
 ## Related Documents
 
-- [integrations.md](./integrations.md) — Full integration patterns across all BengoBox services
+- [integrations.md](./integrations.md) — Full integration patterns across all Codevertex services
 - [architecture.md](./architecture.md) — auth-service architecture, JIT provisioning, tenant sync
 - [PRODUCTION-SETUP.md](./PRODUCTION-SETUP.md) — Production deployment checklist

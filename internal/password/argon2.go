@@ -31,7 +31,7 @@ func NewHasher(cfg config.SecurityConfig) *Hasher {
 }
 
 // Hash creates a new Argon2id hash for the supplied plain text password.
-// Uses the shared library implementation for consistency across all BengoBox services.
+// Uses the shared library implementation for consistency across all Codevertex services.
 func (h *Hasher) Hash(password string) (string, error) {
 	return h.shared.Hash(password)
 }

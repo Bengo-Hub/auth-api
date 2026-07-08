@@ -8,7 +8,7 @@ Need help with the Auth Service? This guide outlines the available support chann
 - Include logs, request IDs, or correlation IDs where possible.
 - Tag issues with `bug`, `enhancement`, `security`, or `question`.
 
-## Internal Support (BengoBox Teams)
+## Internal Support (Codevertex Teams)
 
 - Engineering Slack: `#bengobox-auth`, monitored during business hours (EAT).
 - Pager rotation: see the on-call schedule in Opsgenie.
