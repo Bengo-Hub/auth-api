@@ -68,7 +68,7 @@ auth-api/
 
 ### OAuth2/OIDC Provider
 
-Auth-api is the **central identity provider** for all BengoBox services. It implements:
+Auth-api is the **central identity provider** for all Codevertex services. It implements:
 
 - **Authorization Code + PKCE** flow for web/SPA clients
 - **Client Credentials** grant for service-to-service auth (roadmap)
@@ -79,7 +79,7 @@ Auth-api is the **central identity provider** for all BengoBox services. It impl
 
 ### Tenant Management
 
-- CRUD for tenants (organisations subscribed to BengoBox)
+- CRUD for tenants (organisations subscribed to Codevertex)
 - Tenant slug as canonical identifier across all microservices
 - Tenant domains and cookie configuration for SSO
 - Tenant policies (password, session, MFA enforcement)

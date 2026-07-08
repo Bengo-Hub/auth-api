@@ -2,7 +2,7 @@
 
 **Last Updated**: March 6, 2026
 
-This document defines the API patterns that frontend consumers (auth-ui, ordering-frontend, POS, other BengoBox services) must follow when integrating with `sso.codevertexitsolutions.com`.
+This document defines the API patterns that frontend consumers (auth-ui, ordering-frontend, POS, other Codevertex services) must follow when integrating with `sso.codevertexitsolutions.com`.
 
 ---
 
@@ -239,7 +239,7 @@ POST   /api/v1/platform/roles        -- Create role
 
 ## API Key Validation (Service-to-Service)
 
-Other BengoBox services validate API keys by calling:
+Other Codevertex services validate API keys by calling:
 
 ```
 GET /api/v1/admin/api-keys/validate

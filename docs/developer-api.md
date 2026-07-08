@@ -1,6 +1,6 @@
 # Auth Service – Developer API Guide
 
-This document explains how to integrate with the BengoBox Auth Service for SSO, OAuth2/OIDC, session management, and admin operations.
+This document explains how to integrate with the Codevertex Auth Service for SSO, OAuth2/OIDC, session management, and admin operations.
 
 ## Base URL
 

@@ -573,21 +573,21 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		Public         bool
 	}
 	clients := []clientDef{
-		{ID: "notifications-ui", Name: "BengoBox Notifications UI", ProductionHost: "notifications.codevertexitsolutions.com", Public: true},
-		{ID: "ordering-ui", Name: "BengoBox Ordering UI", ProductionHost: "ordersapp.codevertexitsolutions.com", Public: true},
-		{ID: "rider-app", Name: "BengoBox Rider App", ProductionHost: "riderapp.codevertexitsolutions.com", Public: true},
+		{ID: "notifications-ui", Name: "Codevertex Notifications UI", ProductionHost: "notifications.codevertexitsolutions.com", Public: true},
+		{ID: "ordering-ui", Name: "Codevertex Ordering UI", ProductionHost: "ordersapp.codevertexitsolutions.com", Public: true},
+		{ID: "rider-app", Name: "Codevertex Rider App", ProductionHost: "riderapp.codevertexitsolutions.com", Public: true},
 		{ID: "codevertex-website", Name: "Codevertex Africa Limited Website", ProductionHost: "codevertexitsolutions.com", Public: true},
-		{ID: "subscriptions-ui", Name: "BengoBox Subscriptions UI", ProductionHost: "pricing.codevertexitsolutions.com", Public: true},
-		{ID: "treasury-ui", Name: "BengoBox Treasury UI", ProductionHost: "books.codevertexitsolutions.com", Public: true},
-		{ID: "pos-ui", Name: "BengoBox POS UI", ProductionHost: "pos.codevertexitsolutions.com", Public: true},
-		{ID: "inventory-ui", Name: "BengoBox Inventory UI", ProductionHost: "inventory.codevertexitsolutions.com", Public: true},
-		{ID: "erp-ui", Name: "BengoBox ERP UI", ProductionHost: "erp.codevertexitsolutions.com", Public: true},
-		{ID: "logistics-ui", Name: "BengoBox Logistics UI", ProductionHost: "logistics.codevertexitsolutions.com", Public: true},
-		{ID: "auth-ui", Name: "BengoBox Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexitsolutions.com", Public: true},
+		{ID: "subscriptions-ui", Name: "Codevertex Subscriptions UI", ProductionHost: "pricing.codevertexitsolutions.com", Public: true},
+		{ID: "treasury-ui", Name: "Codevertex Treasury UI", ProductionHost: "books.codevertexitsolutions.com", Public: true},
+		{ID: "pos-ui", Name: "Codevertex POS UI", ProductionHost: "pos.codevertexitsolutions.com", Public: true},
+		{ID: "inventory-ui", Name: "Codevertex Inventory UI", ProductionHost: "inventory.codevertexitsolutions.com", Public: true},
+		{ID: "erp-ui", Name: "Codevertex ERP UI", ProductionHost: "erp.codevertexitsolutions.com", Public: true},
+		{ID: "logistics-ui", Name: "Codevertex Logistics UI", ProductionHost: "logistics.codevertexitsolutions.com", Public: true},
+		{ID: "auth-ui", Name: "Codevertex Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexitsolutions.com", Public: true},
 		{ID: "marketflow-ui", Name: "MarketFlow UI", ProductionHost: "marketflow.codevertexitsolutions.com", Public: true},
 		{ID: "truload-ui", Name: "TruLoad Frontend", ProductionHost: "truload.codevertexitsolutions.com", Public: true},
 		{ID: "ticketing-ui", Name: "Codevertex Ticketing UI", ProductionHost: "ticketing.codevertexitsolutions.com", Public: true},
-		{ID: "isp-billing-ui", Name: "BengoBox ISP Billing UI", ProductionHost: "ispbilling.codevertexitsolutions.com", Public: true},
+		{ID: "isp-billing-ui", Name: "Codevertex ISP Billing UI", ProductionHost: "ispbilling.codevertexitsolutions.com", Public: true},
 	}
 
 	// Collect all tenant slugs for OAuth redirect URI generation.

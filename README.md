@@ -1,6 +1,6 @@
 # Auth Service (SSO Platform)
 
-The Auth Service provides centralised authentication, authorisation, and session management for the BengoBox ecosystem.  
+The Auth Service provides centralised authentication, authorisation, and session management for the Codevertex ecosystem.  
 It exposes standards-compliant OAuth2/OpenID Connect flows to web, mobile, POS, logistics, inventory, treasury, and other platform services.
 
 ## Key Features

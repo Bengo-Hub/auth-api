@@ -4,17 +4,17 @@
 
 **Duration**: March 6 -- March 17, 2026 (10 working days)
 **Status**: In Progress
-**Goal**: Ensure auth-api is production-ready as the central identity provider for the BengoBox MVP launch, supporting the `urban-loft` tenant with Busia as the only active outlet.
+**Goal**: Ensure auth-api is production-ready as the central identity provider for the Codevertex MVP launch, supporting the `urban-loft` tenant with Busia as the only active outlet.
 
 ---
 
 ## Hard Deadline Constraints
 
-- **March 17**: All BengoBox services go live; auth-api must be stable at `authapi.codevertexitsolutions.com`
+- **March 17**: All Codevertex services go live; auth-api must be stable at `authapi.codevertexitsolutions.com`
 - **Tenant**: `urban-loft` only (The Urban Loft Cafe)
 - **Outlet**: Busia only
 - **Users**: Platform admin (`admin@codevertexitsolutions.com`), tenant admin (`admin@theurbanloftcafe.com`), demo/test users
-- **Downstream dependents**: Every BengoBox service depends on auth-api for JWT validation and tenant context
+- **Downstream dependents**: Every Codevertex service depends on auth-api for JWT validation and tenant context
 
 ---
 
@@ -114,7 +114,7 @@ Specific tasks:
 **Priority**: P1
 **Owner**: Backend
 
-- [ ] Verify CORS allows all production BengoBox frontend origins:
+- [ ] Verify CORS allows all production Codevertex frontend origins:
   - `https://accounts.codevertexitsolutions.com`
   - `https://ordersapp.codevertexitsolutions.com`
   - `https://pos.codevertexitsolutions.com`
@@ -225,7 +225,7 @@ Specific tasks:
 
 ## Success Criteria
 
-- [ ] All downstream BengoBox services can authenticate users via OIDC/JWT
+- [ ] All downstream Codevertex services can authenticate users via OIDC/JWT
 - [ ] Platform admin can manage tenants and roles at auth; gateways at treasury-ui (Codevertex Books)
 - [ ] Tenant admin can manage users, API keys for `urban-loft`
 - [ ] Auth events (`auth.tenant.created`, `auth.user.created`, `auth.role.assigned`) flow to NATS
