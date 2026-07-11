@@ -46,6 +46,16 @@ func (User) Fields() []ent.Field {
 		field.Time("terms_accepted_at").
 			Optional().
 			Nillable(),
+		// email_verified is the durable per-user verification flag. Set true at the end
+		// of self-signup Register (email already OTP-proven) and when a Google-verified
+		// identity is linked; false for admin/direct-add accounts until they verify.
+		// Surfaced in JWT claims, /me, and auth.user.* events so downstream services
+		// (notifications gating, shared-ui verify banner) can act on it.
+		field.Bool("email_verified").
+			Default(false),
+		field.Time("email_verified_at").
+			Optional().
+			Nillable(),
 	}
 }
 

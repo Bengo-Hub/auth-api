@@ -898,6 +898,8 @@ var (
 		{Name: "last_login_at", Type: field.TypeTime, Nullable: true},
 		{Name: "terms_accepted", Type: field.TypeBool, Default: false},
 		{Name: "terms_accepted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "email_verified", Type: field.TypeBool, Default: false},
+		{Name: "email_verified_at", Type: field.TypeTime, Nullable: true},
 	}
 	// UsersTable holds the schema information for the "users" table.
 	UsersTable = &schema.Table{

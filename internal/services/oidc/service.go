@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -207,14 +206,10 @@ func (s *Service) GetUserMemberships(ctx context.Context, userID uuid.UUID) ([]U
 func (s *Service) UserInfoPayload(u *ent.User) map[string]any {
 	sub := u.ID.String()
 	email := u.Email
-	emailVerified := true
-	if raw, err := json.Marshal(u.Profile); err == nil {
-		_ = raw // reserved for future mapping
-	}
 	return map[string]any{
 		"sub":            sub,
 		"email":          email,
-		"email_verified": emailVerified,
+		"email_verified": u.EmailVerified,
 		"name":           firstProfileString(u.Profile, "name", email),
 		"phone":          firstProfileString(u.Profile, "phone", ""),
 		"updated_at":     u.UpdatedAt.Unix(),

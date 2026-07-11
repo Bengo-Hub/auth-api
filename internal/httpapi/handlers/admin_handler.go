@@ -1463,14 +1463,15 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			tenantSlug = t.Slug
 		}
 		payload := map[string]any{
-			"user_id":     userID.String(),
-			"email":       u.Email,
-			"full_name":   profileStr(u.Profile, "name"),
-			"phone":       profileStr(u.Profile, "phone"),
-			"tenant_id":   tenantID.String(),
-			"tenant_slug": tenantSlug,
-			"roles":       req.Roles,
-			"method":      "admin_provisioned",
+			"user_id":        userID.String(),
+			"email":          u.Email,
+			"full_name":      profileStr(u.Profile, "name"),
+			"phone":          profileStr(u.Profile, "phone"),
+			"tenant_id":      tenantID.String(),
+			"tenant_slug":    tenantSlug,
+			"roles":          req.Roles,
+			"method":         "admin_provisioned",
+			"email_verified": u.EmailVerified,
 		}
 		if outletID != nil {
 			payload["outlet_id"] = outletID.String()
