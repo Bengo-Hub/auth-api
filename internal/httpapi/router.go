@@ -4,11 +4,24 @@ import (
 	"net/http"
 	"time"
 
+	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/httpapi/handlers"
+	"github.com/bengobox/auth-api/internal/token"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 )
+
+// s2sPlatformClaims wraps an admin handler for internal-key S2S use: it injects
+// platform-owner claims so claims-based authorization (requireTenantAdmin) passes.
+// The route is already gated by requireInternalKey (INTERNAL_SERVICE_KEY), which is
+// platform-level trust, so this simply lets S2S callers reuse the JWT-admin handler.
+func s2sPlatformClaims(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := &token.Claims{IsPlatformOwner: true, Scope: []string{"admin"}}
+		next.ServeHTTP(w, r.WithContext(authmiddleware.ContextWithClaims(r.Context(), claims)))
+	}
+}
 
 // RouterDeps defines router construction dependencies.
 type RouterDeps struct {
@@ -514,6 +527,13 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// S2S tenant user listing (erp-api employee backfill).
 			if deps.AuthHandlers.S2SListTenantUsers != nil {
 				r.Get("/api/v1/s2s/{tenant}/users", deps.AuthHandlers.S2SListTenantUsers)
+			}
+			// S2S member provisioning: owning services (pos-api, etc.) create/link a
+			// user by email and get the REAL auth user id back, so no service ever
+			// mints its own orphan user id. Reuses the JWT-admin AddTenantMember via
+			// injected platform claims; {tenant_id} must be the tenant UUID.
+			if deps.AuthHandlers.AddTenantMember != nil {
+				r.Post("/api/v1/s2s/tenants/{tenant_id}/members", s2sPlatformClaims(deps.AuthHandlers.AddTenantMember))
 			}
 			// S2S service-role registry: owning services push their role catalogue
 			// here; idempotent upsert by role_code (no duplicate roles).

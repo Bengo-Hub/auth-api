@@ -171,3 +171,12 @@ func ClaimsFromContext(ctx context.Context) (*token.Claims, bool) {
 	claims, ok := ctx.Value(claimsContextKey{}).(*token.Claims)
 	return claims, ok && claims != nil
 }
+
+// ContextWithClaims returns a child context carrying the given claims. Used by
+// internal-key S2S routes to present a platform-trust identity to admin handlers
+// that authorize via ClaimsFromContext (e.g. requireTenantAdmin). The INTERNAL_SERVICE_KEY
+// already establishes platform-level trust, so synthesizing platform-owner claims here
+// is semantically equivalent to a platform-owner JWT.
+func ContextWithClaims(ctx context.Context, claims *token.Claims) context.Context {
+	return context.WithValue(ctx, claimsContextKey{}, claims)
+}
