@@ -12,6 +12,8 @@ github.com/Bengo-Hub/password-hasher v0.2.0 h1:Tva0/ER5E9qxfCjPlWE3Sic5IVbZRukv3
 github.com/Bengo-Hub/password-hasher v0.2.0/go.mod h1:5Y8MRGioX/vVAfg3Gko3E6d2sO3VihVfxugyy5uTmLE=
 github.com/Bengo-Hub/shared-events v0.6.0 h1:NCkaQC5fitZpUpg//VeeFne3PQEQzQc7Sm7OzxeyaFE=
 github.com/Bengo-Hub/shared-events v0.6.0/go.mod h1:eLz1wguUzi7PRZC29V/E4lq/YbT3yGDb8H2oXX7DXQU=
+github.com/Bengo-Hub/shared-events v0.6.1 h1:mSegYSPD4kh6SIsDMABRPf7LETZ1jH7Qkorqm2K0EHA=
+github.com/Bengo-Hub/shared-events v0.6.1/go.mod h1:eLz1wguUzi7PRZC29V/E4lq/YbT3yGDb8H2oXX7DXQU=
 github.com/Bengo-Hub/shared-service-client v0.3.0 h1:8A+sxSxJu71Uz2rIRasJbzeu0NG2rqXAWLgh86272ww=
 github.com/Bengo-Hub/shared-service-client v0.3.0/go.mod h1:n5segEtBfcG1/2YM+fssZ/dxKk4zjZ9+GmexzAe+G9g=
 github.com/DATA-DOG/go-sqlmock v1.5.0 h1:Shsta01QNfFxHCfpW6YH2STWB0MudeXXEWMr20OEh60=
