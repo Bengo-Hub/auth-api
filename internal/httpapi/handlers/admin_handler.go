@@ -148,6 +148,7 @@ func (h *AdminHandler) publishTenantLifecycleEvent(ctx context.Context, t *ent.T
 		"vat_registered":    t.VatRegistered,
 		"vat_registered_on": t.VatRegisteredOn,
 		"country":           t.Country,
+		"timezone":          t.Timezone,
 	})
 }
 
@@ -230,6 +231,14 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.IsDemo != nil {
 		create.SetIsDemo(*req.IsDemo)
+	}
+	// IANA timezone (day/shift boundaries downstream). Falls back to the schema
+	// default (Africa/Nairobi) when the request omits it.
+	if tz := strings.TrimSpace(req.Timezone); tz != "" {
+		create.SetTimezone(tz)
+	}
+	if c := strings.TrimSpace(req.Country); c != "" {
+		create.SetCountry(c)
 	}
 
 	// If tenant ID is provided, use it (for cross-service tenant sync)
@@ -372,6 +381,13 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 		if d := parseTenantTaxDate(*req.VatRegisteredOn); d != nil {
 			create.SetVatRegisteredOn(*d)
 		}
+	}
+	// IANA timezone (day/shift boundaries downstream); schema default Africa/Nairobi when omitted.
+	if tz := strings.TrimSpace(req.Timezone); tz != "" {
+		create.SetTimezone(tz)
+	}
+	if c := strings.TrimSpace(req.Country); c != "" {
+		create.SetCountry(c)
 	}
 
 	// If tenant ID is provided, use it (for cross-service tenant sync with matching UUIDs)
