@@ -122,6 +122,8 @@ type AuthHandlers struct {
 	RemoveTenantMember http.HandlerFunc
 	// S2SListTenantUsers lists a tenant's active members for S2S callers (X-API-Key).
 	S2SListTenantUsers http.HandlerFunc
+	// S2SUserEmailVerification returns the computed email-verification state for a user.
+	S2SUserEmailVerification http.HandlerFunc
 	SetUserServicePIN  http.HandlerFunc
 	// Public integrations info
 	ListActiveIntegrations http.HandlerFunc
@@ -535,6 +537,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// S2S tenant user listing (erp-api employee backfill).
 			if deps.AuthHandlers.S2SListTenantUsers != nil {
 				r.Get("/api/v1/s2s/{tenant}/users", deps.AuthHandlers.S2SListTenantUsers)
+			}
+			// S2S email-verification state — downstream /auth/me forwards this so every app
+			// shows the same graduated verify banner.
+			if deps.AuthHandlers.S2SUserEmailVerification != nil {
+				r.Get("/api/v1/s2s/users/{user_id}/email-verification", deps.AuthHandlers.S2SUserEmailVerification)
 			}
 			// S2S member provisioning: owning services (pos-api, etc.) create/link a
 			// user by email and get the REAL auth user id back, so no service ever
