@@ -43,6 +43,8 @@ type User struct {
 	EmailVerified bool `json:"email_verified,omitempty"`
 	// EmailVerifiedAt holds the value of the "email_verified_at" field.
 	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
+	// EmailVerificationRequiredAt holds the value of the "email_verification_required_at" field.
+	EmailVerificationRequiredAt *time.Time `json:"email_verification_required_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges        UserEdges `json:"edges"`
@@ -155,7 +157,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case user.FieldEmail, user.FieldPasswordHash, user.FieldStatus, user.FieldPrimaryTenantID:
 			values[i] = new(sql.NullString)
-		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldLastLoginAt, user.FieldTermsAcceptedAt, user.FieldEmailVerifiedAt:
+		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldLastLoginAt, user.FieldTermsAcceptedAt, user.FieldEmailVerifiedAt, user.FieldEmailVerificationRequiredAt:
 			values[i] = new(sql.NullTime)
 		case user.FieldID:
 			values[i] = new(uuid.UUID)
@@ -255,6 +257,13 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.EmailVerifiedAt = new(time.Time)
 				*_m.EmailVerifiedAt = value.Time
+			}
+		case user.FieldEmailVerificationRequiredAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field email_verification_required_at", values[i])
+			} else if value.Valid {
+				_m.EmailVerificationRequiredAt = new(time.Time)
+				*_m.EmailVerificationRequiredAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -368,6 +377,11 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	if v := _m.EmailVerifiedAt; v != nil {
 		builder.WriteString("email_verified_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.EmailVerificationRequiredAt; v != nil {
+		builder.WriteString("email_verification_required_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteByte(')')

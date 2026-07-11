@@ -222,6 +222,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			RegisterOAuth:                authHandler.RegisterOAuth,
 			SendEmailCode:                authHandler.SendEmailCode,
 			VerifyEmailCode:              authHandler.VerifyEmailCode,
+			SendMyEmailCode:              authHandler.SendMyEmailCode,
+			VerifyMyEmailCode:            authHandler.VerifyMyEmailCode,
 			Login:                        authHandler.Login,
 			Refresh:                      authHandler.Refresh,
 			RequestPasswordReset:         authHandler.RequestPasswordReset,

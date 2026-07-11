@@ -354,6 +354,152 @@ func (s *Service) EmailAccountStatus(ctx context.Context, email string) (exists,
 	return true, u.EmailVerified
 }
 
+// Email-verification enforcement windows. An unverified user gets a soft notice for
+// NoticeDays, then a red "account will be disabled" warning for GraceDays, after which
+// each sign-in imposes a wait that grows by EnforcedStepSeconds per additional day.
+const (
+	VerifyNoticeDays         = 30
+	VerifyGraceDays          = 7
+	VerifyEnforcedBaseSecs   = 60
+	VerifyEnforcedStepSecs   = 30
+)
+
+// EmailVerificationState is the server-computed enforcement state for a user, so every
+// frontend renders the same stage without doing its own date math.
+type EmailVerificationState struct {
+	Verified bool   `json:"verified"`
+	Email    string `json:"email"`
+	// IsPlaceholder flags a synthetic address (never deliverable) — the dialog should ask
+	// the user to supply a real email rather than just re-send a code to this one.
+	IsPlaceholder bool `json:"is_placeholder"`
+	// Stage: "" when verified; otherwise notice | final_warning | enforced.
+	Stage           string     `json:"stage,omitempty"`
+	RequiredSince   *time.Time `json:"required_since,omitempty"`
+	DisableAt       *time.Time `json:"disable_at,omitempty"`
+	DaysUntilDisable int       `json:"days_until_disable,omitempty"`
+	// WaitSeconds is the forced delay the dialog must count down before the user may
+	// dismiss it (enforced stage only).
+	WaitSeconds int `json:"wait_seconds,omitempty"`
+}
+
+// isPlaceholderEmail reports whether an address is a synthetic one we minted (not a real
+// mailbox), so the verify dialog prompts for a real address to replace it.
+func isPlaceholderEmail(email string) bool {
+	e := strings.ToLower(email)
+	for _, suffix := range []string{"@unknown.local", "@migrating.local", "@placeholder.local", ".local", "@example.com"} {
+		if strings.HasSuffix(e, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// EmailVerificationStateFor computes the enforcement state for a user. When the user is
+// unverified and has no clock yet, the caller should have started it (see StartVerificationClock).
+func EmailVerificationStateFor(u *ent.User, now time.Time) EmailVerificationState {
+	st := EmailVerificationState{
+		Verified:      u.EmailVerified,
+		Email:         u.Email,
+		IsPlaceholder: isPlaceholderEmail(u.Email),
+	}
+	if u.EmailVerified {
+		return st
+	}
+	since := now
+	if u.EmailVerificationRequiredAt != nil {
+		since = *u.EmailVerificationRequiredAt
+	}
+	st.RequiredSince = &since
+
+	disableAt := since.AddDate(0, 0, VerifyNoticeDays+VerifyGraceDays)
+	st.DisableAt = &disableAt
+	st.DaysUntilDisable = int(disableAt.Sub(now).Hours() / 24)
+	if st.DaysUntilDisable < 0 {
+		st.DaysUntilDisable = 0
+	}
+
+	elapsedDays := int(now.Sub(since).Hours() / 24)
+	switch {
+	case elapsedDays < VerifyNoticeDays:
+		st.Stage = "notice"
+	case elapsedDays < VerifyNoticeDays+VerifyGraceDays:
+		st.Stage = "final_warning"
+	default:
+		st.Stage = "enforced"
+		daysPastGrace := elapsedDays - (VerifyNoticeDays + VerifyGraceDays)
+		st.WaitSeconds = VerifyEnforcedBaseSecs + VerifyEnforcedStepSecs*daysPastGrace
+	}
+	return st
+}
+
+// StartVerificationClock stamps email_verification_required_at the first time an
+// unverified user is seen, giving them a full notice window from first exposure rather
+// than from account creation. Idempotent and best-effort.
+func (s *Service) StartVerificationClock(ctx context.Context, u *ent.User) *ent.User {
+	if u == nil || u.EmailVerified || u.EmailVerificationRequiredAt != nil {
+		return u
+	}
+	if updated, err := u.Update().SetEmailVerificationRequiredAt(time.Now()).Save(ctx); err == nil {
+		return updated
+	}
+	return u
+}
+
+// EmailTakenByOther reports whether the email already belongs to a DIFFERENT account.
+// Used before letting a user claim a new address during the verify-email flow.
+func (s *Service) EmailTakenByOther(ctx context.Context, email string, userID uuid.UUID) bool {
+	u, err := s.entClient.User.Query().Where(user.EmailEQ(normalizeEmail(email))).Only(ctx)
+	if err != nil {
+		return false
+	}
+	return u.ID != userID
+}
+
+// VerifyAndSetUserEmail marks the authenticated user's email verified and, when the
+// address differs from the one on file, REPLACES it. This is how SSO accounts that were
+// provisioned with a placeholder/non-real address (e.g. <id>@unknown.local) get a real,
+// proven email. Emits auth.user.updated carrying the (possibly new) email + email_verified
+// so every downstream projection re-mirrors it.
+func (s *Service) VerifyAndSetUserEmail(ctx context.Context, userID uuid.UUID, email string) error {
+	email = normalizeEmail(email)
+	u, err := s.entClient.User.Get(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if u.Email != email && s.EmailTakenByOther(ctx, email, userID) {
+		return ErrEmailAlreadyExists
+	}
+
+	upd := u.Update().SetEmailVerified(true).SetEmailVerifiedAt(time.Now())
+	if u.Email != email {
+		upd = upd.SetEmail(email)
+	}
+	updated, err := upd.Save(ctx)
+	if err != nil {
+		if ent.IsConstraintError(err) {
+			return ErrEmailAlreadyExists
+		}
+		return err
+	}
+
+	tenantID := uuid.Nil
+	if updated.PrimaryTenantID != "" {
+		tenantID, _ = uuid.Parse(updated.PrimaryTenantID)
+	}
+	fullName := ""
+	if updated.Profile != nil {
+		fullName, _ = updated.Profile["name"].(string)
+	}
+	s.publishEvent(ctx, tenantID, "auth.user", updated.ID, "updated", map[string]any{
+		"user_id":        updated.ID.String(),
+		"email":          updated.Email,
+		"full_name":      fullName,
+		"tenant_id":      updated.PrimaryTenantID,
+		"email_verified": true,
+	})
+	return nil
+}
+
 // MarkEmailVerifiedByEmail flips the durable email_verified flag for an existing user
 // (the verify-email banner's action, tied to the existing VerifyEmailCode OTP flow) and
 // emits auth.user.updated so downstream projections (notifications gate, etc.) refresh.
@@ -1561,6 +1707,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		TenantID:        tenantIDPtr,
 		SessionID:       sessionEntity.ID,
 		Email:           userEntity.Email,
+		EmailVerified:   userEntity.EmailVerified,
 		Scopes:          effectiveScopes,
 		Roles:           roles,
 		Permissions:     permissions,
