@@ -1541,8 +1541,13 @@ func (h *AdminHandler) provisionMemberPIN(ctx context.Context, tenantID, userID 
 		"tenant_slug": tenantSlug,
 		"service":     service,
 		"pin_hash":    string(hash),
-		"roles":       roles,
-		"full_name":   fullName,
+		// Raw 4-digit PIN: downstream (pos-api) needs it to compute the user-scoped
+		// pin_fast_hash used for terminal fast-login. Without it the consumer stores
+		// only pin_hash (no fast_hash) and PIN login silently fails. Internal NATS bus
+		// only; the bcrypt hash above is already on the same message.
+		"pin":       pin,
+		"roles":     roles,
+		"full_name": fullName,
 	})
 }
 
@@ -2064,8 +2069,11 @@ func (h *AdminHandler) SetUserServicePIN(w http.ResponseWriter, r *http.Request)
 		"tenant_slug": tenantSlug,
 		"service":     req.Service,
 		"pin_hash":    string(hash),
-		"roles":       membership.Roles,
-		"full_name":   fullName,
+		// Raw PIN so pos-api can compute the user-scoped pin_fast_hash for terminal
+		// fast-login (pin_hash alone leaves fast_hash NULL and login fails).
+		"pin":       req.PIN,
+		"roles":     membership.Roles,
+		"full_name": fullName,
 	})
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "pin_set"})
