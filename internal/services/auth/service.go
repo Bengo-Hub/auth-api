@@ -372,6 +372,11 @@ type EmailVerificationState struct {
 	// IsPlaceholder flags a synthetic address (never deliverable) — the dialog should ask
 	// the user to supply a real email rather than just re-send a code to this one.
 	IsPlaceholder bool `json:"is_placeholder"`
+	// Strict is true only for roles that actually RECEIVE notifications (invoices, payouts,
+	// task assignments, ...). Those users must verify or the account is eventually disabled.
+	// Everyone else (terminal-only staff who are never emailed) sees a persistent reminder
+	// that never escalates — Stage stays "notice" and there is no disable date or wait.
+	Strict bool `json:"strict"`
 	// Stage: "" when verified; otherwise notice | final_warning | enforced.
 	Stage           string     `json:"stage,omitempty"`
 	RequiredSince   *time.Time `json:"required_since,omitempty"`
@@ -380,6 +385,35 @@ type EmailVerificationState struct {
 	// WaitSeconds is the forced delay the dialog must count down before the user may
 	// dismiss it (enforced stage only).
 	WaitSeconds int `json:"wait_seconds,omitempty"`
+}
+
+// notificationBearingRoles are the roles that are genuine recipients of platform
+// notifications (see the cross-service notification-trigger audit). Only these carry the
+// escalating enforcement, because for them an unverified/placeholder address means real
+// mail — invoices, payouts, task assignments, ticket assignments — silently goes nowhere.
+// Roles absent from this set are terminal/back-office only and are never emailed, so they
+// get a reminder banner but are never escalated to disablement.
+var notificationBearingRoles = map[string]bool{
+	// Tenant leadership + finance: invoices, subscription/billing, payouts, approvals.
+	"admin": true, "owner": true, "superuser": true, "super_admin": true,
+	"tenant_admin": true, "manager": true, "supervisor": true, "accountant": true,
+	// Field/ops recipients: task + booking assignment notifications.
+	"rider": true, "driver": true,
+	// Support desk: ticket assignment / SLA notifications.
+	"agent": true,
+	// Platform staff.
+	"platform_admin": true,
+}
+
+// IsNotificationBearing reports whether any of the user's roles actually receives
+// notifications, which decides strict vs lenient verification enforcement.
+func IsNotificationBearing(roles []string) bool {
+	for _, r := range roles {
+		if notificationBearingRoles[strings.ToLower(strings.TrimSpace(r))] {
+			return true
+		}
+	}
+	return false
 }
 
 // isPlaceholderEmail reports whether an address is a synthetic one we minted (not a real
@@ -396,11 +430,12 @@ func isPlaceholderEmail(email string) bool {
 
 // EmailVerificationStateFor computes the enforcement state for a user. When the user is
 // unverified and has no clock yet, the caller should have started it (see StartVerificationClock).
-func EmailVerificationStateFor(u *ent.User, now time.Time) EmailVerificationState {
+func EmailVerificationStateFor(u *ent.User, roles []string, now time.Time) EmailVerificationState {
 	st := EmailVerificationState{
 		Verified:      u.EmailVerified,
 		Email:         u.Email,
 		IsPlaceholder: isPlaceholderEmail(u.Email),
+		Strict:        IsNotificationBearing(roles),
 	}
 	if u.EmailVerified {
 		return st
@@ -410,6 +445,13 @@ func EmailVerificationStateFor(u *ent.User, now time.Time) EmailVerificationStat
 		since = *u.EmailVerificationRequiredAt
 	}
 	st.RequiredSince = &since
+
+	// Lenient roles are never emailed by any service, so an unverified address costs them
+	// nothing. They get a standing reminder, but we never threaten or degrade their access.
+	if !st.Strict {
+		st.Stage = "notice"
+		return st
+	}
 
 	disableAt := since.AddDate(0, 0, VerifyNoticeDays+VerifyGraceDays)
 	st.DisableAt = &disableAt
