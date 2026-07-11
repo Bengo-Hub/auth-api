@@ -35,6 +35,10 @@ const (
 	FieldTermsAccepted = "terms_accepted"
 	// FieldTermsAcceptedAt holds the string denoting the terms_accepted_at field in the database.
 	FieldTermsAcceptedAt = "terms_accepted_at"
+	// FieldEmailVerified holds the string denoting the email_verified field in the database.
+	FieldEmailVerified = "email_verified"
+	// FieldEmailVerifiedAt holds the string denoting the email_verified_at field in the database.
+	FieldEmailVerifiedAt = "email_verified_at"
 	// EdgeMemberships holds the string denoting the memberships edge name in mutations.
 	EdgeMemberships = "memberships"
 	// EdgeSessions holds the string denoting the sessions edge name in mutations.
@@ -124,6 +128,8 @@ var Columns = []string{
 	FieldLastLoginAt,
 	FieldTermsAccepted,
 	FieldTermsAcceptedAt,
+	FieldEmailVerified,
+	FieldEmailVerifiedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -151,6 +157,8 @@ var (
 	PrimaryTenantIDValidator func(string) error
 	// DefaultTermsAccepted holds the default value on creation for the "terms_accepted" field.
 	DefaultTermsAccepted bool
+	// DefaultEmailVerified holds the default value on creation for the "email_verified" field.
+	DefaultEmailVerified bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -206,6 +214,16 @@ func ByTermsAccepted(opts ...sql.OrderTermOption) OrderOption {
 // ByTermsAcceptedAt orders the results by the terms_accepted_at field.
 func ByTermsAcceptedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTermsAcceptedAt, opts...).ToFunc()
+}
+
+// ByEmailVerified orders the results by the email_verified field.
+func ByEmailVerified(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEmailVerified, opts...).ToFunc()
+}
+
+// ByEmailVerifiedAt orders the results by the email_verified_at field.
+func ByEmailVerifiedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEmailVerifiedAt, opts...).ToFunc()
 }
 
 // ByMembershipsCount orders the results by memberships count.

@@ -367,7 +367,7 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		"aud":            client.ClientID,
 		"sub":            userEntity.ID.String(),
 		"email":          userEntity.Email,
-		"email_verified": true,
+		"email_verified": userEntity.EmailVerified,
 		"nonce":          authCode.Nonce,
 		"iat":            now.Unix(),
 		"exp":            now.Add(5 * time.Minute).Unix(),

@@ -873,6 +873,10 @@ func init() {
 	userDescTermsAccepted := userFields[9].Descriptor()
 	// user.DefaultTermsAccepted holds the default value on creation for the terms_accepted field.
 	user.DefaultTermsAccepted = userDescTermsAccepted.Default.(bool)
+	// userDescEmailVerified is the schema descriptor for email_verified field.
+	userDescEmailVerified := userFields[11].Descriptor()
+	// user.DefaultEmailVerified holds the default value on creation for the email_verified field.
+	user.DefaultEmailVerified = userDescEmailVerified.Default.(bool)
 	// userDescID is the schema descriptor for id field.
 	userDescID := userFields[0].Descriptor()
 	// user.DefaultID holds the default value on creation for the id field.

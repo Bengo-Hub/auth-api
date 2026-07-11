@@ -187,6 +187,10 @@ type RegisterInput struct {
 	// TermsAccepted records whether the user accepted the Terms of Service at
 	// registration time. Always persisted; when true, TermsAcceptedAt is also set.
 	TermsAccepted bool
+	// EmailVerified marks the account's email as already proven at registration:
+	// true for password signups that passed the OTP verify-code gate and for OAuth
+	// signups (provider-verified email). Persisted to the durable users.email_verified.
+	EmailVerified bool
 }
 
 // LoginInput captures login payload.
@@ -336,6 +340,55 @@ func (s *Service) EmailExists(ctx context.Context, email string) (bool, error) {
 	return s.entClient.User.Query().
 		Where(user.EmailEQ(normalizeEmail(email))).
 		Exist(ctx)
+}
+
+// EmailAccountStatus reports whether an account exists for the email and, if so,
+// whether it is already email-verified. Used by SendEmailCode to allow an existing
+// but UNVERIFIED user (e.g. an admin-provisioned account) to request a verify code
+// while still blocking already-verified accounts.
+func (s *Service) EmailAccountStatus(ctx context.Context, email string) (exists, verified bool) {
+	u, err := s.entClient.User.Query().Where(user.EmailEQ(normalizeEmail(email))).Only(ctx)
+	if err != nil {
+		return false, false
+	}
+	return true, u.EmailVerified
+}
+
+// MarkEmailVerifiedByEmail flips the durable email_verified flag for an existing user
+// (the verify-email banner's action, tied to the existing VerifyEmailCode OTP flow) and
+// emits auth.user.updated so downstream projections (notifications gate, etc.) refresh.
+// No-op (returns false) when no account exists or it is already verified.
+func (s *Service) MarkEmailVerifiedByEmail(ctx context.Context, email string) (bool, error) {
+	u, err := s.entClient.User.Query().Where(user.EmailEQ(normalizeEmail(email))).Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if u.EmailVerified {
+		return false, nil
+	}
+	updated, err := u.Update().SetEmailVerified(true).SetEmailVerifiedAt(time.Now()).Save(ctx)
+	if err != nil {
+		return false, err
+	}
+	tenantID := uuid.Nil
+	if updated.PrimaryTenantID != "" {
+		tenantID, _ = uuid.Parse(updated.PrimaryTenantID)
+	}
+	fullName := ""
+	if updated.Profile != nil {
+		fullName, _ = updated.Profile["name"].(string)
+	}
+	s.publishEvent(ctx, tenantID, "auth.user", updated.ID, "updated", map[string]any{
+		"user_id":        updated.ID.String(),
+		"email":          updated.Email,
+		"full_name":      fullName,
+		"tenant_id":      updated.PrimaryTenantID,
+		"email_verified": true,
+	})
+	return true, nil
 }
 
 // Register creates a new user and returns session tokens.
@@ -489,7 +542,11 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		SetStatus("active").
 		SetPrimaryTenantID(tenantEntity.ID.String()).
 		SetProfile(coalesceMap(in.Profile)).
-		SetTermsAccepted(in.TermsAccepted)
+		SetTermsAccepted(in.TermsAccepted).
+		SetEmailVerified(in.EmailVerified)
+	if in.EmailVerified {
+		userCreate = userCreate.SetEmailVerifiedAt(time.Now())
+	}
 
 	if in.Password != "" {
 		hashed, err := s.hasher.Hash(in.Password)
@@ -551,14 +608,15 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 
 	// Publish user.created event for downstream service sync
 	createdPayload := map[string]any{
-		"user_id":     userEntity.ID.String(),
-		"email":       userEntity.Email,
-		"full_name":   profileStr(userEntity.Profile, "name"),
-		"phone":       profileStr(userEntity.Profile, "phone"),
-		"tenant_id":   tenantEntity.ID.String(),
-		"tenant_slug": tenantEntity.Slug,
-		"roles":       []string{initialRole},
-		"method":      "email",
+		"user_id":        userEntity.ID.String(),
+		"email":          userEntity.Email,
+		"full_name":      profileStr(userEntity.Profile, "name"),
+		"phone":          profileStr(userEntity.Profile, "phone"),
+		"tenant_id":      tenantEntity.ID.String(),
+		"tenant_slug":    tenantEntity.Slug,
+		"roles":          []string{initialRole},
+		"method":         "email",
+		"email_verified": userEntity.EmailVerified,
 	}
 	if in.ServiceID != "" {
 		createdPayload["service_id"] = in.ServiceID
@@ -1647,11 +1705,19 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 			SetStatus("active").
 			SetPrimaryTenantID(tenantEntity.ID.String()).
 			SetProfile(googleProfileMap(profile)).
+			SetEmailVerified(true).
+			SetEmailVerifiedAt(time.Now()).
 			Save(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("create user from google profile: %w", err)
 		}
 		isNewUser = true
+	} else if !userEntity.EmailVerified {
+		// Existing account signing in via Google (a provider-verified email) — promote
+		// the durable flag so the verify-email banner clears for them.
+		if u, uErr := userEntity.Update().SetEmailVerified(true).SetEmailVerifiedAt(time.Now()).Save(ctx); uErr == nil {
+			userEntity = u
+		}
 	}
 
 	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
@@ -1724,6 +1790,8 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 			SetStatus("active").
 			SetPrimaryTenantID(tenantEntity.ID.String()).
 			SetProfile(map[string]any{"name": profile.Name}).
+			SetEmailVerified(true).
+			SetEmailVerifiedAt(time.Now()).
 			Save(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("create user: %w", err)
@@ -1801,6 +1869,8 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 			SetStatus("active").
 			SetPrimaryTenantID(tenantEntity.ID.String()).
 			SetProfile(map[string]any{"name": profile.DisplayName}).
+			SetEmailVerified(true).
+			SetEmailVerifiedAt(time.Now()).
 			Save(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("create user: %w", err)

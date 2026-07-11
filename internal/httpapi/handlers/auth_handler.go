@@ -53,6 +53,8 @@ type AuthService interface {
 	ChangePassword(ctx context.Context, in auth.ChangePasswordInput) error
 	SendOTPEmail(ctx context.Context, tenantID, userID uuid.UUID, email, otp string)
 	EmailExists(ctx context.Context, email string) (bool, error)
+	EmailAccountStatus(ctx context.Context, email string) (exists, verified bool)
+	MarkEmailVerifiedByEmail(ctx context.Context, email string) (bool, error)
 }
 
 // UseCaseService describes the use case logic capabilities.
@@ -298,6 +300,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		NewOrg:        newOrg,
 		Role:          req.Role,
 		TermsAccepted: req.TermsAccepted,
+		// The email/password path only reaches here after the OTP verify-code gate
+		// above (or when Redis is unwired in dev); either way the address is proven.
+		EmailVerified: true,
 	})
 	if err != nil {
 		h.handleError(w, r, err)
@@ -339,6 +344,9 @@ func (h *AuthHandler) RegisterOAuth(w http.ResponseWriter, r *http.Request) {
 		OrgAction:     req.OrgAction,
 		NewOrg:        newOrg,
 		TermsAccepted: req.TermsAccepted,
+		// OAuth signup: the email is provider-verified (Google login is rejected
+		// upstream when unverified), so the account starts email-verified.
+		EmailVerified: true,
 	})
 	if err != nil {
 		h.handleError(w, r, err)
@@ -970,6 +978,8 @@ func userViewFromEnt(user *ent.User) map[string]any {
 		"updated_at":       user.UpdatedAt,
 		"terms_accepted":   user.TermsAccepted,
 		"terms_accepted_at": user.TermsAcceptedAt,
+		"email_verified":    user.EmailVerified,
+		"email_verified_at": user.EmailVerifiedAt,
 	}
 }
 
@@ -1428,8 +1438,10 @@ func (h *AuthHandler) SendEmailCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reject emails that already have an account — tell them to sign in instead.
-	if exists, err := h.service.EmailExists(r.Context(), email); err == nil && exists {
+	// An already-VERIFIED account should sign in, not re-verify. But an existing
+	// UNVERIFIED account (e.g. admin-provisioned) is allowed through so it can verify
+	// via the banner using this same OTP flow.
+	if exists, verified := h.service.EmailAccountStatus(r.Context(), email); exists && verified {
 		writeError(w, http.StatusConflict, "email_exists",
 			"An account with this email already exists. Please sign in.", nil)
 		return
@@ -1510,6 +1522,12 @@ func (h *AuthHandler) VerifyEmailCode(w http.ResponseWriter, r *http.Request) {
 	// finish the rest of the signup wizard).
 	_ = h.redis.Del(r.Context(), h.signupOTPKey(email)).Err()
 	_ = h.redis.Set(r.Context(), h.signupVerifiedKey(email), "1", 30*time.Minute).Err()
+
+	// If the email already belongs to an account (the verify-email banner flow for an
+	// existing unverified user), promote the durable users.email_verified flag now.
+	if _, err := h.service.MarkEmailVerifiedByEmail(r.Context(), email); err != nil {
+		h.logger.Warn("verify-code: mark existing user verified", zap.Error(err))
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"verified": true})
 }

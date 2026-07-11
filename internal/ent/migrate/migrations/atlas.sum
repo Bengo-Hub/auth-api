@@ -1,4 +1,4 @@
-h1:FmqiBFFFTx3VHMUn2/mmrE/XQ7VzSsx3XUSiImVDyIQ=
+h1:kWmRLbfmlrwKmC/itgDkC22kcPwH40XSGwY9btgSrbM=
 20260418145526_initial_with_fix.sql h1:PPhZsHSwYMGYB1hN9CRT/hZUuo/n5QZI+9ZXUlHmXOE=
 20260427115501_add_terms_accepted_to_users.sql h1:HM8zaomTVrJDWTZiGSFknYAAYqUV5Wc/qmh4j3oUcng=
 20260429072541_equity_legal.sql h1:EZ/2ZvuTU11gKbWXXJJTb9KdTKGONFbAiP6jRqFaddA=
@@ -13,3 +13,4 @@ h1:FmqiBFFFTx3VHMUn2/mmrE/XQ7VzSsx3XUSiImVDyIQ=
 20260625120000_add_tenant_subscription_exempt.sql h1:sMdTzbHIumyDMZtivaW3E4hg8yGxSMVVvSBKKYhOcuQ=
 20260627194700_add_tenant_tax_fields.sql h1:kq04CrSoAz4Y+6XKGWeWJcZ5uqs0nDnZ3Sbphi/wkt4=
 20260627194715_add_tenant_is_demo.sql h1:6RDTJsJGBNXytNZaB7+RZbxLD4N0j0p5rUpekz7yqlM=
+20260711162234_add_user_email_verified.sql h1:aAcSgccE6j5KZaJ2Jb9kcuXprC/l7daruuY4HgUNVZA=
