@@ -283,6 +283,23 @@ func (h *UserHandler) setUserStatus(w http.ResponseWriter, r *http.Request, stat
 		zap.String("user_id", userID.String()),
 		zap.String("status", status))
 
+	// Publish auth.user.deactivated so downstream projections (notifications, pos,
+	// inventory, erp, ordering, logistics) can react — e.g. stop notifying / disable the
+	// local user. The consumers already subscribe to this subject; it simply was never
+	// emitted. Only non-active statuses deactivate; re-activation is a separate concern.
+	if status == "deactivated" || status == "suspended" || status == "inactive" {
+		tenantID := uuid.Nil
+		if u.PrimaryTenantID != "" {
+			tenantID, _ = uuid.Parse(u.PrimaryTenantID)
+		}
+		writeOutboxEvent(r.Context(), h.ent, h.logger, tenantID, "auth.user", u.ID, "deactivated", map[string]any{
+			"user_id":   u.ID.String(),
+			"tenant_id": u.PrimaryTenantID,
+			"email":     u.Email,
+			"status":    status,
+		})
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{"id": u.ID, "status": u.Status})
 }
 
