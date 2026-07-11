@@ -395,8 +395,12 @@ type EmailVerificationState struct {
 // get a reminder banner but are never escalated to disablement.
 var notificationBearingRoles = map[string]bool{
 	// Tenant leadership + finance: invoices, subscription/billing, payouts, approvals.
-	"admin": true, "owner": true, "superuser": true, "super_admin": true,
+	"admin": true, "owner": true, "superuser": true, "superusers": true, "super_admin": true,
 	"tenant_admin": true, "manager": true, "supervisor": true, "accountant": true,
+	// Finance approvers — finance_admin is treasury's DEFAULT approver role (seed), so a
+	// placeholder email here means approval OTPs silently vanish and payouts can't be
+	// approved. finance_manager/ceo are the ERP finance-leadership approvers.
+	"finance_admin": true, "finance_manager": true, "ceo": true,
 	// Field/ops recipients: task + booking assignment notifications.
 	"rider": true, "driver": true,
 	// Support desk: ticket assignment / SLA notifications.
