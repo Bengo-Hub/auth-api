@@ -211,6 +211,26 @@ func (_u *UserUpdate) ClearEmailVerifiedAt() *UserUpdate {
 	return _u
 }
 
+// SetEmailVerificationRequiredAt sets the "email_verification_required_at" field.
+func (_u *UserUpdate) SetEmailVerificationRequiredAt(v time.Time) *UserUpdate {
+	_u.mutation.SetEmailVerificationRequiredAt(v)
+	return _u
+}
+
+// SetNillableEmailVerificationRequiredAt sets the "email_verification_required_at" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableEmailVerificationRequiredAt(v *time.Time) *UserUpdate {
+	if v != nil {
+		_u.SetEmailVerificationRequiredAt(*v)
+	}
+	return _u
+}
+
+// ClearEmailVerificationRequiredAt clears the value of the "email_verification_required_at" field.
+func (_u *UserUpdate) ClearEmailVerificationRequiredAt() *UserUpdate {
+	_u.mutation.ClearEmailVerificationRequiredAt()
+	return _u
+}
+
 // AddMembershipIDs adds the "memberships" edge to the TenantMembership entity by IDs.
 func (_u *UserUpdate) AddMembershipIDs(ids ...uuid.UUID) *UserUpdate {
 	_u.mutation.AddMembershipIDs(ids...)
@@ -617,6 +637,12 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.EmailVerifiedAtCleared() {
 		_spec.ClearField(user.FieldEmailVerifiedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EmailVerificationRequiredAt(); ok {
+		_spec.SetField(user.FieldEmailVerificationRequiredAt, field.TypeTime, value)
+	}
+	if _u.mutation.EmailVerificationRequiredAtCleared() {
+		_spec.ClearField(user.FieldEmailVerificationRequiredAt, field.TypeTime)
 	}
 	if _u.mutation.MembershipsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1172,6 +1198,26 @@ func (_u *UserUpdateOne) ClearEmailVerifiedAt() *UserUpdateOne {
 	return _u
 }
 
+// SetEmailVerificationRequiredAt sets the "email_verification_required_at" field.
+func (_u *UserUpdateOne) SetEmailVerificationRequiredAt(v time.Time) *UserUpdateOne {
+	_u.mutation.SetEmailVerificationRequiredAt(v)
+	return _u
+}
+
+// SetNillableEmailVerificationRequiredAt sets the "email_verification_required_at" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableEmailVerificationRequiredAt(v *time.Time) *UserUpdateOne {
+	if v != nil {
+		_u.SetEmailVerificationRequiredAt(*v)
+	}
+	return _u
+}
+
+// ClearEmailVerificationRequiredAt clears the value of the "email_verification_required_at" field.
+func (_u *UserUpdateOne) ClearEmailVerificationRequiredAt() *UserUpdateOne {
+	_u.mutation.ClearEmailVerificationRequiredAt()
+	return _u
+}
+
 // AddMembershipIDs adds the "memberships" edge to the TenantMembership entity by IDs.
 func (_u *UserUpdateOne) AddMembershipIDs(ids ...uuid.UUID) *UserUpdateOne {
 	_u.mutation.AddMembershipIDs(ids...)
@@ -1608,6 +1654,12 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if _u.mutation.EmailVerifiedAtCleared() {
 		_spec.ClearField(user.FieldEmailVerifiedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EmailVerificationRequiredAt(); ok {
+		_spec.SetField(user.FieldEmailVerificationRequiredAt, field.TypeTime, value)
+	}
+	if _u.mutation.EmailVerificationRequiredAtCleared() {
+		_spec.ClearField(user.FieldEmailVerificationRequiredAt, field.TypeTime)
 	}
 	if _u.mutation.MembershipsCleared() {
 		edge := &sqlgraph.EdgeSpec{

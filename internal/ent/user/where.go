@@ -111,6 +111,11 @@ func EmailVerifiedAt(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldEmailVerifiedAt, v))
 }
 
+// EmailVerificationRequiredAt applies equality check predicate on the "email_verification_required_at" field. It's identical to EmailVerificationRequiredAtEQ.
+func EmailVerificationRequiredAt(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldEmailVerificationRequiredAt, v))
+}
+
 // EmailEQ applies the EQ predicate on the "email" field.
 func EmailEQ(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldEmail, v))
@@ -649,6 +654,56 @@ func EmailVerifiedAtIsNil() predicate.User {
 // EmailVerifiedAtNotNil applies the NotNil predicate on the "email_verified_at" field.
 func EmailVerifiedAtNotNil() predicate.User {
 	return predicate.User(sql.FieldNotNull(FieldEmailVerifiedAt))
+}
+
+// EmailVerificationRequiredAtEQ applies the EQ predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldEmailVerificationRequiredAt, v))
+}
+
+// EmailVerificationRequiredAtNEQ applies the NEQ predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtNEQ(v time.Time) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldEmailVerificationRequiredAt, v))
+}
+
+// EmailVerificationRequiredAtIn applies the In predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldIn(FieldEmailVerificationRequiredAt, vs...))
+}
+
+// EmailVerificationRequiredAtNotIn applies the NotIn predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtNotIn(vs ...time.Time) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldEmailVerificationRequiredAt, vs...))
+}
+
+// EmailVerificationRequiredAtGT applies the GT predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtGT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGT(FieldEmailVerificationRequiredAt, v))
+}
+
+// EmailVerificationRequiredAtGTE applies the GTE predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtGTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldEmailVerificationRequiredAt, v))
+}
+
+// EmailVerificationRequiredAtLT applies the LT predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtLT(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLT(FieldEmailVerificationRequiredAt, v))
+}
+
+// EmailVerificationRequiredAtLTE applies the LTE predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtLTE(v time.Time) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldEmailVerificationRequiredAt, v))
+}
+
+// EmailVerificationRequiredAtIsNil applies the IsNil predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldEmailVerificationRequiredAt))
+}
+
+// EmailVerificationRequiredAtNotNil applies the NotNil predicate on the "email_verification_required_at" field.
+func EmailVerificationRequiredAtNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldEmailVerificationRequiredAt))
 }
 
 // HasMemberships applies the HasEdge predicate on the "memberships" edge.

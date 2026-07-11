@@ -39,6 +39,8 @@ const (
 	FieldEmailVerified = "email_verified"
 	// FieldEmailVerifiedAt holds the string denoting the email_verified_at field in the database.
 	FieldEmailVerifiedAt = "email_verified_at"
+	// FieldEmailVerificationRequiredAt holds the string denoting the email_verification_required_at field in the database.
+	FieldEmailVerificationRequiredAt = "email_verification_required_at"
 	// EdgeMemberships holds the string denoting the memberships edge name in mutations.
 	EdgeMemberships = "memberships"
 	// EdgeSessions holds the string denoting the sessions edge name in mutations.
@@ -130,6 +132,7 @@ var Columns = []string{
 	FieldTermsAcceptedAt,
 	FieldEmailVerified,
 	FieldEmailVerifiedAt,
+	FieldEmailVerificationRequiredAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -224,6 +227,11 @@ func ByEmailVerified(opts ...sql.OrderTermOption) OrderOption {
 // ByEmailVerifiedAt orders the results by the email_verified_at field.
 func ByEmailVerifiedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEmailVerifiedAt, opts...).ToFunc()
+}
+
+// ByEmailVerificationRequiredAt orders the results by the email_verification_required_at field.
+func ByEmailVerificationRequiredAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEmailVerificationRequiredAt, opts...).ToFunc()
 }
 
 // ByMembershipsCount orders the results by memberships count.

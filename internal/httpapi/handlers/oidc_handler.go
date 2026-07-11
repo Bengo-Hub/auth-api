@@ -340,6 +340,7 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		TenantSlug:      tenantSlug,
 		SessionID:       sessionID,
 		Email:           userEntity.Email,
+		EmailVerified:   userEntity.EmailVerified,
 		Scopes:          scopes,
 		Roles:           roles,
 		Permissions:     permissions,

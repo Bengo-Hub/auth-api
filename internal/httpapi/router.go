@@ -49,6 +49,8 @@ type AuthHandlers struct {
 	RegisterOAuth                http.HandlerFunc
 	SendEmailCode                http.HandlerFunc
 	VerifyEmailCode              http.HandlerFunc
+	SendMyEmailCode              http.HandlerFunc
+	VerifyMyEmailCode            http.HandlerFunc
 	Login                        http.HandlerFunc
 	Refresh                      http.HandlerFunc
 	RequestPasswordReset         http.HandlerFunc
@@ -250,6 +252,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// Pre-signup email verification (unauthenticated).
 			r.Post("/email/send-code", deps.AuthHandlers.SendEmailCode)
 			r.Post("/email/verify-code", deps.AuthHandlers.VerifyEmailCode)
+			// Authenticated verification for EXISTING accounts (the verify-email banner /
+			// dialog). Also replaces a placeholder address with the newly-proven real one.
+			if deps.RequireAuthHandler != nil && deps.AuthHandlers.SendMyEmailCode != nil {
+				r.With(deps.RequireAuthHandler).Post("/me/email/send-code", deps.AuthHandlers.SendMyEmailCode)
+				r.With(deps.RequireAuthHandler).Post("/me/email/verify-code", deps.AuthHandlers.VerifyMyEmailCode)
+			}
 			if deps.RateLimitLogin != nil {
 				r.With(deps.RateLimitLogin).Post("/login", deps.AuthHandlers.Login)
 			} else {

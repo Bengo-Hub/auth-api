@@ -26000,49 +26000,50 @@ func (m *UsageMetricMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op                           Op
-	typ                          string
-	id                           *uuid.UUID
-	email                        *string
-	password_hash                *string
-	status                       *string
-	created_at                   *time.Time
-	updated_at                   *time.Time
-	primary_tenant_id            *string
-	profile                      *map[string]interface{}
-	last_login_at                *time.Time
-	terms_accepted               *bool
-	terms_accepted_at            *time.Time
-	email_verified               *bool
-	email_verified_at            *time.Time
-	clearedFields                map[string]struct{}
-	memberships                  map[uuid.UUID]struct{}
-	removedmemberships           map[uuid.UUID]struct{}
-	clearedmemberships           bool
-	sessions                     map[uuid.UUID]struct{}
-	removedsessions              map[uuid.UUID]struct{}
-	clearedsessions              bool
-	password_reset_tokens        map[uuid.UUID]struct{}
-	removedpassword_reset_tokens map[uuid.UUID]struct{}
-	clearedpassword_reset_tokens bool
-	identities                   map[uuid.UUID]struct{}
-	removedidentities            map[uuid.UUID]struct{}
-	clearedidentities            bool
-	authorization_codes          map[uuid.UUID]struct{}
-	removedauthorization_codes   map[uuid.UUID]struct{}
-	clearedauthorization_codes   bool
-	mfa_totp                     map[uuid.UUID]struct{}
-	removedmfa_totp              map[uuid.UUID]struct{}
-	clearedmfa_totp              bool
-	mfa_backup_codes             map[uuid.UUID]struct{}
-	removedmfa_backup_codes      map[uuid.UUID]struct{}
-	clearedmfa_backup_codes      bool
-	webauthn_credentials         map[uuid.UUID]struct{}
-	removedwebauthn_credentials  map[uuid.UUID]struct{}
-	clearedwebauthn_credentials  bool
-	done                         bool
-	oldValue                     func(context.Context) (*User, error)
-	predicates                   []predicate.User
+	op                             Op
+	typ                            string
+	id                             *uuid.UUID
+	email                          *string
+	password_hash                  *string
+	status                         *string
+	created_at                     *time.Time
+	updated_at                     *time.Time
+	primary_tenant_id              *string
+	profile                        *map[string]interface{}
+	last_login_at                  *time.Time
+	terms_accepted                 *bool
+	terms_accepted_at              *time.Time
+	email_verified                 *bool
+	email_verified_at              *time.Time
+	email_verification_required_at *time.Time
+	clearedFields                  map[string]struct{}
+	memberships                    map[uuid.UUID]struct{}
+	removedmemberships             map[uuid.UUID]struct{}
+	clearedmemberships             bool
+	sessions                       map[uuid.UUID]struct{}
+	removedsessions                map[uuid.UUID]struct{}
+	clearedsessions                bool
+	password_reset_tokens          map[uuid.UUID]struct{}
+	removedpassword_reset_tokens   map[uuid.UUID]struct{}
+	clearedpassword_reset_tokens   bool
+	identities                     map[uuid.UUID]struct{}
+	removedidentities              map[uuid.UUID]struct{}
+	clearedidentities              bool
+	authorization_codes            map[uuid.UUID]struct{}
+	removedauthorization_codes     map[uuid.UUID]struct{}
+	clearedauthorization_codes     bool
+	mfa_totp                       map[uuid.UUID]struct{}
+	removedmfa_totp                map[uuid.UUID]struct{}
+	clearedmfa_totp                bool
+	mfa_backup_codes               map[uuid.UUID]struct{}
+	removedmfa_backup_codes        map[uuid.UUID]struct{}
+	clearedmfa_backup_codes        bool
+	webauthn_credentials           map[uuid.UUID]struct{}
+	removedwebauthn_credentials    map[uuid.UUID]struct{}
+	clearedwebauthn_credentials    bool
+	done                           bool
+	oldValue                       func(context.Context) (*User, error)
+	predicates                     []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -26659,6 +26660,55 @@ func (m *UserMutation) ResetEmailVerifiedAt() {
 	delete(m.clearedFields, user.FieldEmailVerifiedAt)
 }
 
+// SetEmailVerificationRequiredAt sets the "email_verification_required_at" field.
+func (m *UserMutation) SetEmailVerificationRequiredAt(t time.Time) {
+	m.email_verification_required_at = &t
+}
+
+// EmailVerificationRequiredAt returns the value of the "email_verification_required_at" field in the mutation.
+func (m *UserMutation) EmailVerificationRequiredAt() (r time.Time, exists bool) {
+	v := m.email_verification_required_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmailVerificationRequiredAt returns the old "email_verification_required_at" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldEmailVerificationRequiredAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmailVerificationRequiredAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmailVerificationRequiredAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmailVerificationRequiredAt: %w", err)
+	}
+	return oldValue.EmailVerificationRequiredAt, nil
+}
+
+// ClearEmailVerificationRequiredAt clears the value of the "email_verification_required_at" field.
+func (m *UserMutation) ClearEmailVerificationRequiredAt() {
+	m.email_verification_required_at = nil
+	m.clearedFields[user.FieldEmailVerificationRequiredAt] = struct{}{}
+}
+
+// EmailVerificationRequiredAtCleared returns if the "email_verification_required_at" field was cleared in this mutation.
+func (m *UserMutation) EmailVerificationRequiredAtCleared() bool {
+	_, ok := m.clearedFields[user.FieldEmailVerificationRequiredAt]
+	return ok
+}
+
+// ResetEmailVerificationRequiredAt resets all changes to the "email_verification_required_at" field.
+func (m *UserMutation) ResetEmailVerificationRequiredAt() {
+	m.email_verification_required_at = nil
+	delete(m.clearedFields, user.FieldEmailVerificationRequiredAt)
+}
+
 // AddMembershipIDs adds the "memberships" edge to the TenantMembership entity by ids.
 func (m *UserMutation) AddMembershipIDs(ids ...uuid.UUID) {
 	if m.memberships == nil {
@@ -27125,7 +27175,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
 	if m.email != nil {
 		fields = append(fields, user.FieldEmail)
 	}
@@ -27162,6 +27212,9 @@ func (m *UserMutation) Fields() []string {
 	if m.email_verified_at != nil {
 		fields = append(fields, user.FieldEmailVerifiedAt)
 	}
+	if m.email_verification_required_at != nil {
+		fields = append(fields, user.FieldEmailVerificationRequiredAt)
+	}
 	return fields
 }
 
@@ -27194,6 +27247,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.EmailVerified()
 	case user.FieldEmailVerifiedAt:
 		return m.EmailVerifiedAt()
+	case user.FieldEmailVerificationRequiredAt:
+		return m.EmailVerificationRequiredAt()
 	}
 	return nil, false
 }
@@ -27227,6 +27282,8 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldEmailVerified(ctx)
 	case user.FieldEmailVerifiedAt:
 		return m.OldEmailVerifiedAt(ctx)
+	case user.FieldEmailVerificationRequiredAt:
+		return m.OldEmailVerificationRequiredAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown User field %s", name)
 }
@@ -27320,6 +27377,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetEmailVerifiedAt(v)
 		return nil
+	case user.FieldEmailVerificationRequiredAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmailVerificationRequiredAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)
 }
@@ -27368,6 +27432,9 @@ func (m *UserMutation) ClearedFields() []string {
 	if m.FieldCleared(user.FieldEmailVerifiedAt) {
 		fields = append(fields, user.FieldEmailVerifiedAt)
 	}
+	if m.FieldCleared(user.FieldEmailVerificationRequiredAt) {
+		fields = append(fields, user.FieldEmailVerificationRequiredAt)
+	}
 	return fields
 }
 
@@ -27399,6 +27466,9 @@ func (m *UserMutation) ClearField(name string) error {
 		return nil
 	case user.FieldEmailVerifiedAt:
 		m.ClearEmailVerifiedAt()
+		return nil
+	case user.FieldEmailVerificationRequiredAt:
+		m.ClearEmailVerificationRequiredAt()
 		return nil
 	}
 	return fmt.Errorf("unknown User nullable field %s", name)
@@ -27443,6 +27513,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldEmailVerifiedAt:
 		m.ResetEmailVerifiedAt()
+		return nil
+	case user.FieldEmailVerificationRequiredAt:
+		m.ResetEmailVerificationRequiredAt()
 		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)

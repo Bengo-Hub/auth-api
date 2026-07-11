@@ -184,6 +184,20 @@ func (_c *UserCreate) SetNillableEmailVerifiedAt(v *time.Time) *UserCreate {
 	return _c
 }
 
+// SetEmailVerificationRequiredAt sets the "email_verification_required_at" field.
+func (_c *UserCreate) SetEmailVerificationRequiredAt(v time.Time) *UserCreate {
+	_c.mutation.SetEmailVerificationRequiredAt(v)
+	return _c
+}
+
+// SetNillableEmailVerificationRequiredAt sets the "email_verification_required_at" field if the given value is not nil.
+func (_c *UserCreate) SetNillableEmailVerificationRequiredAt(v *time.Time) *UserCreate {
+	if v != nil {
+		_c.SetEmailVerificationRequiredAt(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *UserCreate) SetID(v uuid.UUID) *UserCreate {
 	_c.mutation.SetID(v)
@@ -492,6 +506,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.EmailVerifiedAt(); ok {
 		_spec.SetField(user.FieldEmailVerifiedAt, field.TypeTime, value)
 		_node.EmailVerifiedAt = &value
+	}
+	if value, ok := _c.mutation.EmailVerificationRequiredAt(); ok {
+		_spec.SetField(user.FieldEmailVerificationRequiredAt, field.TypeTime, value)
+		_node.EmailVerificationRequiredAt = &value
 	}
 	if nodes := _c.mutation.MembershipsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -841,6 +859,24 @@ func (u *UserUpsert) ClearEmailVerifiedAt() *UserUpsert {
 	return u
 }
 
+// SetEmailVerificationRequiredAt sets the "email_verification_required_at" field.
+func (u *UserUpsert) SetEmailVerificationRequiredAt(v time.Time) *UserUpsert {
+	u.Set(user.FieldEmailVerificationRequiredAt, v)
+	return u
+}
+
+// UpdateEmailVerificationRequiredAt sets the "email_verification_required_at" field to the value that was provided on create.
+func (u *UserUpsert) UpdateEmailVerificationRequiredAt() *UserUpsert {
+	u.SetExcluded(user.FieldEmailVerificationRequiredAt)
+	return u
+}
+
+// ClearEmailVerificationRequiredAt clears the value of the "email_verification_required_at" field.
+func (u *UserUpsert) ClearEmailVerificationRequiredAt() *UserUpsert {
+	u.SetNull(user.FieldEmailVerificationRequiredAt)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -1085,6 +1121,27 @@ func (u *UserUpsertOne) UpdateEmailVerifiedAt() *UserUpsertOne {
 func (u *UserUpsertOne) ClearEmailVerifiedAt() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearEmailVerifiedAt()
+	})
+}
+
+// SetEmailVerificationRequiredAt sets the "email_verification_required_at" field.
+func (u *UserUpsertOne) SetEmailVerificationRequiredAt(v time.Time) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetEmailVerificationRequiredAt(v)
+	})
+}
+
+// UpdateEmailVerificationRequiredAt sets the "email_verification_required_at" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateEmailVerificationRequiredAt() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateEmailVerificationRequiredAt()
+	})
+}
+
+// ClearEmailVerificationRequiredAt clears the value of the "email_verification_required_at" field.
+func (u *UserUpsertOne) ClearEmailVerificationRequiredAt() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearEmailVerificationRequiredAt()
 	})
 }
 
@@ -1499,6 +1556,27 @@ func (u *UserUpsertBulk) UpdateEmailVerifiedAt() *UserUpsertBulk {
 func (u *UserUpsertBulk) ClearEmailVerifiedAt() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearEmailVerifiedAt()
+	})
+}
+
+// SetEmailVerificationRequiredAt sets the "email_verification_required_at" field.
+func (u *UserUpsertBulk) SetEmailVerificationRequiredAt(v time.Time) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetEmailVerificationRequiredAt(v)
+	})
+}
+
+// UpdateEmailVerificationRequiredAt sets the "email_verification_required_at" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateEmailVerificationRequiredAt() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateEmailVerificationRequiredAt()
+	})
+}
+
+// ClearEmailVerificationRequiredAt clears the value of the "email_verification_required_at" field.
+func (u *UserUpsertBulk) ClearEmailVerificationRequiredAt() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearEmailVerificationRequiredAt()
 	})
 }
 

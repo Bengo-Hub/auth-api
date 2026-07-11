@@ -56,6 +56,15 @@ func (User) Fields() []ent.Field {
 		field.Time("email_verified_at").
 			Optional().
 			Nillable(),
+		// email_verification_required_at starts each unverified user's personal clock on
+		// their first exposure to the requirement (set at login). It drives the graduated
+		// enforcement stages surfaced by /me: notice (0-30d) → final_warning (30-37d, the
+		// account-will-be-disabled alert + 7-day grace) → enforced (37d+, a forced wait
+		// that grows 30s per day). Existing accounts therefore get a full 30 days from the
+		// moment they first see the prompt, not from account creation.
+		field.Time("email_verification_required_at").
+			Optional().
+			Nillable(),
 	}
 }
 

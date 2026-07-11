@@ -55,6 +55,9 @@ type AuthService interface {
 	EmailExists(ctx context.Context, email string) (bool, error)
 	EmailAccountStatus(ctx context.Context, email string) (exists, verified bool)
 	MarkEmailVerifiedByEmail(ctx context.Context, email string) (bool, error)
+	EmailTakenByOther(ctx context.Context, email string, userID uuid.UUID) bool
+	VerifyAndSetUserEmail(ctx context.Context, userID uuid.UUID, email string) error
+	StartVerificationClock(ctx context.Context, u *ent.User) *ent.User
 }
 
 // UseCaseService describes the use case logic capabilities.
@@ -754,12 +757,19 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		permissions = nil
 	}
 
+	// Start the verification clock on first exposure so an existing (unverified) account
+	// gets its full notice window from now, not from when it was created.
+	userEntity = h.service.StartVerificationClock(r.Context(), userEntity)
+
 	out := userViewFromEnt(userEntity)
 	if out == nil {
 		out = make(map[string]any)
 	}
 	out["roles"] = roles
 	out["permissions"] = permissions
+	// Server-computed enforcement stage so every frontend renders the same banner/dialog
+	// state (notice → final_warning → enforced) without doing its own date math.
+	out["email_verification"] = auth.EmailVerificationStateFor(userEntity, time.Now())
 
 	// MFA status
 	if mfaEnabled, err := h.service.IsMFAEnabled(r.Context(), userID); err == nil {
@@ -1414,6 +1424,148 @@ func (h *AuthHandler) signupVerifiedKey(email string) string {
 
 func (h *AuthHandler) signupRateKey(email string) string {
 	return h.redisNamespace + ":signup:otp:rate:" + normalizeSignupEmail(email)
+}
+
+// ── Authenticated email verification (existing accounts) ─────────────────────
+// Existing SSO accounts are unverified until they complete this flow, and they are
+// blocked from using the platform until they do. Crucially, an account provisioned
+// with a placeholder/non-real address can supply a REAL email here — once the code is
+// confirmed, that verified address REPLACES the one on file (and auth.user.updated
+// propagates the change to every downstream service).
+
+func (h *AuthHandler) myUserID(r *http.Request) (uuid.UUID, bool) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok || claims == nil {
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return id, true
+}
+
+// myEmailOTPKey scopes the OTP to the authenticated user AND the address being claimed,
+// so a code issued for one address can never verify a different one.
+func (h *AuthHandler) myEmailOTPKey(userID uuid.UUID, email string) string {
+	return h.redisNamespace + ":verify:otp:" + userID.String() + ":" + normalizeSignupEmail(email)
+}
+
+// SendMyEmailCode emails a verification code to the address the logged-in user wants to
+// prove (their current one, or a real one replacing a placeholder).
+// POST /api/v1/auth/me/email/send-code  body: {email}
+func (h *AuthHandler) SendMyEmailCode(w http.ResponseWriter, r *http.Request) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "email verification not configured", nil)
+		return
+	}
+	userID, ok := h.myUserID(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth context", nil)
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	email := normalizeSignupEmail(req.Email)
+	if email == "" || !strings.Contains(email, "@") {
+		writeError(w, http.StatusBadRequest, "invalid_request", "a valid email is required", nil)
+		return
+	}
+	// Never let a user claim an address that belongs to someone else.
+	if h.service.EmailTakenByOther(r.Context(), email, userID) {
+		writeError(w, http.StatusConflict, "email_exists",
+			"That email is already used by another account.", nil)
+		return
+	}
+
+	rateKey := h.redisNamespace + ":verify:otp:rate:" + userID.String()
+	count, _ := h.redis.Incr(r.Context(), rateKey).Result()
+	if count == 1 {
+		_ = h.redis.Expire(r.Context(), rateKey, 10*time.Minute).Err()
+	}
+	if count > 5 {
+		writeError(w, http.StatusTooManyRequests, "rate_limited",
+			"Too many verification attempts. Please try again later.", nil)
+		return
+	}
+
+	otp, err := generateOTP()
+	if err != nil {
+		h.logger.Error("generate verify otp", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to generate code", nil)
+		return
+	}
+	_ = h.redis.Set(r.Context(), h.myEmailOTPKey(userID, email), hashOTP(otp), 10*time.Minute).Err()
+	// Reuses the same OTP email path as signup verification.
+	h.service.SendOTPEmail(r.Context(), uuid.Nil, uuid.New(), email, otp)
+
+	writeJSON(w, http.StatusOK, map[string]any{"sent": true})
+}
+
+// VerifyMyEmailCode confirms the code and marks the account verified, replacing the
+// stored email when the proven address differs (placeholder → real).
+// POST /api/v1/auth/me/email/verify-code  body: {email, code}
+func (h *AuthHandler) VerifyMyEmailCode(w http.ResponseWriter, r *http.Request) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "email verification not configured", nil)
+		return
+	}
+	userID, ok := h.myUserID(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth context", nil)
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	email := normalizeSignupEmail(req.Email)
+	code := strings.TrimSpace(req.Code)
+	if email == "" || code == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "email and code are required", nil)
+		return
+	}
+
+	key := h.myEmailOTPKey(userID, email)
+	stored, err := h.redis.Get(r.Context(), key).Result()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "code_expired", "The code has expired or was not sent. Request a new one.", nil)
+		return
+	}
+	if stored != hashOTP(code) {
+		writeError(w, http.StatusBadRequest, "code_invalid", "The verification code is incorrect.", nil)
+		return
+	}
+	_ = h.redis.Del(r.Context(), key).Err()
+
+	if err := h.service.VerifyAndSetUserEmail(r.Context(), userID, email); err != nil {
+		if errors.Is(err, auth.ErrEmailAlreadyExists) {
+			writeError(w, http.StatusConflict, "email_exists",
+				"That email is already used by another account.", nil)
+			return
+		}
+		h.logger.Error("verify + set user email", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not verify email", nil)
+		return
+	}
+
+	// Bust the cached /me so the next call reflects verified=true immediately.
+	if h.redisNamespace != "" {
+		_ = h.redis.Del(r.Context(), fmt.Sprintf("%s:auth:me:%s", h.redisNamespace, userID.String())).Err()
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"verified": true, "email": email})
 }
 
 // SendEmailCode generates and emails a 6-digit verification code for a signup.

@@ -27,6 +27,9 @@ type Claims struct {
 	Roles       []string `json:"roles,omitempty"`       // User roles from TenantMembership (e.g., "superuser", "admin", "member")
 	Permissions []string `json:"permissions,omitempty"` // Canonical permission codes for RBAC (e.g., "catalog:view", "orders:read")
 	Email       string   `json:"email,omitempty"`
+	// EmailVerified lets any downstream service gate access until the user has verified
+	// their email (existing accounts are unverified until they complete the OTP flow).
+	EmailVerified bool   `json:"email_verified,omitempty"`
 	IsPlatformOwner bool `json:"is_platform_owner,omitempty"`
 
 	// Outlet / branch context — set after the user selects an outlet at login.
@@ -62,6 +65,9 @@ type AccessTokenInput struct {
 	TenantSlug  string
 	SessionID   uuid.UUID
 	Email       string
+	// EmailVerified mirrors users.email_verified. Carried in the JWT so every service
+	// (and PIN-issued terminal tokens) can require verification before granting access.
+	EmailVerified bool
 	Scopes      []string
 	Roles       []string // User roles from TenantMembership
 	Permissions []string // Canonical permission codes (e.g., catalog:view, orders:read)
@@ -146,6 +152,7 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 		Roles:       input.Roles,
 		Permissions: input.Permissions,
 		Email:       input.Email,
+		EmailVerified: input.EmailVerified,
 		IsPlatformOwner: input.IsPlatformOwner,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.cfg.Issuer,
