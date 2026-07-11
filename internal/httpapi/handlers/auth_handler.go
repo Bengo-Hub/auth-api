@@ -769,7 +769,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	out["permissions"] = permissions
 	// Server-computed enforcement stage so every frontend renders the same banner/dialog
 	// state (notice → final_warning → enforced) without doing its own date math.
-	out["email_verification"] = auth.EmailVerificationStateFor(userEntity, time.Now())
+	out["email_verification"] = auth.EmailVerificationStateFor(userEntity, roles, time.Now())
 
 	// MFA status
 	if mfaEnabled, err := h.service.IsMFAEnabled(r.Context(), userID); err == nil {
