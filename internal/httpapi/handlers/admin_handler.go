@@ -1723,6 +1723,53 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 // as [{id,email,name,roles,outlet_id}] where id is the auth user id. Reuses the same
 // TenantMembership + User read path as the JWT-admin ListTenantMembers. erp-api's
 // employee backfill consumes this to project auth users into employees.
+// S2SUserEmailVerification returns the computed email-verification enforcement state for a
+// user (verified, is_placeholder, strict, stage, days_until_disable, wait_seconds, ...) so a
+// downstream service's /auth/me can forward the SAME block auth-api's own /me returns, giving
+// every frontend an identical graduated verify banner. Gated by INTERNAL_SERVICE_KEY.
+// GET /api/v1/s2s/users/{user_id}/email-verification
+func (h *AdminHandler) S2SUserEmailVerification(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(strings.TrimSpace(chi.URLParam(r, "user_id")))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+		return
+	}
+	u, err := h.ent.User.Get(r.Context(), userID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "user not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "could not load user", nil)
+		return
+	}
+	// Start the clock on first exposure (via any service), same as auth-api's own /me.
+	if !u.EmailVerified && u.EmailVerificationRequiredAt == nil {
+		if updated, uerr := u.Update().SetEmailVerificationRequiredAt(time.Now()).Save(r.Context()); uerr == nil {
+			u = updated
+		}
+	}
+
+	// Union the user's roles across ALL active memberships: strict enforcement applies if
+	// the user holds a notification-bearing role in ANY tenant.
+	var roles []string
+	if memberships, mErr := h.ent.TenantMembership.Query().
+		Where(tenantmembership.UserID(userID), tenantmembership.StatusEQ("active")).
+		All(r.Context()); mErr == nil {
+		seen := map[string]bool{}
+		for _, m := range memberships {
+			for _, role := range m.Roles {
+				if role != "" && !seen[role] {
+					seen[role] = true
+					roles = append(roles, role)
+				}
+			}
+		}
+	}
+
+	writeJSON(w, http.StatusOK, auth.EmailVerificationStateFor(u, roles, time.Now()))
+}
+
 func (h *AdminHandler) S2SListTenantUsers(w http.ResponseWriter, r *http.Request) {
 	tenantRef := strings.TrimSpace(chi.URLParam(r, "tenant"))
 	if tenantRef == "" {
