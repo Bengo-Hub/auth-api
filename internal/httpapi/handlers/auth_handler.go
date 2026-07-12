@@ -1502,8 +1502,16 @@ func (h *AuthHandler) SendMyEmailCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = h.redis.Set(r.Context(), h.myEmailOTPKey(userID, email), hashOTP(otp), 10*time.Minute).Err()
-	// Reuses the same OTP email path as signup verification.
-	h.service.SendOTPEmail(r.Context(), uuid.Nil, uuid.New(), email, otp)
+
+	// Send with the user's real tenant + user id so notifications-api can resolve tenant
+	// branding (a nil tenant makes the tenant resolver fail and strips branding).
+	tenantID := uuid.Nil
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil && claims.TenantID != "" {
+		tenantID, _ = uuid.Parse(claims.TenantID)
+	}
+	// Reuses the same OTP email path as signup verification. The notifications email gate
+	// always allows auth/otp templates, so an unverified user can still receive this.
+	h.service.SendOTPEmail(r.Context(), tenantID, userID, email, otp)
 
 	writeJSON(w, http.StatusOK, map[string]any{"sent": true})
 }
