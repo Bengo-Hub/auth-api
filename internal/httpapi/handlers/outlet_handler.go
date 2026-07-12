@@ -100,8 +100,12 @@ func (h *OutletHandler) requireTenantAdmin(r *http.Request) bool {
 	if claims.IsPlatformOwner {
 		return true
 	}
+	// Accept every tenant-admin-equivalent role. This MUST stay in sync with the
+	// auth-ui TENANT_ADMIN_ROLES set (useAuth.ts) — otherwise a user the UI shows the
+	// branch-management form to (e.g. role "owner"/"tenant_admin") gets a 403 here.
 	for _, role := range claims.Roles {
-		if role == "superuser" || role == "admin" {
+		switch role {
+		case "superuser", "admin", "owner", "super_admin", "tenant_admin":
 			return true
 		}
 	}
