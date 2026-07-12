@@ -358,10 +358,10 @@ func (s *Service) EmailAccountStatus(ctx context.Context, email string) (exists,
 // NoticeDays, then a red "account will be disabled" warning for GraceDays, after which
 // each sign-in imposes a wait that grows by EnforcedStepSeconds per additional day.
 const (
-	VerifyNoticeDays         = 30
-	VerifyGraceDays          = 7
-	VerifyEnforcedBaseSecs   = 60
-	VerifyEnforcedStepSecs   = 30
+	VerifyNoticeDays       = 30
+	VerifyGraceDays        = 7
+	VerifyEnforcedBaseSecs = 60
+	VerifyEnforcedStepSecs = 30
 )
 
 // EmailVerificationState is the server-computed enforcement state for a user, so every
@@ -378,10 +378,10 @@ type EmailVerificationState struct {
 	// that never escalates — Stage stays "notice" and there is no disable date or wait.
 	Strict bool `json:"strict"`
 	// Stage: "" when verified; otherwise notice | final_warning | enforced.
-	Stage           string     `json:"stage,omitempty"`
-	RequiredSince   *time.Time `json:"required_since,omitempty"`
-	DisableAt       *time.Time `json:"disable_at,omitempty"`
-	DaysUntilDisable int       `json:"days_until_disable,omitempty"`
+	Stage            string     `json:"stage,omitempty"`
+	RequiredSince    *time.Time `json:"required_since,omitempty"`
+	DisableAt        *time.Time `json:"disable_at,omitempty"`
+	DaysUntilDisable int        `json:"days_until_disable,omitempty"`
 	// WaitSeconds is the forced delay the dialog must count down before the user may
 	// dismiss it (enforced stage only).
 	WaitSeconds int `json:"wait_seconds,omitempty"`
@@ -704,12 +704,12 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 				zap.String("tenant_id", tenantEntity.ID.String()), zap.Error(outletErr))
 		} else {
 			s.publishEvent(ctx, tenantEntity.ID, "auth.outlet", hqOutlet.ID, "created", map[string]any{
-				"outlet_id":  hqOutlet.ID.String(),
-				"tenant_id":  tenantEntity.ID.String(),
-				"code":       hqOutlet.Code,
-				"name":       hqOutlet.Name,
-				"use_case":   hqOutlet.UseCase,
-				"is_hq":      hqOutlet.IsHq,
+				"outlet_id": hqOutlet.ID.String(),
+				"tenant_id": tenantEntity.ID.String(),
+				"code":      hqOutlet.Code,
+				"name":      hqOutlet.Name,
+				"use_case":  hqOutlet.UseCase,
+				"is_hq":     hqOutlet.IsHq,
 			})
 		}
 
@@ -1665,6 +1665,7 @@ func (s *Service) EnrichTokenWithSubscription(ctx context.Context, tenantID uuid
 	in.SubscriptionStatus = sub.Status
 	in.SubscriptionFeatures = sub.Features
 	in.SubscriptionLimits = sub.Limits
+	in.SubscriptionTier = sub.TierOrder
 	in.AllowOverage = sub.AllowOverage
 	// One-time perpetual licences never expire: omit the JWT expiry so the
 	// subscription gate treats them as permanently active.
