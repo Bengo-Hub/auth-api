@@ -29,7 +29,7 @@ type Claims struct {
 	Email       string   `json:"email,omitempty"`
 	// EmailVerified lets any downstream service gate access until the user has verified
 	// their email (existing accounts are unverified until they complete the OTP flow).
-	EmailVerified bool   `json:"email_verified,omitempty"`
+	EmailVerified   bool `json:"email_verified,omitempty"`
 	IsPlatformOwner bool `json:"is_platform_owner,omitempty"`
 
 	// Outlet / branch context — set after the user selects an outlet at login.
@@ -41,15 +41,16 @@ type Claims struct {
 	IsHQUser      bool   `json:"is_hq_user,omitempty"`
 
 	// Subscription claims (enriched from subscription-service)
-	SubscriptionPlan     string         `json:"sub_plan,omitempty"`     // Plan code (STARTER, GROWTH, PROFESSIONAL)
-	SubscriptionStatus   string         `json:"sub_status,omitempty"`   // Status (ACTIVE, TRIAL, EXPIRED, etc.)
+	SubscriptionPlan     string         `json:"sub_plan,omitempty"`              // Plan code (STARTER, GROWTH, PROFESSIONAL)
+	SubscriptionStatus   string         `json:"sub_status,omitempty"`            // Status (ACTIVE, TRIAL, EXPIRED, etc.)
 	SubscriptionFeatures []string       `json:"subscription_features,omitempty"` // Feature codes enabled for this plan (must match authclient Claims field)
-	SubscriptionLimits   map[string]int `json:"sub_limits,omitempty"`   // Plan limits (max_outlets, max_riders, etc.)
-	SubscriptionExpires  *int64         `json:"sub_expires,omitempty"`  // Current period end as Unix timestamp
+	SubscriptionLimits   map[string]int `json:"sub_limits,omitempty"`            // Plan limits (max_outlets, max_riders, etc.)
+	SubscriptionExpires  *int64         `json:"sub_expires,omitempty"`           // Current period end as Unix timestamp
+	SubscriptionTier     int            `json:"sub_tier,omitempty"`              // Resolved plan tier rank (must match authclient Claims field); for backend tier-aware gating
 
 	// Billing model and demo flags
-	BillingMode  string `json:"billing_mode,omitempty"`     // "service_charge" bypasses subscription gating
-	IsDemo       bool   `json:"is_demo,omitempty"`          // true for demo tenant/users
+	BillingMode  string `json:"billing_mode,omitempty"`      // "service_charge" bypasses subscription gating
+	IsDemo       bool   `json:"is_demo,omitempty"`           // true for demo tenant/users
 	AllowOverage bool   `json:"sub_allow_overage,omitempty"` // tenant opted in to pay-as-you-go extra usage
 	// SubscriptionExempt = platform-granted per-tenant exemption (auth-api Tenant.subscription_exempt).
 	// Mirrors the shared-auth-client Claims field; bypasses ALL subscription gating downstream.
@@ -60,19 +61,19 @@ type Claims struct {
 
 // AccessTokenInput defines metadata for token minting.
 type AccessTokenInput struct {
-	UserID      uuid.UUID
-	TenantID    *uuid.UUID
-	TenantSlug  string
-	SessionID   uuid.UUID
-	Email       string
+	UserID     uuid.UUID
+	TenantID   *uuid.UUID
+	TenantSlug string
+	SessionID  uuid.UUID
+	Email      string
 	// EmailVerified mirrors users.email_verified. Carried in the JWT so every service
 	// (and PIN-issued terminal tokens) can require verification before granting access.
-	EmailVerified bool
-	Scopes      []string
-	Roles       []string // User roles from TenantMembership
-	Permissions []string // Canonical permission codes (e.g., catalog:view, orders:read)
+	EmailVerified   bool
+	Scopes          []string
+	Roles           []string // User roles from TenantMembership
+	Permissions     []string // Canonical permission codes (e.g., catalog:view, orders:read)
 	IsPlatformOwner bool
-	Audience    []string
+	Audience        []string
 
 	// Outlet / branch context (optional — populated after outlet selection)
 	OutletID      string
@@ -86,12 +87,13 @@ type AccessTokenInput struct {
 	SubscriptionFeatures []string
 	SubscriptionLimits   map[string]int
 	SubscriptionExpires  *time.Time
+	SubscriptionTier     int
 
 	// Billing model and demo flags
-	BillingMode  string // "service_charge" bypasses subscription gating
-	IsDemo       bool   // true for demo tenant/users
-	AllowOverage bool   // tenant opted in to pay-as-you-go extra usage
-	SubscriptionExempt bool // platform-granted per-tenant subscription exemption
+	BillingMode        string // "service_charge" bypasses subscription gating
+	IsDemo             bool   // true for demo tenant/users
+	AllowOverage       bool   // tenant opted in to pay-as-you-go extra usage
+	SubscriptionExempt bool   // platform-granted per-tenant subscription exemption
 }
 
 // Service handles JWT minting and verification.
@@ -147,12 +149,12 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	jti := uuid.NewString()
 
 	claims := &Claims{
-		SessionID:   input.SessionID.String(),
-		Scope:       input.Scopes,
-		Roles:       input.Roles,
-		Permissions: input.Permissions,
-		Email:       input.Email,
-		EmailVerified: input.EmailVerified,
+		SessionID:       input.SessionID.String(),
+		Scope:           input.Scopes,
+		Roles:           input.Roles,
+		Permissions:     input.Permissions,
+		Email:           input.Email,
+		EmailVerified:   input.EmailVerified,
 		IsPlatformOwner: input.IsPlatformOwner,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.cfg.Issuer,
@@ -185,6 +187,7 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 		claims.SubscriptionStatus = input.SubscriptionStatus
 		claims.SubscriptionFeatures = input.SubscriptionFeatures
 		claims.SubscriptionLimits = input.SubscriptionLimits
+		claims.SubscriptionTier = input.SubscriptionTier
 		if input.SubscriptionExpires != nil {
 			ts := input.SubscriptionExpires.Unix()
 			claims.SubscriptionExpires = &ts

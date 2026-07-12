@@ -18,10 +18,13 @@ type KeyProviderFunc func(ctx context.Context) string
 
 // TenantSubscription represents the subscription data returned by subscription-service.
 type TenantSubscription struct {
-	ID                 uuid.UUID      `json:"id"`
-	TenantID           uuid.UUID      `json:"tenant_id"`
-	PlanCode           string         `json:"plan_code"`
-	PlanName           string         `json:"plan_name"`
+	ID       uuid.UUID `json:"id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+	PlanCode string    `json:"plan_code"`
+	PlanName string    `json:"plan_name"`
+	// TierOrder is the resolved plan's tier rank (1=Starter,2=Growth,3=Professional; higher for
+	// licenses). Minted into the JWT sub_tier claim for backend tier-aware gating.
+	TierOrder          int            `json:"tier_order"`
 	Status             string         `json:"status"`
 	TrialEndsAt        *time.Time     `json:"trial_ends_at"`
 	CurrentPeriodStart time.Time      `json:"current_period_start"`
@@ -55,18 +58,18 @@ type SubscriptionPlan struct {
 
 // Client communicates with subscription-service using circuit breaker pattern.
 type Client struct {
-	baseURL       string
-	keyProvider   KeyProviderFunc // resolves API key at call time (supports rotation)
+	baseURL     string
+	keyProvider KeyProviderFunc // resolves API key at call time (supports rotation)
 	// Fallback static key (env var). Used when keyProvider is nil or returns "".
 	fallbackKey   string
 	serviceClient *serviceclient.Client
 	logger        *zap.Logger
 
 	// In-memory key cache: key provider may be expensive, cache for keyTTL.
-	mu          sync.Mutex
-	cachedKey   string
-	keyExpiry   time.Time
-	keyTTL      time.Duration
+	mu        sync.Mutex
+	cachedKey string
+	keyExpiry time.Time
+	keyTTL    time.Duration
 }
 
 // Config holds client configuration.
@@ -75,7 +78,7 @@ type Config struct {
 	APIKey      string          // static fallback (env var). Used when KeyProvider is nil or returns "".
 	KeyProvider KeyProviderFunc // optional dynamic key resolver (DB lookup)
 	Timeout     time.Duration
-	KeyCacheTTL time.Duration   // how long to cache the resolved key (default 5m)
+	KeyCacheTTL time.Duration // how long to cache the resolved key (default 5m)
 }
 
 // NewClient creates a new subscription service client with circuit breaker.
@@ -183,6 +186,7 @@ func (c *Client) GetTenantSubscription(ctx context.Context, tenantID uuid.UUID) 
 
 	return &sub, nil
 }
+
 // CreateTrialSubscription provisions a new trial subscription for a tenant.
 // slug and name seed the subscription service's local tenant projection on demand,
 // so provisioning at signup does not race the async auth.tenant.created sync.
