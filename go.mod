@@ -8,7 +8,7 @@ require (
 	github.com/Bengo-Hub/pagination v0.3.0
 	github.com/Bengo-Hub/shared-events v0.6.1
 	github.com/Bengo-Hub/shared-password-hasher v0.1.1
-	github.com/Bengo-Hub/shared-service-client v0.3.0
+	github.com/Bengo-Hub/shared-service-client v0.3.1
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-chi/cors v1.2.2
