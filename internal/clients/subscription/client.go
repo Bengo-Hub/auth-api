@@ -138,7 +138,10 @@ func (c *Client) resolveKey(ctx context.Context) string {
 // GetTenantSubscription fetches subscription data for a tenant.
 // Returns nil if subscription not found (tenant may not have a subscription yet).
 func (c *Client) GetTenantSubscription(ctx context.Context, tenantID uuid.UUID) (*TenantSubscription, error) {
-	path := fmt.Sprintf("/api/v1/tenants/%s/subscription", tenantID.String())
+	// include_usage=false skips subscription-service's per-tenant usage_events
+	// aggregate — JWT enrichment only needs plan/features/limits/status, not the
+	// current-month usage counters, so we keep the login path off that query.
+	path := fmt.Sprintf("/api/v1/tenants/%s/subscription?include_usage=false", tenantID.String())
 
 	headers := make(map[string]string)
 	if key := c.resolveKey(ctx); key != "" {
