@@ -112,6 +112,20 @@ func (h *OutletHandler) requireTenantAdmin(r *http.Request) bool {
 	return false
 }
 
+// withOutletContacts merges the location/contact payload keys into an outlet event payload so
+// downstream mirrors (pos receipts, inventory) stay in sync: the physical address/location and
+// the freeform metadata — notably metadata.contact_phones, a list of {label, value} pairs
+// (e.g. {label:"MTN", value:"+256782323113"}) printed on receipts as the "Mobile:" line.
+func withOutletContacts(data map[string]any, o *ent.Outlet) map[string]any {
+	if o.Address != nil && *o.Address != "" {
+		data["address"] = *o.Address
+	}
+	if len(o.Metadata) > 0 {
+		data["metadata"] = o.Metadata
+	}
+	return data
+}
+
 func (h *OutletHandler) publishOutletEvent(ctx context.Context, tenantID, outletID uuid.UUID, eventType string, data map[string]any) {
 	event := sharedevents.Event{
 		ID:            uuid.New(),
@@ -199,7 +213,7 @@ func (h *OutletHandler) ensureHQOutlet(ctx context.Context, t *ent.Tenant) ([]*e
 	}
 
 	// Emit auth.outlet.created so inventory/pos/library/treasury mirror the SAME UUID.
-	h.publishOutletEvent(ctx, t.ID, created.ID, "created", map[string]any{
+	h.publishOutletEvent(ctx, t.ID, created.ID, "created", withOutletContacts(map[string]any{
 		"outlet_id":           created.ID.String(),
 		"tenant_id":           t.ID.String(),
 		"tenant_slug":         t.Slug,
@@ -209,7 +223,7 @@ func (h *OutletHandler) ensureHQOutlet(ctx context.Context, t *ent.Tenant) ([]*e
 		"is_hq":               created.IsHq,
 		"status":              created.Status,
 		"applicable_services": usecase.ApplicableServices(created.UseCase),
-	})
+	}, created))
 	h.logger.Info("auto-provisioned default HQ outlet for tenant with none",
 		zap.String("tenant_slug", t.Slug),
 		zap.String("outlet_id", created.ID.String()))
@@ -322,7 +336,7 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.publishOutletEvent(r.Context(), t.ID, o.ID, "created", map[string]any{
+	h.publishOutletEvent(r.Context(), t.ID, o.ID, "created", withOutletContacts(map[string]any{
 		"outlet_id":           o.ID.String(),
 		"tenant_id":           t.ID.String(),
 		"tenant_slug":         t.Slug,
@@ -331,7 +345,7 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 		"use_case":            o.UseCase,
 		"is_hq":               o.IsHq,
 		"applicable_services": usecase.ApplicableServices(o.UseCase),
-	})
+	}, o))
 
 	writeJSON(w, http.StatusCreated, outletToResponse(o))
 }
@@ -414,7 +428,7 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.publishOutletEvent(r.Context(), t.ID, o.ID, "updated", map[string]any{
+	h.publishOutletEvent(r.Context(), t.ID, o.ID, "updated", withOutletContacts(map[string]any{
 		"outlet_id":           o.ID.String(),
 		"tenant_id":           t.ID.String(),
 		"tenant_slug":         t.Slug,
@@ -424,7 +438,7 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 		"is_hq":               o.IsHq,
 		"status":              o.Status,
 		"applicable_services": usecase.ApplicableServices(o.UseCase),
-	})
+	}, o))
 
 	writeJSON(w, http.StatusOK, outletToResponse(o))
 }
@@ -625,7 +639,7 @@ func (h *OutletHandler) RepublishOutletEvents(w http.ResponseWriter, r *http.Req
 		if o.Status == "archived" {
 			eventType = "archived"
 		}
-		h.publishOutletEvent(r.Context(), t.ID, o.ID, eventType, map[string]any{
+		h.publishOutletEvent(r.Context(), t.ID, o.ID, eventType, withOutletContacts(map[string]any{
 			"outlet_id":           o.ID.String(),
 			"tenant_id":           t.ID.String(),
 			"tenant_slug":         t.Slug,
@@ -635,7 +649,7 @@ func (h *OutletHandler) RepublishOutletEvents(w http.ResponseWriter, r *http.Req
 			"is_hq":               o.IsHq,
 			"status":              o.Status,
 			"applicable_services": usecase.ApplicableServices(o.UseCase),
-		})
+		}, o))
 		count++
 	}
 
