@@ -124,12 +124,13 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		uq := u.Query()
 		uq.Set("return_to", fullAuthorizeURL)
 
-		// Propagate tenant slug if provided, else default to codevertex-demo
-		tenant := r.URL.Query().Get("tenant")
-		if tenant == "" {
-			tenant = "codevertex-demo"
+		// Propagate tenant slug only when the client provided one. Never invent a
+		// default here: forcing e.g. codevertex-demo made every real user's login
+		// resolve against a tenant they don't belong to (tenant_mismatch at the door).
+		// With no tenant, login resolves the user's primary tenant.
+		if tenant := r.URL.Query().Get("tenant"); tenant != "" {
+			uq.Set("tenant", tenant)
 		}
-		uq.Set("tenant", tenant)
 
 		u.RawQuery = uq.Encode()
 
@@ -172,7 +173,12 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		}
 		isMember := false
 		for _, m := range memberships {
-			if m.TenantSlug == tenantFromURL {
+			// Membership in the platform tenant grants cross-tenant access, exactly
+			// like the /token endpoint. The is_platform_owner claim alone is not
+			// enough: it is only stamped on sessions minted IN the codevertex
+			// context, so a platform owner whose session was created against
+			// another tenant would otherwise be denied here.
+			if m.TenantSlug == tenantFromURL || m.TenantSlug == platformTenantSlug {
 				isMember = true
 				break
 			}
@@ -181,17 +187,17 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 			h.logger.Warn("user not a member of requested tenant",
 				zap.String("user_id", claims.Subject),
 				zap.String("tenant", tenantFromURL))
-			// Redirect back with error so the client can handle it
-			if redirectURI != "" {
-				u, _ := url.Parse(redirectURI)
-				params := u.Query()
-				params.Set("error", "access_denied")
-				params.Set("error_description", "You are not a member of the requested tenant")
-				if state != "" {
-					params.Set("state", state)
-				}
-				u.RawQuery = params.Encode()
-				http.Redirect(w, r, u.String(), http.StatusFound)
+			// Send the user to the auth-ui organisation picker instead of bouncing
+			// access_denied back to the client callback (a dead-end the service UIs
+			// cannot recover from). The picker lists the orgs the user belongs to
+			// and re-enters this authorize flow with the tenant slug rewritten.
+			picker, err := url.Parse(h.cfg.App.AuthUIURL + "/select-organisation")
+			if err == nil {
+				pq := picker.Query()
+				pq.Set("return_to", h.cfg.Token.Issuer+r.URL.RequestURI())
+				pq.Set("tenant", tenantFromURL)
+				picker.RawQuery = pq.Encode()
+				http.Redirect(w, r, picker.String(), http.StatusFound)
 				return
 			}
 			writeError(w, http.StatusForbidden, "access_denied", "You are not a member of the requested tenant", nil)

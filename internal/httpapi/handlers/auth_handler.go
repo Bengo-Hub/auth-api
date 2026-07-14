@@ -914,6 +914,45 @@ func (h *AuthHandler) GetUseCaseConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, config)
 }
 
+// MyMemberships returns the active tenants the session user belongs to.
+// Consumed by the auth-ui organisation picker (wrong-organisation recovery):
+// it authenticates via the bb_session cookie, so it works mid-SSO-flow before
+// any service token exists.
+func (h *AuthHandler) MyMemberships(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth context", nil)
+		return
+	}
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id in token", nil)
+		return
+	}
+	memberships, err := h.service.ListUserTenantMemberships(r.Context(), userID)
+	if err != nil {
+		reqID := middleware.GetReqID(r.Context())
+		h.logger.Error("failed to list user tenants", zap.String("request_id", reqID), zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to list organisations", map[string]any{"request_id": reqID})
+		return
+	}
+	tenants := make([]map[string]any, 0, len(memberships))
+	for _, m := range memberships {
+		if m.Edges.Tenant != nil && m.Edges.Tenant.Status == "active" {
+			tenants = append(tenants, map[string]any{
+				"id":   m.Edges.Tenant.ID.String(),
+				"name": m.Edges.Tenant.Name,
+				"slug": m.Edges.Tenant.Slug,
+			})
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"tenants":           tenants,
+		"is_platform_owner": claims.IsPlatformOwner,
+		"email":             claims.Email,
+	})
+}
+
 func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err error) {
 	// Check for TenantMismatchError first (it's a struct error, not a sentinel).
 	var mismatchErr *auth.TenantMismatchError

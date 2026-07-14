@@ -229,6 +229,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			RequestPasswordReset:         authHandler.RequestPasswordReset,
 			ConfirmPasswordReset:         authHandler.ConfirmPasswordReset,
 			Me:                           authHandler.Me,
+			MyMemberships:                authHandler.MyMemberships,
 			Logout:                       authHandler.Logout,
 			LogoutGet:                    authHandler.LogoutGet,
 			GoogleOAuthStart:             authHandler.GoogleOAuthStart,
