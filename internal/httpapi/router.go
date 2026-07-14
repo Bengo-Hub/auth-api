@@ -56,6 +56,7 @@ type AuthHandlers struct {
 	RequestPasswordReset         http.HandlerFunc
 	ConfirmPasswordReset         http.HandlerFunc
 	Me                           http.HandlerFunc
+	MyMemberships                http.HandlerFunc
 	Logout                       http.HandlerFunc
 	LogoutGet                    http.HandlerFunc
 	GoogleOAuthStart             http.HandlerFunc
@@ -308,6 +309,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Use(deps.RequireAuthHandler)
 				}
 				r.Get("/me", deps.AuthHandlers.Me)
+				// Organisation picker source (wrong-organisation SSO recovery)
+				if deps.AuthHandlers.MyMemberships != nil {
+					r.Get("/me/memberships", deps.AuthHandlers.MyMemberships)
+				}
 				// Self-service profile update (name, avatar URL, preferences)
 				if deps.UserHandler != nil {
 					r.Patch("/me", deps.UserHandler.UpdateMyProfile)

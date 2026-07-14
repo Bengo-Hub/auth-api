@@ -893,13 +893,19 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		return nil, ErrInvalidCredentials
 	}
 
-	// Verify membership in the resolved tenant.
+	// Verify membership in the resolved tenant. Platform owners (members of the
+	// platform tenant) may sign in to ANY tenant — the same cross-tenant access
+	// /authorize and /token already grant. Without this, a platform owner using
+	// the credential form on another tenant's login hit tenant_mismatch.
 	_, err = s.entClient.TenantMembership.Query().
 		Where(
 			tenantmembership.UserID(userEntity.ID),
 			tenantmembership.TenantID(tenantEntity.ID),
 		).
 		First(ctx)
+	if err != nil && ent.IsNotFound(err) && s.isPlatformOwnerUser(ctx, userEntity.ID) {
+		err = nil
+	}
 	if err != nil {
 		if ent.IsNotFound(err) {
 			// Password was correct but user is not a member of the requested tenant.
@@ -1602,6 +1608,19 @@ type issueSessionInput struct {
 	Scopes    []string
 }
 
+// isPlatformOwnerUser reports whether the user is a member of the platform
+// tenant ("codevertex"). Platform members get cross-tenant access platform-wide
+// (mirrors the is_platform_owner claim semantics in every downstream service).
+func (s *Service) isPlatformOwnerUser(ctx context.Context, userID uuid.UUID) bool {
+	ok, err := s.entClient.TenantMembership.Query().
+		Where(
+			tenantmembership.UserID(userID),
+			tenantmembership.HasTenantWith(tenant.SlugEQ("codevertex")),
+		).
+		Exist(ctx)
+	return err == nil && ok
+}
+
 func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*AuthResult, error) {
 	refreshPlain, refreshHash, err := s.tokenSvc.GenerateRefreshToken()
 	if err != nil {
@@ -1748,7 +1767,10 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		roles = allRoles
 	}
 
-	// Build token input with subscription data if available
+	// Build token input with subscription data if available.
+	// is_platform_owner is membership-based (member of the platform tenant), not
+	// context-based: a platform owner signed into ANOTHER tenant must still carry
+	// the claim, or /authorize denies them cross-tenant access on the next hop.
 	tokenInput := token.AccessTokenInput{
 		UserID:          sessionEntity.UserID,
 		TenantID:        tenantIDPtr,
@@ -1758,7 +1780,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		Scopes:          effectiveScopes,
 		Roles:           roles,
 		Permissions:     permissions,
-		IsPlatformOwner: tenantEntity != nil && tenantEntity.Slug == "codevertex",
+		IsPlatformOwner: (tenantEntity != nil && tenantEntity.Slug == "codevertex") || s.isPlatformOwnerUser(ctx, sessionEntity.UserID),
 	}
 	if tenantEntity != nil {
 		tokenInput.TenantSlug = tenantEntity.Slug

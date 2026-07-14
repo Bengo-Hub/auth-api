@@ -40,11 +40,17 @@ The Auth Service is the central identity provider for all Codevertex services. T
 
 ### 1.1. Tenant Membership Validation (March 20, 2026)
 
-The `/authorize` endpoint now validates that the authenticated user has a `TenantMembership` for the requested `?tenant=` slug before issuing an authorization code. If the user is not a member of the requested tenant:
-- Redirects back to the client with `error=access_denied&error_description=...` (OAuth2 standard error redirect)
-- Returns 403 if no redirect URI is available
+The `/authorize` endpoint validates that the authenticated user has a `TenantMembership` for the requested `?tenant=` slug before issuing an authorization code. Members of the platform tenant (`codevertex`) bypass this check for ANY tenant — the check is membership-based, not claim-based, so it works even when the session token was minted in another tenant's context.
 
-The `/token` endpoint also validates tenant membership when a specific tenant was requested in the authorization code metadata. Returns `access_denied` instead of silently falling back to another tenant.
+**Wrong-organisation recovery (July 14, 2026):** when the user is NOT a member of the requested tenant, `/authorize` no longer bounces `error=access_denied` back to the client callback (a dead-end the service UIs could not recover from). Instead it 302-redirects to the auth-ui organisation picker:
+
+```
+{AUTH_UI_URL}/select-organisation?return_to=<full authorize URL>&tenant=<requested slug>
+```
+
+The picker (auth-ui) lists the session user's organisations via `GET /api/v1/auth/me/memberships` (session-cookie authenticated), rewrites the tenant slug everywhere in the authorize URL (the `tenant` param and the `redirect_uri` path segment), and re-enters the flow. It also offers "Use a different account" (POST logout, then login with the original `return_to`). A 403 `access_denied` JSON response remains only as a fallback when the auth-ui URL cannot be built.
+
+The `/token` endpoint also validates tenant membership when a specific tenant was requested in the authorization code metadata. Returns `access_denied` instead of silently falling back to another tenant. The REST `POST /auth/login` applies the same platform-owner bypass, so platform staff can sign in with credentials at any tenant's login screen. Unauthenticated `/authorize` no longer defaults the login tenant to `codevertex-demo` — with no `?tenant=`, login resolves the user's primary tenant.
 
 ### 2. JWT Validation Pattern
 
