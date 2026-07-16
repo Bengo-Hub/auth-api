@@ -328,6 +328,15 @@ func defaultTrialPlan(useCase string, metadata map[string]any, selected string) 
 		return "ISP_BILLING_STARTER"
 	case "library":
 		return "LIBRARY_STARTER"
+	// Use-case PowerSuite families (subscriptions-api plans_powersuite_usecase.go):
+	// route each POS-shaped use case to its family's Basic tier so trial gating grants
+	// the modules that use case's dashboards actually need.
+	case "hospitality", "quick_service", "services", "food_delivery", "hotel", "restaurant", "bar", "cafe":
+		return "POWERSUITE_HOSP_BASIC"
+	case "retail", "grocery", "warehouse", "warehousing", "e_commerce", "ecommerce", "hardware":
+		return "POWERSUITE_DUKA_BASIC"
+	case "pharmacy", "chemist", "agrovet":
+		return "POWERSUITE_DAWA_BASIC"
 	default:
 		return "STARTER"
 	}
