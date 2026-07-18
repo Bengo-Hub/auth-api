@@ -9,12 +9,11 @@ import (
 
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/outlet"
-	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/platform/outbox"
 	"github.com/bengobox/auth-api/internal/services/usecase"
 	"github.com/bengobox/auth-api/internal/token"
-	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -127,30 +126,7 @@ func withOutletContacts(data map[string]any, o *ent.Outlet) map[string]any {
 }
 
 func (h *OutletHandler) publishOutletEvent(ctx context.Context, tenantID, outletID uuid.UUID, eventType string, data map[string]any) {
-	event := sharedevents.Event{
-		ID:            uuid.New(),
-		TenantID:      tenantID,
-		AggregateType: "auth.outlet",
-		AggregateID:   outletID,
-		EventType:     eventType,
-		Payload:       data,
-		Timestamp:     time.Now().UTC(),
-		Version:       "1.0",
-	}
-	payload, err := json.Marshal(event)
-	if err != nil {
-		h.logger.Warn("failed to marshal outlet event", zap.Error(err))
-		return
-	}
-	if err := h.ent.OutboxEvent.Create().
-		SetTenantID(tenantID).
-		SetAggregateType("auth.outlet").
-		SetAggregateID(outletID).
-		SetEventType(eventType).
-		SetPayload(payload).
-		SetStatus(outboxevent.StatusPENDING).
-		SetAttempts(0).
-		Exec(ctx); err != nil {
+	if err := outbox.Write(ctx, h.ent, tenantID, "auth.outlet", outletID, eventType, "", data); err != nil {
 		h.logger.Warn("failed to write outlet outbox event", zap.Error(err))
 	}
 }
