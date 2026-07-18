@@ -6,20 +6,17 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
-	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/audit"
 	"github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
-	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -29,6 +26,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
 	"github.com/bengobox/auth-api/internal/oauth/state"
 	"github.com/bengobox/auth-api/internal/password"
+	"github.com/bengobox/auth-api/internal/platform/outbox"
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
 	googleprovider "github.com/bengobox/auth-api/internal/providers/google"
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
@@ -2401,37 +2399,10 @@ func (s *Service) SendOTPEmail(ctx context.Context, tenantID, userID uuid.UUID, 
 }
 
 // publishEvent writes an event to the outbox table for async NATS publishing.
-// Best-effort: failures are logged but do not block the caller.
+// Best-effort: failures are logged but do not block the caller. Thin wrapper over
+// the shared platform/outbox writer.
 func (s *Service) publishEvent(ctx context.Context, tenantID uuid.UUID, aggregateType string, aggregateID uuid.UUID, eventType string, data map[string]any) {
-	event := sharedevents.Event{
-		ID:            uuid.New(),
-		TenantID:      tenantID,
-		AggregateType: aggregateType,
-		AggregateID:   aggregateID,
-		EventType:     eventType,
-		Payload:       data,
-		Timestamp:     time.Now().UTC(),
-		Version:       "1.0",
-	}
-
-	payload, err := json.Marshal(event)
-	if err != nil {
-		s.logger.Warn("failed to marshal outbox event",
-			zap.String("event_type", eventType),
-			zap.Error(err))
-		return
-	}
-
-	err = s.entClient.OutboxEvent.Create().
-		SetTenantID(tenantID).
-		SetAggregateType(aggregateType).
-		SetAggregateID(aggregateID).
-		SetEventType(eventType).
-		SetPayload(payload).
-		SetStatus(outboxevent.StatusPENDING).
-		SetAttempts(0).
-		Exec(ctx)
-	if err != nil {
+	if err := outbox.Write(ctx, s.entClient, tenantID, aggregateType, aggregateID, eventType, "", data); err != nil {
 		s.logger.Warn("failed to write outbox event",
 			zap.String("event_type", eventType),
 			zap.Error(err))

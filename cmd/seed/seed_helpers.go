@@ -12,12 +12,11 @@ import (
 	"os"
 	"strings"
 
-	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/apikey"
 	entapp "github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
-	"github.com/bengobox/auth-api/internal/ent/outboxevent"
+	"github.com/bengobox/auth-api/internal/platform/outbox"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -278,25 +277,8 @@ func seedPlatformApp(ctx context.Context, client *ent.Client) error {
 // New users receive event_type="created"; re-runs receive "updated" to re-trigger
 // provisioning without causing duplicate key errors in downstream services.
 func publishSeedUserEvent(ctx context.Context, client *ent.Client, tenantID, userID uuid.UUID, data map[string]any, eventType string) {
-	event := sharedevents.NewEvent(eventType, "auth.user", userID, tenantID, data)
-	if slug, ok := data["tenant_slug"].(string); ok {
-		event.WithTenantSlug(slug)
-	}
-	payload, err := event.ToJSON()
-	if err != nil {
-		log.Printf("  ⚠️  marshal seed event for %s: %v", userID, err)
-		return
-	}
-	err = client.OutboxEvent.Create().
-		SetTenantID(tenantID).
-		SetAggregateType("auth.user").
-		SetAggregateID(userID).
-		SetEventType(eventType).
-		SetPayload(payload).
-		SetStatus(outboxevent.StatusPENDING).
-		SetAttempts(0).
-		Exec(ctx)
-	if err != nil {
+	slug, _ := data["tenant_slug"].(string)
+	if err := outbox.Write(ctx, client, tenantID, "auth.user", userID, eventType, slug, data); err != nil {
 		log.Printf("  ⚠️  write outbox event auth.user.%s for %s: %v", eventType, userID, err)
 	} else {
 		log.Printf("    ✓ Queued auth.user.%s → outbox for user %s", eventType, userID)

@@ -8,11 +8,9 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
-	sharedevents "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/ent"
-	"github.com/bengobox/auth-api/internal/ent/outboxevent"
+	"github.com/bengobox/auth-api/internal/platform/outbox"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -59,35 +57,10 @@ func writeError(w http.ResponseWriter, status int, code string, message string, 
 }
 
 // writeOutboxEvent persists a domain event to the outbox table for async NATS
-// publishing. Shared by AdminHandler and UserHandler so welcome/provisioning
-// events use a single, consistent envelope.
+// publishing. Thin wrapper over the shared platform/outbox writer so every
+// handler emits a single, consistent envelope.
 func writeOutboxEvent(ctx context.Context, entClient *ent.Client, logger *zap.Logger, tenantID uuid.UUID, aggregateType string, aggregateID uuid.UUID, eventType string, data map[string]any) {
-	event := sharedevents.Event{
-		ID:            uuid.New(),
-		TenantID:      tenantID,
-		AggregateType: aggregateType,
-		AggregateID:   aggregateID,
-		EventType:     eventType,
-		Payload:       data,
-		Timestamp:     time.Now().UTC(),
-		Version:       "1.0",
-	}
-	payload, err := json.Marshal(event)
-	if err != nil {
-		if logger != nil {
-			logger.Warn("failed to marshal event", zap.Error(err), zap.String("event_type", eventType))
-		}
-		return
-	}
-	if err := entClient.OutboxEvent.Create().
-		SetTenantID(tenantID).
-		SetAggregateType(aggregateType).
-		SetAggregateID(aggregateID).
-		SetEventType(eventType).
-		SetPayload(payload).
-		SetStatus(outboxevent.StatusPENDING).
-		SetAttempts(0).
-		Exec(ctx); err != nil && logger != nil {
+	if err := outbox.Write(ctx, entClient, tenantID, aggregateType, aggregateID, eventType, "", data); err != nil && logger != nil {
 		logger.Warn("failed to write outbox event", zap.Error(err), zap.String("event_type", eventType))
 	}
 }
