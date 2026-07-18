@@ -103,6 +103,33 @@ func (h *OIDCHandler) JWKS(w http.ResponseWriter, r *http.Request) {
 func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
+		// Silent-auth probe (OIDC prompt=none): the client is asking "is there an
+		// SSO session?" without wanting a login screen. No session → bounce straight
+		// back to the redirect_uri with error=login_required so the client can fall
+		// back to its own login UX (e.g. inventory-ui's PIN page) instead of
+		// stranding a kiosk user on the accounts login form.
+		if r.URL.Query().Get("prompt") == "none" {
+			redirectURI := r.URL.Query().Get("redirect_uri")
+			client, err := h.oidc.ClientByID(r.Context(), r.URL.Query().Get("client_id"))
+			if err != nil || !h.oidc.ValidateRedirect(client, redirectURI) {
+				writeError(w, http.StatusBadRequest, "invalid_request", "invalid client or redirect for silent auth", nil)
+				return
+			}
+			u, err := url.Parse(redirectURI)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid_request", "invalid redirect_uri", nil)
+				return
+			}
+			uq := u.Query()
+			uq.Set("error", "login_required")
+			if state := r.URL.Query().Get("state"); state != "" {
+				uq.Set("state", state)
+			}
+			u.RawQuery = uq.Encode()
+			http.Redirect(w, r, u.String(), http.StatusFound)
+			return
+		}
+
 		// Unauthenticated: send the user to the Auth UI. A "sign-up" hint
 		// (prompt=create or screen_hint=signup) routes new users to the signup
 		// wizard instead of login; the originating service's full authorize URL
