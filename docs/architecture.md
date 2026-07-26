@@ -1,7 +1,7 @@
 # auth-api -- Architecture
 
 **Service**: auth-api (Go)
-**Deployed**: authapi.codevertexitsolutions.com
+**Deployed**: authapi.codevertexafrica.com
 **Port**: 4101
 **Source of truth for**: tenants, outlets (all downstream services mirror via JIT sync + NATS events)
 
@@ -167,15 +167,15 @@ Events use the outbox pattern: written to `outbox_events` table in the same tran
 
 | Entity | Value | Notes |
 |--------|-------|-------|
-| Platform admin | `admin@codevertexitsolutions.com` | `superuser` role on all tenants |
+| Platform admin | `admin@codevertexafrica.com` | `superuser` role on all tenants |
 | Platform tenant | `codevertex` | `is_platform_owner = true` |
 | Real client | `urban-loft` (Urban Loft Cafe) | Hospitality only — hotel, bar, grill, cafe |
 | Urban Loft admin | `admin@theurbanloftcafe.com` | `admin` role on `urban-loft` |
 | Urban Loft outlet | BUSIA / hospitality / is_hq=true | Single outlet |
 | **Demo tenant** | `codevertex-demo` | Cross-platform demo — all 6 use-cases |
-| Demo admin | `admin@demo.codevertexitsolutions.com` | `admin` role on `codevertex-demo` |
+| Demo admin | `admin@demo.codevertexafrica.com` | `admin` role on `codevertex-demo` |
 | Demo outlets | HOSP/hospitality, RETAIL/retail, QSR/quick_service, PHARMA/pharmacy, SVC/services, LOGIS/logistics | One outlet per use case |
-| Demo staff | `manager/cashier/waiter/kitchen/bar/receptionist @demo.codevertexitsolutions.com` | POS PIN staff for demo |
+| Demo staff | `manager/cashier/waiter/kitchen/bar/receptionist @demo.codevertexafrica.com` | POS PIN staff for demo |
 | OAuth clients | `pos-ui`, `inventory-ui`, `ordering-ui`, `auth-ui`, etc. | Pre-registered for SSO |
 
 ---

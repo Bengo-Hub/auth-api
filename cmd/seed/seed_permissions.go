@@ -227,7 +227,7 @@ var rolePerms = map[string][]string{
 	// ─────────────────────────────────────────────────────────────────────────
 	// ISP-billing service roles (isp-billing decentralized to SSO).
 	// Platform-owner + ISP-provider admins log in via auth-api; the isp-billing
-	// service (ispbilling.codevertexitsolutions.com UI, ispbillingapi. API) maps
+	// service (ispbilling.codevertexafrica.com UI, ispbillingapi. API) maps
 	// these global role names to its own fine-grained isp.*.* RBAC locally. Per the
 	// Trinity Authorization Pattern, auth-api ONLY seeds the global role names + the
 	// auth.* self-service (and sensible cross-service read) permissions it owns here.

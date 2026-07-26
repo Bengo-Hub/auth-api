@@ -3,7 +3,7 @@
 ## 🚀 Production Deployment Status
 
 ### Service Status
-- **URL**: https://sso.codevertexitsolutions.com
+- **URL**: https://sso.codevertexafrica.com
 - **Health Endpoint**: `/healthz` ✅
 - **Swagger UI**: `/v1/docs/` ✅
 - **Certificate**: Valid (Let's Encrypt)
@@ -15,7 +15,7 @@
 ## 🔐 Default Credentials (Seeded Automatically)
 
 ### Admin User
-- **Email**: `admin@codevertexitsolutions.com`
+- **Email**: `admin@codevertexafrica.com`
 - **Password**: `ChangeMe123!`
 - **Tenant Slug**: `codevertex` ⚠️ **IMPORTANT: Use `codevertex` NOT `bengobox`**
 - **Status**: Active
@@ -58,16 +58,16 @@
 kubectl exec -n auth <pod-name> -- wget -qO- http://localhost:4101/healthz
 
 # External (HTTPS)
-curl https://sso.codevertexitsolutions.com/healthz
+curl https://sso.codevertexafrica.com/healthz
 # Expected: {"status":"ok","time":"..."}
 ```
 
 ### 2. Login Test
 ```bash
-curl -X POST "https://sso.codevertexitsolutions.com/api/v1/auth/login" \
+curl -X POST "https://sso.codevertexafrica.com/api/v1/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@codevertexitsolutions.com",
+    "email": "admin@codevertexafrica.com",
     "password": "ChangeMe123!",
     "tenant_slug": "codevertex"
   }'
@@ -78,7 +78,7 @@ curl -X POST "https://sso.codevertexitsolutions.com/api/v1/auth/login" \
 {
   "user": {
     "id": "...",
-    "email": "admin@codevertexitsolutions.com",
+    "email": "admin@codevertexafrica.com",
     "status": "active"
   },
   "access_token": "eyJ...",
@@ -105,16 +105,16 @@ curl -X POST "https://sso.codevertexitsolutions.com/api/v1/auth/login" \
 **Solution**:
 1. Verify certificate is valid:
    ```bash
-   kubectl get certificate -n auth sso-codevertexitsolutions-tls
+   kubectl get certificate -n auth sso-codevertexafrica-tls
    # Should show "Ready: True"
    ```
 
 2. Check DNS resolution:
    ```bash
-   nslookup sso.codevertexitsolutions.com
+   nslookup sso.codevertexafrica.com
    ```
 
-3. Test from Swagger UI instead: https://sso.codevertexitsolutions.com/v1/docs/
+3. Test from Swagger UI instead: https://sso.codevertexafrica.com/v1/docs/
 
 ### Issue 2: "tenant not found" / Authentication Failed
 **Symptoms**:
@@ -186,7 +186,7 @@ kubectl exec -n infra postgresql-0 -c postgresql -- \
    - Tables created on first run
 
 2. **Seeding**: Manual or via init container
-   - Default admin user: `admin@codevertexitsolutions.com`
+   - Default admin user: `admin@codevertexafrica.com`
    - Default tenant: `codevertex`
    - Password: Set via `SEED_ADMIN_PASSWORD` env var
 
@@ -242,7 +242,7 @@ healthCheck:
 ## 📚 API Documentation
 
 ### Swagger UI
-- **URL**: https://sso.codevertexitsolutions.com/v1/docs/
+- **URL**: https://sso.codevertexafrica.com/v1/docs/
 - **Features**:
   - Interactive API testing
   - Request/response examples
@@ -250,7 +250,7 @@ healthCheck:
   - Authentication testing (click "Authorize" button)
 
 ### OpenAPI Spec
-- **URL**: https://sso.codevertexitsolutions.com/api/v1/openapi.json
+- **URL**: https://sso.codevertexafrica.com/api/v1/openapi.json
 - **Format**: OpenAPI 3.0
 
 ---

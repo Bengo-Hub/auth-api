@@ -53,8 +53,8 @@ func AppendTenantRedirectURIs(ctx context.Context, entClient *ent.Client, tenant
 func inferProductionHost(uris []string) string {
 	for _, u := range uris {
 		if strings.HasPrefix(u, "https://") && strings.HasSuffix(u, "/auth/callback") {
-			// "https://books.codevertexitsolutions.com/auth/callback"
-			// -> "books.codevertexitsolutions.com"
+			// "https://books.codevertexafrica.com/auth/callback"
+			// -> "books.codevertexafrica.com"
 			trimmed := strings.TrimPrefix(u, "https://")
 			host := strings.SplitN(trimmed, "/", 2)[0]
 			return host

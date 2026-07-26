@@ -1568,7 +1568,7 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Determine whether the requester is a platform owner. Non-platform users
-	// must NOT see platform staff (e.g. admin@codevertexitsolutions.com) even
+	// must NOT see platform staff (e.g. admin@codevertexafrica.com) even
 	// though those accounts hold a membership in every tenant (#1).
 	requesterIsPlatform := false
 	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil {

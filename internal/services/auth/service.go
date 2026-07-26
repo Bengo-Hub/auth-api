@@ -2342,7 +2342,7 @@ func (s *Service) GetTenantBySlug(ctx context.Context, slug string) (*ent.Tenant
 }
 
 // resolveOAuthStartTenant returns the tenant the OAuth flow should run under.
-// If slug is empty (user hitting accounts.codevertexitsolutions.com without a
+// If slug is empty (user hitting accounts.codevertexafrica.com without a
 // tenant path/subdomain), fall back to the platform-owner tenant "codevertex"
 // so OAuth can complete — the user's actual primary tenant is resolved post-
 // callback from their membership list. A non-empty slug must exist + be active.
@@ -2498,7 +2498,7 @@ func (s *Service) ChangePassword(ctx context.Context, in ChangePasswordInput) er
 // buildResetLink constructs the password-reset URL for a tenant.
 // Resolution order: service_urls[serviceID] → app_url → SSO accounts fallback.
 func buildResetLink(metadata map[string]any, slug, serviceID, email, token string) string {
-	const fallback = "https://accounts.codevertexitsolutions.com/reset-password"
+	const fallback = "https://accounts.codevertexafrica.com/reset-password"
 	appURL := ""
 	if metadata != nil {
 		// Prefer per-service URL when a serviceID is known.

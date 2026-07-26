@@ -185,8 +185,8 @@ func (h *WebAuthnHandler) FinishAuthentication(w http.ResponseWriter, r *http.Re
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(24 * time.Hour),
 	}
-	if host := r.Host; strings.Contains(host, "codevertexitsolutions.com") {
-		cookie.Domain = ".codevertexitsolutions.com"
+	if host := r.Host; strings.Contains(host, "codevertexafrica.com") {
+		cookie.Domain = ".codevertexafrica.com"
 	}
 	http.SetCookie(w, cookie)
 

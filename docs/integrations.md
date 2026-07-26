@@ -374,7 +374,7 @@ r.Use(authMiddleware.RequireAuth)
 **Configuration**:
 - Client ID: Stored encrypted in `IntegrationConfig.encrypted_credentials` (platform-level, `tenant_id=NULL`)
 - Client Secret: Stored encrypted at rest (AES-256-GCM)
-- Production redirect URI: `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/google/callback`
+- Production redirect URI: `https://sso.codevertexafrica.com/api/v1/auth/oauth/google/callback`
 - Local dev redirect URI: `http://localhost:8080/api/v1/auth/oauth/google/callback`
 
 **Flow**:
@@ -395,7 +395,7 @@ r.Use(authMiddleware.RequireAuth)
 - Client ID: Stored encrypted in `IntegrationConfig.encrypted_credentials`
 - Client Secret: Stored encrypted at rest (AES-256-GCM)
 - Tenant ID: Stored with credentials (`"common"` for multi-tenant personal + work accounts)
-- Production redirect URI: `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/microsoft/callback`
+- Production redirect URI: `https://sso.codevertexafrica.com/api/v1/auth/oauth/microsoft/callback`
 - Local dev redirect URI: `http://localhost:8080/api/v1/auth/oauth/microsoft/callback`
 
 **Flow**: Similar to Google OAuth
@@ -407,7 +407,7 @@ r.Use(authMiddleware.RequireAuth)
 **Configuration**:
 - Client ID: Stored encrypted in `IntegrationConfig.encrypted_credentials`
 - Client Secret: Stored encrypted at rest (AES-256-GCM)
-- Production redirect URI: `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/github/callback`
+- Production redirect URI: `https://sso.codevertexafrica.com/api/v1/auth/oauth/github/callback`
 - Local dev redirect URI: `http://localhost:8080/api/v1/auth/oauth/github/callback`
 
 **Flow**: Similar to Google OAuth
