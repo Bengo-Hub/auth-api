@@ -37,14 +37,14 @@ type tenantRef struct {
 // seedTenants upserts all platform tenants and returns their references in the same order.
 func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) {
 	// Media base URL for tenant logos — points to the SSO/accounts CDN host.
-	const mediaBase = "https://accounts.codevertexitsolutions.com"
+	const mediaBase = "https://accounts.codevertexafrica.com"
 
 	tenants := []tenantSpec{
 		{
-			name: "Codevertex Africa Limited", slug: "codevertex", baseDomain: "codevertexitsolutions.com",
+			name: "Codevertex Africa Limited", slug: "codevertex", baseDomain: "codevertexafrica.com",
 			isPlatformOwner: true, useCases: nil,
-			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://codevertexitsolutions.com",
-			contactEmail: "support@codevertexitsolutions.com", contactPhone: "+254 743 793 901",
+			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://codevertexafrica.com",
+			contactEmail: "support@codevertexafrica.com", contactPhone: "+254 743 793 901",
 			brandColors: map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
 		},
 		{
@@ -78,15 +78,15 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 		{
 			// Cross-platform demo tenant — covers all use-cases for platform demos.
 			// is_demo=true is written to metadata so all downstream services bypass subscription gating.
-			name: "Codevertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexitsolutions.com",
+			name: "Codevertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexafrica.com",
 			isDemo: true,
 			useCases: []string{
 				"hospitality", "retail", "quick_service", "pharmacy", "services",
 				"logistics", "warehouse", "commercial_weighing", "axle_load_enforcement",
 			},
 			logoURL:      mediaBase + "/images/logo/codevertex.png",
-			website:      "https://demo.codevertexitsolutions.com",
-			contactEmail: "demo@codevertexitsolutions.com",
+			website:      "https://demo.codevertexafrica.com",
+			contactEmail: "demo@codevertexafrica.com",
 			brandColors:  map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
 		},
 	}

@@ -46,8 +46,8 @@ type EquityPortalHandler struct {
 }
 
 // NewEquityPortalHandler creates the handler.
-// issuer      — JWT issuer (e.g. https://sso.codevertexitsolutions.com)
-// uiBaseURL   — base URL of the auth-ui frontend (e.g. https://accounts.codevertexitsolutions.com)
+// issuer      — JWT issuer (e.g. https://sso.codevertexafrica.com)
+// uiBaseURL   — base URL of the auth-ui frontend (e.g. https://accounts.codevertexafrica.com)
 func NewEquityPortalHandler(entClient *ent.Client, tokenSvc *token.Service, issuer, uiBaseURL string, logger *zap.Logger) *EquityPortalHandler {
 	return &EquityPortalHandler{
 		ent:       entClient,

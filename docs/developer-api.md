@@ -4,7 +4,7 @@ This document explains how to integrate with the Codevertex Auth Service for SSO
 
 ## Base URL
 
-Production: `https://sso.codevertexitsolutions.com`
+Production: `https://sso.codevertexafrica.com`
 Local: `http://localhost:4101` (configurable via `AUTH_HTTP_PORT`)
 
 ## Authentication Flows
@@ -170,7 +170,7 @@ GET  /api/v1/auth/integrations/active  # Public: list enabled integrations for l
 
 ```bash
 # Validate an app token (used by downstream services)
-curl https://sso.codevertexitsolutions.com/api/v1/admin/api-keys/validate \
+curl https://sso.codevertexafrica.com/api/v1/admin/api-keys/validate \
   -H "X-API-Key: bng_app_<token>"
 # Response: { "client_id": "app_abc123", "scopes": ["s2s:*"], "roles": ["superuser","service"] }
 ```

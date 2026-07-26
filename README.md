@@ -38,12 +38,12 @@ go run ./cmd/server
 
 Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In production, the canonical issuer and domain are:
 
-- Issuer: `https://sso.codevertexitsolutions.com`
-- OIDC discovery: `https://sso.codevertexitsolutions.com/api/v1/.well-known/openid-configuration`
-- Authorization: `https://sso.codevertexitsolutions.com/api/v1/authorize`
-- Token: `https://sso.codevertexitsolutions.com/api/v1/token`
-- JWKS: `https://sso.codevertexitsolutions.com/api/v1/.well-known/jwks.json`
-- UserInfo: `https://sso.codevertexitsolutions.com/api/v1/userinfo`
+- Issuer: `https://sso.codevertexafrica.com`
+- OIDC discovery: `https://sso.codevertexafrica.com/api/v1/.well-known/openid-configuration`
+- Authorization: `https://sso.codevertexafrica.com/api/v1/authorize`
+- Token: `https://sso.codevertexafrica.com/api/v1/token`
+- JWKS: `https://sso.codevertexafrica.com/api/v1/.well-known/jwks.json`
+- UserInfo: `https://sso.codevertexafrica.com/api/v1/userinfo`
 
 ### Tenant in authorize URL and token
 
@@ -79,7 +79,7 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 - Local testing with Docker (Redis): [docs/local-testing.md](docs/local-testing.md)
 - Interactive Swagger UI: `GET /v1/docs/` (loads `openapi.json` from `/api/v1/openapi.json`)
   - Default admin for quick testing:
-    - Email: `admin@codevertexitsolutions.com`
+    - Email: `admin@codevertexafrica.com`
     - Password: `ChangeMe123!`
     - Tenant: `codevertex` 
 

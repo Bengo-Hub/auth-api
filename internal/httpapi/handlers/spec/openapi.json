@@ -6,7 +6,7 @@
     "description": "SSO/OIDC provider for Codevertex platform. Demo: demo@bengobox.dev / DemoUser2024!"
   },
   "servers": [
-    { "url": "https://sso.codevertexitsolutions.com", "description": "Production (default)" },
+    { "url": "https://sso.codevertexafrica.com", "description": "Production (default)" },
     { "url": "https://auth.codevertex.local:4101", "description": "Local development (HTTPS)" }
   ],
   "components": {
