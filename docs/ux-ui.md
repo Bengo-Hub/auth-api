@@ -2,7 +2,7 @@
 
 **Last Updated**: March 6, 2026
 
-This document defines the API patterns that frontend consumers (auth-ui, ordering-frontend, POS, other Codevertex services) must follow when integrating with `sso.codevertexitsolutions.com`.
+This document defines the API patterns that frontend consumers (auth-ui, ordering-frontend, POS, other Codevertex services) must follow when integrating with `sso.codevertexafrica.com`.
 
 ---
 
@@ -11,7 +11,7 @@ This document defines the API patterns that frontend consumers (auth-ui, orderin
 | Environment | URL |
 |-------------|-----|
 | Local | `http://localhost:4101/api/v1` |
-| Production | `https://sso.codevertexitsolutions.com/api/v1` |
+| Production | `https://sso.codevertexafrica.com/api/v1` |
 
 ---
 
@@ -123,7 +123,7 @@ GET /api/v1/.well-known/jwks.json
 ```
 GET /api/v1/authorize?
   client_id=ordering-app&
-  redirect_uri=https://ordersapp.codevertexitsolutions.com/callback&
+  redirect_uri=https://ordering.codevertexafrica.com/callback&
   response_type=code&
   scope=openid email profile&
   code_challenge=<S256 challenge>&
@@ -224,7 +224,7 @@ POST   /api/v1/admin/keys/rotate    -- Rotate JWKS signing keys
 
 ## Platform Admin APIs
 
-Platform admin endpoints are gated by `super_admin` role (platform admin at `admin@codevertexitsolutions.com`).
+Platform admin endpoints are gated by `super_admin` role (platform admin at `admin@codevertexafrica.com`).
 
 **Payment gateway configuration** is owned by **treasury-api**; auth-api does not expose gateway CRUD. Use treasury-api for gateway list/create/update. Auth-ui redirects platform admins to treasury-ui (Codevertex Books).
 
@@ -262,8 +262,8 @@ Use `shared-auth-client` middleware for automatic JWT + API key validation:
 import authclient "github.com/Bengo-Hub/shared-auth-client"
 
 validator := authclient.NewValidator(authclient.DefaultConfig(
-    "https://sso.codevertexitsolutions.com/api/v1/.well-known/jwks.json",
-    "https://sso.codevertexitsolutions.com",
+    "https://sso.codevertexafrica.com/api/v1/.well-known/jwks.json",
+    "https://sso.codevertexafrica.com",
 ))
 apiKeyValidator := authclient.NewAPIKeyValidator(
     os.Getenv("AUTH_SERVICE_URL"), nil,

@@ -57,14 +57,14 @@ type SubscriptionConfig struct {
 type AppConfig struct {
 	Environment string `env:"APP_ENV" envDefault:"development"`
 	ServiceName string `env:"APP_NAME" envDefault:"auth-api"`
-	AuthUIURL   string `env:"AUTH_UI_URL" envDefault:"https://accounts.codevertexitsolutions.com"`
+	AuthUIURL   string `env:"AUTH_UI_URL" envDefault:"https://accounts.codevertexafrica.com"`
 }
 
 // WebAuthnConfig holds WebAuthn / passkey relying party settings.
 type WebAuthnConfig struct {
-	RPID          string   `env:"RPID" envDefault:"codevertexitsolutions.com"`
+	RPID          string   `env:"RPID" envDefault:"codevertexafrica.com"`
 	RPDisplayName string   `env:"RP_DISPLAY_NAME" envDefault:"Codevertex Platform"`
-	RPOrigins     []string `env:"RP_ORIGINS" envSeparator:"," envDefault:"https://accounts.codevertexitsolutions.com,https://pos.codevertexitsolutions.com,https://inventory.codevertexitsolutions.com,https://ordersapp.codevertexitsolutions.com"`
+	RPOrigins     []string `env:"RP_ORIGINS" envSeparator:"," envDefault:"https://accounts.codevertexafrica.com,https://pos.codevertexafrica.com,https://inventory.codevertexafrica.com,https://ordering.codevertexafrica.com"`
 }
 
 type HTTPConfig struct {
@@ -114,9 +114,9 @@ type SecurityConfig struct {
 	Argon2Threads       uint8    `env:"ARGON2_THREADS" envDefault:"2"`
 	Argon2KeyLength     uint32   `env:"ARGON2_KEY_LENGTH" envDefault:"32"`
 	OAuthStateSecret    string   `env:"OAUTH_STATE_SECRET"`
-	EncryptionKey       string   `env:"ENCRYPTION_KEY"`                                                                                       // 32-byte hex string or raw key
-	CookieDomain        string   `env:"COOKIE_DOMAIN" envDefault:".codevertexitsolutions.com"`                                                // Domain for session cookies
-	LogoutRedirectHosts []string `env:"LOGOUT_REDIRECT_HOSTS" envSeparator:"," envDefault:"theurbanloftcafe.com,ordersapp.codevertexitsolutions.com,accounts.codevertexitsolutions.com,sso.codevertexitsolutions.com,notifications.codevertexitsolutions.com,books.codevertexitsolutions.com,pricing.codevertexitsolutions.com,pos.codevertexitsolutions.com,inventory.codevertexitsolutions.com,logistics.codevertexitsolutions.com,riderapp.codevertexitsolutions.com,localhost"`
+	EncryptionKey       string   `env:"ENCRYPTION_KEY"`                                   // 32-byte hex string or raw key
+	CookieDomain        string   `env:"COOKIE_DOMAIN" envDefault:".codevertexafrica.com"` // Domain for session cookies
+	LogoutRedirectHosts []string `env:"LOGOUT_REDIRECT_HOSTS" envSeparator:"," envDefault:"theurbanloftcafe.com,ordering.codevertexafrica.com,accounts.codevertexafrica.com,sso.codevertexafrica.com,notifications.codevertexafrica.com,books.codevertexafrica.com,pricing.codevertexafrica.com,pos.codevertexafrica.com,inventory.codevertexafrica.com,logistics.codevertexafrica.com,riderapp.codevertexafrica.com,localhost"`
 }
 
 type ProvidersConfig struct {

@@ -116,7 +116,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Clear session cookie (Domain must match how it was set so browser clears it on .codevertexitsolutions.com)
+	// Clear session cookie (Domain must match how it was set so browser clears it on .codevertexafrica.com)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "bb_session",
 		Value:    "",
@@ -145,7 +145,7 @@ func (h *AuthHandler) allowedLogoutRedirectHosts() []string {
 func (h *AuthHandler) LogoutGet(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.URL.Query().Get("post_logout_redirect_uri")
 
-	// Clear session cookie (Domain must match how it was set so browser clears it on .codevertexitsolutions.com)
+	// Clear session cookie (Domain must match how it was set so browser clears it on .codevertexafrica.com)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "bb_session",
 		Value:    "",
@@ -172,16 +172,16 @@ func (h *AuthHandler) LogoutGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Default: redirect to auth-ui login page
-	http.Redirect(w, r, "https://accounts.codevertexitsolutions.com/login", http.StatusFound)
+	http.Redirect(w, r, "https://accounts.codevertexafrica.com/login", http.StatusFound)
 }
 
 // integrationMeta maps an integration name to its category and presentation hints.
 // Keep this aligned with auth-ui/src/lib/oauth/catalog.ts so that the frontend
 // can render consistent logos and filter by category without extra round-trips.
 var integrationMeta = map[string]struct {
-	Category  string
-	LogoSlug  string
-	BrandHex  string
+	Category string
+	LogoSlug string
+	BrandHex string
 }{
 	"google":    {Category: "oauth", LogoSlug: "google", BrandHex: "#4285F4"},
 	"microsoft": {Category: "oauth", LogoSlug: "microsoft", BrandHex: "#2F2F2F"},
@@ -252,7 +252,7 @@ type AuthHandler struct {
 // NewAuthHandler constructs a handler. redis and redisNamespace are optional; when set, GET /auth/me responses are cached with TTL = token expiry.
 func NewAuthHandler(service AuthService, integrationSvc *integrations.Service, usecaseSvc UseCaseService, logger *zap.Logger, redis *redis.Client, redisNamespace string, cookieDomain string, logoutRedirectHosts []string) *AuthHandler {
 	if cookieDomain == "" {
-		cookieDomain = ".codevertexitsolutions.com"
+		cookieDomain = ".codevertexafrica.com"
 	}
 	return &AuthHandler{
 		service:             service,
@@ -337,7 +337,7 @@ func (h *AuthHandler) RegisterOAuth(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.service.Register(r.Context(), auth.RegisterInput{
 		Email:         req.Email,
-		Password:      "",  // OAuth users have no password; hash is not set
+		Password:      "", // OAuth users have no password; hash is not set
 		TenantSlug:    req.TenantSlug,
 		Profile:       req.Profile,
 		IPAddress:     clientIP(r),
@@ -413,7 +413,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 				ttl = d
 			}
 		}
-		
+
 		// Build the "me" view for the cache
 		out := userViewFromEnt(result.User)
 		if out == nil {
@@ -463,8 +463,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(24 * time.Hour),
 	}
-	if host := r.Host; host != "" && (strings.Contains(host, "codevertexitsolutions.com") || strings.HasSuffix(host, ".codevertexitsolutions.com")) {
-		cookie.Domain = ".codevertexitsolutions.com"
+	if host := r.Host; host != "" && (strings.Contains(host, "codevertexafrica.com") || strings.HasSuffix(host, ".codevertexafrica.com")) {
+		cookie.Domain = ".codevertexafrica.com"
 	}
 	http.SetCookie(w, cookie)
 
@@ -520,11 +520,11 @@ func (h *AuthHandler) GoogleOAuthStart(w http.ResponseWriter, r *http.Request) {
 
 // oauthFrontendBaseURL returns the base URL of the auth-ui frontend used for
 // post-OAuth redirects. Derived from the cookie domain — if we're on
-// codevertexitsolutions.com, the frontend is accounts.codevertexitsolutions.com.
+// codevertexafrica.com, the frontend is accounts.codevertexafrica.com.
 func (h *AuthHandler) oauthFrontendBaseURL(r *http.Request) string {
 	host := r.Host
-	if strings.Contains(host, "codevertexitsolutions.com") {
-		return "https://accounts.codevertexitsolutions.com"
+	if strings.Contains(host, "codevertexafrica.com") {
+		return "https://accounts.codevertexafrica.com"
 	}
 	return "http://localhost:3000"
 }
@@ -593,8 +593,8 @@ func (h *AuthHandler) handleOAuthCallback(
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(24 * time.Hour),
 	}
-	if host := r.Host; host != "" && (strings.Contains(host, "codevertexitsolutions.com") || strings.HasSuffix(host, ".codevertexitsolutions.com")) {
-		cookie.Domain = ".codevertexitsolutions.com"
+	if host := r.Host; host != "" && (strings.Contains(host, "codevertexafrica.com") || strings.HasSuffix(host, ".codevertexafrica.com")) {
+		cookie.Domain = ".codevertexafrica.com"
 	}
 	http.SetCookie(w, cookie)
 
@@ -1017,15 +1017,15 @@ func userViewFromEnt(user *ent.User) map[string]any {
 		return nil
 	}
 	return map[string]any{
-		"id":               user.ID,
-		"email":            user.Email,
-		"status":           user.Status,
-		"profile":          user.Profile,
-		"last_login_at":    user.LastLoginAt,
-		"primary_tenant":   user.PrimaryTenantID,
-		"created_at":       user.CreatedAt,
-		"updated_at":       user.UpdatedAt,
-		"terms_accepted":   user.TermsAccepted,
+		"id":                user.ID,
+		"email":             user.Email,
+		"status":            user.Status,
+		"profile":           user.Profile,
+		"last_login_at":     user.LastLoginAt,
+		"primary_tenant":    user.PrimaryTenantID,
+		"created_at":        user.CreatedAt,
+		"updated_at":        user.UpdatedAt,
+		"terms_accepted":    user.TermsAccepted,
 		"terms_accepted_at": user.TermsAcceptedAt,
 		"email_verified":    user.EmailVerified,
 		"email_verified_at": user.EmailVerifiedAt,
@@ -1048,7 +1048,7 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 
 	logoURL := tenant.LogoURL
 	if logoURL == nil || *logoURL == "" {
-		logoURL = strPtr("https://accounts.codevertexitsolutions.com/images/logo/codevertex.png")
+		logoURL = strPtr("https://accounts.codevertexafrica.com/images/logo/codevertex.png")
 	}
 
 	return map[string]any{

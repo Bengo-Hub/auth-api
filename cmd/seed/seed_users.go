@@ -103,7 +103,7 @@ func seedAdminUser(ctx context.Context, client *ent.Client, hasher *password.Has
 		adminEmail = os.Getenv("SEED_ADMIN_EMAIL")
 	}
 	if adminEmail == "" {
-		adminEmail = "admin@codevertexitsolutions.com"
+		adminEmail = "admin@codevertexafrica.com"
 	}
 	adminPassword := os.Getenv("SEED_SUPER_ADMIN_PASSWORD")
 	if adminPassword == "" {
@@ -173,7 +173,7 @@ func seedAdminUser(ctx context.Context, client *ent.Client, hasher *password.Has
 // demoStaffSpec describes a demo staff user.
 // pin is the POS demo PIN (1-4 digits). Empty means no PIN is seeded for this account.
 // outletSlugs lists the outlet slugs (within codevertex-demo) this staff can log in at.
-// admin@demo.codevertexitsolutions.com (PIN 0000) is seeded separately in seedDemoTenantAdmin.
+// admin@demo.codevertexafrica.com (PIN 0000) is seeded separately in seedDemoTenantAdmin.
 type demoStaffSpec struct {
 	email       string
 	name        string
@@ -187,31 +187,33 @@ var allPOSOutlets = []string{"demo-hospitality", "demo-retail", "demo-quick", "d
 
 // demoStaff lists all cross-platform demo staff under codevertex-demo.
 // PIN layout: manager=1111, cashier=2222, waiter=3333, kitchen=4444, bar=5555,
-//             receptionist=6666, pharmacist=7777, stylist=8888, therapist=9999.
+//
+//	receptionist=6666, pharmacist=7777, stylist=8888, therapist=9999.
+//
 // Admin (0000) is in seedDemoTenantAdmin.
 // Auth-api publishes auth.user.created + auth.user.pin_set events so pos-api
 // creates StaffMember rows and sets PINs without service-level staff seeding.
 var demoStaff = []demoStaffSpec{
 	// POS roles — outlet scope defines where the PIN can log in
-	{"manager@demo.codevertexitsolutions.com", "Demo Manager", "manager", "1111", allPOSOutlets},
-	{"cashier@demo.codevertexitsolutions.com", "Demo Cashier", "cashier", "2222", allPOSOutlets},
-	{"waiter@demo.codevertexitsolutions.com", "Demo Waiter", "waiter", "3333", []string{"demo-hospitality"}},
-	{"kitchen@demo.codevertexitsolutions.com", "Demo Kitchen", "kitchen", "4444", []string{"demo-hospitality", "demo-quick"}},
-	{"bar@demo.codevertexitsolutions.com", "Demo Bar Staff", "bar", "5555", []string{"demo-hospitality"}},
-	{"receptionist@demo.codevertexitsolutions.com", "Demo Receptionist", "receptionist", "6666", []string{"demo-hospitality", "demo-services"}},
+	{"manager@demo.codevertexafrica.com", "Demo Manager", "manager", "1111", allPOSOutlets},
+	{"cashier@demo.codevertexafrica.com", "Demo Cashier", "cashier", "2222", allPOSOutlets},
+	{"waiter@demo.codevertexafrica.com", "Demo Waiter", "waiter", "3333", []string{"demo-hospitality"}},
+	{"kitchen@demo.codevertexafrica.com", "Demo Kitchen", "kitchen", "4444", []string{"demo-hospitality", "demo-quick"}},
+	{"bar@demo.codevertexafrica.com", "Demo Bar Staff", "bar", "5555", []string{"demo-hospitality"}},
+	{"receptionist@demo.codevertexafrica.com", "Demo Receptionist", "receptionist", "6666", []string{"demo-hospitality", "demo-services"}},
 	// Pharmacy role
-	{"pharmacist@demo.codevertexitsolutions.com", "Grace Pharmacist", "pharmacist", "7777", []string{"demo-pharmacy"}},
+	{"pharmacist@demo.codevertexafrica.com", "Grace Pharmacist", "pharmacist", "7777", []string{"demo-pharmacy"}},
 	// Services roles (beauty salon / spa / wellness)
-	{"stylist@demo.codevertexitsolutions.com", "Demo Stylist", "stylist", "8888", []string{"demo-services"}},
-	{"therapist@demo.codevertexitsolutions.com", "Demo Therapist", "therapist", "9999", []string{"demo-services"}},
+	{"stylist@demo.codevertexafrica.com", "Demo Stylist", "stylist", "8888", []string{"demo-services"}},
+	{"therapist@demo.codevertexafrica.com", "Demo Therapist", "therapist", "9999", []string{"demo-services"}},
 	// Logistics roles (no POS PIN — these users don't log in at POS terminals)
-	{"rider@demo.codevertexitsolutions.com", "Demo Rider", "rider", "", nil},
-	{"driver@demo.codevertexitsolutions.com", "Demo Driver", "driver", "", nil},
-	{"coordinator@demo.codevertexitsolutions.com", "Demo Coordinator", "delivery_coordinator", "", nil},
+	{"rider@demo.codevertexafrica.com", "Demo Rider", "rider", "", nil},
+	{"driver@demo.codevertexafrica.com", "Demo Driver", "driver", "", nil},
+	{"coordinator@demo.codevertexafrica.com", "Demo Coordinator", "delivery_coordinator", "", nil},
 	// Cross-service roles
-	{"technician@demo.codevertexitsolutions.com", "Demo Technician", "technician", "", nil},
-	{"viewer@demo.codevertexitsolutions.com", "Demo Viewer", "viewer", "", nil},
-	{"customer@demo.codevertexitsolutions.com", "Demo Customer", "customer", "", nil},
+	{"technician@demo.codevertexafrica.com", "Demo Technician", "technician", "", nil},
+	{"viewer@demo.codevertexafrica.com", "Demo Viewer", "viewer", "", nil},
+	{"customer@demo.codevertexafrica.com", "Demo Customer", "customer", "", nil},
 
 	// Inventory outlet managers — non-HQ (role=manager, NOT admin), one per use_case
 	// so the inventory-ui per-use_case side-menu gating and page nomenclature can be
@@ -219,16 +221,16 @@ var demoStaff = []demoStaffSpec{
 	// into inventory-ui via SSO, not at a POS terminal. The auth.user event carries
 	// outlet_ids, which inventory-api's UserOutlet subscriber projects into assignments.
 	// admin@demo (role=admin) stays HQ and sees the full "All Outlets" superset.
-	{"mgr.hospitality@demo.codevertexitsolutions.com", "Demo Hospitality Manager", "manager", "", []string{"demo-hospitality"}},
-	{"mgr.retail@demo.codevertexitsolutions.com", "Demo Retail Manager", "manager", "", []string{"demo-retail"}},
-	{"mgr.quick@demo.codevertexitsolutions.com", "Demo Quick-Service Manager", "manager", "", []string{"demo-quick"}},
-	{"mgr.pharmacy@demo.codevertexitsolutions.com", "Demo Pharmacy Manager", "manager", "", []string{"demo-pharmacy"}},
-	{"mgr.services@demo.codevertexitsolutions.com", "Demo Services Manager", "manager", "", []string{"demo-services"}},
-	{"mgr.warehouse@demo.codevertexitsolutions.com", "Demo Warehouse Manager", "manager", "", []string{"demo-warehouse"}},
-	{"mgr.mfg@demo.codevertexitsolutions.com", "Demo Manufacturing Manager", "manager", "", []string{"demo-manufacturing"}},
+	{"mgr.hospitality@demo.codevertexafrica.com", "Demo Hospitality Manager", "manager", "", []string{"demo-hospitality"}},
+	{"mgr.retail@demo.codevertexafrica.com", "Demo Retail Manager", "manager", "", []string{"demo-retail"}},
+	{"mgr.quick@demo.codevertexafrica.com", "Demo Quick-Service Manager", "manager", "", []string{"demo-quick"}},
+	{"mgr.pharmacy@demo.codevertexafrica.com", "Demo Pharmacy Manager", "manager", "", []string{"demo-pharmacy"}},
+	{"mgr.services@demo.codevertexafrica.com", "Demo Services Manager", "manager", "", []string{"demo-services"}},
+	{"mgr.warehouse@demo.codevertexafrica.com", "Demo Warehouse Manager", "manager", "", []string{"demo-warehouse"}},
+	{"mgr.mfg@demo.codevertexafrica.com", "Demo Manufacturing Manager", "manager", "", []string{"demo-manufacturing"}},
 	// Multi-location manager — assigned to 3 outlets across POS + non-POS use_cases to
 	// prove the select-outlet multi-location flow (user must pick one before entering).
-	{"mgr.multi@demo.codevertexitsolutions.com", "Demo Multi-Outlet Manager", "manager", "", []string{"demo-retail", "demo-pharmacy", "demo-manufacturing"}},
+	{"mgr.multi@demo.codevertexafrica.com", "Demo Multi-Outlet Manager", "manager", "", []string{"demo-retail", "demo-pharmacy", "demo-manufacturing"}},
 }
 
 // seedDemoStaff seeds all demo staff users under the codevertex-demo tenant.
@@ -333,7 +335,7 @@ type erpDemoStaffSpec struct {
 // erpDemoStaff lists one demo user per ERP service role under codevertex-demo.
 // Roles mirror erp-api core/security.py + core/management/commands/seed_initial.py and
 // the ERP_SERVICE_ROLES set in authmanagement/sso.py. Logging in as e.g.
-// hr.manager@demo.codevertexitsolutions.com yields the "hr_manager" global role, which
+// hr.manager@demo.codevertexafrica.com yields the "hr_manager" global role, which
 // the ERP JIT maps to the hr_manager Django group → service permissions sync.
 //
 // "staff" and "receptionist" demo coverage: receptionist already has a POS demo user in
@@ -342,17 +344,17 @@ type erpDemoStaffSpec struct {
 // They are intentionally NOT duplicated here. The 11 entries below complete the set of
 // 13 ERP roles so there is at least one demo user per role in codevertex-demo.
 var erpDemoStaff = []erpDemoStaffSpec{
-	{"superusers@demo.codevertexitsolutions.com", "Demo ERP Superuser", "superusers"},
-	{"ceo@demo.codevertexitsolutions.com", "Demo CEO", "ceo"},
-	{"hr.manager@demo.codevertexitsolutions.com", "Demo HR Manager", "hr_manager"},
-	{"hr.assistant@demo.codevertexitsolutions.com", "Demo HR Assistant", "hr_assistant"},
-	{"ict.manager@demo.codevertexitsolutions.com", "Demo ICT Manager", "ict_manager"},
-	{"ict.officer@demo.codevertexitsolutions.com", "Demo ICT Officer", "ict_officer"},
-	{"operations.manager@demo.codevertexitsolutions.com", "Demo Operations Manager", "operations_manager"},
-	{"finance.manager@demo.codevertexitsolutions.com", "Demo Finance Manager", "finance_manager"},
-	{"procurement.manager@demo.codevertexitsolutions.com", "Demo Procurement Manager", "procurement_manager"},
-	{"sales.manager@demo.codevertexitsolutions.com", "Demo Sales Manager", "sales_manager"},
-	{"secretary@demo.codevertexitsolutions.com", "Demo Secretary", "secretary"},
+	{"superusers@demo.codevertexafrica.com", "Demo ERP Superuser", "superusers"},
+	{"ceo@demo.codevertexafrica.com", "Demo CEO", "ceo"},
+	{"hr.manager@demo.codevertexafrica.com", "Demo HR Manager", "hr_manager"},
+	{"hr.assistant@demo.codevertexafrica.com", "Demo HR Assistant", "hr_assistant"},
+	{"ict.manager@demo.codevertexafrica.com", "Demo ICT Manager", "ict_manager"},
+	{"ict.officer@demo.codevertexafrica.com", "Demo ICT Officer", "ict_officer"},
+	{"operations.manager@demo.codevertexafrica.com", "Demo Operations Manager", "operations_manager"},
+	{"finance.manager@demo.codevertexafrica.com", "Demo Finance Manager", "finance_manager"},
+	{"procurement.manager@demo.codevertexafrica.com", "Demo Procurement Manager", "procurement_manager"},
+	{"sales.manager@demo.codevertexafrica.com", "Demo Sales Manager", "sales_manager"},
+	{"secretary@demo.codevertexafrica.com", "Demo Secretary", "secretary"},
 }
 
 // seedERPDemoStaff seeds one demo user per ERP service role under codevertex-demo.
@@ -481,7 +483,7 @@ func seedTenantStaffUsers(ctx context.Context, client *ent.Client, hasher *passw
 
 // seedDemoTenantAdmin seeds the codevertex-demo tenant admin.
 func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *password.Hasher, demoTenant *tenantRef) error {
-	demoTenantAdminEmail := "admin@demo.codevertexitsolutions.com"
+	demoTenantAdminEmail := "admin@demo.codevertexafrica.com"
 	demoTenantAdminPassword := os.Getenv("SEED_DEMO_TENANT_ADMIN_PASSWORD")
 	if demoTenantAdminPassword == "" {
 		demoTenantAdminPassword = "DemoAdmin2024!"
@@ -521,7 +523,7 @@ func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *passwo
 
 		// Publish user event so pos-api creates a StaffMember for the demo admin.
 		// Then publish PIN 0000 so pos-api sets the PIN hash on that StaffMember.
-		// This is the same admin@demo.codevertexitsolutions.com — no separate account created.
+		// This is the same admin@demo.codevertexafrica.com — no separate account created.
 		eventType := "updated"
 		if isNew {
 			eventType = "created"
@@ -569,25 +571,25 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 	type clientDef struct {
 		ID             string
 		Name           string
-		ProductionHost string // e.g. "books.codevertexitsolutions.com"
+		ProductionHost string // e.g. "books.codevertexafrica.com"
 		Public         bool
 	}
 	clients := []clientDef{
-		{ID: "notifications-ui", Name: "Codevertex Notifications UI", ProductionHost: "notifications.codevertexitsolutions.com", Public: true},
-		{ID: "ordering-ui", Name: "Codevertex Ordering UI", ProductionHost: "ordersapp.codevertexitsolutions.com", Public: true},
-		{ID: "rider-app", Name: "Codevertex Rider App", ProductionHost: "riderapp.codevertexitsolutions.com", Public: true},
-		{ID: "codevertex-website", Name: "Codevertex Africa Limited Website", ProductionHost: "codevertexitsolutions.com", Public: true},
-		{ID: "subscriptions-ui", Name: "Codevertex Subscriptions UI", ProductionHost: "pricing.codevertexitsolutions.com", Public: true},
-		{ID: "treasury-ui", Name: "Codevertex Treasury UI", ProductionHost: "books.codevertexitsolutions.com", Public: true},
-		{ID: "pos-ui", Name: "Codevertex POS UI", ProductionHost: "pos.codevertexitsolutions.com", Public: true},
-		{ID: "inventory-ui", Name: "Codevertex Inventory UI", ProductionHost: "inventory.codevertexitsolutions.com", Public: true},
-		{ID: "erp-ui", Name: "Codevertex ERP UI", ProductionHost: "erp.codevertexitsolutions.com", Public: true},
-		{ID: "logistics-ui", Name: "Codevertex Logistics UI", ProductionHost: "logistics.codevertexitsolutions.com", Public: true},
-		{ID: "auth-ui", Name: "Codevertex Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexitsolutions.com", Public: true},
-		{ID: "marketflow-ui", Name: "MarketFlow UI", ProductionHost: "marketflow.codevertexitsolutions.com", Public: true},
-		{ID: "truload-ui", Name: "TruLoad Frontend", ProductionHost: "truload.codevertexitsolutions.com", Public: true},
-		{ID: "ticketing-ui", Name: "Codevertex Ticketing UI", ProductionHost: "ticketing.codevertexitsolutions.com", Public: true},
-		{ID: "isp-billing-ui", Name: "Codevertex ISP Billing UI", ProductionHost: "ispbilling.codevertexitsolutions.com", Public: true},
+		{ID: "notifications-ui", Name: "Codevertex Notifications UI", ProductionHost: "notifications.codevertexafrica.com", Public: true},
+		{ID: "ordering-ui", Name: "Codevertex Ordering UI", ProductionHost: "ordering.codevertexafrica.com", Public: true},
+		{ID: "rider-app", Name: "Codevertex Rider App", ProductionHost: "riderapp.codevertexafrica.com", Public: true},
+		{ID: "codevertex-website", Name: "Codevertex Africa Limited Website", ProductionHost: "codevertexafrica.com", Public: true},
+		{ID: "subscriptions-ui", Name: "Codevertex Subscriptions UI", ProductionHost: "pricing.codevertexafrica.com", Public: true},
+		{ID: "treasury-ui", Name: "Codevertex Treasury UI", ProductionHost: "books.codevertexafrica.com", Public: true},
+		{ID: "pos-ui", Name: "Codevertex POS UI", ProductionHost: "pos.codevertexafrica.com", Public: true},
+		{ID: "inventory-ui", Name: "Codevertex Inventory UI", ProductionHost: "inventory.codevertexafrica.com", Public: true},
+		{ID: "erp-ui", Name: "Codevertex ERP UI", ProductionHost: "erp.codevertexafrica.com", Public: true},
+		{ID: "logistics-ui", Name: "Codevertex Logistics UI", ProductionHost: "logistics.codevertexafrica.com", Public: true},
+		{ID: "auth-ui", Name: "Codevertex Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexafrica.com", Public: true},
+		{ID: "marketflow-ui", Name: "MarketFlow UI", ProductionHost: "marketflow.codevertexafrica.com", Public: true},
+		{ID: "truload-ui", Name: "TruLoad Frontend", ProductionHost: "truload.codevertexafrica.com", Public: true},
+		{ID: "ticketing-ui", Name: "Codevertex Ticketing UI", ProductionHost: "ticketing.codevertexafrica.com", Public: true},
+		{ID: "isp-billing-ui", Name: "Codevertex ISP Billing UI", ProductionHost: "ispbilling.codevertexafrica.com", Public: true},
 	}
 
 	// Collect all tenant slugs for OAuth redirect URI generation.
@@ -617,10 +619,10 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 	}
 
 	// auth-ui also needs the SSO domain as a redirect
-	authUIExtra := []string{"https://sso.codevertexitsolutions.com/auth/callback"}
+	authUIExtra := []string{"https://sso.codevertexafrica.com/auth/callback"}
 	// codevertex-website is reachable on both apex and www
-	cvWebsiteExtra := []string{"https://www.codevertexitsolutions.com/auth/callback"}
-	// truload-ui serves three hostnames: the standard codevertexitsolutions.com subdomain
+	cvWebsiteExtra := []string{"https://www.codevertexafrica.com/auth/callback"}
+	// truload-ui serves three hostnames: the standard codevertexafrica.com subdomain
 	// plus external KURA and MSS domains for axle-load enforcement tenants.
 	truloadExtra := []string{
 		"https://kuraweigh.kura.go.ke/auth/callback",
