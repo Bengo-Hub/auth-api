@@ -1,6 +1,6 @@
 # Sprint MVP Launch (March 17, 2026)
 
-**Progress (March 2026)**: **Default tenants (seed):** Codevertex (platform owner, codevertexitsolutions.com), Masterspace Solutions (mss, masterspace.co.ke), Urban Loft Cafe (urban-loft, theurbanloftcafe.com), KURA (kura, kura.go.ke), UltiChange (ultichange, ultichange.org). Tenant metadata includes `base_domain`. OAuth client rider-app redirect URIs include riderapp.codevertexitsolutions.com. Verified in code: CP-1 seed has urban-loft tenant, platform admin (env), tenant admin (admin@theurbanloftcafe.com), demo users, OAuth clients (notifications-ui, ordering-ui, rider-app, cafe-website), scopes openid/profile/email/offline_access. Busia outlet and scopes pos.read/orders.manage not in seed. CP-2: JWKS and OIDC discovery implemented. CP-3: Outbox + NATS publisher. CP-4: API key validate implemented. **Tenant/brand**: GET /api/v1/tenants/by-slug/{slug} is public (no auth), returns PublicTenantResponse (id, name, slug, status, metadata) for frontend tenant discovery and branding; auth-ui, pos-ui, subscriptions-ui consume it. **RBAC & GET /me**: Seed creates the full 8-action set (add, read, read_own, change, change_own, delete, manage, manage_own) for resources: orders, menu, users, tenants, riders, inventory, settings, gateways. Role-permission mapping seeded for superuser (all), admin (all), staff, member, rider. GET /api/v1/auth/me returns user profile plus `roles` and `permissions` (from GetUserRolesAndPermissions); frontends use this for nav, route protection, 404/403. **Permission cache**: Redis (AUTH_REDIS_*) is configured in devops-k8s for auth-api; caching of permission lookups in Redis is optional for MVP and not yet implemented (see internal/services/auth/service.go comment on GetUserRolesAndPermissions).
+**Progress (March 2026)**: **Default tenants (seed):** Codevertex (platform owner, codevertexafrica.com), Masterspace Solutions (mss, masterspace.co.ke), Urban Loft Cafe (urban-loft, theurbanloftcafe.com), KURA (kura, kura.go.ke), UltiChange (ultichange, ultichange.org). Tenant metadata includes `base_domain`. OAuth client rider-app redirect URIs include riderapp.codevertexafrica.com. Verified in code: CP-1 seed has urban-loft tenant, platform admin (env), tenant admin (admin@theurbanloftcafe.com), demo users, OAuth clients (notifications-ui, ordering-ui, rider-app, cafe-website), scopes openid/profile/email/offline_access. Busia outlet and scopes pos.read/orders.manage not in seed. CP-2: JWKS and OIDC discovery implemented. CP-3: Outbox + NATS publisher. CP-4: API key validate implemented. **Tenant/brand**: GET /api/v1/tenants/by-slug/{slug} is public (no auth), returns PublicTenantResponse (id, name, slug, status, metadata) for frontend tenant discovery and branding; auth-ui, pos-ui, subscriptions-ui consume it. **RBAC & GET /me**: Seed creates the full 8-action set (add, read, read_own, change, change_own, delete, manage, manage_own) for resources: orders, menu, users, tenants, riders, inventory, settings, gateways. Role-permission mapping seeded for superuser (all), admin (all), staff, member, rider. GET /api/v1/auth/me returns user profile plus `roles` and `permissions` (from GetUserRolesAndPermissions); frontends use this for nav, route protection, 404/403. **Permission cache**: Redis (AUTH_REDIS_*) is configured in devops-k8s for auth-api; caching of permission lookups in Redis is optional for MVP and not yet implemented (see internal/services/auth/service.go comment on GetUserRolesAndPermissions).
 
 **Duration**: March 6 -- March 17, 2026 (10 working days)
 **Status**: In Progress
@@ -10,10 +10,10 @@
 
 ## Hard Deadline Constraints
 
-- **March 17**: All Codevertex services go live; auth-api must be stable at `authapi.codevertexitsolutions.com`
+- **March 17**: All Codevertex services go live; auth-api must be stable at `authapi.codevertexafrica.com`
 - **Tenant**: `urban-loft` only (The Urban Loft Cafe)
 - **Outlet**: Busia only
-- **Users**: Platform admin (`admin@codevertexitsolutions.com`), tenant admin (`admin@theurbanloftcafe.com`), demo/test users
+- **Users**: Platform admin (`admin@codevertexafrica.com`), tenant admin (`admin@theurbanloftcafe.com`), demo/test users
 - **Downstream dependents**: Every Codevertex service depends on auth-api for JWT validation and tenant context
 
 ---
@@ -26,7 +26,7 @@
 **Owner**: Backend
 
 - [x] Verify `urban-loft` tenant exists with correct UUID, slug, name, status
-- [x] Verify platform admin (`admin@codevertexitsolutions.com`) has `super_admin` role
+- [x] Verify platform admin (`admin@codevertexafrica.com`) has `super_admin` role
 - [x] Verify tenant admin (`admin@theurbanloftcafe.com`) has `admin` role on `urban-loft`
 - [ ] Verify Busia outlet is seeded and linked to `urban-loft` tenant
 - [x] Verify demo users exist for cross-service integration testing
@@ -41,7 +41,7 @@
 
 The full happy path must work for every downstream consumer:
 
-1. **Login**: User logs in at `auth.codevertexitsolutions.com/login`
+1. **Login**: User logs in at `auth.codevertexafrica.com/login`
 2. **Token issuance**: JWT access token + refresh token returned
 3. **OIDC redirect**: Authorization code flow with PKCE works for SSO from ordering-app, POS, etc.
 4. **Token validation**: Downstream services validate JWTs via JWKS endpoint
@@ -115,10 +115,10 @@ Specific tasks:
 **Owner**: Backend
 
 - [ ] Verify CORS allows all production Codevertex frontend origins:
-  - `https://accounts.codevertexitsolutions.com`
-  - `https://ordersapp.codevertexitsolutions.com`
-  - `https://pos.codevertexitsolutions.com`
-  - `https://notifications.codevertexitsolutions.com`
+  - `https://accounts.codevertexafrica.com`
+  - `https://ordering.codevertexafrica.com`
+  - `https://pos.codevertexafrica.com`
+  - `https://notifications.codevertexafrica.com`
   - `https://theurbanloftcafe.com`
 - [ ] Verify preflight (OPTIONS) requests work correctly
 - [ ] Verify security headers: `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`
@@ -189,7 +189,7 @@ Specific tasks:
 - [ ] Verify Redis connectivity for rate limiting and session cache
 - [ ] Run `atlas migrate apply` on production DB (if Atlas transition complete)
 - [ ] Smoke test all critical endpoints on staging
-- [ ] Verify TLS certificate for `authapi.codevertexitsolutions.com`
+- [ ] Verify TLS certificate for `authapi.codevertexafrica.com`
 - [ ] Verify JWKS keys are rotated and current
 
 ### Launch Day (March 17)

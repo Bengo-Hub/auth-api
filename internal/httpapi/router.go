@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/httpapi/handlers"
+	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -25,79 +25,79 @@ func s2sPlatformClaims(next http.HandlerFunc) http.HandlerFunc {
 
 // RouterDeps defines router construction dependencies.
 type RouterDeps struct {
-	HealthHandler        http.HandlerFunc
-	AuthHandlers         AuthHandlers
-	UserHandler          *handlers.UserHandler
-	LegalHandler         *handlers.LegalHandler
-	ReferralLinkHandler  *handlers.ReferralLinkHandler
-	EquityPortalHandler  *handlers.EquityPortalHandler
-	OutletHandler        *handlers.OutletHandler
-	RBACHandler          *handlers.RBACHandler
-	EquityPortalAuth     func(http.Handler) http.Handler
-	RequireAuthHandler   func(http.Handler) http.Handler
-	TryAuthHandler       func(http.Handler) http.Handler
-	RateLimitLogin       func(http.Handler) http.Handler
-	RateLimitToken       func(http.Handler) http.Handler
-	MetricsHandler       http.Handler
+	HealthHandler       http.HandlerFunc
+	AuthHandlers        AuthHandlers
+	UserHandler         *handlers.UserHandler
+	LegalHandler        *handlers.LegalHandler
+	ReferralLinkHandler *handlers.ReferralLinkHandler
+	EquityPortalHandler *handlers.EquityPortalHandler
+	OutletHandler       *handlers.OutletHandler
+	RBACHandler         *handlers.RBACHandler
+	EquityPortalAuth    func(http.Handler) http.Handler
+	RequireAuthHandler  func(http.Handler) http.Handler
+	TryAuthHandler      func(http.Handler) http.Handler
+	RateLimitLogin      func(http.Handler) http.Handler
+	RateLimitToken      func(http.Handler) http.Handler
+	MetricsHandler      http.Handler
 	// InternalServiceKey gates internal S2S endpoints (X-API-Key header).
 	InternalServiceKey string
 }
 
 // AuthHandlers groups the HTTP handlers for auth routes.
 type AuthHandlers struct {
-	Register                     http.HandlerFunc
-	RegisterOAuth                http.HandlerFunc
-	SendEmailCode                http.HandlerFunc
-	VerifyEmailCode              http.HandlerFunc
-	SendMyEmailCode              http.HandlerFunc
-	VerifyMyEmailCode            http.HandlerFunc
-	Login                        http.HandlerFunc
-	Refresh                      http.HandlerFunc
-	RequestPasswordReset         http.HandlerFunc
-	ConfirmPasswordReset         http.HandlerFunc
-	Me                           http.HandlerFunc
-	MyMemberships                http.HandlerFunc
-	Logout                       http.HandlerFunc
-	LogoutGet                    http.HandlerFunc
-	GoogleOAuthStart             http.HandlerFunc
-	GoogleOAuthCallback          http.HandlerFunc
-	GitHubOAuthStart             http.HandlerFunc
-	GitHubOAuthCallback          http.HandlerFunc
-	MicrosoftOAuthStart          http.HandlerFunc
-	MicrosoftOAuthCallback       http.HandlerFunc
-	WellKnownConfig              http.HandlerFunc
-	JWKS                         http.HandlerFunc
-	Authorize                    http.HandlerFunc
-	Token                        http.HandlerFunc
-	UserInfo                     http.HandlerFunc
-	MFAStartTOTP                 http.HandlerFunc
-	MFAConfirmTOTP               http.HandlerFunc
-	MFARegenerateBackupCodes     http.HandlerFunc
-	MFAConsumeBackupCode         http.HandlerFunc
-	AdminCreateTenant            http.HandlerFunc
-	AdminListTenants             http.HandlerFunc
+	Register                           http.HandlerFunc
+	RegisterOAuth                      http.HandlerFunc
+	SendEmailCode                      http.HandlerFunc
+	VerifyEmailCode                    http.HandlerFunc
+	SendMyEmailCode                    http.HandlerFunc
+	VerifyMyEmailCode                  http.HandlerFunc
+	Login                              http.HandlerFunc
+	Refresh                            http.HandlerFunc
+	RequestPasswordReset               http.HandlerFunc
+	ConfirmPasswordReset               http.HandlerFunc
+	Me                                 http.HandlerFunc
+	MyMemberships                      http.HandlerFunc
+	Logout                             http.HandlerFunc
+	LogoutGet                          http.HandlerFunc
+	GoogleOAuthStart                   http.HandlerFunc
+	GoogleOAuthCallback                http.HandlerFunc
+	GitHubOAuthStart                   http.HandlerFunc
+	GitHubOAuthCallback                http.HandlerFunc
+	MicrosoftOAuthStart                http.HandlerFunc
+	MicrosoftOAuthCallback             http.HandlerFunc
+	WellKnownConfig                    http.HandlerFunc
+	JWKS                               http.HandlerFunc
+	Authorize                          http.HandlerFunc
+	Token                              http.HandlerFunc
+	UserInfo                           http.HandlerFunc
+	MFAStartTOTP                       http.HandlerFunc
+	MFAConfirmTOTP                     http.HandlerFunc
+	MFARegenerateBackupCodes           http.HandlerFunc
+	MFAConsumeBackupCode               http.HandlerFunc
+	AdminCreateTenant                  http.HandlerFunc
+	AdminListTenants                   http.HandlerFunc
 	AdminUpdateTenant                  http.HandlerFunc
 	AdminDeleteTenant                  http.HandlerFunc
 	AdminProvisionTenantOAuthRedirects http.HandlerFunc
-	AdminCreateClient            http.HandlerFunc
-	AdminListClients             http.HandlerFunc
-	AdminGetClient               http.HandlerFunc
-	AdminUpdateClient            http.HandlerFunc
-	AdminDeleteClient            http.HandlerFunc
-	AdminUpsertEntitlement       http.HandlerFunc
-	AdminListEntitlements        http.HandlerFunc
-	AdminIncrementUsage          http.HandlerFunc
-	AdminRotateKeys              http.HandlerFunc
-	PublicCreateTenant           http.HandlerFunc
-	PublicGetTenantBySlug        http.HandlerFunc
-	PublicGetTenantByID          http.HandlerFunc
-	AdminCreateIntegrationConfig http.HandlerFunc
-	AdminGetIntegrationConfig    http.HandlerFunc
-	AdminListIntegrationConfigs  http.HandlerFunc
-	AdminDeleteIntegrationConfig http.HandlerFunc
-	AdminUpdateIntegrationStatus http.HandlerFunc
-	DeveloperListClients         http.HandlerFunc
-	DeveloperCreateClient        http.HandlerFunc
+	AdminCreateClient                  http.HandlerFunc
+	AdminListClients                   http.HandlerFunc
+	AdminGetClient                     http.HandlerFunc
+	AdminUpdateClient                  http.HandlerFunc
+	AdminDeleteClient                  http.HandlerFunc
+	AdminUpsertEntitlement             http.HandlerFunc
+	AdminListEntitlements              http.HandlerFunc
+	AdminIncrementUsage                http.HandlerFunc
+	AdminRotateKeys                    http.HandlerFunc
+	PublicCreateTenant                 http.HandlerFunc
+	PublicGetTenantBySlug              http.HandlerFunc
+	PublicGetTenantByID                http.HandlerFunc
+	AdminCreateIntegrationConfig       http.HandlerFunc
+	AdminGetIntegrationConfig          http.HandlerFunc
+	AdminListIntegrationConfigs        http.HandlerFunc
+	AdminDeleteIntegrationConfig       http.HandlerFunc
+	AdminUpdateIntegrationStatus       http.HandlerFunc
+	DeveloperListClients               http.HandlerFunc
+	DeveloperCreateClient              http.HandlerFunc
 	// API Key management and validation
 	AdminCreateAPIKey http.HandlerFunc
 	AdminListAPIKeys  http.HandlerFunc
@@ -125,7 +125,7 @@ type AuthHandlers struct {
 	S2SListTenantUsers http.HandlerFunc
 	// S2SUserEmailVerification returns the computed email-verification state for a user.
 	S2SUserEmailVerification http.HandlerFunc
-	SetUserServicePIN  http.HandlerFunc
+	SetUserServicePIN        http.HandlerFunc
 	// Public integrations info
 	ListActiveIntegrations http.HandlerFunc
 	// Terms acceptance
@@ -182,30 +182,30 @@ func NewRouter(deps RouterDeps) http.Handler {
 				return true
 			}
 			// Allow production origins (explicit list; from shared-docs/sso-integration-guide.md and cmd/seed)
-			if origin == "https://accounts.codevertexitsolutions.com" ||
-				origin == "https://sso.codevertexitsolutions.com" ||
-				origin == "https://codevertexitsolutions.com" ||
-				origin == "https://ordersapp.codevertexitsolutions.com" ||
+			if origin == "https://accounts.codevertexafrica.com" ||
+				origin == "https://sso.codevertexafrica.com" ||
+				origin == "https://codevertexafrica.com" ||
+				origin == "https://ordering.codevertexafrica.com" ||
 				origin == "https://theurbanloftcafe.com" ||
-				origin == "https://notifications.codevertexitsolutions.com" ||
-				origin == "https://books.codevertexitsolutions.com" ||
-				origin == "https://pricing.codevertexitsolutions.com" ||
-				origin == "https://pos.codevertexitsolutions.com" ||
-				origin == "https://inventory.codevertexitsolutions.com" ||
-				origin == "https://logistics.codevertexitsolutions.com" ||
-				origin == "https://riderapp.codevertexitsolutions.com" ||
-				origin == "https://erp.codevertexitsolutions.com" {
+				origin == "https://notifications.codevertexafrica.com" ||
+				origin == "https://books.codevertexafrica.com" ||
+				origin == "https://pricing.codevertexafrica.com" ||
+				origin == "https://pos.codevertexafrica.com" ||
+				origin == "https://inventory.codevertexafrica.com" ||
+				origin == "https://logistics.codevertexafrica.com" ||
+				origin == "https://riderapp.codevertexafrica.com" ||
+				origin == "https://erp.codevertexafrica.com" {
 				return true
 			}
-			// Allow any subdomain of codevertexitsolutions.com OR masterspace.co.ke
+			// Allow any subdomain of codevertexafrica.com OR masterspace.co.ke
 			// (https only). masterspace.co.ke is the primary tenant's custom domain:
 			// the ERP UI is served at https://erp.masterspace.co.ke and must be able
 			// to POST the OIDC token exchange to this auth-service cross-origin
 			// (otherwise the browser blocks it with "Failed to fetch" / no CORS
-			// header). erp.codevertexitsolutions.com is already covered by the first
+			// header). erp.codevertexafrica.com is already covered by the first
 			// suffix. Keep this in sync with cmd/seed buildRedirects() hosts.
 			const httpsPrefix = "https://"
-			for _, suffix := range []string{".codevertexitsolutions.com", ".masterspace.co.ke"} {
+			for _, suffix := range []string{".codevertexafrica.com", ".masterspace.co.ke"} {
 				if len(origin) > len(httpsPrefix)+len(suffix) &&
 					origin[:len(httpsPrefix)] == httpsPrefix &&
 					origin[len(origin)-len(suffix):] == suffix {

@@ -40,9 +40,9 @@ Register **exactly these** URLs (plus the local-dev variant) in each provider's 
 
 | Provider | Authorized redirect URI |
 | --- | --- |
-| Google | `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/google/callback` |
-| Microsoft | `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/microsoft/callback` |
-| GitHub | `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/github/callback` |
+| Google | `https://sso.codevertexafrica.com/api/v1/auth/oauth/google/callback` |
+| Microsoft | `https://sso.codevertexafrica.com/api/v1/auth/oauth/microsoft/callback` |
+| GitHub | `https://sso.codevertexafrica.com/api/v1/auth/oauth/github/callback` |
 
 ### Local Development
 
@@ -72,9 +72,9 @@ Google (and optionally Microsoft) also require JavaScript origins. These are the
 
 ### Production
 
-- `https://accounts.codevertexitsolutions.com` — auth-ui (platform admin / tenant-less login page)
-- `https://sso.codevertexitsolutions.com` — auth-api itself (for any redirects rendered in-browser)
-- Any tenant-facing UI that initiates OAuth directly (e.g. `https://ordersapp.codevertexitsolutions.com`) if you call `/oauth/google/start` from that origin
+- `https://accounts.codevertexafrica.com` — auth-ui (platform admin / tenant-less login page)
+- `https://sso.codevertexafrica.com` — auth-api itself (for any redirects rendered in-browser)
+- Any tenant-facing UI that initiates OAuth directly (e.g. `https://ordering.codevertexafrica.com`) if you call `/oauth/google/start` from that origin
 
 ### Local Development
 
@@ -89,11 +89,11 @@ Google (and optionally Microsoft) also require JavaScript origins. These are the
 2. Click **Create Credentials → OAuth client ID**.
 3. **Application type**: Web application.
 4. **Authorized JavaScript origins** (see list above):
-   - `https://accounts.codevertexitsolutions.com`
-   - `https://sso.codevertexitsolutions.com`
+   - `https://accounts.codevertexafrica.com`
+   - `https://sso.codevertexafrica.com`
    - `http://localhost:3000` (dev)
 5. **Authorized redirect URIs**:
-   - `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/google/callback`
+   - `https://sso.codevertexafrica.com/api/v1/auth/oauth/google/callback`
    - `http://localhost:8080/api/v1/auth/oauth/google/callback` (dev)
 6. Click **Create**. Copy the **Client ID** and **Client Secret**.
 7. Ensure the OAuth consent screen has these scopes enabled:
@@ -116,7 +116,7 @@ Google (and optionally Microsoft) also require JavaScript origins. These are the
    - Or restrict to a specific org if you want SSO locked to one Azure AD tenant.
 5. **Redirect URI**:
    - Platform: **Web**
-   - URL: `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/microsoft/callback`
+   - URL: `https://sso.codevertexafrica.com/api/v1/auth/oauth/microsoft/callback`
    - Add a second Web redirect for dev: `http://localhost:8080/api/v1/auth/oauth/microsoft/callback`
 6. Click **Register**. Copy the **Application (client) ID**.
 7. Go to **Certificates & secrets → New client secret**. Copy the **Value** (not the Secret ID) — this is the `client_secret`.
@@ -136,8 +136,8 @@ Google (and optionally Microsoft) also require JavaScript origins. These are the
 1. Open [GitHub → Settings → Developer settings → OAuth Apps](https://github.com/settings/developers).
 2. Click **New OAuth App**.
 3. **Application name**: e.g. `Codevertex SSO`.
-4. **Homepage URL**: `https://codevertexitsolutions.com`.
-5. **Authorization callback URL**: `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/github/callback`.
+4. **Homepage URL**: `https://codevertexafrica.com`.
+5. **Authorization callback URL**: `https://sso.codevertexafrica.com/api/v1/auth/oauth/github/callback`.
 6. Click **Register application**. Copy the **Client ID**.
 7. Click **Generate a new client secret**. Copy the **Client Secret** (shown once).
 8. For local dev, register a second OAuth App with callback `http://localhost:8080/api/v1/auth/oauth/github/callback`. GitHub does not support multiple callbacks on a single OAuth App.
@@ -174,7 +174,7 @@ The seeder ([cmd/seed/main.go `seedIntegrations()`](../cmd/seed/main.go)) upsert
 {
   "client_id": "...",
   "client_secret": "...",
-  "redirect_url": "https://sso.codevertexitsolutions.com/api/v1/auth/oauth/google/callback",
+  "redirect_url": "https://sso.codevertexafrica.com/api/v1/auth/oauth/google/callback",
   "tenant_id": "common"   // microsoft only
 }
 ```
@@ -183,7 +183,7 @@ The `redirect_url` is computed from `cfg.Token.Issuer`. The blob is encrypted at
 
 ### Option B — Configure via auth-ui admin
 
-After deploying auth-api with dummy placeholder seeds, any platform admin can open [https://accounts.codevertexitsolutions.com/dashboard/integrations](https://accounts.codevertexitsolutions.com/dashboard/integrations), select the provider, and paste in the real client_id/client_secret/redirect_url. The UI calls `POST /api/v1/admin/integrations` which updates the same `IntegrationConfig` row.
+After deploying auth-api with dummy placeholder seeds, any platform admin can open [https://accounts.codevertexafrica.com/dashboard/integrations](https://accounts.codevertexafrica.com/dashboard/integrations), select the provider, and paste in the real client_id/client_secret/redirect_url. The UI calls `POST /api/v1/admin/integrations` which updates the same `IntegrationConfig` row.
 
 ---
 
@@ -257,7 +257,7 @@ OAuth flows are tenant-aware end-to-end:
 3. On callback, auth-api decodes the state, resolves the tenant by slug, and ensures the user has a `TenantMembership` for that tenant (JIT if missing).
 4. The issued JWT's `tenant_id` + `tenant_slug` claims match the tenant the user signed into.
 
-If no `tenant_slug` is supplied (e.g. login via `accounts.codevertexitsolutions.com`), the user lands on the platform-level admin tenant.
+If no `tenant_slug` is supplied (e.g. login via `accounts.codevertexafrica.com`), the user lands on the platform-level admin tenant.
 
 ### Where to set tenant_slug from the UI
 
@@ -270,7 +270,7 @@ In auth-ui, the `OAuthButton` component reads the active tenant from the subdoma
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | Google: *"redirect_uri_mismatch"* | URL in console differs from what auth-api sends | Compare exact string — trailing slash, http vs https, port, path — against the canonical list above. |
-| Google: *"Invalid Redirect: URI must not be empty"* at console creation | Redirect URI field left blank | Paste `https://sso.codevertexitsolutions.com/api/v1/auth/oauth/google/callback`. |
+| Google: *"Invalid Redirect: URI must not be empty"* at console creation | Redirect URI field left blank | Paste `https://sso.codevertexafrica.com/api/v1/auth/oauth/google/callback`. |
 | Microsoft: *"AADSTS50011: reply URL doesn't match"* | Same as Google redirect_uri_mismatch | Check Azure App registration → Authentication → Redirect URIs. |
 | GitHub: callback URL mismatch | GitHub only allows one callback per app | Register separate prod + dev OAuth Apps. |
 | State JWT expired | User took >10 min between start and callback | User retries from scratch; adjust TTL via `AUTH_SECURITY_OAUTH_STATE_TTL` if needed. |
