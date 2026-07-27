@@ -9,6 +9,7 @@ import (
 
 	"github.com/bengobox/auth-api/internal/audit"
 	"github.com/bengobox/auth-api/internal/cache"
+	k8sclient "github.com/bengobox/auth-api/internal/clients/k8s"
 	subscriptionclient "github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/database"
@@ -206,6 +207,16 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	equityPortalHandler := handlers.NewEquityPortalHandler(entClient, tokenSvc, cfg.Token.Issuer, cfg.App.AuthUIURL, logger)
 	rbacHandler := handlers.NewRBACHandler(authService, logger)
 
+	// Platform infrastructure monitoring — reads live cluster state via the
+	// auth-api-monitor ServiceAccount (read-only RBAC). Absent in local dev
+	// (no in-cluster token available), where the handler degrades to 503
+	// rather than blocking startup.
+	k8sMonitorClient, k8sErr := k8sclient.NewInClusterClient()
+	if k8sErr != nil {
+		logger.Warn("platform infra monitoring disabled: not running in-cluster", zap.Error(k8sErr))
+	}
+	k8sMonitorHandler := handlers.NewK8sMonitorHandler(k8sMonitorClient, logger)
+
 	router := httpapi.NewRouter(httpapi.RouterDeps{
 		OutletHandler:      outletHandler,
 		InternalServiceKey: cfg.Subscription.APIKey,
@@ -216,6 +227,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		ReferralLinkHandler: referralLinkHandler,
 		EquityPortalHandler: equityPortalHandler,
 		RBACHandler:         rbacHandler,
+		K8sMonitorHandler:   k8sMonitorHandler,
 		EquityPortalAuth:    handlers.EquityPortalAuth(tokenSvc),
 		AuthHandlers: httpapi.AuthHandlers{
 			Register:                     authHandler.Register,

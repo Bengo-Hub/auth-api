@@ -33,6 +33,7 @@ type RouterDeps struct {
 	EquityPortalHandler *handlers.EquityPortalHandler
 	OutletHandler       *handlers.OutletHandler
 	RBACHandler         *handlers.RBACHandler
+	K8sMonitorHandler   *handlers.K8sMonitorHandler
 	EquityPortalAuth    func(http.Handler) http.Handler
 	RequireAuthHandler  func(http.Handler) http.Handler
 	TryAuthHandler      func(http.Handler) http.Handler
@@ -477,6 +478,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Get("/audit-logs", deps.RBACHandler.ListAuditLogs)
 					r.Get("/password-policy", deps.RBACHandler.GetPasswordPolicy)
 					r.Put("/password-policy", deps.RBACHandler.UpdatePasswordPolicy)
+				}
+				// Platform infrastructure monitoring (platform admins only) —
+				// replaces the removed Prometheus/Grafana stack.
+				if deps.K8sMonitorHandler != nil {
+					r.Get("/platform-monitor/overview", deps.K8sMonitorHandler.Overview)
 				}
 			})
 		})
