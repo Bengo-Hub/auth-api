@@ -270,6 +270,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			PublicCreateTenant:           adminHandler.CreateTenantPublic,
 			PublicGetTenantBySlug:        adminHandler.GetTenantBySlugPublic,
 			PublicGetTenantByID:          adminHandler.GetTenantByIDPublic,
+			PublicListMarketplaceTenants: adminHandler.ListMarketplaceTenants,
 			AdminCreateIntegrationConfig: adminHandler.CreateIntegrationConfig,
 			AdminGetIntegrationConfig:    adminHandler.GetIntegrationConfig,
 			AdminListIntegrationConfigs:  adminHandler.ListIntegrationConfigs,
