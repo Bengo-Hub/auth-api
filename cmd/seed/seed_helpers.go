@@ -291,18 +291,19 @@ func publishSeedUserEvent(ctx context.Context, client *ent.Client, tenantID, use
 // The raw pin is also included (internal cluster NATS only) so pos-api can pre-compute
 // pin_fast_hash for O(1) terminal identify-by-PIN lookups.
 // roles is included so pos-api can create the StaffMember with the correct role if it doesn't exist.
-func publishSeedPINEvent(ctx context.Context, client *ent.Client, tenantID, userID uuid.UUID, pin string, roles []string) {
+func publishSeedPINEvent(ctx context.Context, client *ent.Client, tenantID, userID uuid.UUID, tenantSlug, pin string, roles []string) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("  ⚠️  bcrypt PIN for %s: %v", userID, err)
 		return
 	}
 	publishSeedUserEvent(ctx, client, tenantID, userID, map[string]any{
-		"user_id":  userID.String(),
-		"service":  "pos",
-		"pin_hash": string(hash),
-		"pin":      pin,
-		"roles":    roles,
+		"user_id":     userID.String(),
+		"service":     "pos",
+		"pin_hash":    string(hash),
+		"pin":         pin,
+		"roles":       roles,
+		"tenant_slug": tenantSlug,
 	}, "pin_set")
 }
 
