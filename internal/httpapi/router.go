@@ -91,6 +91,7 @@ type AuthHandlers struct {
 	PublicCreateTenant                 http.HandlerFunc
 	PublicGetTenantBySlug              http.HandlerFunc
 	PublicGetTenantByID                http.HandlerFunc
+	PublicListMarketplaceTenants       http.HandlerFunc
 	AdminCreateIntegrationConfig       http.HandlerFunc
 	AdminGetIntegrationConfig          http.HandlerFunc
 	AdminListIntegrationConfigs        http.HandlerFunc
@@ -342,6 +343,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Post("/", deps.AuthHandlers.PublicCreateTenant)
 			r.Get("/by-slug/{slug}", deps.AuthHandlers.PublicGetTenantBySlug)
 			r.Get("/by-id/{tenant_id}", deps.AuthHandlers.PublicGetTenantByID)
+			// Cross-tenant marketplace directory (public, no auth) — bulk listing of
+			// active, non-demo tenants ranked by subscription tier. Same trust tier as
+			// by-slug/by-id above (safe fields only, just many tenants at once).
+			if deps.AuthHandlers.PublicListMarketplaceTenants != nil {
+				r.Get("/marketplace", deps.AuthHandlers.PublicListMarketplaceTenants)
+			}
 			// Outlet management — GET is public (outlet info is not sensitive),
 			// mutations require authentication.
 			if deps.OutletHandler != nil {
