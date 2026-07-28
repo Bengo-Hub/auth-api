@@ -1510,6 +1510,35 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// weakServicePINs blocks the handful of trivially guessable 4-digit PINs (every digit the
+// same, or a sequential run) for admin/manager-tier staff. PIN uniqueness is enforced only
+// PER TENANT, not globally, so two unrelated tenants both defaulting their admin account to
+// "1111" means anyone who learns/guesses tenant A's admin PIN can log in as tenant B's admin
+// too, by simply trying the same PIN against tenant B's PIN-login endpoint — confirmed live
+// against two real production tenants. A 4-digit PIN can't be made unguessable, so the
+// practical mitigation is making sure privileged accounts across different tenants don't all
+// converge on the same handful of trivial values.
+var weakServicePINs = map[string]bool{
+	"0000": true, "1111": true, "2222": true, "3333": true, "4444": true,
+	"5555": true, "6666": true, "7777": true, "8888": true, "9999": true,
+	"0123": true, "1234": true, "2345": true, "3456": true, "4567": true, "5678": true, "6789": true,
+	"9876": true, "8765": true, "7654": true, "6543": true, "5432": true, "4321": true, "3210": true,
+}
+
+// isAdminOrManagerRole reports whether any of the given (global/service) role names are
+// admin/manager tier — the roles whose PIN is worth restricting given the blast radius of a
+// cross-tenant collision (full business access vs. a single cashier till).
+func isAdminOrManagerRole(roles []string) bool {
+	for _, r := range roles {
+		switch strings.ToLower(strings.TrimSpace(r)) {
+		case "admin", "superuser", "owner", "super_admin", "tenant_admin", "system_admin", "pos_admin", "administrator",
+			"manager", "store_manager", "outlet_manager", "supervisor", "inventory_admin", "warehouse_manager":
+			return true
+		}
+	}
+	return false
+}
+
 // provisionMemberPIN hashes a 4-digit service PIN and publishes auth.user.pin_set
 // so downstream services (pos-api etc.) can store the hash. Best-effort: invalid
 // PINs are skipped with a warning rather than failing the add. Shared by the
@@ -1524,6 +1553,10 @@ func (h *AdminHandler) provisionMemberPIN(ctx context.Context, tenantID, userID 
 			h.logger.Warn("skipping PIN provision: pin must be numeric")
 			return
 		}
+	}
+	if isAdminOrManagerRole(roles) && weakServicePINs[pin] {
+		h.logger.Warn("skipping PIN provision: pin is too common/predictable for an admin/manager role")
+		return
 	}
 	if service == "" {
 		service = "pos"
@@ -2082,6 +2115,14 @@ func (h *AdminHandler) SetUserServicePIN(w http.ResponseWriter, r *http.Request)
 		}
 		h.logger.Error("Failed to find tenant member", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "could not verify member", nil)
+		return
+	}
+
+	// Admin/manager PINs are a much higher-value target than a cashier's — a collision with
+	// another tenant's admin PIN grants full cross-tenant business access (confirmed live), so
+	// these roles may not use a trivially guessable PIN.
+	if isAdminOrManagerRole(membership.Roles) && weakServicePINs[req.PIN] {
+		writeError(w, http.StatusBadRequest, "invalid_request", "this PIN is too common for an admin/manager account — choose a less predictable 4-digit PIN", nil)
 		return
 	}
 
