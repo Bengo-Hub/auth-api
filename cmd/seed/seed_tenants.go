@@ -50,30 +50,30 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 		{
 			name: "Masterspace Solutions", slug: "mss", baseDomain: "masterspace.co.ke",
 			useCases: []string{"services"},
-			logoURL: mediaBase + "/images/logo/mss.jpeg", website: "https://masterspace.co.ke",
+			logoURL:  mediaBase + "/images/logo/mss.jpeg", website: "https://masterspace.co.ke",
 			contactEmail: "info@masterspace.co.ke",
-			brandColors: map[string]any{"primary": "#1e3a5f", "secondary": "#4a90d9", "accent": "#f0ad4e"},
+			brandColors:  map[string]any{"primary": "#1e3a5f", "secondary": "#4a90d9", "accent": "#f0ad4e"},
 		},
 		{
 			name: "Kenya Urban Roads Authority (KURA)", slug: "kura", baseDomain: "kura.go.ke",
 			useCases: []string{"logistics"},
-			logoURL: mediaBase + "/images/logo/kura.png", website: "https://kura.go.ke",
+			logoURL:  mediaBase + "/images/logo/kura.png", website: "https://kura.go.ke",
 			contactEmail: "info@kura.go.ke",
-			brandColors: map[string]any{"primary": "#006633", "secondary": "#bb0000", "accent": "#000000"},
+			brandColors:  map[string]any{"primary": "#006633", "secondary": "#bb0000", "accent": "#000000"},
 		},
 		{
 			name: "UltiChange", slug: "ultichange", baseDomain: "ultichange.org",
 			useCases: []string{"services", "e_commerce"},
-			logoURL: mediaBase + "/images/logo/ultichange.svg", website: "https://ultichange.org",
+			logoURL:  mediaBase + "/images/logo/ultichange.svg", website: "https://ultichange.org",
 			contactEmail: "info@ultichange.org",
-			brandColors: map[string]any{"primary": "#2d3436", "secondary": "#0984e3", "accent": "#00cec9"},
+			brandColors:  map[string]any{"primary": "#2d3436", "secondary": "#0984e3", "accent": "#00cec9"},
 		},
 		{
 			name: "Urban Loft Cafe", slug: "urban-loft", baseDomain: "theurbanloftcafe.com",
 			useCases: []string{"hospitality"},
 			logoURL:  mediaBase + "/images/logo/urban-loft.png", website: "https://theurbanloftcafe.com",
 			contactEmail: "info@theurbanloftcafe.com",
-			brandColors: map[string]any{"primary": "#3E2723", "secondary": "#795548", "accent": "#FFC107"},
+			brandColors:  map[string]any{"primary": "#3E2723", "secondary": "#795548", "accent": "#FFC107"},
 		},
 		{
 			// Cross-platform demo tenant — covers all use-cases for platform demos.
@@ -86,7 +86,7 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			useCases: []string{
 				"hospitality", "retail", "quick_service", "pharmacy", "services",
 				"logistics", "warehouse", "manufacturing", "commercial_weighing",
-				"axle_load_enforcement",
+				"axle_load_enforcement", "hospital",
 			},
 			logoURL:      mediaBase + "/images/logo/codevertex.png",
 			website:      "https://demo.codevertexafrica.com",
@@ -235,6 +235,13 @@ var outletsByTenant = map[string][]outletDef{
 			name: "Demo Health Pharmacy", useCase: "pharmacy", isHQ: false,
 			address: "Demo Health Centre, Upper Hill, Nairobi",
 			pinMsg:  "Welcome to Demo Health Pharmacy — verify prescriptions at counter",
+		},
+		// Hospital/clinic outlet — Codevertex Afya (consultation, lab, pharmacy, billing)
+		{
+			slug: "demo-hospital", code: "AFYA",
+			name: "Demo Afya Clinic", useCase: "hospital", isHQ: false,
+			address: "Demo Health Centre, Upper Hill, Nairobi",
+			pinMsg:  "Welcome to Demo Afya Clinic — verify patient identity before opening a chart",
 		},
 		// Services outlet — salon, spa, appointments
 		{

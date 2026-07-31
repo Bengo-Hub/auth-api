@@ -185,6 +185,27 @@ var rolePerms = map[string][]string{
 		"auth.profile.view", "auth.profile.change",
 		"auth.preferences.view", "auth.preferences.change",
 	},
+	// doctor — hospital-service prescriber/clinician.
+	// Fine-grained hospital.consultation.*/hospital.pharmacy.* perms are managed by
+	// hospital-api's own RBAC module (Trinity Layer 2/3), not this global catalog.
+	"doctor": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// nurse — hospital-service triage/ward/vitals staff.
+	// Fine-grained hospital.triage.*/hospital.inpatient.* perms are hospital-api-owned.
+	"nurse": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
+	// records_clerk — hospital-service reception/records/registration staff.
+	// Fine-grained hospital.records.* perms are hospital-api-owned.
+	"records_clerk": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+	},
 	// delivery_coordinator — assigned to ordering/logistics staff managing dispatch.
 	// Recognized by ordering-backend and logistics-api for delivery route/zone access.
 	"delivery_coordinator": {
