@@ -231,6 +231,17 @@ var demoStaff = []demoStaffSpec{
 	// Multi-location manager — assigned to 3 outlets across POS + non-POS use_cases to
 	// prove the select-outlet multi-location flow (user must pick one before entering).
 	{"mgr.multi@demo.codevertexafrica.com", "Demo Multi-Outlet Manager", "manager", "", []string{"demo-retail", "demo-pharmacy", "demo-manufacturing"}},
+
+	// Codevertex Afya (hospital-service) clinical staff — SSO-only (no POS PIN), scoped
+	// to demo-hospital. Distinct emails from pos-api's own pharmacist@demo above (this is
+	// an additive, hospital-service-scoped identity set — pos-api's pharmacy demo data is
+	// untouched). Roles doctor/nurse registered in seed_roles_catalogue.go/seed_permissions.go;
+	// pharmacist/records_clerk already exist from pos-api's clinical seed.
+	{"doctor@demo.codevertexafrica.com", "Dr. Amina Otieno", "doctor", "", []string{"demo-hospital"}},
+	{"nurse@demo.codevertexafrica.com", "Nurse Faith Wanjiru", "nurse", "", []string{"demo-hospital"}},
+	{"pharmacist.afya@demo.codevertexafrica.com", "Demo Afya Pharmacist", "pharmacist", "", []string{"demo-hospital"}},
+	{"records@demo.codevertexafrica.com", "Demo Afya Records Clerk", "records_clerk", "", []string{"demo-hospital"}},
+	{"mgr.hospital@demo.codevertexafrica.com", "Demo Afya Clinic Manager", "manager", "", []string{"demo-hospital"}},
 }
 
 // seedDemoStaff seeds all demo staff users under the codevertex-demo tenant.
@@ -590,6 +601,7 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "truload-ui", Name: "TruLoad Frontend", ProductionHost: "truload.codevertexafrica.com", Public: true},
 		{ID: "ticketing-ui", Name: "Codevertex Ticketing UI", ProductionHost: "ticketing.codevertexafrica.com", Public: true},
 		{ID: "isp-billing-ui", Name: "Codevertex ISP Billing UI", ProductionHost: "ispbilling.codevertexafrica.com", Public: true},
+		{ID: "hospital-ui", Name: "Codevertex Hospital UI (Afya)", ProductionHost: "afya.codevertexafrica.com", Public: true},
 	}
 
 	// Collect all tenant slugs for OAuth redirect URI generation.

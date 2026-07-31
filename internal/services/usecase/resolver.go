@@ -21,6 +21,7 @@ var KnownUseCases = []string{
 	"quick_service",
 	"pharmacy",
 	"services",
+	"hospital",
 	"warehouse",
 	"logistics",
 	"commercial_weighing",
@@ -42,6 +43,8 @@ func ApplicableServices(useCase string) []string {
 		return []string{"pos-api", "ordering-backend", "inventory-api"}
 	case "pharmacy", "services":
 		return []string{"pos-api", "inventory-api"}
+	case "hospital":
+		return []string{"hospital-api"}
 	case "warehouse", "manufacturing":
 		return []string{"inventory-api"}
 	case "logistics", "delivery", "courier", "distribution":
@@ -135,6 +138,18 @@ func (s *Service) ResolveConfig(ctx context.Context, useCase string) *Config {
 				"catalog_nomenclature":  "Services",
 				"item_nomenclature":     "Service",
 				"category_nomenclature": "Service Type",
+			},
+		}
+	case "hospital":
+		return &Config{
+			UseCase:            "hospital",
+			DisplayName:        "Hospital / Clinic",
+			ApplicableServices: applicable,
+			Features:           []string{"patient_records", "consultation", "laboratory", "pharmacy_dispensing", "billing"},
+			Settings: map[string]any{
+				"catalog_nomenclature":  "Formulary",
+				"item_nomenclature":     "Drug",
+				"category_nomenclature": "Department",
 			},
 		}
 	case "warehouse":
