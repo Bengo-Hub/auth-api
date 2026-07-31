@@ -80,9 +80,13 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			// is_demo=true is written to metadata so all downstream services bypass subscription gating.
 			name: "Codevertex Demo", slug: "codevertex-demo", baseDomain: "demo.codevertexafrica.com",
 			isDemo: true,
+			// Must cover every use_case in outletsByTenant["codevertex-demo"] below —
+			// "manufacturing" was missing even though the demo owns a manufacturing outlet
+			// (MFG), an mgr.mfg@ demo user, and seeded production batches + BOM stock.
 			useCases: []string{
 				"hospitality", "retail", "quick_service", "pharmacy", "services",
-				"logistics", "warehouse", "commercial_weighing", "axle_load_enforcement",
+				"logistics", "warehouse", "manufacturing", "commercial_weighing",
+				"axle_load_enforcement",
 			},
 			logoURL:      mediaBase + "/images/logo/codevertex.png",
 			website:      "https://demo.codevertexafrica.com",
@@ -164,7 +168,11 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			if tenantEntity.ContactPhone == nil && t.contactPhone != "" {
 				upd = upd.SetContactPhone(t.contactPhone)
 			}
-			if len(tenantEntity.UseCases) == 0 && len(t.useCases) > 0 {
+			// Backfill use cases when unset. The demo tenant is the exception: its use_case
+			// list must stay in lockstep with the outlets the seed owns (same reasoning as the
+			// demo-only outlet display reset below), so it is re-synced on every run rather
+			// than only when empty.
+			if len(t.useCases) > 0 && (len(tenantEntity.UseCases) == 0 || t.isDemo) {
 				upd = upd.SetUseCase(t.useCases[0]).SetUseCases(t.useCases)
 			}
 			if _, err2 := upd.Save(ctx); err2 != nil {
