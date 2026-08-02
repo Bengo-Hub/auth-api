@@ -285,26 +285,41 @@ func publishSeedUserEvent(ctx context.Context, client *ent.Client, tenantID, use
 	}
 }
 
-// publishSeedPINEvent queues an auth.user.pin_set outbox event so pos-api's
-// auth event handler sets the POS PIN hash on the StaffMember row.
-// The pin_hash is bcrypt-hashed here so pos-api can verify with bcrypt.CompareHashAndPassword.
+// pinTerminalServices lists every service with its own PIN-terminal login
+// (pos-api, inventory-api, ...) that publishSeedPINEvent provisions a demo PIN
+// for. A pin_set event's "service" field is a single string — each consumer
+// (pos-api, inventory-api) filters to its own value and ignores the rest — so
+// one event can never cover multiple services; publishSeedPINEvent must
+// publish one event per entry here. Previously this only ever published
+// "pos", so the demo tenant's staff had working POS PINs but zero working
+// inventory PINs even though inventory-api has had its own PIN-terminal login
+// (PINAuthHandler) for a while — silently undemoed. Add a service here (and
+// backfill existing tenants) as soon as another service grows PIN login.
+var pinTerminalServices = []string{"pos", "inventory"}
+
+// publishSeedPINEvent queues one auth.user.pin_set outbox event per entry in
+// pinTerminalServices, so every PIN-terminal service (pos-api, inventory-api)
+// sets the same demo PIN hash on its own staff/user row.
+// The pin_hash is bcrypt-hashed here so consumers can verify with bcrypt.CompareHashAndPassword.
 // The raw pin is also included (internal cluster NATS only) so pos-api can pre-compute
 // pin_fast_hash for O(1) terminal identify-by-PIN lookups.
-// roles is included so pos-api can create the StaffMember with the correct role if it doesn't exist.
+// roles is included so consumers can create the local staff/user row with the correct role if it doesn't exist.
 func publishSeedPINEvent(ctx context.Context, client *ent.Client, tenantID, userID uuid.UUID, tenantSlug, pin string, roles []string) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("  ⚠️  bcrypt PIN for %s: %v", userID, err)
 		return
 	}
-	publishSeedUserEvent(ctx, client, tenantID, userID, map[string]any{
-		"user_id":     userID.String(),
-		"service":     "pos",
-		"pin_hash":    string(hash),
-		"pin":         pin,
-		"roles":       roles,
-		"tenant_slug": tenantSlug,
-	}, "pin_set")
+	for _, service := range pinTerminalServices {
+		publishSeedUserEvent(ctx, client, tenantID, userID, map[string]any{
+			"user_id":     userID.String(),
+			"service":     service,
+			"pin_hash":    string(hash),
+			"pin":         pin,
+			"roles":       roles,
+			"tenant_slug": tenantSlug,
+		}, "pin_set")
+	}
 }
 
 // backfillTenantRedirectURIs ensures every active tenant in the DB has

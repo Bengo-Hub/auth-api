@@ -17,6 +17,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/password"
+	"github.com/bengobox/auth-api/internal/pkg/imageutil"
 	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/entitlements"
 	"github.com/bengobox/auth-api/internal/services/integrations"
@@ -669,7 +670,18 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 		update.SetSlug(req.Slug)
 	}
 	if req.LogoURL != "" {
-		update.SetLogoURL(req.LogoURL)
+		// logo_url has no object-storage backing — it's stored inline as a data
+		// URI, so an unbounded upload bloats every /tenants/by-slug response and
+		// can crash consumers that embed or cache it (pos-ui, inventory-ui, ...).
+		// Validate size and downscale/re-encode oversized images server-side;
+		// this is the authoritative check — auth-ui's client-side compression
+		// is a UX nicety, not something we can trust alone.
+		logoURL, err := imageutil.ValidateAndCompressLogoURL(req.LogoURL)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_logo", err.Error(), nil)
+			return
+		}
+		update.SetLogoURL(logoURL)
 	}
 	if req.Website != "" {
 		update.SetWebsite(req.Website)
