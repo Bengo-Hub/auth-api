@@ -286,20 +286,21 @@ func publishSeedUserEvent(ctx context.Context, client *ent.Client, tenantID, use
 }
 
 // pinTerminalServices lists every service with its own PIN-terminal login
-// (pos-api, inventory-api, ...) that publishSeedPINEvent provisions a demo PIN
-// for. A pin_set event's "service" field is a single string — each consumer
-// (pos-api, inventory-api) filters to its own value and ignores the rest — so
-// one event can never cover multiple services; publishSeedPINEvent must
-// publish one event per entry here. Previously this only ever published
-// "pos", so the demo tenant's staff had working POS PINs but zero working
-// inventory PINs even though inventory-api has had its own PIN-terminal login
-// (PINAuthHandler) for a while — silently undemoed. Add a service here (and
-// backfill existing tenants) as soon as another service grows PIN login.
-var pinTerminalServices = []string{"pos", "inventory"}
+// (pos-api, inventory-api, library-api, ...) that publishSeedPINEvent
+// provisions a demo PIN for. A pin_set event's "service" field is a single
+// string — each consumer (pos-api, inventory-api, library-api) filters to its
+// own value ("pos" / "inventory" / "library") and ignores the rest — so one
+// event can never cover multiple services; publishSeedPINEvent must publish
+// one event per entry here. Previously this only ever published "pos", so
+// the demo tenant's staff had working POS PINs but zero working
+// inventory/library PINs even though both services have had their own
+// PIN-terminal login for a while — silently undemoed. Add a service here
+// (and backfill existing tenants) as soon as another service grows PIN login.
+var pinTerminalServices = []string{"pos", "inventory", "library"}
 
 // publishSeedPINEvent queues one auth.user.pin_set outbox event per entry in
-// pinTerminalServices, so every PIN-terminal service (pos-api, inventory-api)
-// sets the same demo PIN hash on its own staff/user row.
+// pinTerminalServices, so every PIN-terminal service (pos-api, inventory-api,
+// library-api) sets the same demo PIN hash on its own staff/user row.
 // The pin_hash is bcrypt-hashed here so consumers can verify with bcrypt.CompareHashAndPassword.
 // The raw pin is also included (internal cluster NATS only) so pos-api can pre-compute
 // pin_fast_hash for O(1) terminal identify-by-PIN lookups.
