@@ -47,6 +47,10 @@ type Claims struct {
 	SubscriptionLimits   map[string]int `json:"sub_limits,omitempty"`            // Plan limits (max_outlets, max_riders, etc.)
 	SubscriptionExpires  *int64         `json:"sub_expires,omitempty"`           // Current period end as Unix timestamp
 	SubscriptionTier     int            `json:"sub_tier,omitempty"`              // Resolved plan tier rank (must match authclient Claims field); for backend tier-aware gating
+	// ActiveProducts is the product_code of every currently-active per-product subscription
+	// line (must match authclient Claims field) — lets the app-switcher show only activated
+	// apps without a per-page-load network call.
+	ActiveProducts []string `json:"active_products,omitempty"`
 
 	// Billing model and demo flags
 	BillingMode  string `json:"billing_mode,omitempty"`      // "service_charge" bypasses subscription gating
@@ -88,6 +92,7 @@ type AccessTokenInput struct {
 	SubscriptionLimits   map[string]int
 	SubscriptionExpires  *time.Time
 	SubscriptionTier     int
+	ActiveProducts       []string
 
 	// Billing model and demo flags
 	BillingMode        string // "service_charge" bypasses subscription gating
@@ -188,6 +193,7 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 		claims.SubscriptionFeatures = input.SubscriptionFeatures
 		claims.SubscriptionLimits = input.SubscriptionLimits
 		claims.SubscriptionTier = input.SubscriptionTier
+		claims.ActiveProducts = input.ActiveProducts
 		if input.SubscriptionExpires != nil {
 			ts := input.SubscriptionExpires.Unix()
 			claims.SubscriptionExpires = &ts

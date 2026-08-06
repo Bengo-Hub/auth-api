@@ -31,6 +31,10 @@ type TenantSubscription struct {
 	CurrentPeriodEnd   time.Time      `json:"current_period_end"`
 	Features           []string       `json:"features"`
 	Limits             map[string]int `json:"limits"`
+	// ActiveProducts is the product_code of every currently-active per-product subscription
+	// line — minted into the JWT active_products claim so the app-switcher can show only
+	// activated apps without an extra network call.
+	ActiveProducts []string `json:"active_products"`
 	// Scenario resolution from subscription-service. BillingMode is one of
 	// "recurring" | "one_time" | "service_charge"; IsPerpetual marks a paid
 	// one-time licence that must never expire (JWT omits expiry for these).
