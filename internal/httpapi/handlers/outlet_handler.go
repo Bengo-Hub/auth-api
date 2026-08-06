@@ -535,6 +535,7 @@ func (h *OutletHandler) SelectOutlet(w http.ResponseWriter, r *http.Request) {
 		SubscriptionStatus:   claims.SubscriptionStatus,
 		SubscriptionFeatures: claims.SubscriptionFeatures,
 		SubscriptionLimits:   claims.SubscriptionLimits,
+		ActiveProducts:       claims.ActiveProducts,
 	})
 	if err != nil {
 		h.logger.Error("mint outlet token", zap.Error(err))
