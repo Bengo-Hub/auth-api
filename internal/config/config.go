@@ -17,7 +17,7 @@ type Config struct {
 	Token        TokenConfig        `envPrefix:"AUTH_TOKEN_"`
 	Security     SecurityConfig     `envPrefix:"AUTH_SECURITY_"`
 	Providers    ProvidersConfig    `envPrefix:"AUTH_PROVIDERS_"`
-	Subscription SubscriptionConfig `envPrefix:"AUTH_SUBSCRIPTION_"`
+	Subscription SubscriptionConfig `envPrefix:""`
 	Events       EventsConfig       `envPrefix:"AUTH_EVENTS_"`
 	Backup       BackupConfig       `envPrefix:"BACKUP_"`
 	WebAuthn     WebAuthnConfig     `envPrefix:"AUTH_WEBAUTHN_"`
@@ -46,12 +46,16 @@ type EventsConfig struct {
 	OutboxBatchSize  int           `env:"OUTBOX_BATCH_SIZE" envDefault:"100"`
 }
 
-// SubscriptionConfig holds settings for subscription-service integration.
+// SubscriptionConfig holds settings for subscription-service integration. BaseURL uses the
+// canonical, service-agnostic SUBSCRIPTION_BASE_URL name (standardized fleet-wide 2026-08-07
+// so every service reads the subscriptions-api URL from the same env var); the other fields
+// keep auth-api's existing AUTH_SUBSCRIPTION_* names since those were never part of the
+// cross-service inconsistency that caused the DNS-hostname regression.
 type SubscriptionConfig struct {
-	BaseURL string        `env:"BASE_URL" envDefault:"http://localhost:4008"`
-	APIKey  string        `env:"API_KEY"`
-	Timeout time.Duration `env:"TIMEOUT" envDefault:"5s"`
-	Enabled bool          `env:"ENABLED" envDefault:"true"`
+	BaseURL string        `env:"SUBSCRIPTION_BASE_URL" envDefault:"http://localhost:4008"`
+	APIKey  string        `env:"AUTH_SUBSCRIPTION_API_KEY"`
+	Timeout time.Duration `env:"AUTH_SUBSCRIPTION_TIMEOUT" envDefault:"5s"`
+	Enabled bool          `env:"AUTH_SUBSCRIPTION_ENABLED" envDefault:"true"`
 }
 
 type AppConfig struct {
