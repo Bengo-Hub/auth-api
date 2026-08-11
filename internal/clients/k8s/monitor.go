@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"time"
 
@@ -73,6 +74,18 @@ type CronJobStatus struct {
 	Healthy        bool       `json:"healthy"`
 }
 
+// MailStats reports Stalwart's outbound delivery queue depth via
+// email-provisioner's small internal endpoint — the one mail-specific signal
+// this k8s-only monitoring pattern has no other way to see (metrics.k8s.io
+// and kubelet's stats/summary only know about pod/node resource usage, not
+// application-level queue state). Available is false when email-provisioner
+// couldn't be reached at all (not deployed, mid-rollout, etc.) so the UI can
+// distinguish "queue is empty" from "couldn't check."
+type MailStats struct {
+	Available  bool `json:"available"`
+	QueueDepth int  `json:"queue_depth"`
+}
+
 // Overview is the full dashboard payload.
 type Overview struct {
 	GeneratedAt time.Time          `json:"generated_at"`
@@ -82,7 +95,10 @@ type Overview struct {
 	PVCs        []PVCSummary       `json:"pvcs"`
 	Ingresses   []IngressSummary   `json:"ingresses"`
 	CronJobs    []CronJobStatus    `json:"cronjobs"`
+	Mail        MailStats          `json:"mail"`
 }
+
+const emailProvisionerMailStatsURL = "http://email-provisioner.email.svc.cluster.local:8080/internal/mail-stats"
 
 const topPodsLimit = 25
 
@@ -253,7 +269,38 @@ func (c *Client) Overview(ctx context.Context) (*Overview, error) {
 		}
 	}
 
+	ov.Mail = fetchMailStats(ctx)
+
 	return ov, nil
+}
+
+// fetchMailStats calls email-provisioner's internal endpoint directly (plain
+// cluster-network HTTP, no auth needed — matches the endpoint's own
+// internal-only, no-Ingress design). Best-effort like every other Overview
+// section: a mid-rollout or not-yet-deployed email-provisioner degrades to
+// Available: false rather than failing the whole dashboard.
+func fetchMailStats(ctx context.Context) MailStats {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, emailProvisionerMailStatsURL, nil)
+	if err != nil {
+		return MailStats{}
+	}
+	client := http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return MailStats{}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return MailStats{}
+	}
+
+	var stats struct {
+		QueueDepth int `json:"queue_depth"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return MailStats{}
+	}
+	return MailStats{Available: true, QueueDepth: stats.QueueDepth}
 }
 
 // nodeDiskUsage reads the kubelet's built-in Summary API
