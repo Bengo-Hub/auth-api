@@ -24,6 +24,10 @@ func (h *MFAHandler) StartTOTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
 		return
 	}
+	if demoSelfServiceBlocked(claims) {
+		writeError(w, http.StatusForbidden, "demo_account_restricted", demoAccountRestrictedMessage, nil)
+		return
+	}
 	userID := parseUUID(claims.Subject)
 	resp, err := h.svc.StartTOTP(r.Context(), userID, claims.Email)
 	if err != nil {
@@ -41,6 +45,10 @@ func (h *MFAHandler) ConfirmTOTP(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	if demoSelfServiceBlocked(claims) {
+		writeError(w, http.StatusForbidden, "demo_account_restricted", demoAccountRestrictedMessage, nil)
 		return
 	}
 	var req totpConfirmRequest
@@ -63,6 +71,10 @@ func (h *MFAHandler) RegenerateBackupCodes(w http.ResponseWriter, r *http.Reques
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	if demoSelfServiceBlocked(claims) {
+		writeError(w, http.StatusForbidden, "demo_account_restricted", demoAccountRestrictedMessage, nil)
 		return
 	}
 	var req backupGenRequest

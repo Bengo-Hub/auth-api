@@ -771,6 +771,10 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	// state (notice → final_warning → enforced) without doing its own date math.
 	out["email_verification"] = auth.EmailVerificationStateFor(userEntity, roles, time.Now())
 
+	// Lets the frontend hide self-service password/2FA controls for the shared
+	// public demo tenant (see demoSelfServiceBlocked, which enforces this server-side too).
+	out["is_demo"] = claims.IsDemo
+
 	// MFA status
 	if mfaEnabled, err := h.service.IsMFAEnabled(r.Context(), userID); err == nil {
 		out["mfa_enabled"] = mfaEnabled
@@ -1056,6 +1060,7 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 		"name":                    tenant.Name,
 		"slug":                    tenant.Slug,
 		"status":                  tenant.Status,
+		"is_demo":                 tenant.IsDemo,
 		"logo_url":                logoURL,
 		"brand_colors":            brandColors,
 		"contact_email":           tenant.ContactEmail,
@@ -1292,6 +1297,10 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "invalid user id in token", nil)
+		return
+	}
+	if demoSelfServiceBlocked(claims) {
+		writeError(w, http.StatusForbidden, "demo_account_restricted", demoAccountRestrictedMessage, nil)
 		return
 	}
 

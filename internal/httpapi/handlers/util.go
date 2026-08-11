@@ -11,10 +11,25 @@ import (
 
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/platform/outbox"
+	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
+
+// demoAccountRestrictedMessage is returned when a self-service security
+// action is blocked on the shared public demo tenant.
+const demoAccountRestrictedMessage = "This is a shared public demo account. Password and 2FA changes are disabled here to prevent visitors from locking each other out. Contact a platform administrator to manage this account's credentials."
+
+// demoSelfServiceBlocked reports whether the authenticated caller must be
+// blocked from self-service security actions (2FA enrollment, password
+// change). The public codevertex-demo tenant shares one set of credentials
+// across every visitor, so letting any visitor set up 2FA or change the
+// password would lock every other visitor out. Platform admins are exempt —
+// they manage this tenant's users via the separate /api/v1/admin/* endpoints.
+func demoSelfServiceBlocked(claims *token.Claims) bool {
+	return claims.IsDemo && !claims.IsPlatformOwner
+}
 
 func decodeJSON(r *http.Request, v any) error {
 	defer r.Body.Close() //nolint:errcheck
