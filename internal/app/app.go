@@ -293,6 +293,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminCreateIntegrationConfig:       adminHandler.CreateIntegrationConfig,
 			AdminGetIntegrationConfig:          adminHandler.GetIntegrationConfig,
 			AdminListIntegrationConfigs:        adminHandler.ListIntegrationConfigs,
+			S2SPlatformAlertSettings:           adminHandler.S2SPlatformAlertSettings,
 			AdminDeleteIntegrationConfig:       adminHandler.DeleteIntegrationConfig,
 			AdminUpdateIntegrationStatus:       adminHandler.UpdateIntegrationStatus,
 			// Tenant member management
