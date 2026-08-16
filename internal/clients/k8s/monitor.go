@@ -74,6 +74,35 @@ type CronJobStatus struct {
 	Healthy        bool       `json:"healthy"`
 }
 
+// PodProblem flags a pod k8s itself reports as unhealthy — restart-looping or
+// stuck waiting. Absent from Overview before the 2026-08-16 incident, where
+// pods only ever appeared in TopPods ranked by memory, never flagged as
+// unhealthy — redis-master and auth-api were both CrashLoopBackOff for hours
+// with nothing surfacing it here.
+type PodProblem struct {
+	Namespace    string `json:"namespace"`
+	Pod          string `json:"pod"`
+	Container    string `json:"container"`
+	Reason       string `json:"reason"`
+	RestartCount int32  `json:"restart_count"`
+}
+
+// podProblemRestartThreshold flags a container as a problem once it has
+// restarted this many times, even without an active Waiting reason (e.g. it
+// recovered but is still flapping).
+const podProblemRestartThreshold = 5
+
+// DependencyStatus reports one external dependency's health, checked
+// directly rather than inferred from pod state — a pod can be Running while
+// the service inside it can't actually reach something it depends on. This
+// is exactly the gap that hid auth-api's Redis dependency failure during the
+// 2026-08-16 incident: auth-api's own pod state told you nothing.
+type DependencyStatus struct {
+	Name   string `json:"name"`
+	OK     bool   `json:"ok"`
+	Detail string `json:"detail,omitempty"`
+}
+
 // MailStats reports Stalwart's outbound delivery queue depth via
 // email-provisioner's small internal endpoint — the one mail-specific signal
 // this k8s-only monitoring pattern has no other way to see (metrics.k8s.io
@@ -88,14 +117,16 @@ type MailStats struct {
 
 // Overview is the full dashboard payload.
 type Overview struct {
-	GeneratedAt time.Time          `json:"generated_at"`
-	Nodes       []NodeStat         `json:"nodes"`
-	TopPods     []PodStat          `json:"top_pods"`
-	Namespaces  []NamespaceSummary `json:"namespaces"`
-	PVCs        []PVCSummary       `json:"pvcs"`
-	Ingresses   []IngressSummary   `json:"ingresses"`
-	CronJobs    []CronJobStatus    `json:"cronjobs"`
-	Mail        MailStats          `json:"mail"`
+	GeneratedAt      time.Time          `json:"generated_at"`
+	Nodes            []NodeStat         `json:"nodes"`
+	TopPods          []PodStat          `json:"top_pods"`
+	Namespaces       []NamespaceSummary `json:"namespaces"`
+	PVCs             []PVCSummary       `json:"pvcs"`
+	Ingresses        []IngressSummary   `json:"ingresses"`
+	CronJobs         []CronJobStatus    `json:"cronjobs"`
+	Mail             MailStats          `json:"mail"`
+	Problems         []PodProblem       `json:"problems"`
+	DependencyHealth []DependencyStatus `json:"dependency_health"`
 }
 
 const emailProvisionerMailStatsURL = "http://email-provisioner.email.svc.cluster.local:8080/internal/mail-stats"
@@ -192,6 +223,27 @@ func (c *Client) Overview(ctx context.Context) (*Overview, error) {
 		podCounts := map[string]int{}
 		for _, p := range pods.Items {
 			podCounts[p.Namespace]++
+			for _, cs := range p.Status.ContainerStatuses {
+				reason := ""
+				if cs.State.Waiting != nil {
+					reason = cs.State.Waiting.Reason
+				}
+				problem := reason == "CrashLoopBackOff" || reason == "ImagePullBackOff" || reason == "ErrImagePull" ||
+					cs.RestartCount >= podProblemRestartThreshold
+				if !problem {
+					continue
+				}
+				if reason == "" {
+					reason = "HighRestartCount"
+				}
+				ov.Problems = append(ov.Problems, PodProblem{
+					Namespace:    p.Namespace,
+					Pod:          p.Name,
+					Container:    cs.Name,
+					Reason:       reason,
+					RestartCount: cs.RestartCount,
+				})
+			}
 		}
 		if nsList, err := c.core.CoreV1().Namespaces().List(ctx, metav1.ListOptions{}); err == nil {
 			for _, ns := range nsList.Items {
@@ -270,6 +322,15 @@ func (c *Client) Overview(ctx context.Context) (*Overview, error) {
 	}
 
 	ov.Mail = fetchMailStats(ctx)
+
+	for _, dp := range c.dependencyPingers {
+		status := DependencyStatus{Name: dp.name, OK: true}
+		if err := dp.ping(ctx); err != nil {
+			status.OK = false
+			status.Detail = err.Error()
+		}
+		ov.DependencyHealth = append(ov.DependencyHealth, status)
+	}
 
 	return ov, nil
 }

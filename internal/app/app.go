@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	eventslib "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/audit"
 	"github.com/bengobox/auth-api/internal/cache"
 	k8sclient "github.com/bengobox/auth-api/internal/clients/k8s"
@@ -19,7 +20,6 @@ import (
 	httpmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/modules/platformbackup"
 	"github.com/bengobox/auth-api/internal/modules/platformbackup/destination"
-	eventslib "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/password"
 	platformevents "github.com/bengobox/auth-api/internal/platform/events"
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
@@ -29,8 +29,8 @@ import (
 	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/mfa"
-	"github.com/bengobox/auth-api/internal/services/usecase"
 	"github.com/bengobox/auth-api/internal/services/oidc"
+	"github.com/bengobox/auth-api/internal/services/usecase"
 	webauthnSvc "github.com/bengobox/auth-api/internal/services/webauthn"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/nats-io/nats.go"
@@ -41,15 +41,15 @@ import (
 
 // App wires core dependencies and exposes server lifecycle controls.
 type App struct {
-	cfg                      *config.Config
-	logger                   *zap.Logger
-	entClient                *ent.Client
-	db                       *sql.DB
-	redis                    *redis.Client
-	natsConn                 *nats.Conn
-	outboxPublisher          *eventslib.OutboxPoller
-	subscriptionSubscriber   *platformevents.SubscriptionSubscriber
-	httpServer               *http.Server
+	cfg                    *config.Config
+	logger                 *zap.Logger
+	entClient              *ent.Client
+	db                     *sql.DB
+	redis                  *redis.Client
+	natsConn               *nats.Conn
+	outboxPublisher        *eventslib.OutboxPoller
+	subscriptionSubscriber *platformevents.SubscriptionSubscriber
+	httpServer             *http.Server
 }
 
 // New constructs the application.
@@ -214,12 +214,19 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	k8sMonitorClient, k8sErr := k8sclient.NewInClusterClient()
 	if k8sErr != nil {
 		logger.Warn("platform infra monitoring disabled: not running in-cluster", zap.Error(k8sErr))
+	} else {
+		// Surfaced as DependencyHealth in the platform-monitor dashboard — a
+		// pod can be Running while unable to reach Redis, which is exactly
+		// what happened during the 2026-08-16 AOF-corruption incident.
+		k8sMonitorClient.SetDependencyPing("redis", func(ctx context.Context) error {
+			return redisClient.Ping(ctx).Err()
+		})
 	}
 	k8sMonitorHandler := handlers.NewK8sMonitorHandler(k8sMonitorClient, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
-		OutletHandler:      outletHandler,
-		InternalServiceKey: cfg.Subscription.APIKey,
+		OutletHandler:       outletHandler,
+		InternalServiceKey:  cfg.Subscription.APIKey,
 		HealthHandler:       handlers.Health,
 		MetricsHandler:      promhttp.Handler(),
 		UserHandler:         userHandler,
@@ -230,74 +237,74 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		K8sMonitorHandler:   k8sMonitorHandler,
 		EquityPortalAuth:    handlers.EquityPortalAuth(tokenSvc),
 		AuthHandlers: httpapi.AuthHandlers{
-			Register:                     authHandler.Register,
-			RegisterOAuth:                authHandler.RegisterOAuth,
-			SendEmailCode:                authHandler.SendEmailCode,
-			VerifyEmailCode:              authHandler.VerifyEmailCode,
-			SendMyEmailCode:              authHandler.SendMyEmailCode,
-			VerifyMyEmailCode:            authHandler.VerifyMyEmailCode,
-			Login:                        authHandler.Login,
-			Refresh:                      authHandler.Refresh,
-			RequestPasswordReset:         authHandler.RequestPasswordReset,
-			ConfirmPasswordReset:         authHandler.ConfirmPasswordReset,
-			Me:                           authHandler.Me,
-			MyMemberships:                authHandler.MyMemberships,
-			Logout:                       authHandler.Logout,
-			LogoutGet:                    authHandler.LogoutGet,
-			GoogleOAuthStart:             authHandler.GoogleOAuthStart,
-			GoogleOAuthCallback:          authHandler.GoogleOAuthCallback,
-			GitHubOAuthStart:             authHandler.GitHubOAuthStart,
-			GitHubOAuthCallback:          authHandler.GitHubOAuthCallback,
-			MicrosoftOAuthStart:          authHandler.MicrosoftOAuthStart,
-			MicrosoftOAuthCallback:       authHandler.MicrosoftOAuthCallback,
-			WellKnownConfig:              oidcHandler.WellKnownConfig,
-			JWKS:                         oidcHandler.JWKS,
-			Authorize:                    oidcHandler.Authorize,
-			Token:                        oidcHandler.Token,
-			UserInfo:                     oidcHandler.UserInfo,
-			MFAStartTOTP:                 mfaHandler.StartTOTP,
-			MFAConfirmTOTP:               mfaHandler.ConfirmTOTP,
-			MFARegenerateBackupCodes:     mfaHandler.RegenerateBackupCodes,
-			MFAConsumeBackupCode:         mfaHandler.ConsumeBackupCode,
-			AcceptTerms:                  authHandler.AcceptTerms,
-			ChangePassword:               authHandler.ChangePassword,
-			ListSessions:                 authHandler.ListSessions,
-			RevokeSession:                authHandler.RevokeSession,
-			RevokeAllSessions:            authHandler.RevokeAllSessions,
-			ListActiveIntegrations:       authHandler.ListActiveIntegrations,
-			AdminUpsertEntitlement:       adminHandler.UpsertEntitlement,
-			AdminListEntitlements:        adminHandler.ListEntitlements,
-			AdminIncrementUsage:          adminHandler.IncrementUsage,
-			AdminCreateTenant:            adminHandler.CreateTenant,
-			AdminListTenants:             adminHandler.ListTenants,
+			Register:                           authHandler.Register,
+			RegisterOAuth:                      authHandler.RegisterOAuth,
+			SendEmailCode:                      authHandler.SendEmailCode,
+			VerifyEmailCode:                    authHandler.VerifyEmailCode,
+			SendMyEmailCode:                    authHandler.SendMyEmailCode,
+			VerifyMyEmailCode:                  authHandler.VerifyMyEmailCode,
+			Login:                              authHandler.Login,
+			Refresh:                            authHandler.Refresh,
+			RequestPasswordReset:               authHandler.RequestPasswordReset,
+			ConfirmPasswordReset:               authHandler.ConfirmPasswordReset,
+			Me:                                 authHandler.Me,
+			MyMemberships:                      authHandler.MyMemberships,
+			Logout:                             authHandler.Logout,
+			LogoutGet:                          authHandler.LogoutGet,
+			GoogleOAuthStart:                   authHandler.GoogleOAuthStart,
+			GoogleOAuthCallback:                authHandler.GoogleOAuthCallback,
+			GitHubOAuthStart:                   authHandler.GitHubOAuthStart,
+			GitHubOAuthCallback:                authHandler.GitHubOAuthCallback,
+			MicrosoftOAuthStart:                authHandler.MicrosoftOAuthStart,
+			MicrosoftOAuthCallback:             authHandler.MicrosoftOAuthCallback,
+			WellKnownConfig:                    oidcHandler.WellKnownConfig,
+			JWKS:                               oidcHandler.JWKS,
+			Authorize:                          oidcHandler.Authorize,
+			Token:                              oidcHandler.Token,
+			UserInfo:                           oidcHandler.UserInfo,
+			MFAStartTOTP:                       mfaHandler.StartTOTP,
+			MFAConfirmTOTP:                     mfaHandler.ConfirmTOTP,
+			MFARegenerateBackupCodes:           mfaHandler.RegenerateBackupCodes,
+			MFAConsumeBackupCode:               mfaHandler.ConsumeBackupCode,
+			AcceptTerms:                        authHandler.AcceptTerms,
+			ChangePassword:                     authHandler.ChangePassword,
+			ListSessions:                       authHandler.ListSessions,
+			RevokeSession:                      authHandler.RevokeSession,
+			RevokeAllSessions:                  authHandler.RevokeAllSessions,
+			ListActiveIntegrations:             authHandler.ListActiveIntegrations,
+			AdminUpsertEntitlement:             adminHandler.UpsertEntitlement,
+			AdminListEntitlements:              adminHandler.ListEntitlements,
+			AdminIncrementUsage:                adminHandler.IncrementUsage,
+			AdminCreateTenant:                  adminHandler.CreateTenant,
+			AdminListTenants:                   adminHandler.ListTenants,
 			AdminUpdateTenant:                  adminHandler.UpdateTenant,
 			AdminDeleteTenant:                  adminHandler.DeleteTenant,
 			AdminProvisionTenantOAuthRedirects: adminHandler.ProvisionTenantOAuthRedirects,
 			AdminCreateClient:                  adminHandler.CreateClient,
-			AdminListClients:             adminHandler.ListClients,
-			AdminGetClient:               adminHandler.GetClient,
-			AdminUpdateClient:            adminHandler.UpdateClient,
-			AdminDeleteClient:            adminHandler.DeleteClient,
-			AdminRotateKeys:              adminHandler.RotateKeys,
-			PublicCreateTenant:           adminHandler.CreateTenantPublic,
-			PublicGetTenantBySlug:        adminHandler.GetTenantBySlugPublic,
-			PublicGetTenantByID:          adminHandler.GetTenantByIDPublic,
-			PublicListMarketplaceTenants: adminHandler.ListMarketplaceTenants,
-			AdminCreateIntegrationConfig: adminHandler.CreateIntegrationConfig,
-			AdminGetIntegrationConfig:    adminHandler.GetIntegrationConfig,
-			AdminListIntegrationConfigs:  adminHandler.ListIntegrationConfigs,
-			AdminDeleteIntegrationConfig: adminHandler.DeleteIntegrationConfig,
-			AdminUpdateIntegrationStatus: adminHandler.UpdateIntegrationStatus,
+			AdminListClients:                   adminHandler.ListClients,
+			AdminGetClient:                     adminHandler.GetClient,
+			AdminUpdateClient:                  adminHandler.UpdateClient,
+			AdminDeleteClient:                  adminHandler.DeleteClient,
+			AdminRotateKeys:                    adminHandler.RotateKeys,
+			PublicCreateTenant:                 adminHandler.CreateTenantPublic,
+			PublicGetTenantBySlug:              adminHandler.GetTenantBySlugPublic,
+			PublicGetTenantByID:                adminHandler.GetTenantByIDPublic,
+			PublicListMarketplaceTenants:       adminHandler.ListMarketplaceTenants,
+			AdminCreateIntegrationConfig:       adminHandler.CreateIntegrationConfig,
+			AdminGetIntegrationConfig:          adminHandler.GetIntegrationConfig,
+			AdminListIntegrationConfigs:        adminHandler.ListIntegrationConfigs,
+			AdminDeleteIntegrationConfig:       adminHandler.DeleteIntegrationConfig,
+			AdminUpdateIntegrationStatus:       adminHandler.UpdateIntegrationStatus,
 			// Tenant member management
-			AddTenantMember:       adminHandler.AddTenantMember,
-			ListTenantMembers:     adminHandler.ListTenantMembers,
-			UpdateTenantMember:    adminHandler.UpdateTenantMember,
-			RemoveTenantMember:    adminHandler.RemoveTenantMember,
-			S2SListTenantUsers:    adminHandler.S2SListTenantUsers,
+			AddTenantMember:          adminHandler.AddTenantMember,
+			ListTenantMembers:        adminHandler.ListTenantMembers,
+			UpdateTenantMember:       adminHandler.UpdateTenantMember,
+			RemoveTenantMember:       adminHandler.RemoveTenantMember,
+			S2SListTenantUsers:       adminHandler.S2SListTenantUsers,
 			S2SUserEmailVerification: adminHandler.S2SUserEmailVerification,
-			SetUserServicePIN:     adminHandler.SetUserServicePIN,
-			DeveloperListClients:  developerHandler.ListClients,
-			DeveloperCreateClient: developerHandler.CreateClient,
+			SetUserServicePIN:        adminHandler.SetUserServicePIN,
+			DeveloperListClients:     developerHandler.ListClients,
+			DeveloperCreateClient:    developerHandler.CreateClient,
 			// API Key management (service accounts)
 			AdminCreateAPIKey: apiKeyHandler.CreateAPIKey,
 			AdminListAPIKeys:  apiKeyHandler.ListAPIKeys,
