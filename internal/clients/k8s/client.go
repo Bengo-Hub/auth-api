@@ -6,6 +6,7 @@
 package k8s
 
 import (
+	"context"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -17,6 +18,24 @@ import (
 type Client struct {
 	core    kubernetes.Interface
 	metrics metricsv.Interface
+
+	// dependencyPingers are optional, app-supplied health checks for things
+	// k8s pod state can't see (e.g. "is my Redis connection actually alive").
+	// Kept as plain closures rather than importing e.g. go-redis directly, so
+	// this package stays dependency-agnostic. Populated via SetDependencyPing.
+	dependencyPingers []dependencyPinger
+}
+
+type dependencyPinger struct {
+	name string
+	ping func(ctx context.Context) error
+}
+
+// SetDependencyPing registers a named health check to be run on every
+// Overview() call and surfaced as DependencyHealth. Safe to call multiple
+// times to register several dependencies (e.g. Redis, a downstream API).
+func (c *Client) SetDependencyPing(name string, ping func(ctx context.Context) error) {
+	c.dependencyPingers = append(c.dependencyPingers, dependencyPinger{name: name, ping: ping})
 }
 
 // NewInClusterClient builds a Client from the pod's mounted ServiceAccount
