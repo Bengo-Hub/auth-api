@@ -9,10 +9,11 @@ import (
 	"unicode"
 
 	"github.com/Bengo-Hub/pagination"
+	subscriptionclient "github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
-	"github.com/bengobox/auth-api/internal/ent/tenant"
 	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
+	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
@@ -23,7 +24,6 @@ import (
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/usage"
 	"github.com/bengobox/auth-api/internal/token"
-	subscriptionclient "github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -32,10 +32,10 @@ import (
 
 // AdminHandler provides basic tenant/client admin APIs.
 type AdminHandler struct {
-	ent    *ent.Client
-	logger *zap.Logger
-	entSvc *entitlements.Service
-	useSvc *usage.Service
+	ent          *ent.Client
+	logger       *zap.Logger
+	entSvc       *entitlements.Service
+	useSvc       *usage.Service
 	tokens       *token.Service
 	integrations *integrations.Service
 	subClient    *subscriptionclient.Client
@@ -157,34 +157,34 @@ func (h *AdminHandler) publishTenantLifecycleEvent(ctx context.Context, t *ent.T
 // can POST/PUT a full tenant object without triggering DisallowUnknownFields.
 // Fields the update handler ignores (status, subscription_*) are read-only.
 type tenantRequest struct {
-	ID               string                 `json:"id,omitempty"`
-	Name             string                 `json:"name"`
-	Slug             string                 `json:"slug"`
-	Status           string                 `json:"status,omitempty"` // read-only; ignored on update
-	IsDemo           *bool                  `json:"is_demo,omitempty"` // platform-admin only; excludes from platform revenue
-	UseCase          string                 `json:"use_case,omitempty"`
-	UseCases         []string               `json:"use_cases,omitempty"`
-	ContactEmail     string                 `json:"contact_email,omitempty"`
-	ContactPhone     string                 `json:"contact_phone,omitempty"`
-	SubscriptionPlan string                 `json:"subscription_plan,omitempty"`
-	SubscriptionStatus string               `json:"subscription_status,omitempty"`
-	SubscriptionExpiresAt *string            `json:"subscription_expires_at,omitempty"`
-	HQBranchName     string                 `json:"hq_branch_name,omitempty"`
-	LogoURL          string                 `json:"logo_url,omitempty"`
-	Website          string                 `json:"website,omitempty"`
-	BrandColors      map[string]any         `json:"brand_colors,omitempty"`
-	OrgSize          string                 `json:"org_size,omitempty"`
-	Country          string                 `json:"country,omitempty"`
-	Timezone         string                 `json:"timezone,omitempty"`
-	TierLimits       map[string]any         `json:"tier_limits,omitempty"`
-	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+	ID                    string                 `json:"id,omitempty"`
+	Name                  string                 `json:"name"`
+	Slug                  string                 `json:"slug"`
+	Status                string                 `json:"status,omitempty"`  // read-only; ignored on update
+	IsDemo                *bool                  `json:"is_demo,omitempty"` // platform-admin only; excludes from platform revenue
+	UseCase               string                 `json:"use_case,omitempty"`
+	UseCases              []string               `json:"use_cases,omitempty"`
+	ContactEmail          string                 `json:"contact_email,omitempty"`
+	ContactPhone          string                 `json:"contact_phone,omitempty"`
+	SubscriptionPlan      string                 `json:"subscription_plan,omitempty"`
+	SubscriptionStatus    string                 `json:"subscription_status,omitempty"`
+	SubscriptionExpiresAt *string                `json:"subscription_expires_at,omitempty"`
+	HQBranchName          string                 `json:"hq_branch_name,omitempty"`
+	LogoURL               string                 `json:"logo_url,omitempty"`
+	Website               string                 `json:"website,omitempty"`
+	BrandColors           map[string]any         `json:"brand_colors,omitempty"`
+	OrgSize               string                 `json:"org_size,omitempty"`
+	Country               string                 `json:"country,omitempty"`
+	Timezone              string                 `json:"timezone,omitempty"`
+	TierLimits            map[string]any         `json:"tier_limits,omitempty"`
+	Metadata              map[string]interface{} `json:"metadata,omitempty"`
 	// Tax / KRA compliance (Zoho Books-style). Pointers so update can tell
 	// "field omitted" (nil) from "explicitly cleared" (empty/false).
 	TaxPin          *string `json:"tax_pin,omitempty"`           // KRA PIN
 	VatRegistered   *bool   `json:"vat_registered,omitempty"`    // registered for VAT?
 	VatRegisteredOn *string `json:"vat_registered_on,omitempty"` // ISO date (YYYY-MM-DD)
-	CreatedAt        *string                `json:"created_at,omitempty"`
-	UpdatedAt        *string                `json:"updated_at,omitempty"`
+	CreatedAt       *string `json:"created_at,omitempty"`
+	UpdatedAt       *string `json:"updated_at,omitempty"`
 }
 
 // parseTenantTaxDate parses an optional ISO date/timestamp string into *time.Time.
@@ -331,12 +331,12 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		h.logger.Warn("failed to create default HQ outlet", zap.String("tenant_id", t.ID.String()), zap.Error(err))
 	} else {
 		h.publishEvent(r.Context(), t.ID, "auth.outlet", hqOutlet.ID, "created", map[string]any{
-			"outlet_id":  hqOutlet.ID.String(),
-			"tenant_id":  t.ID.String(),
-			"code":       hqOutlet.Code,
-			"name":       hqOutlet.Name,
-			"use_case":   hqOutlet.UseCase,
-			"is_hq":      hqOutlet.IsHq,
+			"outlet_id": hqOutlet.ID.String(),
+			"tenant_id": t.ID.String(),
+			"code":      hqOutlet.Code,
+			"name":      hqOutlet.Name,
+			"use_case":  hqOutlet.UseCase,
+			"is_hq":     hqOutlet.IsHq,
 		})
 	}
 
@@ -480,12 +480,12 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 		h.logger.Warn("failed to create default HQ outlet (public)", zap.String("tenant_id", t.ID.String()), zap.Error(pubErr))
 	} else {
 		h.publishEvent(r.Context(), t.ID, "auth.outlet", hqOutletPub.ID, "created", map[string]any{
-			"outlet_id":  hqOutletPub.ID.String(),
-			"tenant_id":  t.ID.String(),
-			"code":       hqOutletPub.Code,
-			"name":       hqOutletPub.Name,
-			"use_case":   hqOutletPub.UseCase,
-			"is_hq":      hqOutletPub.IsHq,
+			"outlet_id": hqOutletPub.ID.String(),
+			"tenant_id": t.ID.String(),
+			"code":      hqOutletPub.Code,
+			"name":      hqOutletPub.Name,
+			"use_case":  hqOutletPub.UseCase,
+			"is_hq":     hqOutletPub.IsHq,
 		})
 	}
 
@@ -1088,28 +1088,28 @@ func (h *AdminHandler) IncrementUsage(w http.ResponseWriter, r *http.Request) {
 
 // Integration Config endpoints
 type integrationConfigRequest struct {
-	TenantID            string            `json:"tenant_id,omitempty"`
-	Name                string            `json:"name"`
-	DisplayName         string            `json:"display_name"`
-	Description         string            `json:"description,omitempty"`
-	BaseURL             string            `json:"base_url,omitempty"`
-	Credentials         map[string]string `json:"credentials"`
-	Endpoints           map[string]string `json:"endpoints,omitempty"`
-	IsActive            bool              `json:"is_active"`
-	Environment         string            `json:"environment,omitempty"`
-}
-
-type integrationConfigResponse struct {
-	ID          string            `json:"id"`
-	TenantID    *string           `json:"tenant_id,omitempty"`
+	TenantID    string            `json:"tenant_id,omitempty"`
 	Name        string            `json:"name"`
 	DisplayName string            `json:"display_name"`
 	Description string            `json:"description,omitempty"`
+	BaseURL     string            `json:"base_url,omitempty"`
+	Credentials map[string]string `json:"credentials"`
+	Endpoints   map[string]string `json:"endpoints,omitempty"`
 	IsActive    bool              `json:"is_active"`
-	Status      string            `json:"status"`
-	Environment string            `json:"environment"`
-	CreatedAt   string            `json:"created_at"`
-	UpdatedAt   string            `json:"updated_at"`
+	Environment string            `json:"environment,omitempty"`
+}
+
+type integrationConfigResponse struct {
+	ID          string  `json:"id"`
+	TenantID    *string `json:"tenant_id,omitempty"`
+	Name        string  `json:"name"`
+	DisplayName string  `json:"display_name"`
+	Description string  `json:"description,omitempty"`
+	IsActive    bool    `json:"is_active"`
+	Status      string  `json:"status"`
+	Environment string  `json:"environment"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
 }
 
 // platformOnlyIntegrations are integrations whose credentials MUST live at
@@ -1123,8 +1123,9 @@ var platformOnlyIntegrations = map[string]bool{
 	"microsoft": true,
 	"github":    true,
 	// System keys must also stay platform-wide.
-	"system_encryption_key": true,
-	"subscription_api_key":  true,
+	"system_encryption_key":              true,
+	"subscription_api_key":               true,
+	platformAlertChannelsIntegrationName: true,
 }
 
 func (h *AdminHandler) CreateIntegrationConfig(w http.ResponseWriter, r *http.Request) {
@@ -1299,6 +1300,35 @@ func (h *AdminHandler) UpdateIntegrationStatus(w http.ResponseWriter, r *http.Re
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// platformAlertChannelsIntegrationName is the IntegrationConfig name platform
+// admins use (via the existing generic integrations CRUD, POST /admin/integrations)
+// to configure where fleet-health-watcher sends alerts — mirrors how OAuth
+// provider credentials are already managed, per the 2026-08-16 incident
+// follow-up decision to make this admin-UI-configurable rather than a bare
+// kubectl-managed secret.
+const platformAlertChannelsIntegrationName = "platform_alert_channels"
+
+// S2SPlatformAlertSettings serves GET /api/v1/s2s/platform-alert-settings
+// (X-API-Key gated, see requireInternalKey in router.go) for the
+// fleet-health-watcher CronJob to fetch the admin-configured Slack webhook
+// URL / alert email. Returns an empty object (200) rather than 404 when
+// nothing has been configured yet — the caller falls back to its own static
+// default in that case, so this is never a hard dependency for alerting to
+// work at all.
+func (h *AdminHandler) S2SPlatformAlertSettings(w http.ResponseWriter, r *http.Request) {
+	creds, err := h.integrations.GetDecryptedConfig(r.Context(), nil, platformAlertChannelsIntegrationName)
+	if err != nil {
+		// Not configured yet, or decryption unavailable — degrade to empty,
+		// never error, so the caller's static fallback still fires.
+		writeJSON(w, http.StatusOK, map[string]string{})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"slack_webhook_url": creds["slack_webhook_url"],
+		"alert_email_to":    creds["alert_email_to"],
+	})
 }
 
 // Tenant Member Management Endpoints

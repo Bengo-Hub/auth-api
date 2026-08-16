@@ -96,6 +96,7 @@ type AuthHandlers struct {
 	AdminCreateIntegrationConfig       http.HandlerFunc
 	AdminGetIntegrationConfig          http.HandlerFunc
 	AdminListIntegrationConfigs        http.HandlerFunc
+	S2SPlatformAlertSettings           http.HandlerFunc
 	AdminDeleteIntegrationConfig       http.HandlerFunc
 	AdminUpdateIntegrationStatus       http.HandlerFunc
 	DeveloperListClients               http.HandlerFunc
@@ -572,6 +573,14 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// here; idempotent upsert by role_code (no duplicate roles).
 			if deps.RBACHandler != nil {
 				r.Post("/api/v1/s2s/roles/sync", deps.RBACHandler.SyncServiceRoles)
+			}
+			// fleet-health-watcher's configured alert channels (Slack webhook /
+			// alert email) — admin-configured via the existing generic
+			// integrations CRUD (POST /admin/integrations, name
+			// "platform_alert_channels"). See admin_handler.go for the
+			// fallback-friendly contract (always 200, empty object if unset).
+			if deps.AuthHandlers.S2SPlatformAlertSettings != nil {
+				r.Get("/api/v1/s2s/platform-alert-settings", deps.AuthHandlers.S2SPlatformAlertSettings)
 			}
 		})
 	}
