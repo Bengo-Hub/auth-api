@@ -60,6 +60,14 @@ type AuthService interface {
 	EmailTakenByOther(ctx context.Context, email string, userID uuid.UUID) bool
 	VerifyAndSetUserEmail(ctx context.Context, userID uuid.UUID, email string) error
 	StartVerificationClock(ctx context.Context, u *ent.User) *ent.User
+	ListUserEmails(ctx context.Context, userID uuid.UUID) ([]*ent.UserEmail, error)
+	AddVerifiedUserEmail(ctx context.Context, userID uuid.UUID, email string) (*ent.UserEmail, error)
+	SetPrimaryUserEmail(ctx context.Context, userID, emailID uuid.UUID) error
+	DeleteUserEmail(ctx context.Context, userID, emailID uuid.UUID) error
+	ListUserPhones(ctx context.Context, userID uuid.UUID) ([]*ent.UserPhone, error)
+	AddUserPhone(ctx context.Context, userID uuid.UUID, phone string) (*ent.UserPhone, error)
+	SetPrimaryUserPhone(ctx context.Context, userID, phoneID uuid.UUID) error
+	DeleteUserPhone(ctx context.Context, userID, phoneID uuid.UUID) error
 }
 
 // UseCaseService describes the use case logic capabilities.
