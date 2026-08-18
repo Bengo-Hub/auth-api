@@ -198,7 +198,6 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	backupDestUploader := destination.NewUploader(backupDestStore, logger)
 	backupDestHandler := handlers.NewBackupDestinationHandler(backupDestStore, backupDestUploader, logger)
 	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, subClient, logger)
-	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 	appHandler := handlers.NewAppHandler(entClient, logger)
 	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger)
@@ -225,8 +224,9 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	k8sMonitorHandler := handlers.NewK8sMonitorHandler(k8sMonitorClient, logger)
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
-		OutletHandler:       outletHandler,
-		InternalServiceKey:  cfg.Subscription.APIKey,
+		OutletHandler:          outletHandler,
+		InternalServiceKey:     cfg.Subscription.APIKey,
+		ValidateInternalAppKey: appHandler.IsValidInternalServiceToken,
 		HealthHandler:       handlers.Health,
 		MetricsHandler:      promhttp.Handler(),
 		UserHandler:         userHandler,
@@ -294,6 +294,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminGetClient:                     adminHandler.GetClient,
 			AdminUpdateClient:                  adminHandler.UpdateClient,
 			AdminDeleteClient:                  adminHandler.DeleteClient,
+			AdminRotateClientSecret:            adminHandler.RotateClientSecret,
 			AdminRotateKeys:                    adminHandler.RotateKeys,
 			PublicCreateTenant:                 adminHandler.CreateTenantPublic,
 			PublicGetTenantBySlug:              adminHandler.GetTenantBySlugPublic,
@@ -313,8 +314,6 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			S2SListTenantUsers:       adminHandler.S2SListTenantUsers,
 			S2SUserEmailVerification: adminHandler.S2SUserEmailVerification,
 			SetUserServicePIN:        adminHandler.SetUserServicePIN,
-			DeveloperListClients:     developerHandler.ListClients,
-			DeveloperCreateClient:    developerHandler.CreateClient,
 			// API Key management (service accounts)
 			AdminCreateAPIKey: apiKeyHandler.CreateAPIKey,
 			AdminListAPIKeys:  apiKeyHandler.ListAPIKeys,
@@ -328,6 +327,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminRevokeApp:      appHandler.RevokeApp,
 			AdminDeleteApp:      appHandler.DeleteApp,
 			AdminRotateAppToken: appHandler.RotateToken,
+			AdminSuspendApp:     appHandler.SuspendApp,
+			AdminResumeApp:      appHandler.ResumeApp,
 			// OTP (email verification for Vera AI ticket flow)
 			SendOTP:   authHandler.SendOTP,
 			VerifyOTP: authHandler.VerifyOTP,

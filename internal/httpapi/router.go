@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -42,6 +43,12 @@ type RouterDeps struct {
 	MetricsHandler      http.Handler
 	// InternalServiceKey gates internal S2S endpoints (X-API-Key header).
 	InternalServiceKey string
+	// ValidateInternalAppKey is the dual-mode companion to InternalServiceKey: a
+	// provided X-API-Key that doesn't match the static env value is also checked
+	// against a live, rotatable platform App (handlers.InternalServiceKeyScope),
+	// so the fleet's internal credential is manageable via Apps & Keys instead of
+	// only ever being an opaque static secret. Optional — nil skips this check.
+	ValidateInternalAppKey func(context.Context, string) bool
 }
 
 // AuthHandlers groups the HTTP handlers for auth routes.
@@ -108,8 +115,7 @@ type AuthHandlers struct {
 	S2SPlatformAlertSettings           http.HandlerFunc
 	AdminDeleteIntegrationConfig       http.HandlerFunc
 	AdminUpdateIntegrationStatus       http.HandlerFunc
-	DeveloperListClients               http.HandlerFunc
-	DeveloperCreateClient              http.HandlerFunc
+	AdminRotateClientSecret            http.HandlerFunc
 	// API Key management and validation
 	AdminCreateAPIKey http.HandlerFunc
 	AdminListAPIKeys  http.HandlerFunc
@@ -123,6 +129,8 @@ type AuthHandlers struct {
 	AdminRevokeApp      http.HandlerFunc
 	AdminDeleteApp      http.HandlerFunc
 	AdminRotateAppToken http.HandlerFunc
+	AdminSuspendApp     http.HandlerFunc
+	AdminResumeApp      http.HandlerFunc
 	// Note: app token validation reuses ValidateAPIKey (detects bng_app_* prefix)
 	// Session management
 	ListSessions      http.HandlerFunc
@@ -379,7 +387,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// do for /api/v1/s2s/*.
 			if deps.InternalServiceKey != "" {
 				r.Group(func(r chi.Router) {
-					r.Use(requireInternalKey(deps.InternalServiceKey))
+					r.Use(requireInternalKey(deps.InternalServiceKey, deps.ValidateInternalAppKey))
 					r.Post("/", deps.AuthHandlers.PublicCreateTenant)
 				})
 			}
@@ -447,6 +455,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Get("/", deps.AuthHandlers.AdminGetClient)
 					r.Patch("/", deps.AuthHandlers.AdminUpdateClient)
 					r.Delete("/", deps.AuthHandlers.AdminDeleteClient)
+					if deps.AuthHandlers.AdminRotateClientSecret != nil {
+						r.Post("/rotate-secret", deps.AuthHandlers.AdminRotateClientSecret)
+					}
 				})
 				r.Post("/entitlements", deps.AuthHandlers.AdminUpsertEntitlement)
 				r.Get("/entitlements", deps.AuthHandlers.AdminListEntitlements)
@@ -471,6 +482,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 						r.Delete("/", deps.AuthHandlers.AdminDeleteApp)
 						r.Post("/rotate", deps.AuthHandlers.AdminRotateAppToken)
 						r.Post("/revoke", deps.AuthHandlers.AdminRevokeApp)
+						if deps.AuthHandlers.AdminSuspendApp != nil {
+							r.Post("/suspend", deps.AuthHandlers.AdminSuspendApp)
+							r.Post("/resume", deps.AuthHandlers.AdminResumeApp)
+						}
 					})
 				}
 				// Platform backup management (platform admins only)
@@ -527,13 +542,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 				}
 			})
 		})
-		r.Route("/developer", func(r chi.Router) {
-			if deps.RequireAuthHandler != nil {
-				r.Use(deps.RequireAuthHandler)
-			}
-			r.Get("/clients", deps.AuthHandlers.DeveloperListClients)
-			r.Post("/clients", deps.AuthHandlers.DeveloperCreateClient)
-		})
+		// Note: a prior redundant "/developer/clients" GET/POST-only route (backed by
+		// developer_handler.go) was removed 2026-08-18 — it duplicated AdminCreateClient/
+		// AdminListClients above with no update/delete/rotate at all, and the frontend's
+		// delete button called a route that was never registered. The admin client CRUD
+		// above (now with secret generation + rotation) is the one consolidated path.
 
 		// Legal documents (public read, admin write)
 		if deps.LegalHandler != nil {
@@ -589,7 +602,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 	// Not exposed via CORS; cluster-internal callers only.
 	if deps.InternalServiceKey != "" {
 		r.Group(func(r chi.Router) {
-			r.Use(requireInternalKey(deps.InternalServiceKey))
+			r.Use(requireInternalKey(deps.InternalServiceKey, deps.ValidateInternalAppKey))
 			if deps.OutletHandler != nil {
 				r.Post("/internal/outlets/republish", deps.OutletHandler.RepublishOutletEvents)
 			}
@@ -634,15 +647,22 @@ func NewRouter(deps RouterDeps) http.Handler {
 	return r
 }
 
-// requireInternalKey returns middleware that validates the X-API-Key header.
-func requireInternalKey(key string) func(http.Handler) http.Handler {
+// requireInternalKey returns middleware that validates the X-API-Key header
+// against the static env-configured key OR, when provided, a live rotatable
+// platform App carrying handlers.InternalServiceKeyScope (see ValidateInternalAppKey).
+func requireInternalKey(key string, validateApp func(context.Context, string) bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get("X-API-Key") != key {
-				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			provided := r.Header.Get("X-API-Key")
+			if provided != "" && key != "" && provided == key {
+				next.ServeHTTP(w, r)
 				return
 			}
-			next.ServeHTTP(w, r)
+			if validateApp != nil && validateApp(r.Context(), provided) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 		})
 	}
 }

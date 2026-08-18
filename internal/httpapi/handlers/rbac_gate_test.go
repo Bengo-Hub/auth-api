@@ -161,33 +161,18 @@ func TestRBACHandler_RequireAdmin(t *testing.T) {
 	}
 }
 
-// Developer OAuth client creation and platform backup endpoints previously
-// had NO authorization check at all — any authenticated user, any tenant,
-// any role, could mint a live OAuth client or list/download every tenant's
-// database backup. These assert the newly-added rejection actually fires,
-// using zero-value handler structs (safe here: every rejection returns
+// Platform backup endpoints previously had NO authorization check at all —
+// any authenticated user, any tenant, any role, could list/download every
+// tenant's database backup. This asserts the newly-added rejection actually
+// fires, using a zero-value handler struct (safe here: rejection returns
 // before the handler touches its nil ent/store/settings dependencies).
-
-func TestDeveloperHandler_RejectsNonPlatformOwner(t *testing.T) {
-	h := &DeveloperHandler{}
-	nonOwner := &token.Claims{Roles: []string{"admin"}, TenantID: "77777777-7777-7777-7777-777777777777"}
-
-	for _, tc := range []struct {
-		name string
-		fn   func(http.ResponseWriter, *http.Request)
-	}{
-		{"ListClients", h.ListClients},
-		{"CreateClient", h.CreateClient},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
-			tc.fn(rec, reqWithClaims(nonOwner))
-			if rec.Code != http.StatusForbidden {
-				t.Errorf("%s: status = %d, want %d (non-platform-owner must be rejected)", tc.name, rec.Code, http.StatusForbidden)
-			}
-		})
-	}
-}
+//
+// (A former sibling test here, TestDeveloperHandler_RejectsNonPlatformOwner,
+// covered a redundant `/api/v1/developer/clients` OAuth-client-creation
+// handler that has since been deleted and consolidated into AdminHandler's
+// client CRUD — that authorization gate is covered by
+// TestAdminHandler_RequireAdmin above, which exercises the same
+// h.requireAdmin(...) call CreateClient/RotateClientSecret both use.)
 
 func TestBackupHandler_RejectsNonPlatformOwner(t *testing.T) {
 	h := &BackupHandler{}
