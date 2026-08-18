@@ -59,6 +59,7 @@ type AppResponse struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
 	AppType     string    `json:"app_type"`
+	Environment string    `json:"environment"`
 	ClientID    string    `json:"client_id"`
 	KeyPrefix   string    `json:"key_prefix"`
 	TenantID    *string   `json:"tenant_id,omitempty"`
@@ -122,6 +123,7 @@ func appToResponse(a *ent.App) AppResponse {
 		Name:        a.Name,
 		Description: a.Description,
 		AppType:     string(a.AppType),
+		Environment: string(a.Environment),
 		ClientID:    a.ClientID,
 		KeyPrefix:   a.KeyPrefix,
 		Scopes:      a.Scopes,
@@ -599,6 +601,54 @@ func (h *AppHandler) ResumeApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.logger.Info("app resumed", zap.String("app_id", appID.String()), zap.String("resumed_by", claims.Subject))
+	writeJSON(w, http.StatusOK, appToResponse(updated))
+}
+
+// PromoteToProduction switches a sandbox App to production, unlocking live API access for its
+// holder. Platform-admin-only "manual v1" gate — a real automated per-service go-live review
+// (like the eTIMS certification checklist in treasury-api) is future work generalizing that
+// pattern across the developer portal; for now a human reviews the request out-of-band and
+// promotes by hand. One-way: there is no demote-to-sandbox action, mirroring how a production
+// credential elsewhere in the fleet is never silently downgraded.
+func (h *AppHandler) PromoteToProduction(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	if !requirePlatformAdmin(claims) {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin required to promote an app to production", nil)
+		return
+	}
+	appID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid app id", nil)
+		return
+	}
+	existing, err := h.ent.App.Get(r.Context(), appID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "app not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to get app", nil)
+		return
+	}
+	if existing.Environment == app.EnvironmentProduction {
+		writeError(w, http.StatusConflict, "invalid_state", "app is already in production", nil)
+		return
+	}
+	if existing.Status != app.StatusActive {
+		writeError(w, http.StatusConflict, "invalid_state", "only an active app can be promoted", nil)
+		return
+	}
+	updated, err := h.ent.App.UpdateOneID(appID).SetEnvironment(app.EnvironmentProduction).Save(r.Context())
+	if err != nil {
+		h.logger.Error("promote app to production", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to promote app", nil)
+		return
+	}
+	h.logger.Info("app promoted to production", zap.String("app_id", appID.String()), zap.String("promoted_by", claims.Subject))
 	writeJSON(w, http.StatusOK, appToResponse(updated))
 }
 

@@ -136,6 +136,7 @@ type AuthHandlers struct {
 	AdminRotateAppToken http.HandlerFunc
 	AdminSuspendApp     http.HandlerFunc
 	AdminResumeApp      http.HandlerFunc
+	AdminPromoteApp     http.HandlerFunc
 	// Note: app token validation reuses ValidateAPIKey (detects bng_app_* prefix)
 	// Session management
 	ListSessions      http.HandlerFunc
@@ -495,6 +496,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 						if deps.AuthHandlers.AdminSuspendApp != nil {
 							r.Post("/suspend", deps.AuthHandlers.AdminSuspendApp)
 							r.Post("/resume", deps.AuthHandlers.AdminResumeApp)
+						}
+						if deps.AuthHandlers.AdminPromoteApp != nil {
+							r.Post("/promote", deps.AuthHandlers.AdminPromoteApp)
 						}
 					})
 				}

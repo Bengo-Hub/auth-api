@@ -25,6 +25,8 @@ type App struct {
 	Description string `json:"description,omitempty"`
 	// platform = cross-tenant S2S; tenant = scoped to a single tenant
 	AppType app.AppType `json:"app_type,omitempty"`
+	// sandbox = test credentials, no production API access; production = live, requires promotion
+	Environment app.Environment `json:"environment,omitempty"`
 	// Owning tenant (null for platform-level apps)
 	TenantID *uuid.UUID `json:"tenant_id,omitempty"`
 	// User who created this app
@@ -67,7 +69,7 @@ func (*App) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case app.FieldScopes, app.FieldAllowedIps:
 			values[i] = new([]byte)
-		case app.FieldName, app.FieldDescription, app.FieldAppType, app.FieldClientID, app.FieldKeyHash, app.FieldKeyPrefix, app.FieldStatus, app.FieldLastUsedIP, app.FieldRevokedReason:
+		case app.FieldName, app.FieldDescription, app.FieldAppType, app.FieldEnvironment, app.FieldClientID, app.FieldKeyHash, app.FieldKeyPrefix, app.FieldStatus, app.FieldLastUsedIP, app.FieldRevokedReason:
 			values[i] = new(sql.NullString)
 		case app.FieldExpiresAt, app.FieldLastUsedAt, app.FieldCreatedAt, app.FieldUpdatedAt, app.FieldRevokedAt:
 			values[i] = new(sql.NullTime)
@@ -111,6 +113,12 @@ func (_m *App) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field app_type", values[i])
 			} else if value.Valid {
 				_m.AppType = app.AppType(value.String)
+			}
+		case app.FieldEnvironment:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field environment", values[i])
+			} else if value.Valid {
+				_m.Environment = app.Environment(value.String)
 			}
 		case app.FieldTenantID:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -255,6 +263,9 @@ func (_m *App) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("app_type=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AppType))
+	builder.WriteString(", ")
+	builder.WriteString("environment=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Environment))
 	builder.WriteString(", ")
 	if v := _m.TenantID; v != nil {
 		builder.WriteString("tenant_id=")

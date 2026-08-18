@@ -21,6 +21,8 @@ const (
 	FieldDescription = "description"
 	// FieldAppType holds the string denoting the app_type field in the database.
 	FieldAppType = "app_type"
+	// FieldEnvironment holds the string denoting the environment field in the database.
+	FieldEnvironment = "environment"
 	// FieldTenantID holds the string denoting the tenant_id field in the database.
 	FieldTenantID = "tenant_id"
 	// FieldCreatedBy holds the string denoting the created_by field in the database.
@@ -61,6 +63,7 @@ var Columns = []string{
 	FieldName,
 	FieldDescription,
 	FieldAppType,
+	FieldEnvironment,
 	FieldTenantID,
 	FieldCreatedBy,
 	FieldClientID,
@@ -133,6 +136,32 @@ func AppTypeValidator(at AppType) error {
 	}
 }
 
+// Environment defines the type for the "environment" enum field.
+type Environment string
+
+// EnvironmentSandbox is the default value of the Environment enum.
+const DefaultEnvironment = EnvironmentSandbox
+
+// Environment values.
+const (
+	EnvironmentSandbox    Environment = "sandbox"
+	EnvironmentProduction Environment = "production"
+)
+
+func (e Environment) String() string {
+	return string(e)
+}
+
+// EnvironmentValidator is a validator for the "environment" field enum values. It is called by the builders before save.
+func EnvironmentValidator(e Environment) error {
+	switch e {
+	case EnvironmentSandbox, EnvironmentProduction:
+		return nil
+	default:
+		return fmt.Errorf("app: invalid enum value for environment field: %q", e)
+	}
+}
+
 // Status defines the type for the "status" enum field.
 type Status string
 
@@ -182,6 +211,11 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByAppType orders the results by the app_type field.
 func ByAppType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAppType, opts...).ToFunc()
+}
+
+// ByEnvironment orders the results by the environment field.
+func ByEnvironment(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEnvironment, opts...).ToFunc()
 }
 
 // ByTenantID orders the results by the tenant_id field.

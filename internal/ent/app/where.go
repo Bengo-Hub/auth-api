@@ -285,6 +285,26 @@ func AppTypeNotIn(vs ...AppType) predicate.App {
 	return predicate.App(sql.FieldNotIn(FieldAppType, vs...))
 }
 
+// EnvironmentEQ applies the EQ predicate on the "environment" field.
+func EnvironmentEQ(v Environment) predicate.App {
+	return predicate.App(sql.FieldEQ(FieldEnvironment, v))
+}
+
+// EnvironmentNEQ applies the NEQ predicate on the "environment" field.
+func EnvironmentNEQ(v Environment) predicate.App {
+	return predicate.App(sql.FieldNEQ(FieldEnvironment, v))
+}
+
+// EnvironmentIn applies the In predicate on the "environment" field.
+func EnvironmentIn(vs ...Environment) predicate.App {
+	return predicate.App(sql.FieldIn(FieldEnvironment, vs...))
+}
+
+// EnvironmentNotIn applies the NotIn predicate on the "environment" field.
+func EnvironmentNotIn(vs ...Environment) predicate.App {
+	return predicate.App(sql.FieldNotIn(FieldEnvironment, vs...))
+}
+
 // TenantIDEQ applies the EQ predicate on the "tenant_id" field.
 func TenantIDEQ(v uuid.UUID) predicate.App {
 	return predicate.App(sql.FieldEQ(FieldTenantID, v))

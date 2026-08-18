@@ -83,23 +83,23 @@ func init() {
 	// app.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	app.NameValidator = appDescName.Validators[0].(func(string) error)
 	// appDescClientID is the schema descriptor for client_id field.
-	appDescClientID := appFields[6].Descriptor()
+	appDescClientID := appFields[7].Descriptor()
 	// app.ClientIDValidator is a validator for the "client_id" field. It is called by the builders before save.
 	app.ClientIDValidator = appDescClientID.Validators[0].(func(string) error)
 	// appDescKeyHash is the schema descriptor for key_hash field.
-	appDescKeyHash := appFields[7].Descriptor()
+	appDescKeyHash := appFields[8].Descriptor()
 	// app.KeyHashValidator is a validator for the "key_hash" field. It is called by the builders before save.
 	app.KeyHashValidator = appDescKeyHash.Validators[0].(func(string) error)
 	// appDescKeyPrefix is the schema descriptor for key_prefix field.
-	appDescKeyPrefix := appFields[8].Descriptor()
+	appDescKeyPrefix := appFields[9].Descriptor()
 	// app.KeyPrefixValidator is a validator for the "key_prefix" field. It is called by the builders before save.
 	app.KeyPrefixValidator = appDescKeyPrefix.Validators[0].(func(string) error)
 	// appDescCreatedAt is the schema descriptor for created_at field.
-	appDescCreatedAt := appFields[15].Descriptor()
+	appDescCreatedAt := appFields[16].Descriptor()
 	// app.DefaultCreatedAt holds the default value on creation for the created_at field.
 	app.DefaultCreatedAt = appDescCreatedAt.Default.(func() time.Time)
 	// appDescUpdatedAt is the schema descriptor for updated_at field.
-	appDescUpdatedAt := appFields[16].Descriptor()
+	appDescUpdatedAt := appFields[17].Descriptor()
 	// app.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	app.DefaultUpdatedAt = appDescUpdatedAt.Default.(func() time.Time)
 	// app.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

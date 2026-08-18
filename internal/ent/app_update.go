@@ -78,6 +78,20 @@ func (_u *AppUpdate) SetNillableAppType(v *app.AppType) *AppUpdate {
 	return _u
 }
 
+// SetEnvironment sets the "environment" field.
+func (_u *AppUpdate) SetEnvironment(v app.Environment) *AppUpdate {
+	_u.mutation.SetEnvironment(v)
+	return _u
+}
+
+// SetNillableEnvironment sets the "environment" field if the given value is not nil.
+func (_u *AppUpdate) SetNillableEnvironment(v *app.Environment) *AppUpdate {
+	if v != nil {
+		_u.SetEnvironment(*v)
+	}
+	return _u
+}
+
 // SetTenantID sets the "tenant_id" field.
 func (_u *AppUpdate) SetTenantID(v uuid.UUID) *AppUpdate {
 	_u.mutation.SetTenantID(v)
@@ -369,6 +383,11 @@ func (_u *AppUpdate) check() error {
 			return &ValidationError{Name: "app_type", err: fmt.Errorf(`ent: validator failed for field "App.app_type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Environment(); ok {
+		if err := app.EnvironmentValidator(v); err != nil {
+			return &ValidationError{Name: "environment", err: fmt.Errorf(`ent: validator failed for field "App.environment": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ClientID(); ok {
 		if err := app.ClientIDValidator(v); err != nil {
 			return &ValidationError{Name: "client_id", err: fmt.Errorf(`ent: validator failed for field "App.client_id": %w`, err)}
@@ -415,6 +434,9 @@ func (_u *AppUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AppType(); ok {
 		_spec.SetField(app.FieldAppType, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Environment(); ok {
+		_spec.SetField(app.FieldEnvironment, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.TenantID(); ok {
 		_spec.SetField(app.FieldTenantID, field.TypeUUID, value)
@@ -559,6 +581,20 @@ func (_u *AppUpdateOne) SetAppType(v app.AppType) *AppUpdateOne {
 func (_u *AppUpdateOne) SetNillableAppType(v *app.AppType) *AppUpdateOne {
 	if v != nil {
 		_u.SetAppType(*v)
+	}
+	return _u
+}
+
+// SetEnvironment sets the "environment" field.
+func (_u *AppUpdateOne) SetEnvironment(v app.Environment) *AppUpdateOne {
+	_u.mutation.SetEnvironment(v)
+	return _u
+}
+
+// SetNillableEnvironment sets the "environment" field if the given value is not nil.
+func (_u *AppUpdateOne) SetNillableEnvironment(v *app.Environment) *AppUpdateOne {
+	if v != nil {
+		_u.SetEnvironment(*v)
 	}
 	return _u
 }
@@ -867,6 +903,11 @@ func (_u *AppUpdateOne) check() error {
 			return &ValidationError{Name: "app_type", err: fmt.Errorf(`ent: validator failed for field "App.app_type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Environment(); ok {
+		if err := app.EnvironmentValidator(v); err != nil {
+			return &ValidationError{Name: "environment", err: fmt.Errorf(`ent: validator failed for field "App.environment": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ClientID(); ok {
 		if err := app.ClientIDValidator(v); err != nil {
 			return &ValidationError{Name: "client_id", err: fmt.Errorf(`ent: validator failed for field "App.client_id": %w`, err)}
@@ -930,6 +971,9 @@ func (_u *AppUpdateOne) sqlSave(ctx context.Context) (_node *App, err error) {
 	}
 	if value, ok := _u.mutation.AppType(); ok {
 		_spec.SetField(app.FieldAppType, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Environment(); ok {
+		_spec.SetField(app.FieldEnvironment, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.TenantID(); ok {
 		_spec.SetField(app.FieldTenantID, field.TypeUUID, value)

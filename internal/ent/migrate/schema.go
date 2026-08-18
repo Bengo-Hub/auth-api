@@ -62,6 +62,7 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Nullable: true},
 		{Name: "app_type", Type: field.TypeEnum, Enums: []string{"platform", "tenant"}, Default: "tenant"},
+		{Name: "environment", Type: field.TypeEnum, Enums: []string{"sandbox", "production"}, Default: "sandbox"},
 		{Name: "tenant_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "client_id", Type: field.TypeString, Unique: true},
@@ -87,27 +88,27 @@ var (
 			{
 				Name:    "app_key_hash",
 				Unique:  true,
-				Columns: []*schema.Column{AppsColumns[7]},
+				Columns: []*schema.Column{AppsColumns[8]},
 			},
 			{
 				Name:    "app_client_id",
 				Unique:  true,
-				Columns: []*schema.Column{AppsColumns[6]},
+				Columns: []*schema.Column{AppsColumns[7]},
 			},
 			{
 				Name:    "app_tenant_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{AppsColumns[4], AppsColumns[11]},
+				Columns: []*schema.Column{AppsColumns[5], AppsColumns[12]},
 			},
 			{
 				Name:    "app_app_type_status",
 				Unique:  false,
-				Columns: []*schema.Column{AppsColumns[3], AppsColumns[11]},
+				Columns: []*schema.Column{AppsColumns[3], AppsColumns[12]},
 			},
 			{
 				Name:    "app_status_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{AppsColumns[11], AppsColumns[12]},
+				Columns: []*schema.Column{AppsColumns[12], AppsColumns[13]},
 			},
 		},
 	}

@@ -34,6 +34,10 @@ func (App) Fields() []ent.Field {
 			Values("platform", "tenant").
 			Default("tenant").
 			Comment("platform = cross-tenant S2S; tenant = scoped to a single tenant"),
+		field.Enum("environment").
+			Values("sandbox", "production").
+			Default("sandbox").
+			Comment("sandbox = test credentials, no production API access; production = live, requires promotion"),
 
 		// Ownership
 		field.UUID("tenant_id", uuid.UUID{}).

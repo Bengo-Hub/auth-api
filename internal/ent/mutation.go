@@ -1455,6 +1455,7 @@ type AppMutation struct {
 	name              *string
 	description       *string
 	app_type          *app.AppType
+	environment       *app.Environment
 	tenant_id         *uuid.UUID
 	created_by        *uuid.UUID
 	client_id         *string
@@ -1701,6 +1702,42 @@ func (m *AppMutation) OldAppType(ctx context.Context) (v app.AppType, err error)
 // ResetAppType resets all changes to the "app_type" field.
 func (m *AppMutation) ResetAppType() {
 	m.app_type = nil
+}
+
+// SetEnvironment sets the "environment" field.
+func (m *AppMutation) SetEnvironment(a app.Environment) {
+	m.environment = &a
+}
+
+// Environment returns the value of the "environment" field in the mutation.
+func (m *AppMutation) Environment() (r app.Environment, exists bool) {
+	v := m.environment
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnvironment returns the old "environment" field's value of the App entity.
+// If the App object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AppMutation) OldEnvironment(ctx context.Context) (v app.Environment, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnvironment is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnvironment requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnvironment: %w", err)
+	}
+	return oldValue.Environment, nil
+}
+
+// ResetEnvironment resets all changes to the "environment" field.
+func (m *AppMutation) ResetEnvironment() {
+	m.environment = nil
 }
 
 // SetTenantID sets the "tenant_id" field.
@@ -2426,7 +2463,7 @@ func (m *AppMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AppMutation) Fields() []string {
-	fields := make([]string, 0, 18)
+	fields := make([]string, 0, 19)
 	if m.name != nil {
 		fields = append(fields, app.FieldName)
 	}
@@ -2435,6 +2472,9 @@ func (m *AppMutation) Fields() []string {
 	}
 	if m.app_type != nil {
 		fields = append(fields, app.FieldAppType)
+	}
+	if m.environment != nil {
+		fields = append(fields, app.FieldEnvironment)
 	}
 	if m.tenant_id != nil {
 		fields = append(fields, app.FieldTenantID)
@@ -2495,6 +2535,8 @@ func (m *AppMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case app.FieldAppType:
 		return m.AppType()
+	case app.FieldEnvironment:
+		return m.Environment()
 	case app.FieldTenantID:
 		return m.TenantID()
 	case app.FieldCreatedBy:
@@ -2540,6 +2582,8 @@ func (m *AppMutation) OldField(ctx context.Context, name string) (ent.Value, err
 		return m.OldDescription(ctx)
 	case app.FieldAppType:
 		return m.OldAppType(ctx)
+	case app.FieldEnvironment:
+		return m.OldEnvironment(ctx)
 	case app.FieldTenantID:
 		return m.OldTenantID(ctx)
 	case app.FieldCreatedBy:
@@ -2599,6 +2643,13 @@ func (m *AppMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAppType(v)
+		return nil
+	case app.FieldEnvironment:
+		v, ok := value.(app.Environment)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnvironment(v)
 		return nil
 	case app.FieldTenantID:
 		v, ok := value.(uuid.UUID)
@@ -2825,6 +2876,9 @@ func (m *AppMutation) ResetField(name string) error {
 		return nil
 	case app.FieldAppType:
 		m.ResetAppType()
+		return nil
+	case app.FieldEnvironment:
+		m.ResetEnvironment()
 		return nil
 	case app.FieldTenantID:
 		m.ResetTenantID()

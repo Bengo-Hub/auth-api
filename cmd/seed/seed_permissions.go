@@ -133,6 +133,16 @@ var rolePerms = map[string][]string{
 		"auth.profile.view", "auth.profile.change",
 		"auth.preferences.view", "auth.preferences.change",
 	},
+	// developer: Developer Portal access (apps/API keys/OAuth clients) without any
+	// admin/billing/team-management access. Same baseline as "member" — App/APIKey
+	// management itself is gated by tenant membership, not a permission code (see
+	// AppHandler.CreateApp), so there's no auth.apps.* permission to grant yet; this
+	// role exists so a tenant admin can hand out portal access as its own named tier
+	// instead of granting "admin" wholesale.
+	"developer": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+	},
 	"rider": {
 		"logistics.tasks.view_own", "logistics.tasks.change_own",
 		"logistics.fleet.view",

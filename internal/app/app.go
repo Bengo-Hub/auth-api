@@ -333,6 +333,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminRotateAppToken: appHandler.RotateToken,
 			AdminSuspendApp:     appHandler.SuspendApp,
 			AdminResumeApp:      appHandler.ResumeApp,
+			AdminPromoteApp:     appHandler.PromoteToProduction,
 			// Integration requests (eTIMS + future integrations)
 			CreateIntegrationRequest:      integrationRequestHandler.CreateIntegrationRequest,
 			AdminListIntegrationRequests:  integrationRequestHandler.ListIntegrationRequests,
