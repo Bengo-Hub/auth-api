@@ -369,6 +369,18 @@ func (f UserFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserMutation", m)
 }
 
+// The UserEmailFunc type is an adapter to allow the use of ordinary
+// function as UserEmail mutator.
+type UserEmailFunc func(context.Context, *ent.UserEmailMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserEmailFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserEmailMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserEmailMutation", m)
+}
+
 // The UserIdentityFunc type is an adapter to allow the use of ordinary
 // function as UserIdentity mutator.
 type UserIdentityFunc func(context.Context, *ent.UserIdentityMutation) (ent.Value, error)
@@ -379,6 +391,18 @@ func (f UserIdentityFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserIdentityMutation", m)
+}
+
+// The UserPhoneFunc type is an adapter to allow the use of ordinary
+// function as UserPhone mutator.
+type UserPhoneFunc func(context.Context, *ent.UserPhoneMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserPhoneFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserPhoneMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserPhoneMutation", m)
 }
 
 // The WebAuthnCredentialFunc type is an adapter to allow the use of ordinary

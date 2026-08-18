@@ -36,7 +36,9 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/usagemetric"
 	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/useremail"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/userphone"
 	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 	"github.com/google/uuid"
 )
@@ -881,6 +883,28 @@ func init() {
 	userDescID := userFields[0].Descriptor()
 	// user.DefaultID holds the default value on creation for the id field.
 	user.DefaultID = userDescID.Default.(func() uuid.UUID)
+	useremailFields := schema.UserEmail{}.Fields()
+	_ = useremailFields
+	// useremailDescEmail is the schema descriptor for email field.
+	useremailDescEmail := useremailFields[2].Descriptor()
+	// useremail.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	useremail.EmailValidator = useremailDescEmail.Validators[0].(func(string) error)
+	// useremailDescIsVerified is the schema descriptor for is_verified field.
+	useremailDescIsVerified := useremailFields[3].Descriptor()
+	// useremail.DefaultIsVerified holds the default value on creation for the is_verified field.
+	useremail.DefaultIsVerified = useremailDescIsVerified.Default.(bool)
+	// useremailDescIsPrimary is the schema descriptor for is_primary field.
+	useremailDescIsPrimary := useremailFields[5].Descriptor()
+	// useremail.DefaultIsPrimary holds the default value on creation for the is_primary field.
+	useremail.DefaultIsPrimary = useremailDescIsPrimary.Default.(bool)
+	// useremailDescCreatedAt is the schema descriptor for created_at field.
+	useremailDescCreatedAt := useremailFields[6].Descriptor()
+	// useremail.DefaultCreatedAt holds the default value on creation for the created_at field.
+	useremail.DefaultCreatedAt = useremailDescCreatedAt.Default.(func() time.Time)
+	// useremailDescID is the schema descriptor for id field.
+	useremailDescID := useremailFields[0].Descriptor()
+	// useremail.DefaultID holds the default value on creation for the id field.
+	useremail.DefaultID = useremailDescID.Default.(func() uuid.UUID)
 	useridentityFields := schema.UserIdentity{}.Fields()
 	_ = useridentityFields
 	// useridentityDescProvider is the schema descriptor for provider field.
@@ -913,6 +937,28 @@ func init() {
 	useridentityDescID := useridentityFields[0].Descriptor()
 	// useridentity.DefaultID holds the default value on creation for the id field.
 	useridentity.DefaultID = useridentityDescID.Default.(func() uuid.UUID)
+	userphoneFields := schema.UserPhone{}.Fields()
+	_ = userphoneFields
+	// userphoneDescPhone is the schema descriptor for phone field.
+	userphoneDescPhone := userphoneFields[2].Descriptor()
+	// userphone.PhoneValidator is a validator for the "phone" field. It is called by the builders before save.
+	userphone.PhoneValidator = userphoneDescPhone.Validators[0].(func(string) error)
+	// userphoneDescIsVerified is the schema descriptor for is_verified field.
+	userphoneDescIsVerified := userphoneFields[3].Descriptor()
+	// userphone.DefaultIsVerified holds the default value on creation for the is_verified field.
+	userphone.DefaultIsVerified = userphoneDescIsVerified.Default.(bool)
+	// userphoneDescIsPrimary is the schema descriptor for is_primary field.
+	userphoneDescIsPrimary := userphoneFields[5].Descriptor()
+	// userphone.DefaultIsPrimary holds the default value on creation for the is_primary field.
+	userphone.DefaultIsPrimary = userphoneDescIsPrimary.Default.(bool)
+	// userphoneDescCreatedAt is the schema descriptor for created_at field.
+	userphoneDescCreatedAt := userphoneFields[6].Descriptor()
+	// userphone.DefaultCreatedAt holds the default value on creation for the created_at field.
+	userphone.DefaultCreatedAt = userphoneDescCreatedAt.Default.(func() time.Time)
+	// userphoneDescID is the schema descriptor for id field.
+	userphoneDescID := userphoneFields[0].Descriptor()
+	// userphone.DefaultID holds the default value on creation for the id field.
+	userphone.DefaultID = userphoneDescID.Default.(func() uuid.UUID)
 	webauthncredentialFields := schema.WebAuthnCredential{}.Fields()
 	_ = webauthncredentialFields
 	// webauthncredentialDescSignCount is the schema descriptor for sign_count field.

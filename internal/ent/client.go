@@ -46,7 +46,9 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/usagemetric"
 	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/useremail"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/userphone"
 	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 )
 
@@ -115,8 +117,12 @@ type Client struct {
 	UsageMetric *UsageMetricClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// UserEmail is the client for interacting with the UserEmail builders.
+	UserEmail *UserEmailClient
 	// UserIdentity is the client for interacting with the UserIdentity builders.
 	UserIdentity *UserIdentityClient
+	// UserPhone is the client for interacting with the UserPhone builders.
+	UserPhone *UserPhoneClient
 	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
 	WebAuthnCredential *WebAuthnCredentialClient
 }
@@ -160,7 +166,9 @@ func (c *Client) init() {
 	c.TenantMembership = NewTenantMembershipClient(c.config)
 	c.UsageMetric = NewUsageMetricClient(c.config)
 	c.User = NewUserClient(c.config)
+	c.UserEmail = NewUserEmailClient(c.config)
 	c.UserIdentity = NewUserIdentityClient(c.config)
+	c.UserPhone = NewUserPhoneClient(c.config)
 	c.WebAuthnCredential = NewWebAuthnCredentialClient(c.config)
 }
 
@@ -284,7 +292,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		TenantMembership:        NewTenantMembershipClient(cfg),
 		UsageMetric:             NewUsageMetricClient(cfg),
 		User:                    NewUserClient(cfg),
+		UserEmail:               NewUserEmailClient(cfg),
 		UserIdentity:            NewUserIdentityClient(cfg),
+		UserPhone:               NewUserPhoneClient(cfg),
 		WebAuthnCredential:      NewWebAuthnCredentialClient(cfg),
 	}, nil
 }
@@ -335,7 +345,9 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		TenantMembership:        NewTenantMembershipClient(cfg),
 		UsageMetric:             NewUsageMetricClient(cfg),
 		User:                    NewUserClient(cfg),
+		UserEmail:               NewUserEmailClient(cfg),
 		UserIdentity:            NewUserIdentityClient(cfg),
+		UserPhone:               NewUserPhoneClient(cfg),
 		WebAuthnCredential:      NewWebAuthnCredentialClient(cfg),
 	}, nil
 }
@@ -372,8 +384,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent, c.Outlet,
 		c.PasswordPolicy, c.PasswordResetToken, c.Permission, c.PlatformBackupSetting,
 		c.PortalShortLink, c.ReferralLink, c.Role, c.RolePermission, c.Session,
-		c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
-		c.WebAuthnCredential,
+		c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserEmail,
+		c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -389,8 +401,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent, c.Outlet,
 		c.PasswordPolicy, c.PasswordResetToken, c.Permission, c.PlatformBackupSetting,
 		c.PortalShortLink, c.ReferralLink, c.Role, c.RolePermission, c.Session,
-		c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserIdentity,
-		c.WebAuthnCredential,
+		c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserEmail,
+		c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -459,8 +471,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.UsageMetric.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
+	case *UserEmailMutation:
+		return c.UserEmail.mutate(ctx, m)
 	case *UserIdentityMutation:
 		return c.UserIdentity.mutate(ctx, m)
+	case *UserPhoneMutation:
+		return c.UserPhone.mutate(ctx, m)
 	case *WebAuthnCredentialMutation:
 		return c.WebAuthnCredential.mutate(ctx, m)
 	default:
@@ -4737,6 +4753,38 @@ func (c *UserClient) QueryWebauthnCredentials(_m *User) *WebAuthnCredentialQuery
 	return query
 }
 
+// QueryEmails queries the emails edge of a User.
+func (c *UserClient) QueryEmails(_m *User) *UserEmailQuery {
+	query := (&UserEmailClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(useremail.Table, useremail.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.EmailsTable, user.EmailsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPhones queries the phones edge of a User.
+func (c *UserClient) QueryPhones(_m *User) *UserPhoneQuery {
+	query := (&UserPhoneClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(userphone.Table, userphone.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.PhonesTable, user.PhonesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserClient) Hooks() []Hook {
 	return c.hooks.User
@@ -4759,6 +4807,155 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 		return (&UserDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown User mutation op: %q", m.Op())
+	}
+}
+
+// UserEmailClient is a client for the UserEmail schema.
+type UserEmailClient struct {
+	config
+}
+
+// NewUserEmailClient returns a client for the UserEmail from the given config.
+func NewUserEmailClient(c config) *UserEmailClient {
+	return &UserEmailClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `useremail.Hooks(f(g(h())))`.
+func (c *UserEmailClient) Use(hooks ...Hook) {
+	c.hooks.UserEmail = append(c.hooks.UserEmail, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `useremail.Intercept(f(g(h())))`.
+func (c *UserEmailClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UserEmail = append(c.inters.UserEmail, interceptors...)
+}
+
+// Create returns a builder for creating a UserEmail entity.
+func (c *UserEmailClient) Create() *UserEmailCreate {
+	mutation := newUserEmailMutation(c.config, OpCreate)
+	return &UserEmailCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UserEmail entities.
+func (c *UserEmailClient) CreateBulk(builders ...*UserEmailCreate) *UserEmailCreateBulk {
+	return &UserEmailCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserEmailClient) MapCreateBulk(slice any, setFunc func(*UserEmailCreate, int)) *UserEmailCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserEmailCreateBulk{err: fmt.Errorf("calling to UserEmailClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserEmailCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserEmailCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UserEmail.
+func (c *UserEmailClient) Update() *UserEmailUpdate {
+	mutation := newUserEmailMutation(c.config, OpUpdate)
+	return &UserEmailUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserEmailClient) UpdateOne(_m *UserEmail) *UserEmailUpdateOne {
+	mutation := newUserEmailMutation(c.config, OpUpdateOne, withUserEmail(_m))
+	return &UserEmailUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UserEmailClient) UpdateOneID(id uuid.UUID) *UserEmailUpdateOne {
+	mutation := newUserEmailMutation(c.config, OpUpdateOne, withUserEmailID(id))
+	return &UserEmailUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UserEmail.
+func (c *UserEmailClient) Delete() *UserEmailDelete {
+	mutation := newUserEmailMutation(c.config, OpDelete)
+	return &UserEmailDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UserEmailClient) DeleteOne(_m *UserEmail) *UserEmailDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UserEmailClient) DeleteOneID(id uuid.UUID) *UserEmailDeleteOne {
+	builder := c.Delete().Where(useremail.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UserEmailDeleteOne{builder}
+}
+
+// Query returns a query builder for UserEmail.
+func (c *UserEmailClient) Query() *UserEmailQuery {
+	return &UserEmailQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUserEmail},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UserEmail entity by its id.
+func (c *UserEmailClient) Get(ctx context.Context, id uuid.UUID) (*UserEmail, error) {
+	return c.Query().Where(useremail.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UserEmailClient) GetX(ctx context.Context, id uuid.UUID) *UserEmail {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a UserEmail.
+func (c *UserEmailClient) QueryUser(_m *UserEmail) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(useremail.Table, useremail.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, useremail.UserTable, useremail.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *UserEmailClient) Hooks() []Hook {
+	return c.hooks.UserEmail
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserEmailClient) Interceptors() []Interceptor {
+	return c.inters.UserEmail
+}
+
+func (c *UserEmailClient) mutate(ctx context.Context, m *UserEmailMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserEmailCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserEmailUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserEmailUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserEmailDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UserEmail mutation op: %q", m.Op())
 	}
 }
 
@@ -4908,6 +5105,155 @@ func (c *UserIdentityClient) mutate(ctx context.Context, m *UserIdentityMutation
 		return (&UserIdentityDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown UserIdentity mutation op: %q", m.Op())
+	}
+}
+
+// UserPhoneClient is a client for the UserPhone schema.
+type UserPhoneClient struct {
+	config
+}
+
+// NewUserPhoneClient returns a client for the UserPhone from the given config.
+func NewUserPhoneClient(c config) *UserPhoneClient {
+	return &UserPhoneClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `userphone.Hooks(f(g(h())))`.
+func (c *UserPhoneClient) Use(hooks ...Hook) {
+	c.hooks.UserPhone = append(c.hooks.UserPhone, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `userphone.Intercept(f(g(h())))`.
+func (c *UserPhoneClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UserPhone = append(c.inters.UserPhone, interceptors...)
+}
+
+// Create returns a builder for creating a UserPhone entity.
+func (c *UserPhoneClient) Create() *UserPhoneCreate {
+	mutation := newUserPhoneMutation(c.config, OpCreate)
+	return &UserPhoneCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UserPhone entities.
+func (c *UserPhoneClient) CreateBulk(builders ...*UserPhoneCreate) *UserPhoneCreateBulk {
+	return &UserPhoneCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserPhoneClient) MapCreateBulk(slice any, setFunc func(*UserPhoneCreate, int)) *UserPhoneCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserPhoneCreateBulk{err: fmt.Errorf("calling to UserPhoneClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserPhoneCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserPhoneCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UserPhone.
+func (c *UserPhoneClient) Update() *UserPhoneUpdate {
+	mutation := newUserPhoneMutation(c.config, OpUpdate)
+	return &UserPhoneUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserPhoneClient) UpdateOne(_m *UserPhone) *UserPhoneUpdateOne {
+	mutation := newUserPhoneMutation(c.config, OpUpdateOne, withUserPhone(_m))
+	return &UserPhoneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UserPhoneClient) UpdateOneID(id uuid.UUID) *UserPhoneUpdateOne {
+	mutation := newUserPhoneMutation(c.config, OpUpdateOne, withUserPhoneID(id))
+	return &UserPhoneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UserPhone.
+func (c *UserPhoneClient) Delete() *UserPhoneDelete {
+	mutation := newUserPhoneMutation(c.config, OpDelete)
+	return &UserPhoneDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UserPhoneClient) DeleteOne(_m *UserPhone) *UserPhoneDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UserPhoneClient) DeleteOneID(id uuid.UUID) *UserPhoneDeleteOne {
+	builder := c.Delete().Where(userphone.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UserPhoneDeleteOne{builder}
+}
+
+// Query returns a query builder for UserPhone.
+func (c *UserPhoneClient) Query() *UserPhoneQuery {
+	return &UserPhoneQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUserPhone},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UserPhone entity by its id.
+func (c *UserPhoneClient) Get(ctx context.Context, id uuid.UUID) (*UserPhone, error) {
+	return c.Query().Where(userphone.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UserPhoneClient) GetX(ctx context.Context, id uuid.UUID) *UserPhone {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a UserPhone.
+func (c *UserPhoneClient) QueryUser(_m *UserPhone) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(userphone.Table, userphone.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, userphone.UserTable, userphone.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *UserPhoneClient) Hooks() []Hook {
+	return c.hooks.UserPhone
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserPhoneClient) Interceptors() []Interceptor {
+	return c.inters.UserPhone
+}
+
+func (c *UserPhoneClient) mutate(ctx context.Context, m *UserPhoneMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserPhoneCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserPhoneUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserPhoneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserPhoneDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UserPhone mutation op: %q", m.Op())
 	}
 }
 
@@ -5069,7 +5415,8 @@ type (
 		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordPolicy,
 		PasswordResetToken, Permission, PlatformBackupSetting, PortalShortLink,
 		ReferralLink, Role, RolePermission, Session, Tenant, TenantMembership,
-		UsageMetric, User, UserIdentity, WebAuthnCredential []ent.Hook
+		UsageMetric, User, UserEmail, UserIdentity, UserPhone,
+		WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
@@ -5078,6 +5425,7 @@ type (
 		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordPolicy,
 		PasswordResetToken, Permission, PlatformBackupSetting, PortalShortLink,
 		ReferralLink, Role, RolePermission, Session, Tenant, TenantMembership,
-		UsageMetric, User, UserIdentity, WebAuthnCredential []ent.Interceptor
+		UsageMetric, User, UserEmail, UserIdentity, UserPhone,
+		WebAuthnCredential []ent.Interceptor
 	}
 )

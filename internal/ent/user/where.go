@@ -890,6 +890,52 @@ func HasWebauthnCredentialsWith(preds ...predicate.WebAuthnCredential) predicate
 	})
 }
 
+// HasEmails applies the HasEdge predicate on the "emails" edge.
+func HasEmails() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, EmailsTable, EmailsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasEmailsWith applies the HasEdge predicate on the "emails" edge with a given conditions (other predicates).
+func HasEmailsWith(preds ...predicate.UserEmail) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newEmailsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasPhones applies the HasEdge predicate on the "phones" edge.
+func HasPhones() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, PhonesTable, PhonesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPhonesWith applies the HasEdge predicate on the "phones" edge with a given conditions (other predicates).
+func HasPhonesWith(preds ...predicate.UserPhone) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newPhonesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.User) predicate.User {
 	return predicate.User(sql.AndPredicates(predicates...))

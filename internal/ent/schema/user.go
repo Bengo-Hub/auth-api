@@ -79,5 +79,7 @@ func (User) Edges() []ent.Edge {
 		edge.To("mfa_totp", MFATOTPSecret.Type),
 		edge.To("mfa_backup_codes", MFABackupCode.Type),
 		edge.To("webauthn_credentials", WebAuthnCredential.Type),
+		edge.To("emails", UserEmail.Type),
+		edge.To("phones", UserPhone.Type),
 	}
 }

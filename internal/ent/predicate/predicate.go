@@ -96,8 +96,14 @@ type UsageMetric func(*sql.Selector)
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
 
+// UserEmail is the predicate function for useremail builders.
+type UserEmail func(*sql.Selector)
+
 // UserIdentity is the predicate function for useridentity builders.
 type UserIdentity func(*sql.Selector)
+
+// UserPhone is the predicate function for userphone builders.
+type UserPhone func(*sql.Selector)
 
 // WebAuthnCredential is the predicate function for webauthncredential builders.
 type WebAuthnCredential func(*sql.Selector)

@@ -19,7 +19,9 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/useremail"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/userphone"
 	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 	"github.com/google/uuid"
 )
@@ -332,6 +334,36 @@ func (_c *UserCreate) AddWebauthnCredentials(v ...*WebAuthnCredential) *UserCrea
 	return _c.AddWebauthnCredentialIDs(ids...)
 }
 
+// AddEmailIDs adds the "emails" edge to the UserEmail entity by IDs.
+func (_c *UserCreate) AddEmailIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddEmailIDs(ids...)
+	return _c
+}
+
+// AddEmails adds the "emails" edges to the UserEmail entity.
+func (_c *UserCreate) AddEmails(v ...*UserEmail) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddEmailIDs(ids...)
+}
+
+// AddPhoneIDs adds the "phones" edge to the UserPhone entity by IDs.
+func (_c *UserCreate) AddPhoneIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddPhoneIDs(ids...)
+	return _c
+}
+
+// AddPhones adds the "phones" edges to the UserPhone entity.
+func (_c *UserCreate) AddPhones(v ...*UserPhone) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddPhoneIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_c *UserCreate) Mutation() *UserMutation {
 	return _c.mutation
@@ -632,6 +664,38 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.EmailsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailsTable,
+			Columns: []string{user.EmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(useremail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.PhonesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PhonesTable,
+			Columns: []string{user.PhonesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userphone.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
