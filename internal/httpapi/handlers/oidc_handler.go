@@ -53,9 +53,9 @@ type SubscriptionEnricher interface {
 
 // OIDCHandler serves OIDC discovery and grant endpoints.
 type OIDCHandler struct {
-	cfg        *config.Config
-	oidc       *oidc.Service
-	auth       *authmiddleware.Auth
+	cfg         *config.Config
+	oidc        *oidc.Service
+	auth        *authmiddleware.Auth
 	tokenSvc    *token.Service
 	rolesPerms  RolesPermissionsProvider // optional: for permissions in access token
 	subEnricher SubscriptionEnricher     // optional: for subscription claims in access token
@@ -289,12 +289,21 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.FormValue("redirect_uri")
 	clientID := r.FormValue("client_id")
 	codeVerifier := r.FormValue("code_verifier")
+	// client_secret_basic (advertised in .well-known) takes precedence; also accept
+	// a plain client_secret form value for simpler/legacy clients.
+	clientSecret := r.FormValue("client_secret")
+	if basicID, basicSecret, ok := r.BasicAuth(); ok {
+		if clientID == "" {
+			clientID = basicID
+		}
+		clientSecret = basicSecret
+	}
 	if code == "" || redirectURI == "" || clientID == "" || codeVerifier == "" {
 		writeError(w, http.StatusBadRequest, "invalid_request", "missing parameters", nil)
 		return
 	}
 
-	userEntity, client, authCode, err := h.oidc.ExchangeCode(r.Context(), code, clientID, redirectURI, codeVerifier)
+	userEntity, client, authCode, err := h.oidc.ExchangeCode(r.Context(), code, clientID, redirectURI, codeVerifier, clientSecret)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_grant", err.Error(), nil)
 		return
