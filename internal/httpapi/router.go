@@ -116,6 +116,11 @@ type AuthHandlers struct {
 	AdminDeleteIntegrationConfig       http.HandlerFunc
 	AdminUpdateIntegrationStatus       http.HandlerFunc
 	AdminRotateClientSecret            http.HandlerFunc
+	// Integration requests (eTIMS + future integrations)
+	CreateIntegrationRequest        http.HandlerFunc
+	AdminListIntegrationRequests    http.HandlerFunc
+	AdminUpdateIntegrationRequest   http.HandlerFunc
+	S2SNotifyIntegrationRequest     http.HandlerFunc
 	// API Key management and validation
 	AdminCreateAPIKey http.HandlerFunc
 	AdminListAPIKeys  http.HandlerFunc
@@ -540,8 +545,20 @@ func NewRouter(deps RouterDeps) http.Handler {
 				if deps.K8sMonitorHandler != nil {
 					r.Get("/platform-monitor/overview", deps.K8sMonitorHandler.Overview)
 				}
+				// Integration-request review queue (eTIMS + future integrations).
+				if deps.AuthHandlers.AdminListIntegrationRequests != nil {
+					r.Get("/integration-requests", deps.AuthHandlers.AdminListIntegrationRequests)
+					r.Patch("/integration-requests/{id}", deps.AuthHandlers.AdminUpdateIntegrationRequest)
+				}
 			})
 		})
+		// Submit an integration request (eTIMS + future integrations) — JWT optional: with a
+		// tenant JWT this is the onboarded-tenant "request eTIMS integration" path; without one
+		// it's an anonymous submission (the primary external-lead path is codevertex-website's
+		// own Lead capture calling the S2S notify-only endpoint above instead).
+		if deps.AuthHandlers.CreateIntegrationRequest != nil {
+			r.With(deps.TryAuthHandler).Post("/integration-requests", deps.AuthHandlers.CreateIntegrationRequest)
+		}
 		// Note: a prior redundant "/developer/clients" GET/POST-only route (backed by
 		// developer_handler.go) was removed 2026-08-18 — it duplicated AdminCreateClient/
 		// AdminListClients above with no update/delete/rotate at all, and the frontend's
@@ -634,6 +651,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// fallback-friendly contract (always 200, empty object if unset).
 			if deps.AuthHandlers.S2SPlatformAlertSettings != nil {
 				r.Get("/api/v1/s2s/platform-alert-settings", deps.AuthHandlers.S2SPlatformAlertSettings)
+			}
+			// codevertex-website (and any other trusted S2S caller) triggers the eTIMS/
+			// integration-request Slack+email notification without creating an
+			// IntegrationRequest row itself — the caller keeps owning its own lead record.
+			if deps.AuthHandlers.S2SNotifyIntegrationRequest != nil {
+				r.Post("/api/v1/s2s/notifications/etims-integration-request", deps.AuthHandlers.S2SNotifyIntegrationRequest)
 			}
 		})
 	}

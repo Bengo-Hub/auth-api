@@ -200,6 +200,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, subClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 	appHandler := handlers.NewAppHandler(entClient, logger)
+	etimsNotifier := handlers.NewEtimsSupportNotifier(integrationSvc, cfg.Notifications.BaseURL, cfg.Subscription.APIKey, logger)
+	integrationRequestHandler := handlers.NewIntegrationRequestHandler(entClient, etimsNotifier, logger)
 	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger)
 	legalHandler := handlers.NewLegalHandler(entClient, logger)
 	referralLinkHandler := handlers.NewReferralLinkHandler(entClient, logger)
@@ -329,6 +331,11 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminRotateAppToken: appHandler.RotateToken,
 			AdminSuspendApp:     appHandler.SuspendApp,
 			AdminResumeApp:      appHandler.ResumeApp,
+			// Integration requests (eTIMS + future integrations)
+			CreateIntegrationRequest:      integrationRequestHandler.CreateIntegrationRequest,
+			AdminListIntegrationRequests:  integrationRequestHandler.ListIntegrationRequests,
+			AdminUpdateIntegrationRequest: integrationRequestHandler.UpdateIntegrationRequestStatus,
+			S2SNotifyIntegrationRequest:   integrationRequestHandler.S2SNotifyIntegrationRequest,
 			// OTP (email verification for Vera AI ticket flow)
 			SendOTP:   authHandler.SendOTP,
 			VerifyOTP: authHandler.VerifyOTP,

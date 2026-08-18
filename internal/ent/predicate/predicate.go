@@ -30,6 +30,9 @@ type FeatureEntitlement func(*sql.Selector)
 // IntegrationConfig is the predicate function for integrationconfig builders.
 type IntegrationConfig func(*sql.Selector)
 
+// IntegrationRequest is the predicate function for integrationrequest builders.
+type IntegrationRequest func(*sql.Selector)
+
 // LegalAcceptance is the predicate function for legalacceptance builders.
 type LegalAcceptance func(*sql.Selector)
 

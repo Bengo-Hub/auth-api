@@ -105,6 +105,18 @@ func (f IntegrationConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IntegrationConfigMutation", m)
 }
 
+// The IntegrationRequestFunc type is an adapter to allow the use of ordinary
+// function as IntegrationRequest mutator.
+type IntegrationRequestFunc func(context.Context, *ent.IntegrationRequestMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f IntegrationRequestFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.IntegrationRequestMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IntegrationRequestMutation", m)
+}
+
 // The LegalAcceptanceFunc type is an adapter to allow the use of ordinary
 // function as LegalAcceptance mutator.
 type LegalAcceptanceFunc func(context.Context, *ent.LegalAcceptanceMutation) (ent.Value, error)

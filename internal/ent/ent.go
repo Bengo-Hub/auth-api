@@ -20,6 +20,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/equityholderapplication"
 	"github.com/bengobox/auth-api/internal/ent/featureentitlement"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
+	"github.com/bengobox/auth-api/internal/ent/integrationrequest"
 	"github.com/bengobox/auth-api/internal/ent/legalacceptance"
 	"github.com/bengobox/auth-api/internal/ent/legaldocument"
 	"github.com/bengobox/auth-api/internal/ent/loginattempt"
@@ -114,6 +115,7 @@ func checkColumn(t, c string) error {
 			equityholderapplication.Table: equityholderapplication.ValidColumn,
 			featureentitlement.Table:      featureentitlement.ValidColumn,
 			integrationconfig.Table:       integrationconfig.ValidColumn,
+			integrationrequest.Table:      integrationrequest.ValidColumn,
 			legalacceptance.Table:         legalacceptance.ValidColumn,
 			legaldocument.Table:           legaldocument.ValidColumn,
 			loginattempt.Table:            loginattempt.ValidColumn,
