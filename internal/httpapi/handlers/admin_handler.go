@@ -349,8 +349,10 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, t)
 }
 
-// CreateTenantPublic creates a tenant via public endpoint (for tenant auto-discovery).
-// This endpoint does not require authentication and is used by services to sync tenants.
+// CreateTenantPublic creates a tenant for cross-service tenant sync/auto-discovery.
+// Despite the name, this is NOT reachable without authentication — router.go gates
+// it behind the internal-service-key middleware (same as /api/v1/s2s/*), since it
+// lets the caller choose the tenant's own ID and creates it active outright.
 func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request) {
 	var req tenantRequest
 	if err := decodeJSON(r, &req); err != nil || req.Slug == "" {

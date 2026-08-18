@@ -342,7 +342,21 @@ func NewRouter(deps RouterDeps) http.Handler {
 		})
 		// Public tenant endpoints for auto-discovery (no authentication required)
 		r.Route("/tenants", func(r chi.Router) {
-			r.Post("/", deps.AuthHandlers.PublicCreateTenant)
+			// Creation is NOT public like the lookups below: the caller can choose
+			// the tenant's own ID (for cross-service ID sync) and it creates an
+			// ACTIVE tenant outright, so an unauthenticated caller could squat a
+			// tenant ID before the real owner creates it, or spam the platform with
+			// junk tenants. A platform-wide search found no current caller of this
+			// endpoint at all (the only reference was dead code in shared-auth-client),
+			// so it is now internal-service-key gated like every other genuine S2S
+			// endpoint; a real future caller authenticates the same way they already
+			// do for /api/v1/s2s/*.
+			if deps.InternalServiceKey != "" {
+				r.Group(func(r chi.Router) {
+					r.Use(requireInternalKey(deps.InternalServiceKey))
+					r.Post("/", deps.AuthHandlers.PublicCreateTenant)
+				})
+			}
 			r.Get("/by-slug/{slug}", deps.AuthHandlers.PublicGetTenantBySlug)
 			r.Get("/by-id/{tenant_id}", deps.AuthHandlers.PublicGetTenantByID)
 			// Cross-tenant marketplace directory (public, no auth) — bulk listing of
