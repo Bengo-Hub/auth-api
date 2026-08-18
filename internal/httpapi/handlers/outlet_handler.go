@@ -3,10 +3,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -23,11 +25,43 @@ import (
 type OutletHandler struct {
 	ent    *ent.Client
 	tokens *token.Service
+	// subs resolves the tenant's current max_outlets structural limit at CreateOutlet time.
+	// Nil in local/dev setups without a subscription client configured — that degrades to
+	// "no limit enforced" (fail open), matching every other subscription-lookup call site on
+	// this platform (see [[subscription-gate-fail-open]]).
+	subs   *subscription.Client
 	logger *zap.Logger
 }
 
-func NewOutletHandler(entClient *ent.Client, tokens *token.Service, logger *zap.Logger) *OutletHandler {
-	return &OutletHandler{ent: entClient, tokens: tokens, logger: logger}
+func NewOutletHandler(entClient *ent.Client, tokens *token.Service, subs *subscription.Client, logger *zap.Logger) *OutletHandler {
+	return &OutletHandler{ent: entClient, tokens: tokens, subs: subs, logger: logger}
+}
+
+// outletLimitReached reports whether creating one more outlet for tenantID would exceed the
+// tenant's current composite `max_outlets` structural limit. Fails OPEN (returns false, 0) on
+// any subscription-lookup failure, a missing subscription, or an unconfigured/unlimited (<=0)
+// limit — a subscriptions-api hiccup must never block a tenant from managing their own outlets,
+// mirroring [[subscription-gate-fail-open]]'s platform-wide "backend enforces mutations, but
+// never on a transient lookup failure" convention. Exempt tenants (platform owner/demo/
+// service_charge) get back an empty Limits map from subscriptions-api's exemptResult, so
+// `limit <= 0` already covers them correctly with no separate exemption check needed.
+func (h *OutletHandler) outletLimitReached(ctx context.Context, tenantID uuid.UUID) (reached bool, limit int) {
+	if h.subs == nil {
+		return false, 0
+	}
+	sub, err := h.subs.GetTenantSubscription(ctx, tenantID)
+	if err != nil || sub == nil {
+		return false, 0
+	}
+	limit, ok := sub.Limits["max_outlets"]
+	if !ok || limit <= 0 {
+		return false, 0
+	}
+	count, err := h.ent.Outlet.Query().Where(outlet.TenantID(tenantID)).Count(ctx)
+	if err != nil {
+		return false, 0
+	}
+	return count >= limit, limit
 }
 
 // ─── Request / Response types ────────────────────────────────────────────────
@@ -254,6 +288,20 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Code == "" || req.Name == "" {
 		http.Error(w, "code and name are required", http.StatusBadRequest)
+		return
+	}
+
+	// Structural plan limit: max_outlets. Same 402 body shape pos-api's CheckStructuralLimit
+	// already emits (code/error "usage_limit_exceeded", metric "outlets") so any UI already
+	// wired to the shared LimitReachedModal handles this for free.
+	if reached, limit := h.outletLimitReached(r.Context(), t.ID); reached {
+		writeJSON(w, http.StatusPaymentRequired, map[string]any{
+			"code":    "usage_limit_exceeded",
+			"error":   "usage_limit_exceeded",
+			"message": fmt.Sprintf("You've reached your plan's outlet limit (%d). Upgrade your plan to add more outlets.", limit),
+			"metric":  "outlets",
+			"limit":   limit,
+		})
 		return
 	}
 

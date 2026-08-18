@@ -197,7 +197,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	backupDestStore := destination.NewStore(entClient, destination.NewSecretKeyCipher(), logger)
 	backupDestUploader := destination.NewUploader(backupDestStore, logger)
 	backupDestHandler := handlers.NewBackupDestinationHandler(backupDestStore, backupDestUploader, logger)
-	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, logger)
+	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, subClient, logger)
 	developerHandler := handlers.NewDeveloperHandler(entClient, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 	appHandler := handlers.NewAppHandler(entClient, logger)
