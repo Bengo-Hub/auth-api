@@ -52,6 +52,15 @@ type AuthHandlers struct {
 	VerifyEmailCode                    http.HandlerFunc
 	SendMyEmailCode                    http.HandlerFunc
 	VerifyMyEmailCode                  http.HandlerFunc
+	ListMyEmails                       http.HandlerFunc
+	SendAddEmailCode                   http.HandlerFunc
+	VerifyAddEmailCode                 http.HandlerFunc
+	SetPrimaryMyEmail                  http.HandlerFunc
+	DeleteMyEmail                      http.HandlerFunc
+	ListMyPhones                       http.HandlerFunc
+	AddMyPhone                         http.HandlerFunc
+	SetPrimaryMyPhone                  http.HandlerFunc
+	DeleteMyPhone                      http.HandlerFunc
 	Login                              http.HandlerFunc
 	Refresh                            http.HandlerFunc
 	RequestPasswordReset               http.HandlerFunc
@@ -329,6 +338,23 @@ func NewRouter(deps RouterDeps) http.Handler {
 				})
 				r.Post("/me/accept-terms", deps.AuthHandlers.AcceptTerms)
 				r.Post("/me/change-password", deps.AuthHandlers.ChangePassword)
+				if deps.AuthHandlers.ListMyEmails != nil {
+					r.Route("/me/emails", func(r chi.Router) {
+						r.Get("/", deps.AuthHandlers.ListMyEmails)
+						r.Post("/send-code", deps.AuthHandlers.SendAddEmailCode)
+						r.Post("/verify-code", deps.AuthHandlers.VerifyAddEmailCode)
+						r.Post("/{id}/primary", deps.AuthHandlers.SetPrimaryMyEmail)
+						r.Delete("/{id}", deps.AuthHandlers.DeleteMyEmail)
+					})
+				}
+				if deps.AuthHandlers.ListMyPhones != nil {
+					r.Route("/me/phones", func(r chi.Router) {
+						r.Get("/", deps.AuthHandlers.ListMyPhones)
+						r.Post("/", deps.AuthHandlers.AddMyPhone)
+						r.Post("/{id}/primary", deps.AuthHandlers.SetPrimaryMyPhone)
+						r.Delete("/{id}", deps.AuthHandlers.DeleteMyPhone)
+					})
+				}
 				r.Route("/otp", func(r chi.Router) {
 					r.Post("/send", deps.AuthHandlers.SendOTP)
 					r.Post("/verify", deps.AuthHandlers.VerifyOTP)
