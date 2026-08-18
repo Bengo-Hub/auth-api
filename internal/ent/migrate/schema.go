@@ -272,6 +272,47 @@ var (
 			},
 		},
 	}
+	// IntegrationRequestsColumns holds the columns for the "integration_requests" table.
+	IntegrationRequestsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "request_type", Type: field.TypeString, Default: "etims_integration"},
+		{Name: "tenant_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "requester_name", Type: field.TypeString},
+		{Name: "requester_email", Type: field.TypeString},
+		{Name: "requester_phone", Type: field.TypeString, Nullable: true},
+		{Name: "company_name", Type: field.TypeString, Nullable: true},
+		{Name: "kra_pin", Type: field.TypeString, Nullable: true},
+		{Name: "integration_mode", Type: field.TypeEnum, Enums: []string{"self_serve", "assisted"}, Default: "self_serve"},
+		{Name: "notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "source", Type: field.TypeEnum, Enums: []string{"tenant_portal", "public_website", "go_live_gate"}, Default: "tenant_portal"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "in_review", "approved", "rejected", "completed", "go_live_requested"}, Default: "pending"},
+		{Name: "admin_notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// IntegrationRequestsTable holds the schema information for the "integration_requests" table.
+	IntegrationRequestsTable = &schema.Table{
+		Name:       "integration_requests",
+		Columns:    IntegrationRequestsColumns,
+		PrimaryKey: []*schema.Column{IntegrationRequestsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "integrationrequest_status",
+				Unique:  false,
+				Columns: []*schema.Column{IntegrationRequestsColumns[11]},
+			},
+			{
+				Name:    "integrationrequest_request_type",
+				Unique:  false,
+				Columns: []*schema.Column{IntegrationRequestsColumns[1]},
+			},
+			{
+				Name:    "integrationrequest_tenant_id",
+				Unique:  false,
+				Columns: []*schema.Column{IntegrationRequestsColumns[2]},
+			},
+		},
+	}
 	// LegalAcceptancesColumns holds the columns for the "legal_acceptances" table.
 	LegalAcceptancesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1062,6 +1103,7 @@ var (
 		EquityHolderApplicationsTable,
 		FeatureEntitlementsTable,
 		IntegrationConfigsTable,
+		IntegrationRequestsTable,
 		LegalAcceptancesTable,
 		LegalDocumentsTable,
 		LoginAttemptsTable,

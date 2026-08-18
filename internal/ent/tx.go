@@ -28,6 +28,8 @@ type Tx struct {
 	FeatureEntitlement *FeatureEntitlementClient
 	// IntegrationConfig is the client for interacting with the IntegrationConfig builders.
 	IntegrationConfig *IntegrationConfigClient
+	// IntegrationRequest is the client for interacting with the IntegrationRequest builders.
+	IntegrationRequest *IntegrationRequestClient
 	// LegalAcceptance is the client for interacting with the LegalAcceptance builders.
 	LegalAcceptance *LegalAcceptanceClient
 	// LegalDocument is the client for interacting with the LegalDocument builders.
@@ -219,6 +221,7 @@ func (tx *Tx) init() {
 	tx.EquityHolderApplication = NewEquityHolderApplicationClient(tx.config)
 	tx.FeatureEntitlement = NewFeatureEntitlementClient(tx.config)
 	tx.IntegrationConfig = NewIntegrationConfigClient(tx.config)
+	tx.IntegrationRequest = NewIntegrationRequestClient(tx.config)
 	tx.LegalAcceptance = NewLegalAcceptanceClient(tx.config)
 	tx.LegalDocument = NewLegalDocumentClient(tx.config)
 	tx.LoginAttempt = NewLoginAttemptClient(tx.config)

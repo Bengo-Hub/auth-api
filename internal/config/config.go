@@ -21,6 +21,14 @@ type Config struct {
 	Events       EventsConfig       `envPrefix:"AUTH_EVENTS_"`
 	Backup       BackupConfig       `envPrefix:"BACKUP_"`
 	WebAuthn     WebAuthnConfig     `envPrefix:"AUTH_WEBAUTHN_"`
+	Notifications NotificationsConfig `envPrefix:""`
+}
+
+// NotificationsConfig points to notifications-api for the handful of S2S emails auth-api itself
+// sends (e.g. the eTIMS/integration-request notifier). Defaults to the internal ClusterIP DNS,
+// not the public hostname, per the fleet's S2S-must-use-internal-DNS rule.
+type NotificationsConfig struct {
+	BaseURL string `env:"NOTIFICATIONS_API_URL" envDefault:"http://notifications-api.notifications.svc.cluster.local:4000"`
 }
 
 // BackupConfig points to the internal backup-server that serves PostgreSQL backup files.

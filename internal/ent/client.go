@@ -24,6 +24,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/equityholderapplication"
 	"github.com/bengobox/auth-api/internal/ent/featureentitlement"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
+	"github.com/bengobox/auth-api/internal/ent/integrationrequest"
 	"github.com/bengobox/auth-api/internal/ent/legalacceptance"
 	"github.com/bengobox/auth-api/internal/ent/legaldocument"
 	"github.com/bengobox/auth-api/internal/ent/loginattempt"
@@ -73,6 +74,8 @@ type Client struct {
 	FeatureEntitlement *FeatureEntitlementClient
 	// IntegrationConfig is the client for interacting with the IntegrationConfig builders.
 	IntegrationConfig *IntegrationConfigClient
+	// IntegrationRequest is the client for interacting with the IntegrationRequest builders.
+	IntegrationRequest *IntegrationRequestClient
 	// LegalAcceptance is the client for interacting with the LegalAcceptance builders.
 	LegalAcceptance *LegalAcceptanceClient
 	// LegalDocument is the client for interacting with the LegalDocument builders.
@@ -144,6 +147,7 @@ func (c *Client) init() {
 	c.EquityHolderApplication = NewEquityHolderApplicationClient(c.config)
 	c.FeatureEntitlement = NewFeatureEntitlementClient(c.config)
 	c.IntegrationConfig = NewIntegrationConfigClient(c.config)
+	c.IntegrationRequest = NewIntegrationRequestClient(c.config)
 	c.LegalAcceptance = NewLegalAcceptanceClient(c.config)
 	c.LegalDocument = NewLegalDocumentClient(c.config)
 	c.LoginAttempt = NewLoginAttemptClient(c.config)
@@ -270,6 +274,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		EquityHolderApplication: NewEquityHolderApplicationClient(cfg),
 		FeatureEntitlement:      NewFeatureEntitlementClient(cfg),
 		IntegrationConfig:       NewIntegrationConfigClient(cfg),
+		IntegrationRequest:      NewIntegrationRequestClient(cfg),
 		LegalAcceptance:         NewLegalAcceptanceClient(cfg),
 		LegalDocument:           NewLegalDocumentClient(cfg),
 		LoginAttempt:            NewLoginAttemptClient(cfg),
@@ -323,6 +328,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		EquityHolderApplication: NewEquityHolderApplicationClient(cfg),
 		FeatureEntitlement:      NewFeatureEntitlementClient(cfg),
 		IntegrationConfig:       NewIntegrationConfigClient(cfg),
+		IntegrationRequest:      NewIntegrationRequestClient(cfg),
 		LegalAcceptance:         NewLegalAcceptanceClient(cfg),
 		LegalDocument:           NewLegalDocumentClient(cfg),
 		LoginAttempt:            NewLoginAttemptClient(cfg),
@@ -380,12 +386,12 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.App, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
-		c.LegalAcceptance, c.LegalDocument, c.LoginAttempt, c.MFABackupCode,
-		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent, c.Outlet,
-		c.PasswordPolicy, c.PasswordResetToken, c.Permission, c.PlatformBackupSetting,
-		c.PortalShortLink, c.ReferralLink, c.Role, c.RolePermission, c.Session,
-		c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserEmail,
-		c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
+		c.IntegrationRequest, c.LegalAcceptance, c.LegalDocument, c.LoginAttempt,
+		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
+		c.Outlet, c.PasswordPolicy, c.PasswordResetToken, c.Permission,
+		c.PlatformBackupSetting, c.PortalShortLink, c.ReferralLink, c.Role,
+		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserEmail, c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -397,12 +403,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.App, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
-		c.LegalAcceptance, c.LegalDocument, c.LoginAttempt, c.MFABackupCode,
-		c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent, c.Outlet,
-		c.PasswordPolicy, c.PasswordResetToken, c.Permission, c.PlatformBackupSetting,
-		c.PortalShortLink, c.ReferralLink, c.Role, c.RolePermission, c.Session,
-		c.Tenant, c.TenantMembership, c.UsageMetric, c.User, c.UserEmail,
-		c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
+		c.IntegrationRequest, c.LegalAcceptance, c.LegalDocument, c.LoginAttempt,
+		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
+		c.Outlet, c.PasswordPolicy, c.PasswordResetToken, c.Permission,
+		c.PlatformBackupSetting, c.PortalShortLink, c.ReferralLink, c.Role,
+		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserEmail, c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -427,6 +433,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.FeatureEntitlement.mutate(ctx, m)
 	case *IntegrationConfigMutation:
 		return c.IntegrationConfig.mutate(ctx, m)
+	case *IntegrationRequestMutation:
+		return c.IntegrationRequest.mutate(ctx, m)
 	case *LegalAcceptanceMutation:
 		return c.LegalAcceptance.mutate(ctx, m)
 	case *LegalDocumentMutation:
@@ -1561,6 +1569,139 @@ func (c *IntegrationConfigClient) mutate(ctx context.Context, m *IntegrationConf
 		return (&IntegrationConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown IntegrationConfig mutation op: %q", m.Op())
+	}
+}
+
+// IntegrationRequestClient is a client for the IntegrationRequest schema.
+type IntegrationRequestClient struct {
+	config
+}
+
+// NewIntegrationRequestClient returns a client for the IntegrationRequest from the given config.
+func NewIntegrationRequestClient(c config) *IntegrationRequestClient {
+	return &IntegrationRequestClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `integrationrequest.Hooks(f(g(h())))`.
+func (c *IntegrationRequestClient) Use(hooks ...Hook) {
+	c.hooks.IntegrationRequest = append(c.hooks.IntegrationRequest, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `integrationrequest.Intercept(f(g(h())))`.
+func (c *IntegrationRequestClient) Intercept(interceptors ...Interceptor) {
+	c.inters.IntegrationRequest = append(c.inters.IntegrationRequest, interceptors...)
+}
+
+// Create returns a builder for creating a IntegrationRequest entity.
+func (c *IntegrationRequestClient) Create() *IntegrationRequestCreate {
+	mutation := newIntegrationRequestMutation(c.config, OpCreate)
+	return &IntegrationRequestCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of IntegrationRequest entities.
+func (c *IntegrationRequestClient) CreateBulk(builders ...*IntegrationRequestCreate) *IntegrationRequestCreateBulk {
+	return &IntegrationRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *IntegrationRequestClient) MapCreateBulk(slice any, setFunc func(*IntegrationRequestCreate, int)) *IntegrationRequestCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &IntegrationRequestCreateBulk{err: fmt.Errorf("calling to IntegrationRequestClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*IntegrationRequestCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &IntegrationRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for IntegrationRequest.
+func (c *IntegrationRequestClient) Update() *IntegrationRequestUpdate {
+	mutation := newIntegrationRequestMutation(c.config, OpUpdate)
+	return &IntegrationRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *IntegrationRequestClient) UpdateOne(_m *IntegrationRequest) *IntegrationRequestUpdateOne {
+	mutation := newIntegrationRequestMutation(c.config, OpUpdateOne, withIntegrationRequest(_m))
+	return &IntegrationRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *IntegrationRequestClient) UpdateOneID(id uuid.UUID) *IntegrationRequestUpdateOne {
+	mutation := newIntegrationRequestMutation(c.config, OpUpdateOne, withIntegrationRequestID(id))
+	return &IntegrationRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for IntegrationRequest.
+func (c *IntegrationRequestClient) Delete() *IntegrationRequestDelete {
+	mutation := newIntegrationRequestMutation(c.config, OpDelete)
+	return &IntegrationRequestDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *IntegrationRequestClient) DeleteOne(_m *IntegrationRequest) *IntegrationRequestDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *IntegrationRequestClient) DeleteOneID(id uuid.UUID) *IntegrationRequestDeleteOne {
+	builder := c.Delete().Where(integrationrequest.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &IntegrationRequestDeleteOne{builder}
+}
+
+// Query returns a query builder for IntegrationRequest.
+func (c *IntegrationRequestClient) Query() *IntegrationRequestQuery {
+	return &IntegrationRequestQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeIntegrationRequest},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a IntegrationRequest entity by its id.
+func (c *IntegrationRequestClient) Get(ctx context.Context, id uuid.UUID) (*IntegrationRequest, error) {
+	return c.Query().Where(integrationrequest.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *IntegrationRequestClient) GetX(ctx context.Context, id uuid.UUID) *IntegrationRequest {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *IntegrationRequestClient) Hooks() []Hook {
+	return c.hooks.IntegrationRequest
+}
+
+// Interceptors returns the client interceptors.
+func (c *IntegrationRequestClient) Interceptors() []Interceptor {
+	return c.inters.IntegrationRequest
+}
+
+func (c *IntegrationRequestClient) mutate(ctx context.Context, m *IntegrationRequestMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&IntegrationRequestCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&IntegrationRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&IntegrationRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&IntegrationRequestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown IntegrationRequest mutation op: %q", m.Op())
 	}
 }
 
@@ -5411,21 +5552,21 @@ type (
 	hooks struct {
 		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
 		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
-		LegalAcceptance, LegalDocument, LoginAttempt, MFABackupCode, MFASettings,
-		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordPolicy,
-		PasswordResetToken, Permission, PlatformBackupSetting, PortalShortLink,
-		ReferralLink, Role, RolePermission, Session, Tenant, TenantMembership,
-		UsageMetric, User, UserEmail, UserIdentity, UserPhone,
+		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
+		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
+		PasswordPolicy, PasswordResetToken, Permission, PlatformBackupSetting,
+		PortalShortLink, ReferralLink, Role, RolePermission, Session, Tenant,
+		TenantMembership, UsageMetric, User, UserEmail, UserIdentity, UserPhone,
 		WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
 		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
-		LegalAcceptance, LegalDocument, LoginAttempt, MFABackupCode, MFASettings,
-		MFATOTPSecret, OAuthClient, OutboxEvent, Outlet, PasswordPolicy,
-		PasswordResetToken, Permission, PlatformBackupSetting, PortalShortLink,
-		ReferralLink, Role, RolePermission, Session, Tenant, TenantMembership,
-		UsageMetric, User, UserEmail, UserIdentity, UserPhone,
+		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
+		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
+		PasswordPolicy, PasswordResetToken, Permission, PlatformBackupSetting,
+		PortalShortLink, ReferralLink, Role, RolePermission, Session, Tenant,
+		TenantMembership, UsageMetric, User, UserEmail, UserIdentity, UserPhone,
 		WebAuthnCredential []ent.Interceptor
 	}
 )

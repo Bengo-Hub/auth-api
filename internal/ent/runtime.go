@@ -13,6 +13,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/equityholderapplication"
 	"github.com/bengobox/auth-api/internal/ent/featureentitlement"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
+	"github.com/bengobox/auth-api/internal/ent/integrationrequest"
 	"github.com/bengobox/auth-api/internal/ent/legalacceptance"
 	"github.com/bengobox/auth-api/internal/ent/legaldocument"
 	"github.com/bengobox/auth-api/internal/ent/loginattempt"
@@ -267,6 +268,34 @@ func init() {
 	integrationconfigDescID := integrationconfigFields[0].Descriptor()
 	// integrationconfig.DefaultID holds the default value on creation for the id field.
 	integrationconfig.DefaultID = integrationconfigDescID.Default.(func() uuid.UUID)
+	integrationrequestFields := schema.IntegrationRequest{}.Fields()
+	_ = integrationrequestFields
+	// integrationrequestDescRequestType is the schema descriptor for request_type field.
+	integrationrequestDescRequestType := integrationrequestFields[1].Descriptor()
+	// integrationrequest.DefaultRequestType holds the default value on creation for the request_type field.
+	integrationrequest.DefaultRequestType = integrationrequestDescRequestType.Default.(string)
+	// integrationrequestDescRequesterName is the schema descriptor for requester_name field.
+	integrationrequestDescRequesterName := integrationrequestFields[3].Descriptor()
+	// integrationrequest.RequesterNameValidator is a validator for the "requester_name" field. It is called by the builders before save.
+	integrationrequest.RequesterNameValidator = integrationrequestDescRequesterName.Validators[0].(func(string) error)
+	// integrationrequestDescRequesterEmail is the schema descriptor for requester_email field.
+	integrationrequestDescRequesterEmail := integrationrequestFields[4].Descriptor()
+	// integrationrequest.RequesterEmailValidator is a validator for the "requester_email" field. It is called by the builders before save.
+	integrationrequest.RequesterEmailValidator = integrationrequestDescRequesterEmail.Validators[0].(func(string) error)
+	// integrationrequestDescCreatedAt is the schema descriptor for created_at field.
+	integrationrequestDescCreatedAt := integrationrequestFields[13].Descriptor()
+	// integrationrequest.DefaultCreatedAt holds the default value on creation for the created_at field.
+	integrationrequest.DefaultCreatedAt = integrationrequestDescCreatedAt.Default.(func() time.Time)
+	// integrationrequestDescUpdatedAt is the schema descriptor for updated_at field.
+	integrationrequestDescUpdatedAt := integrationrequestFields[14].Descriptor()
+	// integrationrequest.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	integrationrequest.DefaultUpdatedAt = integrationrequestDescUpdatedAt.Default.(func() time.Time)
+	// integrationrequest.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	integrationrequest.UpdateDefaultUpdatedAt = integrationrequestDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// integrationrequestDescID is the schema descriptor for id field.
+	integrationrequestDescID := integrationrequestFields[0].Descriptor()
+	// integrationrequest.DefaultID holds the default value on creation for the id field.
+	integrationrequest.DefaultID = integrationrequestDescID.Default.(func() uuid.UUID)
 	legalacceptanceFields := schema.LegalAcceptance{}.Fields()
 	_ = legalacceptanceFields
 	// legalacceptanceDescDocVersion is the schema descriptor for doc_version field.
