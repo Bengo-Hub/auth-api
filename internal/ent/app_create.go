@@ -58,6 +58,20 @@ func (_c *AppCreate) SetNillableAppType(v *app.AppType) *AppCreate {
 	return _c
 }
 
+// SetEnvironment sets the "environment" field.
+func (_c *AppCreate) SetEnvironment(v app.Environment) *AppCreate {
+	_c.mutation.SetEnvironment(v)
+	return _c
+}
+
+// SetNillableEnvironment sets the "environment" field if the given value is not nil.
+func (_c *AppCreate) SetNillableEnvironment(v *app.Environment) *AppCreate {
+	if v != nil {
+		_c.SetEnvironment(*v)
+	}
+	return _c
+}
+
 // SetTenantID sets the "tenant_id" field.
 func (_c *AppCreate) SetTenantID(v uuid.UUID) *AppCreate {
 	_c.mutation.SetTenantID(v)
@@ -281,6 +295,10 @@ func (_c *AppCreate) defaults() {
 		v := app.DefaultAppType
 		_c.mutation.SetAppType(v)
 	}
+	if _, ok := _c.mutation.Environment(); !ok {
+		v := app.DefaultEnvironment
+		_c.mutation.SetEnvironment(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := app.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -315,6 +333,14 @@ func (_c *AppCreate) check() error {
 	if v, ok := _c.mutation.AppType(); ok {
 		if err := app.AppTypeValidator(v); err != nil {
 			return &ValidationError{Name: "app_type", err: fmt.Errorf(`ent: validator failed for field "App.app_type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Environment(); !ok {
+		return &ValidationError{Name: "environment", err: errors.New(`ent: missing required field "App.environment"`)}
+	}
+	if v, ok := _c.mutation.Environment(); ok {
+		if err := app.EnvironmentValidator(v); err != nil {
+			return &ValidationError{Name: "environment", err: fmt.Errorf(`ent: validator failed for field "App.environment": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.ClientID(); !ok {
@@ -402,6 +428,10 @@ func (_c *AppCreate) createSpec() (*App, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AppType(); ok {
 		_spec.SetField(app.FieldAppType, field.TypeEnum, value)
 		_node.AppType = value
+	}
+	if value, ok := _c.mutation.Environment(); ok {
+		_spec.SetField(app.FieldEnvironment, field.TypeEnum, value)
+		_node.Environment = value
 	}
 	if value, ok := _c.mutation.TenantID(); ok {
 		_spec.SetField(app.FieldTenantID, field.TypeUUID, value)
@@ -554,6 +584,18 @@ func (u *AppUpsert) SetAppType(v app.AppType) *AppUpsert {
 // UpdateAppType sets the "app_type" field to the value that was provided on create.
 func (u *AppUpsert) UpdateAppType() *AppUpsert {
 	u.SetExcluded(app.FieldAppType)
+	return u
+}
+
+// SetEnvironment sets the "environment" field.
+func (u *AppUpsert) SetEnvironment(v app.Environment) *AppUpsert {
+	u.Set(app.FieldEnvironment, v)
+	return u
+}
+
+// UpdateEnvironment sets the "environment" field to the value that was provided on create.
+func (u *AppUpsert) UpdateEnvironment() *AppUpsert {
+	u.SetExcluded(app.FieldEnvironment)
 	return u
 }
 
@@ -876,6 +918,20 @@ func (u *AppUpsertOne) SetAppType(v app.AppType) *AppUpsertOne {
 func (u *AppUpsertOne) UpdateAppType() *AppUpsertOne {
 	return u.Update(func(s *AppUpsert) {
 		s.UpdateAppType()
+	})
+}
+
+// SetEnvironment sets the "environment" field.
+func (u *AppUpsertOne) SetEnvironment(v app.Environment) *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.SetEnvironment(v)
+	})
+}
+
+// UpdateEnvironment sets the "environment" field to the value that was provided on create.
+func (u *AppUpsertOne) UpdateEnvironment() *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.UpdateEnvironment()
 	})
 }
 
@@ -1402,6 +1458,20 @@ func (u *AppUpsertBulk) SetAppType(v app.AppType) *AppUpsertBulk {
 func (u *AppUpsertBulk) UpdateAppType() *AppUpsertBulk {
 	return u.Update(func(s *AppUpsert) {
 		s.UpdateAppType()
+	})
+}
+
+// SetEnvironment sets the "environment" field.
+func (u *AppUpsertBulk) SetEnvironment(v app.Environment) *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.SetEnvironment(v)
+	})
+}
+
+// UpdateEnvironment sets the "environment" field to the value that was provided on create.
+func (u *AppUpsertBulk) UpdateEnvironment() *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.UpdateEnvironment()
 	})
 }
 

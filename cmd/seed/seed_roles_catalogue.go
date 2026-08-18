@@ -22,6 +22,7 @@ var wildcardRoles = map[string]bool{
 var platformSystemRoles = map[string]bool{
 	"superuser": true,
 	"admin":     true,
+	"developer": true,
 	"manager":   true,
 	"staff":     true,
 	"member":    true,
