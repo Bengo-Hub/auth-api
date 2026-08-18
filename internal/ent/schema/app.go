@@ -66,9 +66,10 @@ func (App) Fields() []ent.Field {
 			Optional().
 			Comment("IP whitelist (empty = all IPs allowed)"),
 
-		// Lifecycle
+		// Lifecycle. suspended is a reversible, temporary pause (Resume clears it back to
+		// active) distinct from revoked (permanent, audit-logged, never reversible).
 		field.Enum("status").
-			Values("active", "revoked", "expired").
+			Values("active", "revoked", "expired", "suspended").
 			Default("active"),
 		field.Time("expires_at").
 			Optional().

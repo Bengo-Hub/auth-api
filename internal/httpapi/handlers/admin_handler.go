@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -846,6 +848,15 @@ func (h *AdminHandler) ProvisionTenantOAuthRedirects(w http.ResponseWriter, r *h
 	})
 }
 
+// randomString returns a cryptographically-random URL-safe string of length n.
+func randomString(n int) string {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+	return base64.URLEncoding.EncodeToString(b)[:n]
+}
+
 // Clients
 type clientRequest struct {
 	ClientID     string   `json:"client_id"`
@@ -856,18 +867,30 @@ type clientRequest struct {
 	TenantID     string   `json:"tenant_id"`
 }
 
+// CreateClient registers an OAuth client. Confidential clients (public=false, the
+// default for anything not explicitly marked public) get an auto-generated
+// client_secret, returned ONCE in the response (never re-servable, mirroring the
+// App/APIKey "shown once" pattern) and stored only as a SHA-256 hash — this is the
+// single path that actually mints a usable OAuth client_id/client_secret pair
+// (the previously-separate, redundant `/api/v1/developer/clients` endpoints are
+// gone; this is the consolidated one). client_id is caller-supplied if given
+// (e.g. a stable id for a known first-party frontend) or auto-generated otherwise.
 func (h *AdminHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(r) {
 		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
 		return
 	}
 	var req clientRequest
-	if err := decodeJSON(r, &req); err != nil || req.ClientID == "" || req.Name == "" {
+	if err := decodeJSON(r, &req); err != nil || req.Name == "" {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
 		return
 	}
+	clientID := req.ClientID
+	if clientID == "" {
+		clientID = randomString(32)
+	}
 	create := h.ent.OAuthClient.Create().
-		SetClientID(req.ClientID).
+		SetClientID(clientID).
 		SetName(req.Name).
 		SetRedirectUris(req.RedirectURIs).
 		SetAllowedScopes(req.Scopes).
@@ -875,12 +898,69 @@ func (h *AdminHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 	if req.TenantID != "" {
 		create.SetTenantID(req.TenantID)
 	}
+	var plainSecret string
+	if !req.Public {
+		plainSecret = randomString(48)
+		create.SetClientSecret(hashAPIKey(plainSecret))
+	}
 	c, err := create.Save(r.Context())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "conflict", "could not create client", nil)
 		return
 	}
-	writeJSON(w, http.StatusCreated, c)
+	if plainSecret == "" {
+		writeJSON(w, http.StatusCreated, c)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"id":            c.ID,
+		"client_id":     c.ClientID,
+		"client_secret": plainSecret, // shown once — only the hash is stored
+		"name":          c.Name,
+		"redirect_uris": c.RedirectUris,
+		"allowed_scopes": c.AllowedScopes,
+		"public":        c.Public,
+		"tenant_id":     c.TenantID,
+		"created_at":    c.CreatedAt,
+	})
+}
+
+// RotateClientSecret regenerates a confidential client's secret. The old secret
+// stops working immediately (same semantics as App.RotateToken).
+func (h *AdminHandler) RotateClientSecret(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "client_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid client id", nil)
+		return
+	}
+	existing, err := h.ent.OAuthClient.Get(r.Context(), id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "client not found", nil)
+		} else {
+			writeError(w, http.StatusInternalServerError, "server_error", "failed to load client", nil)
+		}
+		return
+	}
+	if existing.Public {
+		writeError(w, http.StatusConflict, "invalid_state", "public clients have no secret to rotate", nil)
+		return
+	}
+	plainSecret := randomString(48)
+	c, err := h.ent.OAuthClient.UpdateOneID(id).SetClientSecret(hashAPIKey(plainSecret)).Save(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to rotate secret", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":            c.ID,
+		"client_id":     c.ClientID,
+		"client_secret": plainSecret,
+	})
 }
 
 func (h *AdminHandler) ListClients(w http.ResponseWriter, r *http.Request) {

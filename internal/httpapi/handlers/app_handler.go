@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -16,6 +17,13 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+// InternalServiceKeyScope is the reserved scope tag marking the platform App
+// that mirrors the fleet's shared INTERNAL_SERVICE_KEY S2S credential. Tagging
+// it this way (rather than a dedicated boolean column) means it shows up
+// clearly in the Apps & Keys UI and can be rotated/suspended like any other
+// app, without a schema change.
+const InternalServiceKeyScope = "internal_service_key"
 
 // AppHandler handles platform/tenant app management and S2S token validation.
 type AppHandler struct {
@@ -37,6 +45,13 @@ type CreateAppRequest struct {
 	Scopes      []string `json:"scopes,omitempty"`
 	AllowedIPs  []string `json:"allowed_ips,omitempty"`
 	ExpiresIn   int      `json:"expires_in,omitempty"` // days; 0 = never
+	// TenantID lets a platform admin issue a "tenant"-type app scoped to a
+	// TARGET tenant other than their own (e.g. handing an external API-partner
+	// tenant its eTIMS API credential from the platform-owner console). Ignored
+	// (and the caller's own claims.TenantID used, as before) unless the caller
+	// passes requirePlatformAdmin — an ordinary tenant admin can still only ever
+	// create an app under their own tenant.
+	TenantID string `json:"tenant_id,omitempty"`
 }
 
 type AppResponse struct {
@@ -182,8 +197,19 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 		SetStatus(app.StatusActive)
 
 	if appType == app.AppTypeTenant {
-		if tenantID, err := uuid.Parse(claims.TenantID); err == nil {
+		targetTenant := claims.TenantID
+		if req.TenantID != "" && req.TenantID != claims.TenantID {
+			if !requirePlatformAdmin(claims) {
+				writeError(w, http.StatusForbidden, "forbidden", "platform admin required to scope an app to another tenant", nil)
+				return
+			}
+			targetTenant = req.TenantID
+		}
+		if tenantID, err := uuid.Parse(targetTenant); err == nil {
 			create.SetTenantID(tenantID)
+		} else if req.TenantID != "" {
+			writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+			return
 		}
 	}
 	if len(req.Scopes) > 0 {
@@ -495,6 +521,114 @@ func (h *AppHandler) DeleteApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// SuspendApp temporarily disables an app's token without the permanence of Revoke.
+// A suspended app can later be reactivated via ResumeApp; a revoked one cannot.
+func (h *AppHandler) SuspendApp(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	appID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid app id", nil)
+		return
+	}
+	existing, err := h.ent.App.Get(r.Context(), appID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "app not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to get app", nil)
+		return
+	}
+	if !requirePlatformAdmin(claims) && (existing.TenantID == nil || existing.TenantID.String() != claims.TenantID) {
+		writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
+		return
+	}
+	if existing.Status != app.StatusActive {
+		writeError(w, http.StatusConflict, "invalid_state", "only an active app can be suspended", nil)
+		return
+	}
+	updated, err := h.ent.App.UpdateOneID(appID).SetStatus(app.StatusSuspended).Save(r.Context())
+	if err != nil {
+		h.logger.Error("suspend app", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to suspend app", nil)
+		return
+	}
+	h.logger.Info("app suspended", zap.String("app_id", appID.String()), zap.String("suspended_by", claims.Subject))
+	writeJSON(w, http.StatusOK, appToResponse(updated))
+}
+
+// ResumeApp reactivates a suspended app's token. Has no effect on revoked/expired apps.
+func (h *AppHandler) ResumeApp(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	appID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid app id", nil)
+		return
+	}
+	existing, err := h.ent.App.Get(r.Context(), appID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "app not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to get app", nil)
+		return
+	}
+	if !requirePlatformAdmin(claims) && (existing.TenantID == nil || existing.TenantID.String() != claims.TenantID) {
+		writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
+		return
+	}
+	if existing.Status != app.StatusSuspended {
+		writeError(w, http.StatusConflict, "invalid_state", "only a suspended app can be resumed", nil)
+		return
+	}
+	updated, err := h.ent.App.UpdateOneID(appID).SetStatus(app.StatusActive).Save(r.Context())
+	if err != nil {
+		h.logger.Error("resume app", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to resume app", nil)
+		return
+	}
+	h.logger.Info("app resumed", zap.String("app_id", appID.String()), zap.String("resumed_by", claims.Subject))
+	writeJSON(w, http.StatusOK, appToResponse(updated))
+}
+
+// IsValidInternalServiceToken reports whether the given X-API-Key value matches an
+// active, unexpired platform App carrying InternalServiceKeyScope. This is the
+// dual-mode companion to the static INTERNAL_SERVICE_KEY env-var compare
+// (requireInternalKey in router.go): it lets a platform admin manage/rotate/suspend
+// the fleet's shared internal-service credential through the same Apps & Keys CRUD
+// as any other app, without requiring the other services (which still compare the
+// static env var directly, by design — S2S auth there must keep working even when
+// auth-api itself is down) to change in this same pass.
+func (h *AppHandler) IsValidInternalServiceToken(ctx context.Context, tokenStr string) bool {
+	if tokenStr == "" {
+		return false
+	}
+	a, err := h.ent.App.Query().
+		Where(app.KeyHashEQ(hashAPIKey(tokenStr)), app.StatusEQ(app.StatusActive)).
+		Only(ctx)
+	if err != nil {
+		return false
+	}
+	if a.ExpiresAt != nil && !a.ExpiresAt.IsZero() && time.Now().After(*a.ExpiresAt) {
+		return false
+	}
+	for _, s := range a.Scopes {
+		if s == InternalServiceKeyScope {
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateAppToken is intentionally absent: validation of bng_app_* tokens

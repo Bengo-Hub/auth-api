@@ -3,6 +3,7 @@ package oidc
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -79,7 +80,10 @@ func (s *Service) CreateAuthorizationCode(ctx context.Context, userID uuid.UUID,
 }
 
 // ExchangeCode validates the code and returns user + client after consuming it.
-func (s *Service) ExchangeCode(ctx context.Context, codePlain, clientID, redirectURI, codeVerifier string) (*ent.User, *ent.OAuthClient, *ent.AuthorizationCode, error) {
+// clientSecret is required (and checked against the client's stored secret hash)
+// whenever the client is confidential (public=false) — a client_secret that is
+// generated at creation but never verified anywhere is decorative, not security.
+func (s *Service) ExchangeCode(ctx context.Context, codePlain, clientID, redirectURI, codeVerifier, clientSecret string) (*ent.User, *ent.OAuthClient, *ent.AuthorizationCode, error) {
 	hash := sha256.Sum256([]byte(codePlain))
 	code, err := s.entClient.AuthorizationCode.Query().
 		Where(
@@ -117,6 +121,15 @@ func (s *Service) ExchangeCode(ctx context.Context, codePlain, clientID, redirec
 	client, err := s.ClientByID(ctx, clientID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("load client: %w", err)
+	}
+	if !client.Public {
+		if client.ClientSecret == "" {
+			return nil, nil, nil, fmt.Errorf("client is not configured for confidential auth")
+		}
+		providedHash := sha256.Sum256([]byte(clientSecret))
+		if clientSecret == "" || subtle.ConstantTimeCompare([]byte(hex.EncodeToString(providedHash[:])), []byte(client.ClientSecret)) != 1 {
+			return nil, nil, nil, fmt.Errorf("invalid client credentials")
+		}
 	}
 	// consume
 	if err := s.entClient.AuthorizationCode.UpdateOneID(code.ID).
