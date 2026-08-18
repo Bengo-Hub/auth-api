@@ -38,6 +38,7 @@ type AuthService interface {
 	GetTenant(ctx context.Context, id uuid.UUID) (*ent.Tenant, error)
 	GetTenantBySlug(ctx context.Context, slug string) (*ent.Tenant, error)
 	GetUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) (roles []string, permissions []string, err error)
+	GetUserRolesAndPermissionsForTenant(ctx context.Context, userID, tenantID uuid.UUID) (roles []string, permissions []string, err error)
 	StartGoogleOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
 	CompleteGoogleOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
 	StartGitHubOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
@@ -754,7 +755,35 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	roles, permissions, err := h.service.GetUserRolesAndPermissions(r.Context(), userID)
+	// Resolve the active tenant EARLY so roles/permissions are scoped to it
+	// (matching what the token was minted for) rather than unioned across
+	// every tenant the user belongs to — that union previously let a role
+	// held in a completely unrelated tenant leak into nav guards for the
+	// current session (a user who is "admin" in tenant B would appear to
+	// have admin permissions while acting in tenant A). Prefer the tenant the
+	// token was minted for (claims.TenantID): for a platform owner signing
+	// into another tenant this differs from their primary tenant, and the
+	// token's tenant is the correct active context. Fall back to primary
+	// tenant, and only fall back further to the cross-tenant union when
+	// there is no active-tenant membership at all.
+	activeTenantIDStr := userEntity.PrimaryTenantID
+	if claims.TenantID != "" {
+		activeTenantIDStr = claims.TenantID
+	}
+	var roles, permissions []string
+	if activeTenantUUID, parseErr := uuid.Parse(activeTenantIDStr); parseErr == nil {
+		roles, permissions, err = h.service.GetUserRolesAndPermissionsForTenant(r.Context(), userID, activeTenantUUID)
+	}
+	if len(roles) == 0 && len(permissions) == 0 {
+		var allRoles, allPermissions []string
+		allRoles, allPermissions, err = h.service.GetUserRolesAndPermissions(r.Context(), userID)
+		if len(roles) == 0 {
+			roles = allRoles
+		}
+		if len(permissions) == 0 {
+			permissions = allPermissions
+		}
+	}
 	if err != nil {
 		h.logger.Warn("failed to load roles/permissions in /me", zap.Error(err))
 		roles = claims.Roles
@@ -802,15 +831,9 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve and embed the ACTIVE tenant as a nested object so frontend
 	// useAuth and test_sso_me_endpoint can read tenant.id / tenant.slug directly.
-	// Prefer the tenant the token was minted for (claims.TenantID): for a platform
-	// owner signing into another tenant this differs from their primary tenant, and
-	// the token's tenant is the correct active context. Fall back to primary tenant.
-	activeTenantID := userEntity.PrimaryTenantID
-	if claims.TenantID != "" {
-		activeTenantID = claims.TenantID
-	}
-	if activeTenantID != "" {
-		if tenantID, parseErr := uuid.Parse(activeTenantID); parseErr == nil {
+	// Reuses activeTenantIDStr resolved above for the roles/permissions scoping.
+	if activeTenantIDStr != "" {
+		if tenantID, parseErr := uuid.Parse(activeTenantIDStr); parseErr == nil {
 			if tenantEntity, tErr := h.service.GetTenant(r.Context(), tenantID); tErr == nil {
 				tenantView := tenantViewFromEnt(tenantEntity)
 				// Inject subscription_features from JWT claims (not stored in DB).

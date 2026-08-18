@@ -41,6 +41,7 @@ func isPlatformAdminRole(roles []string) bool {
 // RolesPermissionsProvider returns roles and canonical permission codes for a user (for JWT claims).
 type RolesPermissionsProvider interface {
 	GetUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) (roles []string, permissions []string, err error)
+	GetUserRolesAndPermissionsForTenant(ctx context.Context, userID, tenantID uuid.UUID) (roles []string, permissions []string, err error)
 }
 
 // SubscriptionEnricher populates subscription claims (plan, status, features, limits)
@@ -380,9 +381,16 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		sessionID = uuid.New()
 	}
 
+	// Permissions are scoped to the resolved tenant, not unioned across every
+	// tenant the user belongs to — otherwise a permission granted by a role
+	// held in an unrelated tenant would leak into a token scoped to this one.
 	var permissions []string
 	if h.rolesPerms != nil {
-		_, permissions, _ = h.rolesPerms.GetUserRolesAndPermissions(r.Context(), userEntity.ID)
+		if tenantID != nil {
+			_, permissions, _ = h.rolesPerms.GetUserRolesAndPermissionsForTenant(r.Context(), userEntity.ID, *tenantID)
+		} else {
+			_, permissions, _ = h.rolesPerms.GetUserRolesAndPermissions(r.Context(), userEntity.ID)
+		}
 	}
 
 	// Mint access token with roles, permissions, and tenant info

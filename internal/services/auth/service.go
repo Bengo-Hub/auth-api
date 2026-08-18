@@ -299,8 +299,8 @@ type AuthResult struct {
 	RefreshToken          string
 	RefreshTokenExpiresAt time.Time
 	SessionID             uuid.UUID
-	Roles                 []string // All roles (all tenants) for RBAC; matches GET /me
-	Permissions           []string // Canonical permission codes; matches GET /me
+	Roles                 []string // Scoped to the active Tenant (union across all tenants only when no active tenant); matches GET /me
+	Permissions           []string // Canonical permission codes, same scoping as Roles; matches GET /me
 }
 
 // GetTenant returns a tenant by ID.
@@ -1471,8 +1471,14 @@ func (s *Service) IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, err
 	return exists, nil
 }
 
-// GetUserRolesAndPermissions returns the list of role names and permission codes for the user (from all tenant memberships).
-// Used by GET /me to expose RBAC data for frontend nav/route guards. Can be cached in Redis with TTL.
+// GetUserRolesAndPermissions returns the UNION of role names and permission
+// codes across every tenant the user belongs to. This is a fallback for when
+// no specific tenant context is known (e.g. no active tenant resolved yet) —
+// prefer GetUserRolesAndPermissionsForTenant whenever a tenant IS known.
+// Using this union when a tenant is known would let a role/permission held in
+// a completely unrelated tenant leak into the current session/token/nav
+// guards (e.g. a user who is "admin" in tenant B would appear to have
+// admin-level permissions while acting in tenant A).
 func (s *Service) GetUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) (roles []string, permissions []string, err error) {
 	memberships, err := s.entClient.TenantMembership.Query().
 		Where(tenantmembership.UserID(userID)).
@@ -1489,15 +1495,46 @@ func (s *Service) GetUserRolesAndPermissions(ctx context.Context, userID uuid.UU
 	for r := range roleSet {
 		roles = append(roles, r)
 	}
+	permissions, err = s.permissionsForRoles(ctx, roles)
+	return roles, permissions, err
+}
+
+// GetUserRolesAndPermissionsForTenant returns the role names and permission
+// codes from the user's SINGLE membership in tenantID — not unioned across
+// their other tenants. This is the correct source whenever a session/token is
+// scoped to one tenant (login, refresh, OIDC token exchange, /me's active
+// tenant), so a role held elsewhere can never leak in. Returns empty slices
+// (no error) when the user has no membership in tenantID.
+func (s *Service) GetUserRolesAndPermissionsForTenant(ctx context.Context, userID, tenantID uuid.UUID) (roles []string, permissions []string, err error) {
+	membership, err := s.entClient.TenantMembership.Query().
+		Where(
+			tenantmembership.UserID(userID),
+			tenantmembership.TenantID(tenantID),
+		).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, nil, nil
+		}
+		return nil, nil, err
+	}
+	roles = membership.Roles
+	permissions, err = s.permissionsForRoles(ctx, roles)
+	return roles, permissions, err
+}
+
+// permissionsForRoles resolves the union of permission codes granted to the
+// given role names.
+func (s *Service) permissionsForRoles(ctx context.Context, roles []string) ([]string, error) {
 	if len(roles) == 0 {
-		return roles, nil, nil
+		return nil, nil
 	}
 	rps, err := s.entClient.RolePermission.Query().
 		Where(rolepermission.RoleNameIn(roles...)).
 		WithPermission().
 		All(ctx)
 	if err != nil {
-		return roles, nil, err
+		return nil, err
 	}
 	permSet := make(map[string]struct{})
 	for _, rp := range rps {
@@ -1505,10 +1542,11 @@ func (s *Service) GetUserRolesAndPermissions(ctx context.Context, userID uuid.UU
 			permSet[rp.Edges.Permission.Code] = struct{}{}
 		}
 	}
+	permissions := make([]string, 0, len(permSet))
 	for p := range permSet {
 		permissions = append(permissions, p)
 	}
-	return roles, permissions, nil
+	return permissions, nil
 }
 
 // ListUserTenantMemberships returns every tenant the user belongs to, with
@@ -1784,32 +1822,36 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		effectiveScopes = s.cfg.Token.DefaultScopes
 	}
 
-	// Fetch user roles from TenantMembership
-	var roles []string
+	// Fetch roles/permissions scoped to the ACTIVE tenant specifically. Only
+	// fall back to the union across all of the user's tenants when there is no
+	// active-tenant membership at all (e.g. tenant not yet resolved) — that
+	// fallback is a display/back-compat convenience and is NEVER used for the
+	// is_platform_owner determination below, so a role held in an unrelated
+	// tenant cannot leak platform access or elevated permissions through it.
+	var tenantRoles, roles, permissions []string
 	if tenantIDPtr != nil {
-		membership, err := s.entClient.TenantMembership.Query().
-			Where(
-				tenantmembership.UserID(userEntity.ID),
-				tenantmembership.TenantID(*tenantIDPtr),
-			).
-			Only(ctx)
-		if err == nil && membership != nil {
-			roles = membership.Roles
-		}
+		tenantRoles, permissions, _ = s.GetUserRolesAndPermissionsForTenant(ctx, userEntity.ID, *tenantIDPtr)
+		roles = tenantRoles
 	}
-
-	// Load roles and permissions for JWT and response (canonical RBAC; matches GET /me)
-	allRoles, permissions, _ := s.GetUserRolesAndPermissions(ctx, sessionEntity.UserID)
-	if len(roles) == 0 && len(allRoles) > 0 {
-		roles = allRoles
+	if len(roles) == 0 && len(permissions) == 0 {
+		allRoles, allPermissions, _ := s.GetUserRolesAndPermissions(ctx, sessionEntity.UserID)
+		if len(roles) == 0 {
+			roles = allRoles
+		}
+		if len(permissions) == 0 {
+			permissions = allPermissions
+		}
 	}
 
 	// Build token input with subscription data if available.
 	// is_platform_owner requires an admin-tier role (admin/superuser) held
-	// specifically within the platform tenant — not mere membership. It is also
-	// membership-independent of the ACTIVE tenant: a platform admin signed into
-	// another tenant must still carry the claim, or /authorize denies them
-	// cross-tenant access on the next hop.
+	// specifically within the platform tenant — not mere membership, and
+	// membership-independent of the ACTIVE tenant: a platform admin signed
+	// into another tenant must still carry the claim, or /authorize denies
+	// them cross-tenant access on the next hop. isPlatformOwnerUser alone
+	// covers this (it re-derives it from the codevertex membership directly),
+	// which is why this does NOT also inspect `roles` — that could be the
+	// cross-tenant union fallback above, not necessarily this tenant's roles.
 	tokenInput := token.AccessTokenInput{
 		UserID:          sessionEntity.UserID,
 		TenantID:        tenantIDPtr,
@@ -1819,7 +1861,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		Scopes:          effectiveScopes,
 		Roles:           roles,
 		Permissions:     permissions,
-		IsPlatformOwner: (tenantEntity != nil && tenantEntity.Slug == platformTenantSlug && isPlatformAdminRole(roles)) || s.isPlatformOwnerUser(ctx, sessionEntity.UserID),
+		IsPlatformOwner: s.isPlatformOwnerUser(ctx, sessionEntity.UserID),
 	}
 	if tenantEntity != nil {
 		tokenInput.TenantSlug = tenantEntity.Slug
@@ -1830,9 +1872,10 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 
 		// Platform owner may also be flagged via metadata (in addition to the canonical
 		// "codevertex" slug) so a renamed/secondary platform tenant still bypasses gating —
-		// but still only for an admin-tier role in that tenant, same rule as above.
+		// but still only for an admin-tier role in THAT tenant specifically (tenantRoles,
+		// never the cross-tenant union fallback).
 		if powner, ok := tenantEntity.Metadata["is_platform_owner"]; ok {
-			if v, ok := powner.(bool); ok && v && isPlatformAdminRole(roles) {
+			if v, ok := powner.(bool); ok && v && isPlatformAdminRole(tenantRoles) {
 				tokenInput.IsPlatformOwner = true
 			}
 		}
@@ -1905,7 +1948,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		RefreshToken:          refreshToken,
 		RefreshTokenExpiresAt: sessionEntity.ExpiresAt,
 		SessionID:             sessionEntity.ID,
-		Roles:                 allRoles,
+		Roles:                 roles,
 		Permissions:           permissions,
 	}, nil
 }
