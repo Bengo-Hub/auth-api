@@ -654,6 +654,7 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 		Phone             string         `json:"phone,omitempty"`
 		Bio               string         `json:"bio,omitempty"`
 		Country           string         `json:"country,omitempty"`
+		Gender            string         `json:"gender,omitempty"`
 		Timezone          string         `json:"timezone,omitempty"`
 		Locale            string         `json:"locale,omitempty"`
 		Preferences       map[string]any `json:"preferences,omitempty"`
@@ -690,6 +691,9 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Country != "" {
 		profile["country"] = req.Country
+	}
+	if req.Gender != "" {
+		profile["gender"] = req.Gender
 	}
 	if req.Timezone != "" {
 		profile["timezone"] = req.Timezone
