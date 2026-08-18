@@ -78,6 +78,16 @@ var servicePerms = map[string][]string{
 		"auth.roles.manage",
 		"auth.audit.view",
 		"auth.security.manage",
+		// Platform-only modules that previously had no permission code at all
+		// (enforcement is via is_platform_owner; these exist so the Permissions
+		// catalogue page reflects every platform surface, and so a future
+		// permission-based check has a code to check against).
+		"auth.clients.manage",
+		"auth.integrations.manage",
+		"auth.entitlements.manage",
+		"auth.backups.manage",
+		"auth.apps.manage",
+		"auth.apikeys.manage",
 	},
 }
 

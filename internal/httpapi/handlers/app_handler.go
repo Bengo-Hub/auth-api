@@ -92,16 +92,13 @@ func generateClientID() (string, error) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// requirePlatformAdmin gates platform-type Apps management. A bare
+// "superuser" role string must NOT qualify on its own: TenantMembership roles
+// are tenant-scoped, so a "superuser" in any ordinary tenant would otherwise
+// get platform-wide App management. Only claims.IsPlatformOwner (admin-tier
+// role within the "codevertex" tenant specifically) counts.
 func requirePlatformAdmin(claims *token.Claims) bool {
-	if claims.IsPlatformOwner {
-		return true
-	}
-	for _, r := range claims.Roles {
-		if r == "superuser" {
-			return true
-		}
-	}
-	return false
+	return claims.IsPlatformOwner
 }
 
 func appToResponse(a *ent.App) AppResponse {

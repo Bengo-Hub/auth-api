@@ -29,6 +29,13 @@ func (h *DeveloperHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
 		return
 	}
+	// The auth-ui "Developer" page is platform-owner-only (see dashboard/layout.tsx
+	// PLATFORM_OWNER_ROUTES); this API had no matching backend check, so any
+	// authenticated user of any tenant could call it directly.
+	if !claims.IsPlatformOwner {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
+		return
+	}
 
 	userID := parseUUID(claims.Subject)
 	clients, err := h.ent.OAuthClient.Query().
@@ -51,6 +58,13 @@ func (h *DeveloperHandler) CreateClient(w http.ResponseWriter, r *http.Request) 
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	// Minting a live OAuth client_id/client_secret against the platform's OIDC
+	// endpoints is platform-admin only — previously any authenticated user,
+	// any tenant, any role, could call this with no check at all.
+	if !claims.IsPlatformOwner {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
 		return
 	}
 

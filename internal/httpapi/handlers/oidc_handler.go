@@ -19,9 +19,24 @@ import (
 )
 
 // platformTenantSlug is the slug of the platform/owner tenant. Members of this
-// tenant are platform owners and may sign into ANY tenant — mirroring how the
-// is_platform_owner claim grants cross-tenant access across the other services.
+// tenant holding an admin-tier role are platform owners and may sign into ANY
+// tenant — mirroring how the is_platform_owner claim grants cross-tenant access
+// across the other services.
 const platformTenantSlug = "codevertex"
+
+// isPlatformAdminRole reports whether roles contains an admin-tier role name.
+// Deliberately narrow: holding ANY role in the platform tenant (e.g. "member",
+// or a custom role like "COO") must NOT grant platform-wide access — only an
+// actual admin/superuser role does. Mirrors internal/services/auth's helper of
+// the same name (duplicated here to avoid a cross-package import for one guard).
+func isPlatformAdminRole(roles []string) bool {
+	for _, r := range roles {
+		if r == "superuser" || r == "admin" {
+			return true
+		}
+	}
+	return false
+}
 
 // RolesPermissionsProvider returns roles and canonical permission codes for a user (for JWT claims).
 type RolesPermissionsProvider interface {
@@ -205,7 +220,7 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 			// enough: it is only stamped on sessions minted IN the codevertex
 			// context, so a platform owner whose session was created against
 			// another tenant would otherwise be denied here.
-			if m.TenantSlug == tenantFromURL || m.TenantSlug == platformTenantSlug {
+			if m.TenantSlug == tenantFromURL || (m.TenantSlug == platformTenantSlug && isPlatformAdminRole(m.Roles)) {
 				isMember = true
 				break
 			}
@@ -291,24 +306,27 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	var roles []string
 	var tenantID *uuid.UUID
 	var tenantSlug string
-	// Platform owners (members of the platform tenant) may obtain a token scoped to
-	// ANY tenant — the same cross-tenant access the is_platform_owner claim grants in
-	// pos-api / treasury / inventory.
+	// Platform owners (members of the platform tenant holding an admin-tier role)
+	// may obtain a token scoped to ANY tenant — the same cross-tenant access the
+	// is_platform_owner claim grants in pos-api / treasury / inventory.
 	isPlatformOwner := false
 	for _, m := range memberships {
-		if m.TenantSlug == platformTenantSlug {
+		if m.TenantSlug == platformTenantSlug && isPlatformAdminRole(m.Roles) {
 			isPlatformOwner = true
 			break
 		}
 	}
-	// Collect all roles and resolve requested tenant
+	// Resolve the requested tenant and use ONLY that membership's roles — roles
+	// must not be unioned across every tenant the user belongs to, or a role held
+	// in tenant B (e.g. "admin") would leak into a token scoped to tenant A.
 	requestedSlug, _ := authCode.Metadata["tenant_slug"].(string)
 	for _, m := range memberships {
-		roles = append(roles, m.Roles...)
 		if requestedSlug != "" && m.TenantSlug == requestedSlug {
 			tid := m.TenantID
 			tenantID = &tid
 			tenantSlug = m.TenantSlug
+			roles = m.Roles
+			break
 		}
 	}
 	// Platform owner signing into a tenant they are not a member of: resolve that
@@ -341,6 +359,7 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 				tid := m.TenantID
 				tenantID = &tid
 				tenantSlug = m.TenantSlug
+				roles = m.Roles
 			}
 		}
 	}

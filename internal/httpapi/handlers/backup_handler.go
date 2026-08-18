@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/modules/platformbackup"
 	"github.com/go-chi/chi/v5"
 )
@@ -39,6 +40,10 @@ func NewBackupHandler(backupServiceURL string, enabled bool, settings *platformb
 // GetSettings returns the platform auto-backup activation settings
 // (GET /api/v1/admin/backups/settings). Admin-only via the /admin + RequireAuth group.
 func (h *BackupHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); !ok || !requirePlatformAdmin(claims) {
+		http.Error(w, `{"error":"platform admin required"}`, http.StatusForbidden)
+		return
+	}
 	if h.settings == nil {
 		http.Error(w, `{"error":"backup settings unavailable"}`, http.StatusServiceUnavailable)
 		return
@@ -55,6 +60,10 @@ func (h *BackupHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 // UpdateSettings upserts the platform auto-backup activation settings
 // (PUT /api/v1/admin/backups/settings). Admin-only via the /admin + RequireAuth group.
 func (h *BackupHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); !ok || !requirePlatformAdmin(claims) {
+		http.Error(w, `{"error":"platform admin required"}`, http.StatusForbidden)
+		return
+	}
 	if h.settings == nil {
 		http.Error(w, `{"error":"backup settings unavailable"}`, http.StatusServiceUnavailable)
 		return
@@ -75,6 +84,10 @@ func (h *BackupHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 // ListBackups returns the backup manifest (GET /api/v1/platform/backups).
 func (h *BackupHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); !ok || !requirePlatformAdmin(claims) {
+		http.Error(w, `{"error":"platform admin required"}`, http.StatusForbidden)
+		return
+	}
 	if !h.enabled {
 		http.Error(w, `{"error":"backup feature is disabled"}`, http.StatusServiceUnavailable)
 		return
@@ -96,6 +109,10 @@ func (h *BackupHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
 // Uses a dedicated HTTP client with no timeout to avoid the router's 60s middleware
 // killing large file downloads. Streams data with flushing for real-time progress.
 func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); !ok || !requirePlatformAdmin(claims) {
+		http.Error(w, `{"error":"platform admin required"}`, http.StatusForbidden)
+		return
+	}
 	if !h.enabled {
 		http.Error(w, `{"error":"backup feature is disabled"}`, http.StatusServiceUnavailable)
 		return
