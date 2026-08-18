@@ -13,6 +13,7 @@ import (
 	"github.com/Bengo-Hub/pagination"
 	subscriptionclient "github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
@@ -28,6 +29,7 @@ import (
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/pquerna/otp/totp"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -1923,6 +1925,68 @@ func (h *AdminHandler) S2SUserEmailVerification(w http.ResponseWriter, r *http.R
 	}
 
 	writeJSON(w, http.StatusOK, auth.EmailVerificationStateFor(u, roles, time.Now()))
+}
+
+// S2SMFAStatus reports whether the auth-api User matching the given email has
+// TOTP MFA enabled, for services (mail-ui) whose own login credential is a
+// different account entirely (a Stalwart mailbox password, not this user's
+// auth-api password) but that still want to require this same second factor
+// when the two happen to share an email. A non-matching email is not an
+// error — it just means MFA isn't offered on that other service.
+func (h *AdminHandler) S2SMFAStatus(w http.ResponseWriter, r *http.Request) {
+	email := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("email")))
+	if email == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "email is required", nil)
+		return
+	}
+	u, err := h.ent.User.Query().Where(user.EmailEQ(email)).First(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"linked": false, "mfa_required": false})
+		return
+	}
+	enabled, _ := h.ent.MFATOTPSecret.Query().
+		Where(mfatotpsecret.UserID(u.ID), mfatotpsecret.EnabledAtNotNil()).
+		Exist(r.Context())
+	writeJSON(w, http.StatusOK, map[string]any{"linked": true, "mfa_required": enabled})
+}
+
+// S2SMFAVerify validates a TOTP code for the auth-api User matching the given
+// email, on behalf of a caller (mail-ui) that authenticated the underlying
+// mailbox credential itself and only needs the second factor checked here.
+// Never returns or accepts the secret itself - code in, valid/invalid out.
+func (h *AdminHandler) S2SMFAVerify(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	email := strings.TrimSpace(strings.ToLower(req.Email))
+	code := strings.TrimSpace(req.Code)
+	if email == "" || code == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "email and code are required", nil)
+		return
+	}
+	u, err := h.ent.User.Query().Where(user.EmailEQ(email)).First(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"valid": false, "mfa_required": false})
+		return
+	}
+	rec, err := h.ent.MFATOTPSecret.Query().
+		Where(mfatotpsecret.UserID(u.ID), mfatotpsecret.EnabledAtNotNil()).
+		Only(r.Context())
+	if err != nil {
+		// No enabled TOTP for this user - nothing to verify, so don't block login.
+		writeJSON(w, http.StatusOK, map[string]any{"valid": true, "mfa_required": false})
+		return
+	}
+	ok := totp.Validate(code, rec.Secret)
+	if ok {
+		_ = h.ent.MFATOTPSecret.UpdateOneID(rec.ID).SetLastUsedAt(time.Now()).Exec(r.Context())
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"valid": ok, "mfa_required": true})
 }
 
 func (h *AdminHandler) S2SListTenantUsers(w http.ResponseWriter, r *http.Request) {

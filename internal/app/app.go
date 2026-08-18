@@ -315,6 +315,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			RemoveTenantMember:       adminHandler.RemoveTenantMember,
 			S2SListTenantUsers:       adminHandler.S2SListTenantUsers,
 			S2SUserEmailVerification: adminHandler.S2SUserEmailVerification,
+			S2SMFAStatus:             adminHandler.S2SMFAStatus,
+			S2SMFAVerify:             adminHandler.S2SMFAVerify,
 			SetUserServicePIN:        adminHandler.SetUserServicePIN,
 			// API Key management (service accounts)
 			AdminCreateAPIKey: apiKeyHandler.CreateAPIKey,

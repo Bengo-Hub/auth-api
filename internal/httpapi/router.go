@@ -150,6 +150,11 @@ type AuthHandlers struct {
 	S2SListTenantUsers http.HandlerFunc
 	// S2SUserEmailVerification returns the computed email-verification state for a user.
 	S2SUserEmailVerification http.HandlerFunc
+	// S2SMFAStatus/S2SMFAVerify let a service with its own separate login
+	// credential (mail-ui's Stalwart mailbox password) still gate on this
+	// user's auth-api TOTP MFA when the email happens to match.
+	S2SMFAStatus             http.HandlerFunc
+	S2SMFAVerify             http.HandlerFunc
 	SetUserServicePIN        http.HandlerFunc
 	// Public integrations info
 	ListActiveIntegrations http.HandlerFunc
@@ -631,6 +636,14 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// shows the same graduated verify banner.
 			if deps.AuthHandlers.S2SUserEmailVerification != nil {
 				r.Get("/api/v1/s2s/users/{user_id}/email-verification", deps.AuthHandlers.S2SUserEmailVerification)
+			}
+			// S2S MFA federation (mail-ui webmail login) - see comments on the
+			// Deps fields above and on the handlers themselves.
+			if deps.AuthHandlers.S2SMFAStatus != nil {
+				r.Get("/api/v1/s2s/mfa/status", deps.AuthHandlers.S2SMFAStatus)
+			}
+			if deps.AuthHandlers.S2SMFAVerify != nil {
+				r.Post("/api/v1/s2s/mfa/verify", deps.AuthHandlers.S2SMFAVerify)
 			}
 			// S2S member provisioning: owning services (pos-api, etc.) create/link a
 			// user by email and get the REAL auth user id back, so no service ever
