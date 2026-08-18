@@ -28,8 +28,11 @@ func NewRBACHandler(svc *auth.Service, logger *zap.Logger) *RBACHandler {
 	return &RBACHandler{svc: svc, logger: logger}
 }
 
-// requireAdmin mirrors AdminHandler.requireAdmin: platform owners, superuser/
-// admin roles, or admin-scoped S2S tokens may manage RBAC.
+// requireAdmin mirrors AdminHandler.requireAdmin: only platform owners
+// (admin-tier role within the "codevertex" tenant) or admin-scoped S2S tokens
+// may manage RBAC (roles, permissions, audit log, password policy) — these are
+// platform-wide surfaces, so a bare "admin"/"superuser" role string from ANY
+// ordinary tenant must NOT qualify (role names are tenant-scoped, not global).
 func (h *RBACHandler) requireAdmin(r *http.Request) bool {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok || claims == nil {
@@ -37,11 +40,6 @@ func (h *RBACHandler) requireAdmin(r *http.Request) bool {
 	}
 	if claims.IsPlatformOwner {
 		return true
-	}
-	for _, role := range claims.Roles {
-		if role == "superuser" || role == "admin" {
-			return true
-		}
 	}
 	for _, s := range claims.Scope {
 		if s == "admin" || s == "auth.admin" {

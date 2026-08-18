@@ -14,10 +14,27 @@ import (
 	entapp "github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/token"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+// isPlatformOrS2SAdmin reports whether claims belong to a platform owner
+// (admin-tier role within the "codevertex" tenant) or an admin-scoped S2S
+// token. Deliberately does NOT accept a bare "admin"/"superuser" role string,
+// since TenantMembership roles are tenant-scoped, not global.
+func isPlatformOrS2SAdmin(claims *token.Claims) bool {
+	if claims.IsPlatformOwner {
+		return true
+	}
+	for _, s := range claims.Scope {
+		if s == "admin" || s == "auth.admin" {
+			return true
+		}
+	}
+	return false
+}
 
 // APIKeyHandler handles API key management and validation.
 type APIKeyHandler struct {
@@ -97,21 +114,11 @@ func (h *APIKeyHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Require admin scope for API key creation
-	isAdmin := false
-	for _, role := range claims.Roles {
-		if role == "superuser" || role == "admin" {
-			isAdmin = true
-			break
-		}
-	}
-	for _, s := range claims.Scope {
-		if s == "admin" || s == "auth.admin" {
-			isAdmin = true
-			break
-		}
-	}
-	if !isAdmin {
+	// "Apps & Keys" is a platform-owner-only surface (see dashboard/layout.tsx
+	// PLATFORM_OWNER_ROUTES) — a bare "admin"/"superuser" role string from an
+	// ordinary tenant must NOT qualify, since that role name is tenant-scoped,
+	// not global.
+	if !isPlatformOrS2SAdmin(claims) {
 		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
 		return
 	}
@@ -367,6 +374,13 @@ func (h *APIKeyHandler) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
 		return
 	}
+	// "Apps & Keys" is a platform-owner-only surface (see dashboard/layout.tsx
+	// PLATFORM_OWNER_ROUTES) — match that here instead of letting any
+	// authenticated tenant user list service-account keys.
+	if !isPlatformOrS2SAdmin(claims) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
 
 	tenantID, err := uuid.Parse(claims.TenantID)
 	if err != nil {
@@ -426,6 +440,13 @@ func (h *APIKeyHandler) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
+		return
+	}
+	// "Apps & Keys" is a platform-owner-only surface (see dashboard/layout.tsx
+	// PLATFORM_OWNER_ROUTES) — match that here instead of letting any
+	// authenticated tenant user revoke service-account keys.
+	if !isPlatformOrS2SAdmin(claims) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
 		return
 	}
 

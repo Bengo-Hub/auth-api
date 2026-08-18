@@ -49,6 +49,7 @@ type AuthService interface {
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error
 	IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
 	ListUserTenantMemberships(ctx context.Context, userID uuid.UUID) ([]*ent.TenantMembership, error)
+	IsPlatformOwner(ctx context.Context, userID uuid.UUID) bool
 	AcceptTerms(ctx context.Context, userID uuid.UUID) error
 	ChangePassword(ctx context.Context, in auth.ChangePasswordInput) error
 	SendOTPEmail(ctx context.Context, tenantID, userID uuid.UUID, email, otp string)
@@ -430,9 +431,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			out["tenant"] = tenantViewFromEnt(result.Tenant)
 			out["tenant_id"] = result.Tenant.ID.String()
 			out["tenant_slug"] = result.Tenant.Slug
-			if result.Tenant.Slug == "codevertex" {
-				out["is_platform_owner"] = true
-			}
+		}
+		// is_platform_owner requires an admin-tier role within the platform tenant,
+		// not mere presence there (e.g. tenant.Slug == "codevertex" alone) — a
+		// non-admin role (e.g. "COO") must not be granted platform-wide access.
+		if h.service.IsPlatformOwner(r.Context(), result.User.ID) {
+			out["is_platform_owner"] = true
 		}
 
 		if b, err := json.Marshal(out); err == nil && ttl > 0 {
@@ -775,6 +779,16 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	// public demo tenant (see demoSelfServiceBlocked, which enforces this server-side too).
 	out["is_demo"] = claims.IsDemo
 
+	// Platform-owner status is re-derived fresh from the DB (not just the JWT
+	// claim) so a role change/downgrade takes effect immediately on the next
+	// /me call rather than waiting for token refresh. Requires an admin-tier
+	// role (admin/superuser) held specifically within the platform tenant
+	// ("codevertex") — mere presence in that tenant (e.g. role "COO") is not
+	// enough, and it is independent of which tenant is currently active.
+	if h.service.IsPlatformOwner(r.Context(), userID) {
+		out["is_platform_owner"] = true
+	}
+
 	// MFA status
 	if mfaEnabled, err := h.service.IsMFAEnabled(r.Context(), userID); err == nil {
 		out["mfa_enabled"] = mfaEnabled
@@ -812,12 +826,6 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 				out["tenant"] = tenantView
 				out["tenant_id"] = tenantEntity.ID.String()
 				out["tenant_slug"] = tenantEntity.Slug
-				// Platform-owner status is independent of the active tenant: it holds
-				// when the token carries the claim (set at mint for platform-tenant
-				// members) or the active tenant is the platform tenant itself.
-				if claims.IsPlatformOwner || tenantEntity.Slug == "codevertex" {
-					out["is_platform_owner"] = true
-				}
 			} else {
 				h.logger.Warn("failed to load active tenant in /me", zap.Error(tErr))
 			}

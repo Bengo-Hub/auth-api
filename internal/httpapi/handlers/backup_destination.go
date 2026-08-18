@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
+	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/modules/platformbackup/destination"
 )
 
@@ -86,6 +87,10 @@ func mergeSecrets(d *destination.Destination, existing destination.Destination, 
 
 // Get returns the masked platform backup destination (GET /api/v1/admin/backups/destination).
 func (h *BackupDestinationHandler) Get(w http.ResponseWriter, r *http.Request) {
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); !ok || !requirePlatformAdmin(claims) {
+		h.respond(w, http.StatusForbidden, map[string]string{"error": "platform admin required"})
+		return
+	}
 	d, ok := h.store.Get(r.Context())
 	if !ok {
 		h.respond(w, http.StatusOK, backupDestResponse{Configured: false, Type: "pvc", Params: []destination.MaskedParam{}})
@@ -96,6 +101,10 @@ func (h *BackupDestinationHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // Update upserts the platform backup destination (PUT /api/v1/admin/backups/destination).
 func (h *BackupDestinationHandler) Update(w http.ResponseWriter, r *http.Request) {
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); !ok || !requirePlatformAdmin(claims) {
+		h.respond(w, http.StatusForbidden, map[string]string{"error": "platform admin required"})
+		return
+	}
 	var req backupDestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respond(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -119,6 +128,10 @@ func (h *BackupDestinationHandler) Update(w http.ResponseWriter, r *http.Request
 // Test verifies connectivity to a (possibly unsaved) destination
 // (POST /api/v1/admin/backups/destination/test).
 func (h *BackupDestinationHandler) Test(w http.ResponseWriter, r *http.Request) {
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); !ok || !requirePlatformAdmin(claims) {
+		h.respond(w, http.StatusForbidden, map[string]string{"error": "platform admin required"})
+		return
+	}
 	var req backupDestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respond(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})

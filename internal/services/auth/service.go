@@ -1615,17 +1615,46 @@ type issueSessionInput struct {
 	Scopes    []string
 }
 
-// isPlatformOwnerUser reports whether the user is a member of the platform
-// tenant ("codevertex"). Platform members get cross-tenant access platform-wide
-// (mirrors the is_platform_owner claim semantics in every downstream service).
+// platformTenantSlug is the slug of the platform/owner tenant.
+const platformTenantSlug = "codevertex"
+
+// isPlatformAdminRole reports whether roles contains an admin-tier role name.
+// Deliberately narrow: within the platform tenant, holding ANY role (e.g.
+// "member", "viewer", or a custom role like "COO") must NOT grant platform-wide
+// access — only an actual admin/superuser role does. A prior version of this
+// check looked only at tenant membership, so any user added to "codevertex"
+// (e.g. a support contact) became a full platform owner regardless of role.
+func isPlatformAdminRole(roles []string) bool {
+	for _, r := range roles {
+		if r == "superuser" || r == "admin" {
+			return true
+		}
+	}
+	return false
+}
+
+// IsPlatformOwner reports whether userID holds an admin-tier role (admin/
+// superuser) within the platform tenant ("codevertex") membership. Exported
+// so callers outside this package (e.g. the /me and login-response-caching
+// handlers) derive is_platform_owner the same way token minting does, instead
+// of re-deriving it from tenant slug alone.
+func (s *Service) IsPlatformOwner(ctx context.Context, userID uuid.UUID) bool {
+	return s.isPlatformOwnerUser(ctx, userID)
+}
+
+// isPlatformOwnerUser reports whether the user holds an admin-tier role
+// (admin/superuser) within their platform tenant ("codevertex") membership.
 func (s *Service) isPlatformOwnerUser(ctx context.Context, userID uuid.UUID) bool {
-	ok, err := s.entClient.TenantMembership.Query().
+	m, err := s.entClient.TenantMembership.Query().
 		Where(
 			tenantmembership.UserID(userID),
-			tenantmembership.HasTenantWith(tenant.SlugEQ("codevertex")),
+			tenantmembership.HasTenantWith(tenant.SlugEQ(platformTenantSlug)),
 		).
-		Exist(ctx)
-	return err == nil && ok
+		Only(ctx)
+	if err != nil || m == nil {
+		return false
+	}
+	return isPlatformAdminRole(m.Roles)
 }
 
 func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*AuthResult, error) {
@@ -1776,9 +1805,11 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 	}
 
 	// Build token input with subscription data if available.
-	// is_platform_owner is membership-based (member of the platform tenant), not
-	// context-based: a platform owner signed into ANOTHER tenant must still carry
-	// the claim, or /authorize denies them cross-tenant access on the next hop.
+	// is_platform_owner requires an admin-tier role (admin/superuser) held
+	// specifically within the platform tenant — not mere membership. It is also
+	// membership-independent of the ACTIVE tenant: a platform admin signed into
+	// another tenant must still carry the claim, or /authorize denies them
+	// cross-tenant access on the next hop.
 	tokenInput := token.AccessTokenInput{
 		UserID:          sessionEntity.UserID,
 		TenantID:        tenantIDPtr,
@@ -1788,7 +1819,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		Scopes:          effectiveScopes,
 		Roles:           roles,
 		Permissions:     permissions,
-		IsPlatformOwner: (tenantEntity != nil && tenantEntity.Slug == "codevertex") || s.isPlatformOwnerUser(ctx, sessionEntity.UserID),
+		IsPlatformOwner: (tenantEntity != nil && tenantEntity.Slug == platformTenantSlug && isPlatformAdminRole(roles)) || s.isPlatformOwnerUser(ctx, sessionEntity.UserID),
 	}
 	if tenantEntity != nil {
 		tokenInput.TenantSlug = tenantEntity.Slug
@@ -1798,9 +1829,10 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		tokenInput.SubscriptionExempt = tenantEntity.SubscriptionExempt
 
 		// Platform owner may also be flagged via metadata (in addition to the canonical
-		// "codevertex" slug) so a renamed/secondary platform tenant still bypasses gating.
+		// "codevertex" slug) so a renamed/secondary platform tenant still bypasses gating —
+		// but still only for an admin-tier role in that tenant, same rule as above.
 		if powner, ok := tenantEntity.Metadata["is_platform_owner"]; ok {
-			if v, ok := powner.(bool); ok && v {
+			if v, ok := powner.(bool); ok && v && isPlatformAdminRole(roles) {
 				tokenInput.IsPlatformOwner = true
 			}
 		}

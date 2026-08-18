@@ -57,25 +57,23 @@ func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSv
 	}
 }
 
+// requireAdmin gates PLATFORM-WIDE actions (tenant CRUD, OAuth client CRUD,
+// key rotation, entitlements, integration configs, usage) that have no
+// per-tenant scoping of their own. It MUST NOT accept a bare "admin"/
+// "superuser" role string: those role names are reused by every ordinary
+// tenant (e.g. the admin of Urban Loft Cafe), and TenantMembership roles are
+// tenant-scoped, not global — accepting them here previously let any single
+// tenant's admin manage every tenant on the platform. Use requireTenantAdmin
+// instead for actions scoped to the caller's own tenant.
 func (h *AdminHandler) requireAdmin(r *http.Request) bool {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok || claims == nil {
 		return false
 	}
 
-	// Platform owners (primary tenant = "codevertex") bypass all RBAC.
+	// Platform owners (admin-tier role within the "codevertex" tenant) bypass all RBAC.
 	if claims.IsPlatformOwner {
 		return true
-	}
-
-	// Superuser / admin roles from TenantMembership. Accept "admin" too —
-	// a tenant admin managing their own org's settings should pass, and
-	// cross-tenant writes are already gated by tenant_id checks on the
-	// targeted entity.
-	for _, role := range claims.Roles {
-		if role == "superuser" || role == "admin" {
-			return true
-		}
 	}
 
 	// Explicit admin scopes (for service-to-service tokens).
