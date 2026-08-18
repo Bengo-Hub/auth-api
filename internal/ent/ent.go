@@ -42,7 +42,9 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/usagemetric"
 	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/useremail"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/userphone"
 	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 )
 
@@ -134,7 +136,9 @@ func checkColumn(t, c string) error {
 			tenantmembership.Table:        tenantmembership.ValidColumn,
 			usagemetric.Table:             usagemetric.ValidColumn,
 			user.Table:                    user.ValidColumn,
+			useremail.Table:               useremail.ValidColumn,
 			useridentity.Table:            useridentity.ValidColumn,
+			userphone.Table:               userphone.ValidColumn,
 			webauthncredential.Table:      webauthncredential.ValidColumn,
 		})
 	})

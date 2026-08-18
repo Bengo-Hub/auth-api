@@ -57,6 +57,10 @@ const (
 	EdgeMfaBackupCodes = "mfa_backup_codes"
 	// EdgeWebauthnCredentials holds the string denoting the webauthn_credentials edge name in mutations.
 	EdgeWebauthnCredentials = "webauthn_credentials"
+	// EdgeEmails holds the string denoting the emails edge name in mutations.
+	EdgeEmails = "emails"
+	// EdgePhones holds the string denoting the phones edge name in mutations.
+	EdgePhones = "phones"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// MembershipsTable is the table that holds the memberships relation/edge.
@@ -115,6 +119,20 @@ const (
 	WebauthnCredentialsInverseTable = "web_authn_credentials"
 	// WebauthnCredentialsColumn is the table column denoting the webauthn_credentials relation/edge.
 	WebauthnCredentialsColumn = "user_id"
+	// EmailsTable is the table that holds the emails relation/edge.
+	EmailsTable = "user_emails"
+	// EmailsInverseTable is the table name for the UserEmail entity.
+	// It exists in this package in order to avoid circular dependency with the "useremail" package.
+	EmailsInverseTable = "user_emails"
+	// EmailsColumn is the table column denoting the emails relation/edge.
+	EmailsColumn = "user_id"
+	// PhonesTable is the table that holds the phones relation/edge.
+	PhonesTable = "user_phones"
+	// PhonesInverseTable is the table name for the UserPhone entity.
+	// It exists in this package in order to avoid circular dependency with the "userphone" package.
+	PhonesInverseTable = "user_phones"
+	// PhonesColumn is the table column denoting the phones relation/edge.
+	PhonesColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -345,6 +363,34 @@ func ByWebauthnCredentials(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpti
 		sqlgraph.OrderByNeighborTerms(s, newWebauthnCredentialsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByEmailsCount orders the results by emails count.
+func ByEmailsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newEmailsStep(), opts...)
+	}
+}
+
+// ByEmails orders the results by emails terms.
+func ByEmails(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newEmailsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByPhonesCount orders the results by phones count.
+func ByPhonesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPhonesStep(), opts...)
+	}
+}
+
+// ByPhones orders the results by phones terms.
+func ByPhones(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPhonesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newMembershipsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -399,5 +445,19 @@ func newWebauthnCredentialsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(WebauthnCredentialsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, WebauthnCredentialsTable, WebauthnCredentialsColumn),
+	)
+}
+func newEmailsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(EmailsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, EmailsTable, EmailsColumn),
+	)
+}
+func newPhonesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PhonesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, PhonesTable, PhonesColumn),
 	)
 }

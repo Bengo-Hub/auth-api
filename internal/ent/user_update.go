@@ -19,7 +19,9 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/useremail"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/userphone"
 	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 	"github.com/google/uuid"
 )
@@ -351,6 +353,36 @@ func (_u *UserUpdate) AddWebauthnCredentials(v ...*WebAuthnCredential) *UserUpda
 	return _u.AddWebauthnCredentialIDs(ids...)
 }
 
+// AddEmailIDs adds the "emails" edge to the UserEmail entity by IDs.
+func (_u *UserUpdate) AddEmailIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.AddEmailIDs(ids...)
+	return _u
+}
+
+// AddEmails adds the "emails" edges to the UserEmail entity.
+func (_u *UserUpdate) AddEmails(v ...*UserEmail) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddEmailIDs(ids...)
+}
+
+// AddPhoneIDs adds the "phones" edge to the UserPhone entity by IDs.
+func (_u *UserUpdate) AddPhoneIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.AddPhoneIDs(ids...)
+	return _u
+}
+
+// AddPhones adds the "phones" edges to the UserPhone entity.
+func (_u *UserUpdate) AddPhones(v ...*UserPhone) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPhoneIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -522,6 +554,48 @@ func (_u *UserUpdate) RemoveWebauthnCredentials(v ...*WebAuthnCredential) *UserU
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveWebauthnCredentialIDs(ids...)
+}
+
+// ClearEmails clears all "emails" edges to the UserEmail entity.
+func (_u *UserUpdate) ClearEmails() *UserUpdate {
+	_u.mutation.ClearEmails()
+	return _u
+}
+
+// RemoveEmailIDs removes the "emails" edge to UserEmail entities by IDs.
+func (_u *UserUpdate) RemoveEmailIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.RemoveEmailIDs(ids...)
+	return _u
+}
+
+// RemoveEmails removes "emails" edges to UserEmail entities.
+func (_u *UserUpdate) RemoveEmails(v ...*UserEmail) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveEmailIDs(ids...)
+}
+
+// ClearPhones clears all "phones" edges to the UserPhone entity.
+func (_u *UserUpdate) ClearPhones() *UserUpdate {
+	_u.mutation.ClearPhones()
+	return _u
+}
+
+// RemovePhoneIDs removes the "phones" edge to UserPhone entities by IDs.
+func (_u *UserUpdate) RemovePhoneIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.RemovePhoneIDs(ids...)
+	return _u
+}
+
+// RemovePhones removes "phones" edges to UserPhone entities.
+func (_u *UserUpdate) RemovePhones(v ...*UserPhone) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePhoneIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1004,6 +1078,96 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.EmailsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailsTable,
+			Columns: []string{user.EmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(useremail.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedEmailsIDs(); len(nodes) > 0 && !_u.mutation.EmailsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailsTable,
+			Columns: []string{user.EmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(useremail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.EmailsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailsTable,
+			Columns: []string{user.EmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(useremail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PhonesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PhonesTable,
+			Columns: []string{user.PhonesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userphone.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPhonesIDs(); len(nodes) > 0 && !_u.mutation.PhonesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PhonesTable,
+			Columns: []string{user.PhonesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userphone.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PhonesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PhonesTable,
+			Columns: []string{user.PhonesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userphone.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -1338,6 +1502,36 @@ func (_u *UserUpdateOne) AddWebauthnCredentials(v ...*WebAuthnCredential) *UserU
 	return _u.AddWebauthnCredentialIDs(ids...)
 }
 
+// AddEmailIDs adds the "emails" edge to the UserEmail entity by IDs.
+func (_u *UserUpdateOne) AddEmailIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.AddEmailIDs(ids...)
+	return _u
+}
+
+// AddEmails adds the "emails" edges to the UserEmail entity.
+func (_u *UserUpdateOne) AddEmails(v ...*UserEmail) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddEmailIDs(ids...)
+}
+
+// AddPhoneIDs adds the "phones" edge to the UserPhone entity by IDs.
+func (_u *UserUpdateOne) AddPhoneIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.AddPhoneIDs(ids...)
+	return _u
+}
+
+// AddPhones adds the "phones" edges to the UserPhone entity.
+func (_u *UserUpdateOne) AddPhones(v ...*UserPhone) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPhoneIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -1509,6 +1703,48 @@ func (_u *UserUpdateOne) RemoveWebauthnCredentials(v ...*WebAuthnCredential) *Us
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveWebauthnCredentialIDs(ids...)
+}
+
+// ClearEmails clears all "emails" edges to the UserEmail entity.
+func (_u *UserUpdateOne) ClearEmails() *UserUpdateOne {
+	_u.mutation.ClearEmails()
+	return _u
+}
+
+// RemoveEmailIDs removes the "emails" edge to UserEmail entities by IDs.
+func (_u *UserUpdateOne) RemoveEmailIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.RemoveEmailIDs(ids...)
+	return _u
+}
+
+// RemoveEmails removes "emails" edges to UserEmail entities.
+func (_u *UserUpdateOne) RemoveEmails(v ...*UserEmail) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveEmailIDs(ids...)
+}
+
+// ClearPhones clears all "phones" edges to the UserPhone entity.
+func (_u *UserUpdateOne) ClearPhones() *UserUpdateOne {
+	_u.mutation.ClearPhones()
+	return _u
+}
+
+// RemovePhoneIDs removes the "phones" edge to UserPhone entities by IDs.
+func (_u *UserUpdateOne) RemovePhoneIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.RemovePhoneIDs(ids...)
+	return _u
+}
+
+// RemovePhones removes "phones" edges to UserPhone entities.
+func (_u *UserUpdateOne) RemovePhones(v ...*UserPhone) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePhoneIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -2014,6 +2250,96 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(webauthncredential.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.EmailsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailsTable,
+			Columns: []string{user.EmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(useremail.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedEmailsIDs(); len(nodes) > 0 && !_u.mutation.EmailsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailsTable,
+			Columns: []string{user.EmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(useremail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.EmailsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailsTable,
+			Columns: []string{user.EmailsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(useremail.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PhonesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PhonesTable,
+			Columns: []string{user.PhonesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userphone.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPhonesIDs(); len(nodes) > 0 && !_u.mutation.PhonesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PhonesTable,
+			Columns: []string{user.PhonesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userphone.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PhonesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PhonesTable,
+			Columns: []string{user.PhonesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userphone.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

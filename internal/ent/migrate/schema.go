@@ -908,6 +908,42 @@ var (
 		Columns:    UsersColumns,
 		PrimaryKey: []*schema.Column{UsersColumns[0]},
 	}
+	// UserEmailsColumns holds the columns for the "user_emails" table.
+	UserEmailsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "email", Type: field.TypeString},
+		{Name: "is_verified", Type: field.TypeBool, Default: false},
+		{Name: "verified_at", Type: field.TypeTime, Nullable: true},
+		{Name: "is_primary", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// UserEmailsTable holds the schema information for the "user_emails" table.
+	UserEmailsTable = &schema.Table{
+		Name:       "user_emails",
+		Columns:    UserEmailsColumns,
+		PrimaryKey: []*schema.Column{UserEmailsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "user_emails_users_emails",
+				Columns:    []*schema.Column{UserEmailsColumns[6]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "useremail_email",
+				Unique:  true,
+				Columns: []*schema.Column{UserEmailsColumns[1]},
+			},
+			{
+				Name:    "useremail_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{UserEmailsColumns[6]},
+			},
+		},
+	}
 	// UserIdentitiesColumns holds the columns for the "user_identities" table.
 	UserIdentitiesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -947,6 +983,42 @@ var (
 				Name:    "useridentity_provider_provider_email",
 				Unique:  false,
 				Columns: []*schema.Column{UserIdentitiesColumns[1], UserIdentitiesColumns[3]},
+			},
+		},
+	}
+	// UserPhonesColumns holds the columns for the "user_phones" table.
+	UserPhonesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "phone", Type: field.TypeString},
+		{Name: "is_verified", Type: field.TypeBool, Default: false},
+		{Name: "verified_at", Type: field.TypeTime, Nullable: true},
+		{Name: "is_primary", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// UserPhonesTable holds the schema information for the "user_phones" table.
+	UserPhonesTable = &schema.Table{
+		Name:       "user_phones",
+		Columns:    UserPhonesColumns,
+		PrimaryKey: []*schema.Column{UserPhonesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "user_phones_users_phones",
+				Columns:    []*schema.Column{UserPhonesColumns[6]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "userphone_phone",
+				Unique:  true,
+				Columns: []*schema.Column{UserPhonesColumns[1]},
+			},
+			{
+				Name:    "userphone_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{UserPhonesColumns[6]},
 			},
 		},
 	}
@@ -1012,7 +1084,9 @@ var (
 		TenantMembershipsTable,
 		UsageMetricsTable,
 		UsersTable,
+		UserEmailsTable,
 		UserIdentitiesTable,
+		UserPhonesTable,
 		WebAuthnCredentialsTable,
 	}
 )
@@ -1027,6 +1101,8 @@ func init() {
 	SessionsTable.ForeignKeys[0].RefTable = UsersTable
 	TenantMembershipsTable.ForeignKeys[0].RefTable = TenantsTable
 	TenantMembershipsTable.ForeignKeys[1].RefTable = UsersTable
+	UserEmailsTable.ForeignKeys[0].RefTable = UsersTable
 	UserIdentitiesTable.ForeignKeys[0].RefTable = UsersTable
+	UserPhonesTable.ForeignKeys[0].RefTable = UsersTable
 	WebAuthnCredentialsTable.ForeignKeys[0].RefTable = UsersTable
 }

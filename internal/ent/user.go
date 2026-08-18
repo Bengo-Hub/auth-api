@@ -69,9 +69,13 @@ type UserEdges struct {
 	MfaBackupCodes []*MFABackupCode `json:"mfa_backup_codes,omitempty"`
 	// WebauthnCredentials holds the value of the webauthn_credentials edge.
 	WebauthnCredentials []*WebAuthnCredential `json:"webauthn_credentials,omitempty"`
+	// Emails holds the value of the emails edge.
+	Emails []*UserEmail `json:"emails,omitempty"`
+	// Phones holds the value of the phones edge.
+	Phones []*UserPhone `json:"phones,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
+	loadedTypes [10]bool
 }
 
 // MembershipsOrErr returns the Memberships value or an error if the edge
@@ -144,6 +148,24 @@ func (e UserEdges) WebauthnCredentialsOrErr() ([]*WebAuthnCredential, error) {
 		return e.WebauthnCredentials, nil
 	}
 	return nil, &NotLoadedError{edge: "webauthn_credentials"}
+}
+
+// EmailsOrErr returns the Emails value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) EmailsOrErr() ([]*UserEmail, error) {
+	if e.loadedTypes[8] {
+		return e.Emails, nil
+	}
+	return nil, &NotLoadedError{edge: "emails"}
+}
+
+// PhonesOrErr returns the Phones value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) PhonesOrErr() ([]*UserPhone, error) {
+	if e.loadedTypes[9] {
+		return e.Phones, nil
+	}
+	return nil, &NotLoadedError{edge: "phones"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -316,6 +338,16 @@ func (_m *User) QueryMfaBackupCodes() *MFABackupCodeQuery {
 // QueryWebauthnCredentials queries the "webauthn_credentials" edge of the User entity.
 func (_m *User) QueryWebauthnCredentials() *WebAuthnCredentialQuery {
 	return NewUserClient(_m.config).QueryWebauthnCredentials(_m)
+}
+
+// QueryEmails queries the "emails" edge of the User entity.
+func (_m *User) QueryEmails() *UserEmailQuery {
+	return NewUserClient(_m.config).QueryEmails(_m)
+}
+
+// QueryPhones queries the "phones" edge of the User entity.
+func (_m *User) QueryPhones() *UserPhoneQuery {
+	return NewUserClient(_m.config).QueryPhones(_m)
 }
 
 // Update returns a builder for updating this User.

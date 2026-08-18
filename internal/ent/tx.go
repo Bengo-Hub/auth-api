@@ -72,8 +72,12 @@ type Tx struct {
 	UsageMetric *UsageMetricClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// UserEmail is the client for interacting with the UserEmail builders.
+	UserEmail *UserEmailClient
 	// UserIdentity is the client for interacting with the UserIdentity builders.
 	UserIdentity *UserIdentityClient
+	// UserPhone is the client for interacting with the UserPhone builders.
+	UserPhone *UserPhoneClient
 	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
 	WebAuthnCredential *WebAuthnCredentialClient
 
@@ -237,7 +241,9 @@ func (tx *Tx) init() {
 	tx.TenantMembership = NewTenantMembershipClient(tx.config)
 	tx.UsageMetric = NewUsageMetricClient(tx.config)
 	tx.User = NewUserClient(tx.config)
+	tx.UserEmail = NewUserEmailClient(tx.config)
 	tx.UserIdentity = NewUserIdentityClient(tx.config)
+	tx.UserPhone = NewUserPhoneClient(tx.config)
 	tx.WebAuthnCredential = NewWebAuthnCredentialClient(tx.config)
 }
 
