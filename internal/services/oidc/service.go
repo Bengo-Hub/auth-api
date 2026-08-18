@@ -274,4 +274,3 @@ func firstProfileString(profile map[string]any, key, fallback string) string {
 	}
 	return fallback
 }
-
