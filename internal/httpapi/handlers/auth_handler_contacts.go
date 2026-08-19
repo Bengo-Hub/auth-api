@@ -261,6 +261,11 @@ func (h *AuthHandler) AddMyPhone(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "a phone number is required", nil)
 		return
 	}
+	phone, err := validateAndNormalizePhone(phone)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_phone", "Enter a valid phone number, including country code.", nil)
+		return
+	}
 	created, err := h.service.AddUserPhone(r.Context(), userID, phone)
 	if err != nil {
 		if errors.Is(err, auth.ErrPhoneAlreadyExists) {
