@@ -802,6 +802,21 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate BEFORE touching anything — a bad phone/country must not partially
+	// apply the rest of the update.
+	var normalizedPhone string
+	if req.Phone != "" {
+		normalizedPhone, err = validateAndNormalizePhone(req.Phone)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_phone", "Enter a valid phone number, including country code.", nil)
+			return
+		}
+	}
+	if req.Country != "" && !isValidCountryCode(req.Country) {
+		writeError(w, http.StatusBadRequest, "invalid_country", "Unrecognized country code.", nil)
+		return
+	}
+
 	u, err := h.ent.User.Get(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
@@ -819,14 +834,14 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	if req.ProfilePictureURL != "" {
 		profile["profile_picture_url"] = req.ProfilePictureURL
 	}
-	if req.Phone != "" {
-		profile["phone"] = req.Phone
+	if normalizedPhone != "" {
+		profile["phone"] = normalizedPhone
 	}
 	if req.Bio != "" {
 		profile["bio"] = req.Bio
 	}
 	if req.Country != "" {
-		profile["country"] = req.Country
+		profile["country"] = strings.ToUpper(req.Country)
 	}
 	if req.Gender != "" {
 		profile["gender"] = req.Gender
