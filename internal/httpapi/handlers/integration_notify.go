@@ -136,6 +136,51 @@ func (n *EtimsSupportNotifier) sendEmail(ctx context.Context, to string, d Etims
 	_ = resp.Body.Close()
 }
 
+// DeveloperProvisioned carries what the newly-provisioned developer needs in their
+// approval email.
+type DeveloperProvisioned struct {
+	RequesterName  string
+	RequesterEmail string
+	TenantSlug     string
+	SandboxKey     string
+	DocsURL        string
+}
+
+// NotifyDeveloperProvisioned emails the REQUESTER (not staff) their sandbox credentials
+// once auto-provisioning completes. Same best-effort posture as Notify — a delivery
+// failure here must never undo the tenant/App that were already created.
+func (n *EtimsSupportNotifier) NotifyDeveloperProvisioned(ctx context.Context, d DeveloperProvisioned) {
+	payload := map[string]any{
+		"channel":  "email",
+		"tenant":   "codevertex",
+		"template": "platform/developer_provisioned",
+		"to":       []string{d.RequesterEmail},
+		"data": map[string]any{
+			"requester_name": d.RequesterName,
+			"tenant_slug":    d.TenantSlug,
+			"sandbox_key":    d.SandboxKey,
+			"docs_url":       d.DocsURL,
+		},
+		"metadata": map[string]string{"subject": "Your Codevertex developer access is ready"},
+	}
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, n.notifBaseURL+"/api/v1/notifications/messages", bytes.NewReader(body))
+	if err != nil {
+		n.log.Warn("build developer-provisioned request failed", zap.Error(err))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if n.notifAPIKey != "" {
+		req.Header.Set("X-API-Key", n.notifAPIKey)
+	}
+	resp, err := n.httpClient.Do(req)
+	if err != nil {
+		n.log.Warn("developer-provisioned email failed", zap.Error(err), zap.String("to", d.RequesterEmail))
+		return
+	}
+	_ = resp.Body.Close()
+}
+
 func orDash(s string) string {
 	if s == "" {
 		return "—"
