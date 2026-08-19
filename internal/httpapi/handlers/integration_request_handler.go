@@ -9,7 +9,10 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 	entapp "github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/integrationrequest"
+	"github.com/bengobox/auth-api/internal/ent/user"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/password"
+	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -27,10 +30,12 @@ type IntegrationRequestHandler struct {
 	ent      *ent.Client
 	notifier *EtimsSupportNotifier
 	logger   *zap.Logger
+	hasher   *password.Hasher
+	authSvc  *auth.Service
 }
 
-func NewIntegrationRequestHandler(entClient *ent.Client, notifier *EtimsSupportNotifier, logger *zap.Logger) *IntegrationRequestHandler {
-	return &IntegrationRequestHandler{ent: entClient, notifier: notifier, logger: logger}
+func NewIntegrationRequestHandler(entClient *ent.Client, notifier *EtimsSupportNotifier, hasher *password.Hasher, authSvc *auth.Service, logger *zap.Logger) *IntegrationRequestHandler {
+	return &IntegrationRequestHandler{ent: entClient, notifier: notifier, hasher: hasher, authSvc: authSvc, logger: logger}
 }
 
 type createIntegrationRequestBody struct {
@@ -290,6 +295,13 @@ func (h *IntegrationRequestHandler) autoProvisionExternalDeveloper(ctx context.C
 		log.Warn("auto-provision: linking request to new tenant failed", zap.Error(err))
 	}
 
+	// Give the requester an actual login, not just a sandbox key: create (or reuse) a User
+	// account, grant it the "developer" role on the new tenant, and — for a brand-new
+	// account — kick off the SAME password-reset email flow the admin "Send Reset Email"
+	// action uses, so they get a real "set your password" link rather than a plaintext
+	// temp password with nobody in the loop to relay it.
+	h.provisionDeveloperLogin(ctx, log, rec, tenantRec)
+
 	if h.notifier != nil {
 		h.notifier.NotifyDeveloperProvisioned(ctx, DeveloperProvisioned{
 			RequesterName:  rec.RequesterName,
@@ -301,6 +313,71 @@ func (h *IntegrationRequestHandler) autoProvisionExternalDeveloper(ctx context.C
 	}
 
 	log.Info("auto-provisioned external developer", zap.String("tenant_slug", tenantRec.Slug))
+}
+
+// provisionDeveloperLogin closes the gap between "tenant + sandbox key exist" and "the
+// requester can actually sign in": reuses an existing User account by email if one exists
+// (just adds the "developer" membership — they already know their password), otherwise
+// creates a new User with an unusable random password hash and triggers the standard
+// password-reset email so they set their own. Best-effort, like the rest of auto-provisioning
+// — a failure here leaves the tenant/App usable but login-less, exactly like before this existed.
+func (h *IntegrationRequestHandler) provisionDeveloperLogin(ctx context.Context, log *zap.Logger, rec *ent.IntegrationRequest, tenantRec *ent.Tenant) {
+	email := strings.ToLower(strings.TrimSpace(rec.RequesterEmail))
+	if email == "" {
+		return
+	}
+
+	existingUser, err := h.ent.User.Query().Where(user.EmailEQ(email)).Only(ctx)
+	isNewUser := false
+	if err != nil {
+		if !ent.IsNotFound(err) {
+			log.Warn("auto-provision: user lookup failed", zap.Error(err))
+			return
+		}
+		if h.hasher == nil {
+			log.Warn("auto-provision: no password hasher wired, cannot create developer login")
+			return
+		}
+		hash, hErr := h.hasher.Hash(generateTempPassword())
+		if hErr != nil {
+			log.Warn("auto-provision: hash temp password failed", zap.Error(hErr))
+			return
+		}
+		profile := map[string]any{"must_change_password": true}
+		if rec.RequesterName != "" {
+			profile["name"] = rec.RequesterName
+		}
+		existingUser, err = h.ent.User.Create().
+			SetEmail(email).
+			SetPasswordHash(hash).
+			SetStatus("active").
+			SetPrimaryTenantID(tenantRec.ID.String()).
+			SetProfile(profile).
+			Save(ctx)
+		if err != nil {
+			log.Warn("auto-provision: create developer user failed", zap.Error(err))
+			return
+		}
+		isNewUser = true
+	}
+
+	if _, err := h.ent.TenantMembership.Create().
+		SetUserID(existingUser.ID).
+		SetTenantID(tenantRec.ID).
+		SetRoles([]string{"developer"}).
+		SetStatus("active").
+		Save(ctx); err != nil && !ent.IsConstraintError(err) {
+		log.Warn("auto-provision: create developer membership failed", zap.Error(err))
+	}
+
+	if isNewUser && h.authSvc != nil {
+		if _, err := h.authSvc.RequestPasswordReset(ctx, auth.PasswordResetRequestInput{
+			Email:      email,
+			TenantSlug: tenantRec.Slug,
+		}); err != nil {
+			log.Warn("auto-provision: send set-password email failed", zap.Error(err))
+		}
+	}
 }
 
 // developerTenantSlug derives a URL-safe, reasonably unique slug from a company/requester
