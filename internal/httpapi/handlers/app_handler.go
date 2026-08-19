@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bengobox/auth-api/internal/ent"
@@ -117,6 +118,53 @@ func requirePlatformAdmin(claims *token.Claims) bool {
 	return claims.IsPlatformOwner
 }
 
+// reservedPlatformScopes are cross-tenant trust markers that must never appear on a
+// tenant-scoped app, no matter who creates it — a tenant app carrying one would be
+// functionally indistinguishable from the shared platform S2S credential
+// (INTERNAL_SERVICE_KEY), defeating the platform/tenant app_type split. Apps that
+// genuinely need this level of trust belong under app_type "platform" instead, which
+// is already gated to platform admins by requirePlatformAdmin above.
+var reservedPlatformScopes = map[string]bool{
+	InternalServiceKeyScope: true,
+	"admin":                 true,
+	"auth.admin":            true,
+}
+
+// allowedTenantScopePrefixes are the service APIs a tenant-scoped app may request
+// access to — one scope per service surface, never a platform-wide grant. Extend this
+// list, not the reserved-scope escape hatch, when a new service gains its own API.
+var allowedTenantScopePrefixes = []string{
+	"treasury:",
+	"etims:",
+	"notifications:",
+	"subscriptions:",
+	"auth:",
+	"sso:",
+}
+
+// validateTenantAppScopes rejects any scope on a tenant-type app that isn't tied to a
+// known, single service surface. Applies equally to self-service tenant admins and to a
+// platform admin creating/editing an app on a tenant's behalf — cross-tenant/system trust
+// scopes belong on a platform-type app, never a tenant one.
+func validateTenantAppScopes(scopes []string) error {
+	for _, s := range scopes {
+		if reservedPlatformScopes[s] || strings.HasPrefix(s, "s2s:") || strings.HasPrefix(s, "s2s.") || s == "s2s" {
+			return fmt.Errorf("scope %q is platform-admin-only and cannot be granted to a tenant app", s)
+		}
+		matched := false
+		for _, prefix := range allowedTenantScopePrefixes {
+			if strings.HasPrefix(s, prefix) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf("scope %q is not a recognized service scope (expected one of: treasury:*, notifications:*, subscriptions:*, sso:*)", s)
+		}
+	}
+	return nil
+}
+
 func appToResponse(a *ent.App) AppResponse {
 	resp := AppResponse{
 		ID:          a.ID.String(),
@@ -171,6 +219,12 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 	if appType == app.AppTypePlatform && !requirePlatformAdmin(claims) {
 		writeError(w, http.StatusForbidden, "forbidden", "superuser required for platform apps", nil)
 		return
+	}
+	if appType == app.AppTypeTenant {
+		if err := validateTenantAppScopes(req.Scopes); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_scope", err.Error(), nil)
+			return
+		}
 	}
 
 	token, prefix, hash, err := generateAppToken()
@@ -347,6 +401,12 @@ func (h *AppHandler) UpdateApp(w http.ResponseWriter, r *http.Request) {
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid body", nil)
 		return
+	}
+	if existing.AppType == app.AppTypeTenant && req.Scopes != nil {
+		if err := validateTenantAppScopes(req.Scopes); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_scope", err.Error(), nil)
+			return
+		}
 	}
 
 	update := h.ent.App.UpdateOneID(appID)
@@ -672,6 +732,9 @@ func (h *AppHandler) IsValidInternalServiceToken(ctx context.Context, tokenStr s
 	}
 	if a.ExpiresAt != nil && !a.ExpiresAt.IsZero() && time.Now().After(*a.ExpiresAt) {
 		return false
+	}
+	if a.AppType != app.AppTypePlatform {
+		return false // defense in depth: internal_service_key trust is platform-app-only
 	}
 	for _, s := range a.Scopes {
 		if s == InternalServiceKeyScope {

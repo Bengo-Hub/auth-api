@@ -201,7 +201,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 	appHandler := handlers.NewAppHandler(entClient, logger)
 	etimsNotifier := handlers.NewEtimsSupportNotifier(integrationSvc, cfg.Notifications.BaseURL, cfg.Subscription.APIKey, logger)
-	integrationRequestHandler := handlers.NewIntegrationRequestHandler(entClient, etimsNotifier, logger)
+	integrationRequestHandler := handlers.NewIntegrationRequestHandler(entClient, etimsNotifier, hasher, authService, logger)
 	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger)
 	legalHandler := handlers.NewLegalHandler(entClient, logger)
 	referralLinkHandler := handlers.NewReferralLinkHandler(entClient, logger)
@@ -229,15 +229,15 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		OutletHandler:          outletHandler,
 		InternalServiceKey:     cfg.Subscription.APIKey,
 		ValidateInternalAppKey: appHandler.IsValidInternalServiceToken,
-		HealthHandler:       handlers.Health,
-		MetricsHandler:      promhttp.Handler(),
-		UserHandler:         userHandler,
-		LegalHandler:        legalHandler,
-		ReferralLinkHandler: referralLinkHandler,
-		EquityPortalHandler: equityPortalHandler,
-		RBACHandler:         rbacHandler,
-		K8sMonitorHandler:   k8sMonitorHandler,
-		EquityPortalAuth:    handlers.EquityPortalAuth(tokenSvc),
+		HealthHandler:          handlers.Health,
+		MetricsHandler:         promhttp.Handler(),
+		UserHandler:            userHandler,
+		LegalHandler:           legalHandler,
+		ReferralLinkHandler:    referralLinkHandler,
+		EquityPortalHandler:    equityPortalHandler,
+		RBACHandler:            rbacHandler,
+		K8sMonitorHandler:      k8sMonitorHandler,
+		EquityPortalAuth:       handlers.EquityPortalAuth(tokenSvc),
 		AuthHandlers: httpapi.AuthHandlers{
 			Register:                           authHandler.Register,
 			RegisterOAuth:                      authHandler.RegisterOAuth,
