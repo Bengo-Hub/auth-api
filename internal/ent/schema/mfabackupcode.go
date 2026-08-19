@@ -42,4 +42,3 @@ func (MFABackupCode) Edges() []ent.Edge {
 			Required(),
 	}
 }
-

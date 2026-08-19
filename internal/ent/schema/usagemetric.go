@@ -36,4 +36,3 @@ func (UsageMetric) Fields() []ent.Field {
 			UpdateDefault(time.Now),
 	}
 }
-

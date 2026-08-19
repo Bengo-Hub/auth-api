@@ -53,17 +53,17 @@ func NewAPIKeyHandler(entClient *ent.Client, logger *zap.Logger) *APIKeyHandler 
 // CreateAPIKeyRequest represents a request to create an API key.
 type CreateAPIKeyRequest struct {
 	Name       string   `json:"name"`
-	Service    string   `json:"service,omitempty"`    // Service name for service accounts
-	Scopes     []string `json:"scopes,omitempty"`     // Allowed scopes
+	Service    string   `json:"service,omitempty"`     // Service name for service accounts
+	Scopes     []string `json:"scopes,omitempty"`      // Allowed scopes
 	AllowedIPs []string `json:"allowed_ips,omitempty"` // IP whitelist
-	ExpiresIn  int      `json:"expires_in,omitempty"` // Expiration in days (0 = never)
+	ExpiresIn  int      `json:"expires_in,omitempty"`  // Expiration in days (0 = never)
 }
 
 // CreateAPIKeyResponse returns the created API key (only shown once).
 type CreateAPIKeyResponse struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
-	Key       string    `json:"key"`       // Plain text key - only returned on creation
+	Key       string    `json:"key"`        // Plain text key - only returned on creation
 	KeyPrefix string    `json:"key_prefix"` // Prefix for identification
 	Service   string    `json:"service,omitempty"`
 	Scopes    []string  `json:"scopes,omitempty"`

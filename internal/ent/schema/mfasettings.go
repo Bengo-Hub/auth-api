@@ -32,4 +32,3 @@ func (MFASettings) Fields() []ent.Field {
 			UpdateDefault(time.Now),
 	}
 }
-

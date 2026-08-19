@@ -35,4 +35,3 @@ func (FeatureEntitlement) Fields() []ent.Field {
 			UpdateDefault(time.Now),
 	}
 }
-

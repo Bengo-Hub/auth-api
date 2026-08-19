@@ -180,9 +180,9 @@ func (h *LegalHandler) AcceptDocument(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"id":         acceptance.ID.String(),
-		"doc_type":   acceptance.DocType,
-		"version":    acceptance.DocVersion,
+		"id":          acceptance.ID.String(),
+		"doc_type":    acceptance.DocType,
+		"version":     acceptance.DocVersion,
 		"accepted_at": acceptance.AcceptedAt.Format(time.RFC3339),
 	})
 }
@@ -334,11 +334,11 @@ func (h *LegalHandler) UpdateApplication(w http.ResponseWriter, r *http.Request)
 	}
 
 	var req struct {
-		Status            string `json:"status"`
-		Notes             string `json:"notes"`
-		KYCReference      string `json:"kyc_reference"`
-		TreasuryHolderID  string `json:"treasury_holder_id"`
-		EPAAcceptanceID   string `json:"epa_acceptance_id"`
+		Status           string `json:"status"`
+		Notes            string `json:"notes"`
+		KYCReference     string `json:"kyc_reference"`
+		TreasuryHolderID string `json:"treasury_holder_id"`
+		EPAAcceptanceID  string `json:"epa_acceptance_id"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", "invalid request body", nil)

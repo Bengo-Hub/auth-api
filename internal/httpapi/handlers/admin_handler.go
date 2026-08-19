@@ -915,15 +915,15 @@ func (h *AdminHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"id":            c.ID,
-		"client_id":     c.ClientID,
-		"client_secret": plainSecret, // shown once — only the hash is stored
-		"name":          c.Name,
-		"redirect_uris": c.RedirectUris,
+		"id":             c.ID,
+		"client_id":      c.ClientID,
+		"client_secret":  plainSecret, // shown once — only the hash is stored
+		"name":           c.Name,
+		"redirect_uris":  c.RedirectUris,
 		"allowed_scopes": c.AllowedScopes,
-		"public":        c.Public,
-		"tenant_id":     c.TenantID,
-		"created_at":    c.CreatedAt,
+		"public":         c.Public,
+		"tenant_id":      c.TenantID,
+		"created_at":     c.CreatedAt,
 	})
 }
 
