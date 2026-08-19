@@ -39,7 +39,7 @@ func NewClient(ctx context.Context, cfg config.DatabaseConfig) (*ent.Client, *sq
 
 // RunMigrations executes Atlas versioned migrations.
 func RunMigrations(ctx context.Context, client *ent.Client) error {
-	return client.Schema.Create(ctx, 
+	return client.Schema.Create(ctx,
 		schema.WithDir(migrate.Dir),
 	)
 }

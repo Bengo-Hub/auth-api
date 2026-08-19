@@ -13,8 +13,8 @@ import (
 	atlasmigrate "ariga.io/atlas/sql/migrate"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql/schema"
-	_ "github.com/lib/pq"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 	if len(os.Args) != 2 {
 		log.Fatalln("migration name is required. use: 'go run -mod=mod internal/ent/migrate/main.go <name>'")
 	}
-	
+
 	// Generate migrations using Atlas support.
 	// We use the ent_dev schema as a clean dev-db for Atlas to calculate the diff.
 	dbURL := os.Getenv("POSTGRES_URL")

@@ -65,9 +65,9 @@ type subscriptionUpdatedPayload struct {
 
 func (s *SubscriptionSubscriber) handle(msg *nats.Msg) {
 	var wrapper struct {
-		Payload map[string]interface{} `json:"payload"`
-		TenantID string                 `json:"tenant_id"`
-		TenantSlug string               `json:"tenant_slug,omitempty"`
+		Payload    map[string]interface{} `json:"payload"`
+		TenantID   string                 `json:"tenant_id"`
+		TenantSlug string                 `json:"tenant_slug,omitempty"`
 	}
 	if err := json.Unmarshal(msg.Data, &wrapper); err != nil {
 		s.logger.Warn("failed to parse subscription.updated event", zap.Error(err))

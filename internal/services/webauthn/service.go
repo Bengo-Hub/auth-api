@@ -345,10 +345,10 @@ func (u *webauthnUser) WebAuthnID() []byte {
 	b, _ := u.id.MarshalBinary()
 	return b
 }
-func (u *webauthnUser) WebAuthnName() string                      { return u.name }
-func (u *webauthnUser) WebAuthnDisplayName() string               { return u.displayName }
+func (u *webauthnUser) WebAuthnName() string                       { return u.name }
+func (u *webauthnUser) WebAuthnDisplayName() string                { return u.displayName }
 func (u *webauthnUser) WebAuthnCredentials() []webauthn.Credential { return u.credentials }
-func (u *webauthnUser) WebAuthnIcon() string                      { return "" }
+func (u *webauthnUser) WebAuthnIcon() string                       { return "" }
 
 // entToWebAuthnCredentials converts ent entities to go-webauthn Credential slice.
 func entToWebAuthnCredentials(creds []*ent.WebAuthnCredential) []webauthn.Credential {

@@ -48,4 +48,3 @@ func (MFATOTPSecret) Edges() []ent.Edge {
 			Required(),
 	}
 }
-

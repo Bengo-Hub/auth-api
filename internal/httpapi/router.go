@@ -117,11 +117,11 @@ type AuthHandlers struct {
 	AdminUpdateIntegrationStatus       http.HandlerFunc
 	AdminRotateClientSecret            http.HandlerFunc
 	// Integration requests (eTIMS + future integrations)
-	CreateIntegrationRequest        http.HandlerFunc
-	ListMyIntegrationRequests       http.HandlerFunc
-	AdminListIntegrationRequests    http.HandlerFunc
-	AdminUpdateIntegrationRequest   http.HandlerFunc
-	S2SNotifyIntegrationRequest     http.HandlerFunc
+	CreateIntegrationRequest      http.HandlerFunc
+	ListMyIntegrationRequests     http.HandlerFunc
+	AdminListIntegrationRequests  http.HandlerFunc
+	AdminUpdateIntegrationRequest http.HandlerFunc
+	S2SNotifyIntegrationRequest   http.HandlerFunc
 	// API Key management and validation
 	AdminCreateAPIKey http.HandlerFunc
 	AdminListAPIKeys  http.HandlerFunc
@@ -155,9 +155,9 @@ type AuthHandlers struct {
 	// S2SMFAStatus/S2SMFAVerify let a service with its own separate login
 	// credential (mail-ui's Stalwart mailbox password) still gate on this
 	// user's auth-api TOTP MFA when the email happens to match.
-	S2SMFAStatus             http.HandlerFunc
-	S2SMFAVerify             http.HandlerFunc
-	SetUserServicePIN        http.HandlerFunc
+	S2SMFAStatus      http.HandlerFunc
+	S2SMFAVerify      http.HandlerFunc
+	SetUserServicePIN http.HandlerFunc
 	// Public integrations info
 	ListActiveIntegrations http.HandlerFunc
 	// Terms acceptance

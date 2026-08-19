@@ -64,16 +64,16 @@ func (h *UserHandler) requirePlatformAdmin(r *http.Request) bool {
 
 // userResponse is the public representation of a user (no password hash).
 type userResponse struct {
-	ID             uuid.UUID              `json:"id"`
-	Email          string                 `json:"email"`
-	Status         string                 `json:"status"`
-	PrimaryTenantID string               `json:"primary_tenant_id,omitempty"`
-	Profile        map[string]any         `json:"profile,omitempty"`
-	LastLoginAt    *time.Time             `json:"last_login_at,omitempty"`
-	TermsAccepted  bool                   `json:"terms_accepted"`
-	Memberships    []membershipSummary    `json:"memberships,omitempty"`
-	CreatedAt      time.Time              `json:"created_at"`
-	UpdatedAt      time.Time              `json:"updated_at"`
+	ID              uuid.UUID           `json:"id"`
+	Email           string              `json:"email"`
+	Status          string              `json:"status"`
+	PrimaryTenantID string              `json:"primary_tenant_id,omitempty"`
+	Profile         map[string]any      `json:"profile,omitempty"`
+	LastLoginAt     *time.Time          `json:"last_login_at,omitempty"`
+	TermsAccepted   bool                `json:"terms_accepted"`
+	Memberships     []membershipSummary `json:"memberships,omitempty"`
+	CreatedAt       time.Time           `json:"created_at"`
+	UpdatedAt       time.Time           `json:"updated_at"`
 }
 
 type membershipSummary struct {
@@ -428,8 +428,14 @@ func (h *UserHandler) AdminPurgeUser(w http.ResponseWriter, r *http.Request) {
 			_, e := tx.AuthorizationCode.Delete().Where(authorizationcode.UserID(userID)).Exec(ctx)
 			return e
 		},
-		func() error { _, e := tx.MFATOTPSecret.Delete().Where(mfatotpsecret.UserID(userID)).Exec(ctx); return e },
-		func() error { _, e := tx.MFABackupCode.Delete().Where(mfabackupcode.UserID(userID)).Exec(ctx); return e },
+		func() error {
+			_, e := tx.MFATOTPSecret.Delete().Where(mfatotpsecret.UserID(userID)).Exec(ctx)
+			return e
+		},
+		func() error {
+			_, e := tx.MFABackupCode.Delete().Where(mfabackupcode.UserID(userID)).Exec(ctx)
+			return e
+		},
 		func() error {
 			_, e := tx.WebAuthnCredential.Delete().Where(webauthncredential.UserID(userID)).Exec(ctx)
 			return e
@@ -437,7 +443,10 @@ func (h *UserHandler) AdminPurgeUser(w http.ResponseWriter, r *http.Request) {
 		func() error { _, e := tx.UserEmail.Delete().Where(useremail.UserID(userID)).Exec(ctx); return e },
 		func() error { _, e := tx.UserPhone.Delete().Where(userphone.UserID(userID)).Exec(ctx); return e },
 		func() error { _, e := tx.MFASettings.Delete().Where(mfasettings.UserID(userID)).Exec(ctx); return e },
-		func() error { _, e := tx.ConsentSession.Delete().Where(consentsession.UserID(userID)).Exec(ctx); return e },
+		func() error {
+			_, e := tx.ConsentSession.Delete().Where(consentsession.UserID(userID)).Exec(ctx)
+			return e
+		},
 		func() error {
 			_, e := tx.TenantMembership.Delete().Where(tenantmembership.UserID(userID)).Exec(ctx)
 			return e
@@ -572,13 +581,13 @@ func (h *UserHandler) AdminCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	resp := mapUser(u)
 	out := map[string]any{
-		"id":             resp.ID,
-		"email":          resp.Email,
-		"status":         resp.Status,
+		"id":                resp.ID,
+		"email":             resp.Email,
+		"status":            resp.Status,
 		"primary_tenant_id": resp.PrimaryTenantID,
-		"profile":        resp.Profile,
-		"created_at":     resp.CreatedAt,
-		"updated_at":     resp.UpdatedAt,
+		"profile":           resp.Profile,
+		"created_at":        resp.CreatedAt,
+		"updated_at":        resp.UpdatedAt,
 	}
 	if generated {
 		out["temp_password"] = tempPassword

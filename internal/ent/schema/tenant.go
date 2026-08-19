@@ -73,7 +73,6 @@ func (Tenant) Fields() []ent.Field {
 			Optional().
 			Comment("Brand palette: { primary, secondary, accent } — used by notification templates and UI theming"),
 
-
 		// ── Organisation Profile ──────────────────────────────────────────────
 		// Collected during multi-step registration to drive subscription recommendation.
 		field.String("org_size").

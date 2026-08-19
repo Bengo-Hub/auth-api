@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect/sql"
 	"github.com/bengobox/auth-api/internal/crypto"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"entgo.io/ent/dialect/sql"
 )
 
 // Service handles integration configurations with encrypted storage and caching.
@@ -209,7 +209,7 @@ func (s *Service) SaveConfig(ctx context.Context, tenantID *uuid.UUID, name, dis
 // ListActiveIntegrations returns a list of active integrations (platform-wide + tenant-specific).
 func (s *Service) ListActiveIntegrations(ctx context.Context, tenantID *uuid.UUID) ([]*ent.IntegrationConfig, error) {
 	query := s.client.IntegrationConfig.Query().Where(integrationconfig.IsActive(true))
-	
+
 	if tenantID != nil {
 		query = query.Where(
 			integrationconfig.Or(

@@ -10,17 +10,17 @@ import (
 
 // Config aggregates all runtime settings.
 type Config struct {
-	App          AppConfig          `envPrefix:""`
-	HTTP         HTTPConfig         `envPrefix:"HTTP_"`
-	Database     DatabaseConfig     `envPrefix:""`
-	Redis        RedisConfig        `envPrefix:"REDIS_"`
-	Token        TokenConfig        `envPrefix:"AUTH_TOKEN_"`
-	Security     SecurityConfig     `envPrefix:"AUTH_SECURITY_"`
-	Providers    ProvidersConfig    `envPrefix:"AUTH_PROVIDERS_"`
-	Subscription SubscriptionConfig `envPrefix:""`
-	Events       EventsConfig       `envPrefix:"AUTH_EVENTS_"`
-	Backup       BackupConfig       `envPrefix:"BACKUP_"`
-	WebAuthn     WebAuthnConfig     `envPrefix:"AUTH_WEBAUTHN_"`
+	App           AppConfig           `envPrefix:""`
+	HTTP          HTTPConfig          `envPrefix:"HTTP_"`
+	Database      DatabaseConfig      `envPrefix:""`
+	Redis         RedisConfig         `envPrefix:"REDIS_"`
+	Token         TokenConfig         `envPrefix:"AUTH_TOKEN_"`
+	Security      SecurityConfig      `envPrefix:"AUTH_SECURITY_"`
+	Providers     ProvidersConfig     `envPrefix:"AUTH_PROVIDERS_"`
+	Subscription  SubscriptionConfig  `envPrefix:""`
+	Events        EventsConfig        `envPrefix:"AUTH_EVENTS_"`
+	Backup        BackupConfig        `envPrefix:"BACKUP_"`
+	WebAuthn      WebAuthnConfig      `envPrefix:"AUTH_WEBAUTHN_"`
 	Notifications NotificationsConfig `envPrefix:""`
 }
 

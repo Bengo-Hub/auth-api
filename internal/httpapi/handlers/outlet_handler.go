@@ -67,15 +67,15 @@ func (h *OutletHandler) outletLimitReached(ctx context.Context, tenantID uuid.UU
 // ─── Request / Response types ────────────────────────────────────────────────
 
 type outletRequest struct {
-	Code             string         `json:"code"`
-	Name             string         `json:"name"`
-	UseCase          string         `json:"use_case"`
-	Address          string         `json:"address,omitempty"`
-	Timezone         string         `json:"timezone,omitempty"`
-	IsHQ             bool           `json:"is_hq,omitempty"`
-	Status           string         `json:"status,omitempty"`
-	PinLoginMessage  string         `json:"pin_login_message,omitempty"`
-	Metadata         map[string]any `json:"metadata,omitempty"`
+	Code            string         `json:"code"`
+	Name            string         `json:"name"`
+	UseCase         string         `json:"use_case"`
+	Address         string         `json:"address,omitempty"`
+	Timezone        string         `json:"timezone,omitempty"`
+	IsHQ            bool           `json:"is_hq,omitempty"`
+	Status          string         `json:"status,omitempty"`
+	PinLoginMessage string         `json:"pin_login_message,omitempty"`
+	Metadata        map[string]any `json:"metadata,omitempty"`
 }
 
 type outletResponse struct {
@@ -566,19 +566,19 @@ func (h *OutletHandler) SelectOutlet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newToken, _, err := h.tokens.MintAccessToken(token.AccessTokenInput{
-		UserID:          userID,
-		TenantID:        &tenantID,
-		TenantSlug:      claims.TenantSlug,
-		SessionID:       sessionID,
-		Email:           claims.Email,
-		Scopes:          claims.Scope,
-		Roles:           claims.Roles,
-		Permissions:     claims.Permissions,
-		IsPlatformOwner: claims.IsPlatformOwner,
-		OutletID:        o.ID.String(),
-		OutletCode:      o.Code,
-		OutletUseCase:   o.UseCase,
-		IsHQUser:        o.IsHq,
+		UserID:               userID,
+		TenantID:             &tenantID,
+		TenantSlug:           claims.TenantSlug,
+		SessionID:            sessionID,
+		Email:                claims.Email,
+		Scopes:               claims.Scope,
+		Roles:                claims.Roles,
+		Permissions:          claims.Permissions,
+		IsPlatformOwner:      claims.IsPlatformOwner,
+		OutletID:             o.ID.String(),
+		OutletCode:           o.Code,
+		OutletUseCase:        o.UseCase,
+		IsHQUser:             o.IsHq,
 		SubscriptionPlan:     claims.SubscriptionPlan,
 		SubscriptionStatus:   claims.SubscriptionStatus,
 		SubscriptionFeatures: claims.SubscriptionFeatures,
@@ -684,4 +684,3 @@ func (h *OutletHandler) RepublishOutletEvents(w http.ResponseWriter, r *http.Req
 		"tenant":      slug,
 	})
 }
-
