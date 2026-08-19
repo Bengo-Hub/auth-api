@@ -9,10 +9,20 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"github.com/Bengo-Hub/pagination"
+	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
+	"github.com/bengobox/auth-api/internal/ent/consentsession"
+	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
+	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
+	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
+	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/useremail"
+	"github.com/bengobox/auth-api/internal/ent/useridentity"
+	"github.com/bengobox/auth-api/internal/ent/userphone"
+	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/password"
 	"github.com/bengobox/auth-api/internal/services/auth"
@@ -343,6 +353,132 @@ func (h *UserHandler) AdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.Info("user soft-deleted", zap.String("user_id", userID.String()))
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// AdminPurgeUser permanently and irreversibly deletes a user and ALL of their
+// identity data (sessions, refresh/reset tokens, MFA secrets, WebAuthn
+// credentials, linked emails/phones, OAuth consent grants, tenant
+// memberships) — a TRUE hard delete, unlike AdminDeleteUser above which only
+// soft-deletes (status="deleted", record retained for audit purposes).
+// LoginAttempt and AuditLog rows are intentionally left in place with a now-
+// dangling user_id: those are security/compliance records, not identity
+// data, and existed with no ent edge back to User for exactly this reason.
+// Emits `auth.user.deleted` (outbox) after a successful commit so downstream
+// services can remove their own local shadow-user data; enforcement of what
+// gets deleted downstream is each service's own responsibility.
+// POST /api/v1/admin/users/{user_id}/purge
+func (h *UserHandler) AdminPurgeUser(w http.ResponseWriter, r *http.Request) {
+	if !h.requirePlatformAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
+		return
+	}
+
+	userID, err := uuid.Parse(chi.URLParam(r, "user_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_id", "invalid user ID", nil)
+		return
+	}
+
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil {
+		if selfID, parseErr := uuid.Parse(claims.Subject); parseErr == nil && selfID == userID {
+			writeError(w, http.StatusBadRequest, "cannot_self_delete", "you cannot hard-delete your own account", nil)
+			return
+		}
+	}
+
+	ctx := r.Context()
+	u, err := h.ent.User.Get(ctx, userID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "user not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
+		return
+	}
+
+	// Capture tenant memberships before they're deleted — downstream consumers scope
+	// their local shadow data by tenant, so the event needs every tenant this user
+	// belonged to, not just their primary one.
+	memberships, err := h.ent.TenantMembership.Query().Where(tenantmembership.UserID(userID)).All(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to load memberships", nil)
+		return
+	}
+	tenantIDs := make([]string, 0, len(memberships))
+	for _, m := range memberships {
+		tenantIDs = append(tenantIDs, m.TenantID.String())
+	}
+
+	tx, err := h.ent.Tx(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to start transaction", nil)
+		return
+	}
+
+	cascades := []func() error{
+		func() error { _, e := tx.Session.Delete().Where(session.UserID(userID)).Exec(ctx); return e },
+		func() error {
+			_, e := tx.PasswordResetToken.Delete().Where(passwordresettoken.UserID(userID)).Exec(ctx)
+			return e
+		},
+		func() error { _, e := tx.UserIdentity.Delete().Where(useridentity.UserID(userID)).Exec(ctx); return e },
+		func() error {
+			_, e := tx.AuthorizationCode.Delete().Where(authorizationcode.UserID(userID)).Exec(ctx)
+			return e
+		},
+		func() error { _, e := tx.MFATOTPSecret.Delete().Where(mfatotpsecret.UserID(userID)).Exec(ctx); return e },
+		func() error { _, e := tx.MFABackupCode.Delete().Where(mfabackupcode.UserID(userID)).Exec(ctx); return e },
+		func() error {
+			_, e := tx.WebAuthnCredential.Delete().Where(webauthncredential.UserID(userID)).Exec(ctx)
+			return e
+		},
+		func() error { _, e := tx.UserEmail.Delete().Where(useremail.UserID(userID)).Exec(ctx); return e },
+		func() error { _, e := tx.UserPhone.Delete().Where(userphone.UserID(userID)).Exec(ctx); return e },
+		func() error { _, e := tx.MFASettings.Delete().Where(mfasettings.UserID(userID)).Exec(ctx); return e },
+		func() error { _, e := tx.ConsentSession.Delete().Where(consentsession.UserID(userID)).Exec(ctx); return e },
+		func() error {
+			_, e := tx.TenantMembership.Delete().Where(tenantmembership.UserID(userID)).Exec(ctx)
+			return e
+		},
+	}
+	for _, cascade := range cascades {
+		if cErr := cascade(); cErr != nil {
+			_ = tx.Rollback()
+			h.logger.Error("purge user: cascade delete failed", zap.String("user_id", userID.String()), zap.Error(cErr))
+			writeError(w, http.StatusInternalServerError, "server_error", "failed to purge related data", nil)
+			return
+		}
+	}
+
+	if err := tx.User.DeleteOneID(userID).Exec(ctx); err != nil {
+		_ = tx.Rollback()
+		h.logger.Error("purge user: delete user row failed", zap.String("user_id", userID.String()), zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete user", nil)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		h.logger.Error("purge user: commit failed", zap.String("user_id", userID.String()), zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to commit purge", nil)
+		return
+	}
+
+	invalidateMeCacheKeys(ctx, h.redis, h.redisNamespace, userID)
+
+	var primaryTenantID uuid.UUID
+	if u.PrimaryTenantID != "" {
+		primaryTenantID, _ = uuid.Parse(u.PrimaryTenantID)
+	}
+	writeOutboxEvent(ctx, h.ent, h.logger, primaryTenantID, "auth.user", userID, "deleted", map[string]any{
+		"user_id":           userID.String(),
+		"email":             u.Email,
+		"primary_tenant_id": u.PrimaryTenantID,
+		"tenant_ids":        tenantIDs,
+	})
+
+	h.logger.Info("user hard-deleted (purged)", zap.String("user_id", userID.String()), zap.String("email", u.Email))
 	w.WriteHeader(http.StatusNoContent)
 }
 
