@@ -44,7 +44,7 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			name: "Codevertex Africa Limited", slug: "codevertex", baseDomain: "codevertexafrica.com",
 			isPlatformOwner: true, useCases: nil,
 			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://codevertexafrica.com",
-			contactEmail: "support@codevertexafrica.com", contactPhone: "+254 743 793 901",
+			contactEmail: "info@codevertexafrica.com", contactPhone: "+254 743 793 901",
 			brandColors: map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
 		},
 		{
@@ -163,6 +163,14 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 				upd = upd.SetWebsite(t.website)
 			}
 			if tenantEntity.ContactEmail == nil && t.contactEmail != "" {
+				upd = upd.SetContactEmail(t.contactEmail)
+			}
+			// One-off correction: "codevertex" was originally seeded with the founder's
+			// personal Gmail address as its contact email, which then leaked into every
+			// customer-facing notification footer (OTP emails, etc). Force-correct that one
+			// known-stale value; every other tenant/field keeps the backfill-only behavior
+			// above so admin-console edits are never clobbered.
+			if t.slug == "codevertex" && tenantEntity.ContactEmail != nil && *tenantEntity.ContactEmail == "codevertexitsolutions@gmail.com" {
 				upd = upd.SetContactEmail(t.contactEmail)
 			}
 			if tenantEntity.ContactPhone == nil && t.contactPhone != "" {
