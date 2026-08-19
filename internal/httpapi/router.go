@@ -523,6 +523,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 							r.Get("/", deps.UserHandler.AdminGetUser)
 							r.Patch("/", deps.UserHandler.AdminUpdateUser)
 							r.Delete("/", deps.UserHandler.AdminDeleteUser)
+							r.Post("/purge", deps.UserHandler.AdminPurgeUser)
 							r.Post("/suspend", deps.UserHandler.AdminSuspendUser)
 							r.Post("/deactivate", deps.UserHandler.AdminDeactivateUser)
 							r.Post("/activate", deps.UserHandler.AdminActivateUser)
