@@ -79,6 +79,11 @@ type ValidateAPIKeyResponse struct {
 	Scopes     []string `json:"scopes"`
 	Roles      []string `json:"roles"`
 	Service    string   `json:"service,omitempty"`
+	// Environment is only meaningful for bng_app_* tokens (Apps have a real
+	// sandbox/production distinction); always "production" for a plain bng_* API key,
+	// since APIKey has no environment field of its own — those are treated as
+	// already-live credentials from the moment they're issued.
+	Environment string `json:"environment"`
 }
 
 // generateAPIKey generates a cryptographically secure API key.
@@ -283,12 +288,13 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, ValidateAPIKeyResponse{
-		ClientID:   key.ID.String(),
-		TenantID:   key.TenantID.String(),
-		TenantSlug: tenantSlug,
-		Scopes:     key.Scopes,
-		Roles:      roles,
-		Service:    key.Service,
+		ClientID:    key.ID.String(),
+		TenantID:    key.TenantID.String(),
+		TenantSlug:  tenantSlug,
+		Scopes:      key.Scopes,
+		Roles:       roles,
+		Service:     key.Service,
+		Environment: "production",
 	})
 }
 
@@ -358,12 +364,13 @@ func (h *APIKeyHandler) validateAppToken(w http.ResponseWriter, r *http.Request,
 	}
 
 	writeJSON(w, http.StatusOK, ValidateAPIKeyResponse{
-		ClientID:   a.ClientID,
-		TenantID:   tenantIDStr,
-		TenantSlug: tenantSlug,
-		Scopes:     a.Scopes,
-		Roles:      roles,
-		Service:    string(a.AppType),
+		ClientID:    a.ClientID,
+		TenantID:    tenantIDStr,
+		TenantSlug:  tenantSlug,
+		Scopes:      a.Scopes,
+		Roles:       roles,
+		Service:     string(a.AppType),
+		Environment: string(a.Environment),
 	})
 }
 
