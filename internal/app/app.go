@@ -336,6 +336,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminPromoteApp:     appHandler.PromoteToProduction,
 			// Integration requests (eTIMS + future integrations)
 			CreateIntegrationRequest:      integrationRequestHandler.CreateIntegrationRequest,
+			ListMyIntegrationRequests:     integrationRequestHandler.ListMyIntegrationRequests,
 			AdminListIntegrationRequests:  integrationRequestHandler.ListIntegrationRequests,
 			AdminUpdateIntegrationRequest: integrationRequestHandler.UpdateIntegrationRequestStatus,
 			S2SNotifyIntegrationRequest:   integrationRequestHandler.S2SNotifyIntegrationRequest,

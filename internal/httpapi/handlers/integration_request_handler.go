@@ -101,6 +101,27 @@ func (h *IntegrationRequestHandler) CreateIntegrationRequest(w http.ResponseWrit
 	writeJSON(w, http.StatusCreated, rec)
 }
 
+// ListMyIntegrationRequests handles GET /api/v1/integration-requests/mine (any authenticated
+// user) — the caller's own requests, keyed by their JWT email. Used by the developer portal to
+// check request status for a given resource (e.g. docs access, app production promotion)
+// without needing admin scope just to see your own submissions.
+func (h *IntegrationRequestHandler) ListMyIntegrationRequests(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok || claims.Email == "" {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "authentication required", nil)
+		return
+	}
+	items, err := h.ent.IntegrationRequest.Query().
+		Where(integrationrequest.RequesterEmailEQ(claims.Email)).
+		Order(ent.Desc(integrationrequest.FieldCreatedAt)).
+		All(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to list requests", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 // ListIntegrationRequests handles GET /api/v1/admin/integration-requests (platform-owner only).
 func (h *IntegrationRequestHandler) ListIntegrationRequests(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())

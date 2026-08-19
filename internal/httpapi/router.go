@@ -118,6 +118,7 @@ type AuthHandlers struct {
 	AdminRotateClientSecret            http.HandlerFunc
 	// Integration requests (eTIMS + future integrations)
 	CreateIntegrationRequest        http.HandlerFunc
+	ListMyIntegrationRequests       http.HandlerFunc
 	AdminListIntegrationRequests    http.HandlerFunc
 	AdminUpdateIntegrationRequest   http.HandlerFunc
 	S2SNotifyIntegrationRequest     http.HandlerFunc
@@ -568,6 +569,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 		// own Lead capture calling the S2S notify-only endpoint above instead).
 		if deps.AuthHandlers.CreateIntegrationRequest != nil {
 			r.With(deps.TryAuthHandler).Post("/integration-requests", deps.AuthHandlers.CreateIntegrationRequest)
+		}
+		// The caller's own integration/access requests (e.g. developer docs-access gating) —
+		// requires a real session, unlike the create route above, since "mine" needs a known caller.
+		if deps.RequireAuthHandler != nil && deps.AuthHandlers.ListMyIntegrationRequests != nil {
+			r.With(deps.RequireAuthHandler).Get("/integration-requests/mine", deps.AuthHandlers.ListMyIntegrationRequests)
 		}
 		// Note: a prior redundant "/developer/clients" GET/POST-only route (backed by
 		// developer_handler.go) was removed 2026-08-18 — it duplicated AdminCreateClient/
