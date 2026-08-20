@@ -147,19 +147,30 @@ var allowedTenantScopePrefixes = []string{
 // platform admin creating/editing an app on a tenant's behalf — cross-tenant/system trust
 // scopes belong on a platform-type app, never a tenant one.
 func validateTenantAppScopes(scopes []string) error {
+	var grantedPrefix string
 	for _, s := range scopes {
 		if reservedPlatformScopes[s] || strings.HasPrefix(s, "s2s:") || strings.HasPrefix(s, "s2s.") || s == "s2s" {
 			return fmt.Errorf("scope %q is platform-admin-only and cannot be granted to a tenant app", s)
 		}
-		matched := false
+		matched := ""
 		for _, prefix := range allowedTenantScopePrefixes {
 			if strings.HasPrefix(s, prefix) {
-				matched = true
+				matched = prefix
 				break
 			}
 		}
-		if !matched {
+		if matched == "" {
 			return fmt.Errorf("scope %q is not a recognized service scope (expected one of: treasury:*, notifications:*, subscriptions:*, sso:*)", s)
+		}
+		// A tenant app is always limited to ONE service, never a bundle of several -- matches the
+		// self-serve create-app UI's own single-service picker. A caller building a hand-crafted
+		// request with scopes spanning two service prefixes (e.g. ["treasury:read",
+		// "notifications:read"]) is rejected here rather than silently accepted, closing a gap
+		// where this was previously only a UI convention, not a server-side rule.
+		if grantedPrefix == "" {
+			grantedPrefix = matched
+		} else if grantedPrefix != matched {
+			return fmt.Errorf("a tenant app may only be scoped to one service — found both %q and %q scopes in the same request", grantedPrefix, matched)
 		}
 	}
 	return nil

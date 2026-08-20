@@ -40,6 +40,7 @@ func NewIntegrationRequestHandler(entClient *ent.Client, notifier *EtimsSupportN
 
 type createIntegrationRequestBody struct {
 	RequestType     string `json:"request_type"`
+	Service         string `json:"service"`
 	RequesterName   string `json:"requester_name"`
 	RequesterEmail  string `json:"requester_email"`
 	RequesterPhone  string `json:"requester_phone"`
@@ -47,6 +48,29 @@ type createIntegrationRequestBody struct {
 	KraPin          string `json:"kra_pin"`
 	IntegrationMode string `json:"integration_mode"`
 	Notes           string `json:"notes"`
+}
+
+// serviceMeta maps one requestable service (the generic developer-portal "apply for API access"
+// form) to the two other, independently-named identifiers that already exist for it elsewhere in
+// the codebase: the docs-access resourceKey (auth-ui's DocsAccessGate/useDocsAccess, which uses
+// each service's own "-api"-suffixed name) and the App scope prefix (app_handler.go's
+// allowedTenantScopePrefixes) an auto-provisioned sandbox App should carry. These three
+// vocabularies were never unified before this generic request type existed -- keeping the mapping
+// explicit here, rather than assuming they coincide, avoids silently breaking whichever one
+// doesn't match the service key.
+type serviceMeta struct {
+	docsResourceKey string
+	scopePrefix     string
+}
+
+// requestableServices are the only services the generic "apply for API access" form
+// (auth-ui /developer/apply) may request. Email hosting is deliberately excluded: it's a
+// per-mailbox tenant subscription product with its own self-service purchase flow, not an
+// external-developer API surface with a credential to issue.
+var requestableServices = map[string]serviceMeta{
+	"treasury":      {docsResourceKey: "treasury-api", scopePrefix: "treasury"},
+	"notifications": {docsResourceKey: "notifications-api", scopePrefix: "notifications"},
+	"sso":           {docsResourceKey: "auth-api", scopePrefix: "sso"},
 }
 
 // CreateIntegrationRequest handles POST /api/v1/integration-requests. JWT is optional: when
@@ -59,6 +83,15 @@ func (h *IntegrationRequestHandler) CreateIntegrationRequest(w http.ResponseWrit
 	if err := decodeJSON(r, &body); err != nil || body.RequesterName == "" || body.RequesterEmail == "" {
 		writeError(w, http.StatusBadRequest, "invalid_request", "requester_name and requester_email are required", nil)
 		return
+	}
+	if body.Service != "" {
+		if _, ok := requestableServices[body.Service]; !ok {
+			writeError(w, http.StatusBadRequest, "invalid_service", "service must be one of: treasury, notifications, sso", nil)
+			return
+		}
+		if body.RequestType == "" {
+			body.RequestType = "service_access_" + body.Service
+		}
 	}
 	if body.RequestType == "" {
 		body.RequestType = "etims_integration"
@@ -78,6 +111,9 @@ func (h *IntegrationRequestHandler) CreateIntegrationRequest(w http.ResponseWrit
 		SetIntegrationMode(mode).
 		SetNotes(body.Notes).
 		SetSource(integrationrequest.SourceTenantPortal)
+	if body.Service != "" {
+		create.SetService(body.Service)
+	}
 
 	var tenantID string
 	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); ok && claims.TenantID != "" {
@@ -214,7 +250,9 @@ var autoProvisionRequestTypes = map[string]bool{
 }
 
 func isAutoProvisionable(requestType string) bool {
-	return autoProvisionRequestTypes[requestType] || strings.HasPrefix(requestType, "docs_access_")
+	return autoProvisionRequestTypes[requestType] ||
+		strings.HasPrefix(requestType, "docs_access_") ||
+		strings.HasPrefix(requestType, "service_access_")
 }
 
 // autoProvisionExternalDeveloper creates a lightweight tenant + sandbox App for a newly
@@ -276,7 +314,16 @@ func (h *IntegrationRequestHandler) autoProvisionExternalDeveloper(ctx context.C
 		log.Error("auto-provision: generate client id failed", zap.Error(err))
 		return
 	}
-	if _, err := h.ent.App.Create().
+	// A service_access_<service> request gets a sandbox App scoped to exactly that one service
+	// (read-only by default — a self-serve developer can promote to write scopes themselves once
+	// logged in, via the same Apps page any tenant developer uses). Any other auto-provisionable
+	// request type (etims_integration, docs_access_*) gets no scopes at all, matching the
+	// pre-existing behavior — those aren't requesting a credential for a specific service.
+	var scopes []string
+	if meta, ok := requestableServices[rec.Service]; ok {
+		scopes = []string{meta.scopePrefix + ":read"}
+	}
+	appCreate := h.ent.App.Create().
 		SetName(name + " — Sandbox").
 		SetDescription("Auto-provisioned on integration-request approval (" + rec.RequestType + ")").
 		SetAppType(entapp.AppTypeTenant).
@@ -285,14 +332,39 @@ func (h *IntegrationRequestHandler) autoProvisionExternalDeveloper(ctx context.C
 		SetKeyHash(hash).
 		SetKeyPrefix(prefix).
 		SetTenantID(tenantRec.ID).
-		SetStatus(entapp.StatusActive).
-		Save(ctx); err != nil {
+		SetStatus(entapp.StatusActive)
+	if len(scopes) > 0 {
+		appCreate.SetScopes(scopes)
+	}
+	if _, err := appCreate.Save(ctx); err != nil {
 		log.Error("auto-provision: create sandbox app failed", zap.Error(err))
 		return
 	}
 
 	if _, err := h.ent.IntegrationRequest.UpdateOneID(rec.ID).SetTenantID(tenantRec.ID).Save(ctx); err != nil {
 		log.Warn("auto-provision: linking request to new tenant failed", zap.Error(err))
+	}
+
+	// One approval grants both the credential (above) and docs visibility for the same service, so
+	// a newly-provisioned developer doesn't have to separately re-request docs access right after
+	// signing in. Best-effort: a failure here still leaves a fully usable App/login, matching this
+	// function's overall "never block the approval" posture.
+	if meta, ok := requestableServices[rec.Service]; ok {
+		if _, err := h.ent.IntegrationRequest.Create().
+			SetRequestType("docs_access_" + meta.docsResourceKey).
+			SetService(rec.Service).
+			SetTenantID(tenantRec.ID).
+			SetRequesterName(rec.RequesterName).
+			SetRequesterEmail(rec.RequesterEmail).
+			SetRequesterPhone(rec.RequesterPhone).
+			SetCompanyName(rec.CompanyName).
+			SetIntegrationMode(rec.IntegrationMode).
+			SetNotes("Auto-approved alongside service_access_" + rec.Service + " (request " + rec.ID.String() + ").").
+			SetSource(integrationrequest.SourceTenantPortal).
+			SetStatus(integrationrequest.StatusApproved).
+			Save(ctx); err != nil {
+			log.Warn("auto-provision: auto-approve docs access failed", zap.Error(err))
+		}
 	}
 
 	// Give the requester an actual login, not just a sandbox key: create (or reuse) a User

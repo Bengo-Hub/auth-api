@@ -8385,6 +8385,7 @@ type IntegrationRequestMutation struct {
 	typ              string
 	id               *uuid.UUID
 	request_type     *string
+	service          *string
 	tenant_id        *uuid.UUID
 	requester_name   *string
 	requester_email  *string
@@ -8542,6 +8543,55 @@ func (m *IntegrationRequestMutation) OldRequestType(ctx context.Context) (v stri
 // ResetRequestType resets all changes to the "request_type" field.
 func (m *IntegrationRequestMutation) ResetRequestType() {
 	m.request_type = nil
+}
+
+// SetService sets the "service" field.
+func (m *IntegrationRequestMutation) SetService(s string) {
+	m.service = &s
+}
+
+// Service returns the value of the "service" field in the mutation.
+func (m *IntegrationRequestMutation) Service() (r string, exists bool) {
+	v := m.service
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldService returns the old "service" field's value of the IntegrationRequest entity.
+// If the IntegrationRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *IntegrationRequestMutation) OldService(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldService is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldService requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldService: %w", err)
+	}
+	return oldValue.Service, nil
+}
+
+// ClearService clears the value of the "service" field.
+func (m *IntegrationRequestMutation) ClearService() {
+	m.service = nil
+	m.clearedFields[integrationrequest.FieldService] = struct{}{}
+}
+
+// ServiceCleared returns if the "service" field was cleared in this mutation.
+func (m *IntegrationRequestMutation) ServiceCleared() bool {
+	_, ok := m.clearedFields[integrationrequest.FieldService]
+	return ok
+}
+
+// ResetService resets all changes to the "service" field.
+func (m *IntegrationRequestMutation) ResetService() {
+	m.service = nil
+	delete(m.clearedFields, integrationrequest.FieldService)
 }
 
 // SetTenantID sets the "tenant_id" field.
@@ -9124,9 +9174,12 @@ func (m *IntegrationRequestMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *IntegrationRequestMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.request_type != nil {
 		fields = append(fields, integrationrequest.FieldRequestType)
+	}
+	if m.service != nil {
+		fields = append(fields, integrationrequest.FieldService)
 	}
 	if m.tenant_id != nil {
 		fields = append(fields, integrationrequest.FieldTenantID)
@@ -9177,6 +9230,8 @@ func (m *IntegrationRequestMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case integrationrequest.FieldRequestType:
 		return m.RequestType()
+	case integrationrequest.FieldService:
+		return m.Service()
 	case integrationrequest.FieldTenantID:
 		return m.TenantID()
 	case integrationrequest.FieldRequesterName:
@@ -9214,6 +9269,8 @@ func (m *IntegrationRequestMutation) OldField(ctx context.Context, name string) 
 	switch name {
 	case integrationrequest.FieldRequestType:
 		return m.OldRequestType(ctx)
+	case integrationrequest.FieldService:
+		return m.OldService(ctx)
 	case integrationrequest.FieldTenantID:
 		return m.OldTenantID(ctx)
 	case integrationrequest.FieldRequesterName:
@@ -9255,6 +9312,13 @@ func (m *IntegrationRequestMutation) SetField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRequestType(v)
+		return nil
+	case integrationrequest.FieldService:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetService(v)
 		return nil
 	case integrationrequest.FieldTenantID:
 		v, ok := value.(uuid.UUID)
@@ -9377,6 +9441,9 @@ func (m *IntegrationRequestMutation) AddField(name string, value ent.Value) erro
 // mutation.
 func (m *IntegrationRequestMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(integrationrequest.FieldService) {
+		fields = append(fields, integrationrequest.FieldService)
+	}
 	if m.FieldCleared(integrationrequest.FieldTenantID) {
 		fields = append(fields, integrationrequest.FieldTenantID)
 	}
@@ -9409,6 +9476,9 @@ func (m *IntegrationRequestMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *IntegrationRequestMutation) ClearField(name string) error {
 	switch name {
+	case integrationrequest.FieldService:
+		m.ClearService()
+		return nil
 	case integrationrequest.FieldTenantID:
 		m.ClearTenantID()
 		return nil
@@ -9437,6 +9507,9 @@ func (m *IntegrationRequestMutation) ResetField(name string) error {
 	switch name {
 	case integrationrequest.FieldRequestType:
 		m.ResetRequestType()
+		return nil
+	case integrationrequest.FieldService:
+		m.ResetService()
 		return nil
 	case integrationrequest.FieldTenantID:
 		m.ResetTenantID()

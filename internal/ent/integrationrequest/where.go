@@ -60,6 +60,11 @@ func RequestType(v string) predicate.IntegrationRequest {
 	return predicate.IntegrationRequest(sql.FieldEQ(FieldRequestType, v))
 }
 
+// Service applies equality check predicate on the "service" field. It's identical to ServiceEQ.
+func Service(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldEQ(FieldService, v))
+}
+
 // TenantID applies equality check predicate on the "tenant_id" field. It's identical to TenantIDEQ.
 func TenantID(v uuid.UUID) predicate.IntegrationRequest {
 	return predicate.IntegrationRequest(sql.FieldEQ(FieldTenantID, v))
@@ -173,6 +178,81 @@ func RequestTypeEqualFold(v string) predicate.IntegrationRequest {
 // RequestTypeContainsFold applies the ContainsFold predicate on the "request_type" field.
 func RequestTypeContainsFold(v string) predicate.IntegrationRequest {
 	return predicate.IntegrationRequest(sql.FieldContainsFold(FieldRequestType, v))
+}
+
+// ServiceEQ applies the EQ predicate on the "service" field.
+func ServiceEQ(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldEQ(FieldService, v))
+}
+
+// ServiceNEQ applies the NEQ predicate on the "service" field.
+func ServiceNEQ(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldNEQ(FieldService, v))
+}
+
+// ServiceIn applies the In predicate on the "service" field.
+func ServiceIn(vs ...string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldIn(FieldService, vs...))
+}
+
+// ServiceNotIn applies the NotIn predicate on the "service" field.
+func ServiceNotIn(vs ...string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldNotIn(FieldService, vs...))
+}
+
+// ServiceGT applies the GT predicate on the "service" field.
+func ServiceGT(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldGT(FieldService, v))
+}
+
+// ServiceGTE applies the GTE predicate on the "service" field.
+func ServiceGTE(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldGTE(FieldService, v))
+}
+
+// ServiceLT applies the LT predicate on the "service" field.
+func ServiceLT(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldLT(FieldService, v))
+}
+
+// ServiceLTE applies the LTE predicate on the "service" field.
+func ServiceLTE(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldLTE(FieldService, v))
+}
+
+// ServiceContains applies the Contains predicate on the "service" field.
+func ServiceContains(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldContains(FieldService, v))
+}
+
+// ServiceHasPrefix applies the HasPrefix predicate on the "service" field.
+func ServiceHasPrefix(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldHasPrefix(FieldService, v))
+}
+
+// ServiceHasSuffix applies the HasSuffix predicate on the "service" field.
+func ServiceHasSuffix(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldHasSuffix(FieldService, v))
+}
+
+// ServiceIsNil applies the IsNil predicate on the "service" field.
+func ServiceIsNil() predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldIsNull(FieldService))
+}
+
+// ServiceNotNil applies the NotNil predicate on the "service" field.
+func ServiceNotNil() predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldNotNull(FieldService))
+}
+
+// ServiceEqualFold applies the EqualFold predicate on the "service" field.
+func ServiceEqualFold(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldEqualFold(FieldService, v))
+}
+
+// ServiceContainsFold applies the ContainsFold predicate on the "service" field.
+func ServiceContainsFold(v string) predicate.IntegrationRequest {
+	return predicate.IntegrationRequest(sql.FieldContainsFold(FieldService, v))
 }
 
 // TenantIDEQ applies the EQ predicate on the "tenant_id" field.

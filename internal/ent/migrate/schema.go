@@ -277,6 +277,7 @@ var (
 	IntegrationRequestsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "request_type", Type: field.TypeString, Default: "etims_integration"},
+		{Name: "service", Type: field.TypeString, Nullable: true},
 		{Name: "tenant_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "requester_name", Type: field.TypeString},
 		{Name: "requester_email", Type: field.TypeString},
@@ -300,7 +301,7 @@ var (
 			{
 				Name:    "integrationrequest_status",
 				Unique:  false,
-				Columns: []*schema.Column{IntegrationRequestsColumns[11]},
+				Columns: []*schema.Column{IntegrationRequestsColumns[12]},
 			},
 			{
 				Name:    "integrationrequest_request_type",
@@ -310,7 +311,7 @@ var (
 			{
 				Name:    "integrationrequest_tenant_id",
 				Unique:  false,
-				Columns: []*schema.Column{IntegrationRequestsColumns[2]},
+				Columns: []*schema.Column{IntegrationRequestsColumns[3]},
 			},
 		},
 	}

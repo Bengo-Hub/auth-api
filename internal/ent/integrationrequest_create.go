@@ -38,6 +38,20 @@ func (_c *IntegrationRequestCreate) SetNillableRequestType(v *string) *Integrati
 	return _c
 }
 
+// SetService sets the "service" field.
+func (_c *IntegrationRequestCreate) SetService(v string) *IntegrationRequestCreate {
+	_c.mutation.SetService(v)
+	return _c
+}
+
+// SetNillableService sets the "service" field if the given value is not nil.
+func (_c *IntegrationRequestCreate) SetNillableService(v *string) *IntegrationRequestCreate {
+	if v != nil {
+		_c.SetService(*v)
+	}
+	return _c
+}
+
 // SetTenantID sets the "tenant_id" field.
 func (_c *IntegrationRequestCreate) SetTenantID(v uuid.UUID) *IntegrationRequestCreate {
 	_c.mutation.SetTenantID(v)
@@ -374,6 +388,10 @@ func (_c *IntegrationRequestCreate) createSpec() (*IntegrationRequest, *sqlgraph
 		_spec.SetField(integrationrequest.FieldRequestType, field.TypeString, value)
 		_node.RequestType = value
 	}
+	if value, ok := _c.mutation.Service(); ok {
+		_spec.SetField(integrationrequest.FieldService, field.TypeString, value)
+		_node.Service = value
+	}
 	if value, ok := _c.mutation.TenantID(); ok {
 		_spec.SetField(integrationrequest.FieldTenantID, field.TypeUUID, value)
 		_node.TenantID = &value
@@ -487,6 +505,24 @@ func (u *IntegrationRequestUpsert) SetRequestType(v string) *IntegrationRequestU
 // UpdateRequestType sets the "request_type" field to the value that was provided on create.
 func (u *IntegrationRequestUpsert) UpdateRequestType() *IntegrationRequestUpsert {
 	u.SetExcluded(integrationrequest.FieldRequestType)
+	return u
+}
+
+// SetService sets the "service" field.
+func (u *IntegrationRequestUpsert) SetService(v string) *IntegrationRequestUpsert {
+	u.Set(integrationrequest.FieldService, v)
+	return u
+}
+
+// UpdateService sets the "service" field to the value that was provided on create.
+func (u *IntegrationRequestUpsert) UpdateService() *IntegrationRequestUpsert {
+	u.SetExcluded(integrationrequest.FieldService)
+	return u
+}
+
+// ClearService clears the value of the "service" field.
+func (u *IntegrationRequestUpsert) ClearService() *IntegrationRequestUpsert {
+	u.SetNull(integrationrequest.FieldService)
 	return u
 }
 
@@ -732,6 +768,27 @@ func (u *IntegrationRequestUpsertOne) SetRequestType(v string) *IntegrationReque
 func (u *IntegrationRequestUpsertOne) UpdateRequestType() *IntegrationRequestUpsertOne {
 	return u.Update(func(s *IntegrationRequestUpsert) {
 		s.UpdateRequestType()
+	})
+}
+
+// SetService sets the "service" field.
+func (u *IntegrationRequestUpsertOne) SetService(v string) *IntegrationRequestUpsertOne {
+	return u.Update(func(s *IntegrationRequestUpsert) {
+		s.SetService(v)
+	})
+}
+
+// UpdateService sets the "service" field to the value that was provided on create.
+func (u *IntegrationRequestUpsertOne) UpdateService() *IntegrationRequestUpsertOne {
+	return u.Update(func(s *IntegrationRequestUpsert) {
+		s.UpdateService()
+	})
+}
+
+// ClearService clears the value of the "service" field.
+func (u *IntegrationRequestUpsertOne) ClearService() *IntegrationRequestUpsertOne {
+	return u.Update(func(s *IntegrationRequestUpsert) {
+		s.ClearService()
 	})
 }
 
@@ -1174,6 +1231,27 @@ func (u *IntegrationRequestUpsertBulk) SetRequestType(v string) *IntegrationRequ
 func (u *IntegrationRequestUpsertBulk) UpdateRequestType() *IntegrationRequestUpsertBulk {
 	return u.Update(func(s *IntegrationRequestUpsert) {
 		s.UpdateRequestType()
+	})
+}
+
+// SetService sets the "service" field.
+func (u *IntegrationRequestUpsertBulk) SetService(v string) *IntegrationRequestUpsertBulk {
+	return u.Update(func(s *IntegrationRequestUpsert) {
+		s.SetService(v)
+	})
+}
+
+// UpdateService sets the "service" field to the value that was provided on create.
+func (u *IntegrationRequestUpsertBulk) UpdateService() *IntegrationRequestUpsertBulk {
+	return u.Update(func(s *IntegrationRequestUpsert) {
+		s.UpdateService()
+	})
+}
+
+// ClearService clears the value of the "service" field.
+func (u *IntegrationRequestUpsertBulk) ClearService() *IntegrationRequestUpsertBulk {
+	return u.Update(func(s *IntegrationRequestUpsert) {
+		s.ClearService()
 	})
 }
 
