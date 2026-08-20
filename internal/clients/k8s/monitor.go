@@ -89,8 +89,26 @@ type PodProblem struct {
 
 // podProblemRestartThreshold flags a container as a problem once it has
 // restarted this many times, even without an active Waiting reason (e.g. it
-// recovered but is still flapping).
+// recovered but is still flapping) -- but only if the restart was recent
+// (see podProblemRecentWindow). RestartCount is cumulative for the
+// container's entire lifetime and never resets on its own, so on a
+// long-lived pod (a static control-plane pod, or any DaemonSet pod that
+// never gets rescheduled) a single old incident -- a node reboot, a kured
+// drain, anything -- would otherwise flag it as an "active issue" forever.
+// Hit exactly this on 2026-08-20: etcd/kube-apiserver/kube-controller-manager
+// /kube-scheduler/kube-proxy/calico-node/csi-node-driver on the single prod
+// node all still showed as active problems in this dashboard days after a
+// kured-triggered restart storm (see devops-k8s apps/kured/app.yaml) that
+// fleet-health-watcher had already stopped alerting on.
 const podProblemRestartThreshold = 5
+
+// podProblemRecentWindow bounds how far back a restart still counts as an
+// active issue. Matches fleet-health-watcher's own isRecent window exactly
+// (devops-k8s manifests/monitoring-lite/fleet-health-watcher-cronjob.yaml) --
+// that cronjob's comment explicitly says it shares "the same base thresholds
+// as auth-api's platform-monitor Overview() Problems field (monitor.go)",
+// which had drifted out of sync with it until this fix.
+const podProblemRecentWindow = 30 * time.Minute
 
 // DependencyStatus reports one external dependency's health, checked
 // directly rather than inferred from pod state — a pod can be Running while
@@ -228,13 +246,15 @@ func (c *Client) Overview(ctx context.Context) (*Overview, error) {
 				if cs.State.Waiting != nil {
 					reason = cs.State.Waiting.Reason
 				}
+				recentRestart := cs.LastTerminationState.Terminated != nil &&
+					time.Since(cs.LastTerminationState.Terminated.FinishedAt.Time) <= podProblemRecentWindow
 				problem := reason == "CrashLoopBackOff" || reason == "ImagePullBackOff" || reason == "ErrImagePull" ||
-					cs.RestartCount >= podProblemRestartThreshold
+					(cs.RestartCount >= podProblemRestartThreshold && recentRestart)
 				if !problem {
 					continue
 				}
 				if reason == "" {
-					reason = "HighRestartCount"
+					reason = "RecentHighRestartCount"
 				}
 				ov.Problems = append(ov.Problems, PodProblem{
 					Namespace:    p.Namespace,
