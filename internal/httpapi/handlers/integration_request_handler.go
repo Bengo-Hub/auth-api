@@ -67,8 +67,17 @@ type serviceMeta struct {
 // (auth-ui /developer/apply) may request. Email hosting is deliberately excluded: it's a
 // per-mailbox tenant subscription product with its own self-service purchase flow, not an
 // external-developer API surface with a credential to issue.
+//
+// "treasury"'s scopePrefix is "etims", not "treasury": treasury-api's ExternalAPIKeyAuth is the
+// only real, scope-checking external credential consumer in the fleet today
+// (Require("etims:read", "etims:write") on /external/etims/*), and it checks the etims: prefix
+// specifically -- a generic "treasury:read" scope isn't checked by anything and would issue a
+// non-functional credential for the one real endpoint group this maps to. notifications/sso don't
+// have an equivalent scope-checking consumer yet (their App.scopes prefix is reserved for future
+// use, same as the self-serve create-app-form.tsx picker already ships today) -- that's an
+// existing platform-maturity gap, not something this generic request flow makes any worse.
 var requestableServices = map[string]serviceMeta{
-	"treasury":      {docsResourceKey: "treasury-api", scopePrefix: "treasury"},
+	"treasury":      {docsResourceKey: "treasury-api", scopePrefix: "etims"},
 	"notifications": {docsResourceKey: "notifications-api", scopePrefix: "notifications"},
 	"sso":           {docsResourceKey: "auth-api", scopePrefix: "sso"},
 }
