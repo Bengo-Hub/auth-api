@@ -9,7 +9,7 @@ The Auth Service is the central identity provider for all Codevertex services. T
 ## Table of Contents
 
 1. [Integration Patterns](#integration-patterns)
-2. [Internal Codevertex Service Integrations](#internal-bengobox-service-integrations)
+2. [Internal Codevertex Service Integrations](#internal-codevertex-service-integrations)
 3. [External Third-Party Integrations](#external-third-party-integrations)
 4. [User & Tenant Synchronization](#user--tenant-synchronization)
 5. [Event-Driven Architecture](#event-driven-architecture)
