@@ -49,6 +49,9 @@ type RouterDeps struct {
 	// so the fleet's internal credential is manageable via Apps & Keys instead of
 	// only ever being an opaque static secret. Optional — nil skips this check.
 	ValidateInternalAppKey func(context.Context, string) bool
+	// SwaggerHandler serves /v1/docs and /api/v1/openapi.json with app-secret-gated
+	// internal/external tag filtering. Required — router construction fails without it.
+	SwaggerHandler *handlers.SwaggerHandler
 }
 
 // AuthHandlers groups the HTTP handlers for auth routes.
@@ -264,7 +267,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 		r.Method("GET", "/metrics", deps.MetricsHandler)
 	}
 
-	r.Get("/v1/docs/*", handlers.SwaggerUI)
+	r.Get("/v1/docs/*", deps.SwaggerHandler.SwaggerUI)
 
 	r.Get("/.well-known/openid-configuration", deps.AuthHandlers.WellKnownConfig)
 	r.Get("/.well-known/jwks.json", deps.AuthHandlers.JWKS)
@@ -274,7 +277,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Get("/.well-known/openid-configuration", deps.AuthHandlers.WellKnownConfig)
 			r.Get("/.well-known/jwks.json", deps.AuthHandlers.JWKS)
-			r.Get("/openapi.json", handlers.OpenAPIJSON)
+			r.Get("/openapi.json", deps.SwaggerHandler.OpenAPIJSON)
+			r.Options("/openapi.json", deps.SwaggerHandler.OpenAPIJSON)
 			r.With(deps.TryAuthHandler).Get("/authorize", deps.AuthHandlers.Authorize)
 			r.Post("/token", deps.AuthHandlers.Token)
 			r.With(deps.RequireAuthHandler).Get("/userinfo", deps.AuthHandlers.UserInfo)

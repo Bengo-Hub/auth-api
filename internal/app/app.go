@@ -225,10 +225,16 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	}
 	k8sMonitorHandler := handlers.NewK8sMonitorHandler(k8sMonitorClient, logger)
 
+	swaggerHandler, err := handlers.NewSwaggerHandler(apiKeyHandler)
+	if err != nil {
+		return nil, fmt.Errorf("build swagger handler: %w", err)
+	}
+
 	router := httpapi.NewRouter(httpapi.RouterDeps{
 		OutletHandler:          outletHandler,
 		InternalServiceKey:     cfg.Subscription.APIKey,
 		ValidateInternalAppKey: appHandler.IsValidInternalServiceToken,
+		SwaggerHandler:         swaggerHandler,
 		HealthHandler:          handlers.Health,
 		MetricsHandler:         promhttp.Handler(),
 		UserHandler:            userHandler,

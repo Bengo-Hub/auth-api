@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -219,40 +221,50 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing X-API-Key header", nil)
 		return
 	}
-
-	// Route to apps table for bng_app_* tokens
-	if strings.HasPrefix(tokenHeader, "bng_app_") {
-		h.validateAppToken(w, r, tokenHeader)
+	resp, statusCode, errCode, errMsg, err := h.ResolveAnyToken(r.Context(), r, tokenHeader)
+	if err != nil {
+		writeError(w, statusCode, errCode, errMsg, nil)
 		return
 	}
+	writeJSON(w, http.StatusOK, *resp)
+}
 
-	// Standard api_keys table lookup
+// ResolveAnyToken routes tokenHeader to whichever table it belongs to (bng_app_* → apps, bng_* →
+// api_keys) and resolves it in-process. See ResolveAppToken's doc comment for why this exists as a
+// context-taking, non-HTTP-writing function: it's shared between the public ValidateAPIKey HTTP
+// endpoint and auth-api's own Swagger docs handler.
+func (h *APIKeyHandler) ResolveAnyToken(ctx context.Context, r *http.Request, tokenHeader string) (resp *ValidateAPIKeyResponse, statusCode int, errCode string, errMsg string, err error) {
+	if strings.HasPrefix(tokenHeader, "bng_app_") {
+		return h.ResolveAppToken(ctx, r, tokenHeader)
+	}
+	return h.resolveAPIKeyToken(ctx, r, tokenHeader)
+}
+
+// resolveAPIKeyToken validates a plain bng_* developer key against the api_keys table.
+func (h *APIKeyHandler) resolveAPIKeyToken(ctx context.Context, r *http.Request, tokenHeader string) (resp *ValidateAPIKeyResponse, statusCode int, errCode string, errMsg string, err error) {
 	keyHash := hashAPIKey(tokenHeader)
-	key, err := h.ent.APIKey.Query().
+	key, lookupErr := h.ent.APIKey.Query().
 		Where(
 			apikey.KeyHashEQ(keyHash),
 			apikey.StatusEQ(apikey.StatusActive),
 		).
-		Only(r.Context())
-	if err != nil {
-		if ent.IsNotFound(err) {
+		Only(ctx)
+	if lookupErr != nil {
+		if ent.IsNotFound(lookupErr) {
 			h.logger.Warn("invalid API key attempted",
 				zap.String("key_prefix", getKeyPrefix(tokenHeader)),
 			)
-			writeError(w, http.StatusUnauthorized, "unauthorized", "invalid API key", nil)
-			return
+			return nil, http.StatusUnauthorized, "unauthorized", "invalid API key", lookupErr
 		}
-		h.logger.Error("failed to lookup API key", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "validation failed", nil)
-		return
+		h.logger.Error("failed to lookup API key", zap.Error(lookupErr))
+		return nil, http.StatusInternalServerError, "server_error", "validation failed", lookupErr
 	}
 
 	if key.ExpiresAt != nil && !key.ExpiresAt.IsZero() && time.Now().After(*key.ExpiresAt) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "API key expired", nil)
-		return
+		return nil, http.StatusUnauthorized, "unauthorized", "API key expired", fmt.Errorf("api key expired")
 	}
 
-	if len(key.AllowedIps) > 0 {
+	if len(key.AllowedIps) > 0 && r != nil {
 		clientIP := getClientIP(r)
 		allowed := false
 		for _, ip := range key.AllowedIps {
@@ -262,23 +274,25 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !allowed {
-			writeError(w, http.StatusForbidden, "forbidden", "IP not allowed", nil)
-			return
+			return nil, http.StatusForbidden, "forbidden", "IP not allowed", fmt.Errorf("ip not allowed")
 		}
 	}
 
 	go func() {
-		clientIP := getClientIP(r)
+		clientIP := ""
+		if r != nil {
+			clientIP = getClientIP(r)
+		}
 		_, _ = h.ent.APIKey.UpdateOneID(key.ID).
 			SetLastUsedAt(time.Now()).
 			SetLastUsedIP(clientIP).
-			Save(r.Context())
+			Save(context.Background())
 	}()
 
 	tenantSlug := ""
 	if t, err := h.ent.Tenant.Query().
 		Where(tenant.IDEQ(key.TenantID)).
-		Only(r.Context()); err == nil {
+		Only(ctx); err == nil {
 		tenantSlug = t.Slug
 	}
 
@@ -287,7 +301,7 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 		roles = []string{"superuser"}
 	}
 
-	writeJSON(w, http.StatusOK, ValidateAPIKeyResponse{
+	return &ValidateAPIKeyResponse{
 		ClientID:    key.ID.String(),
 		TenantID:    key.TenantID.String(),
 		TenantSlug:  tenantSlug,
@@ -295,36 +309,48 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 		Roles:       roles,
 		Service:     key.Service,
 		Environment: "production",
-	})
+	}, http.StatusOK, "", "", nil
 }
 
 // validateAppToken handles validation of bng_app_* tokens from the apps table.
 func (h *APIKeyHandler) validateAppToken(w http.ResponseWriter, r *http.Request, tokenHeader string) {
+	resp, statusCode, errCode, errMsg, err := h.ResolveAppToken(r.Context(), r, tokenHeader)
+	if err != nil {
+		writeError(w, statusCode, errCode, errMsg, nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, *resp)
+}
+
+// ResolveAppToken validates a bng_app_* token in-process (no HTTP round-trip) and returns the same
+// response shape the /admin/api-keys/validate endpoint would over the wire. Extracted so callers
+// running in this same process -- currently auth-api's own Swagger docs handler, which needs to
+// resolve a pasted app secret to decide internal-vs-external doc visibility -- can reuse this
+// exact validation logic (App lookup, expiry, IP allowlist, role derivation) instead of either
+// duplicating it or making an unnecessary HTTP call to itself.
+func (h *APIKeyHandler) ResolveAppToken(ctx context.Context, r *http.Request, tokenHeader string) (resp *ValidateAPIKeyResponse, statusCode int, errCode string, errMsg string, err error) {
 	keyHash := hashAPIKey(tokenHeader)
 
-	a, err := h.ent.App.Query().
+	a, lookupErr := h.ent.App.Query().
 		Where(
 			entapp.KeyHashEQ(keyHash),
 			entapp.StatusEQ(entapp.StatusActive),
 		).
-		Only(r.Context())
-	if err != nil {
-		if ent.IsNotFound(err) {
+		Only(ctx)
+	if lookupErr != nil {
+		if ent.IsNotFound(lookupErr) {
 			h.logger.Warn("invalid app token", zap.String("prefix", getKeyPrefix(tokenHeader)))
-			writeError(w, http.StatusUnauthorized, "unauthorized", "invalid token", nil)
-			return
+			return nil, http.StatusUnauthorized, "unauthorized", "invalid token", lookupErr
 		}
-		h.logger.Error("app token lookup", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "validation failed", nil)
-		return
+		h.logger.Error("app token lookup", zap.Error(lookupErr))
+		return nil, http.StatusInternalServerError, "server_error", "validation failed", lookupErr
 	}
 
 	if a.ExpiresAt != nil && !a.ExpiresAt.IsZero() && time.Now().After(*a.ExpiresAt) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "token expired", nil)
-		return
+		return nil, http.StatusUnauthorized, "unauthorized", "token expired", fmt.Errorf("token expired")
 	}
 
-	if len(a.AllowedIps) > 0 {
+	if len(a.AllowedIps) > 0 && r != nil {
 		clientIP := getClientIP(r)
 		allowed := false
 		for _, ip := range a.AllowedIps {
@@ -334,17 +360,19 @@ func (h *APIKeyHandler) validateAppToken(w http.ResponseWriter, r *http.Request,
 			}
 		}
 		if !allowed {
-			writeError(w, http.StatusForbidden, "forbidden", "IP not allowed", nil)
-			return
+			return nil, http.StatusForbidden, "forbidden", "IP not allowed", fmt.Errorf("ip not allowed")
 		}
 	}
 
 	go func() {
-		clientIP := getClientIP(r)
+		clientIP := ""
+		if r != nil {
+			clientIP = getClientIP(r)
+		}
 		_, _ = h.ent.App.UpdateOneID(a.ID).
 			SetLastUsedAt(time.Now()).
 			SetLastUsedIP(clientIP).
-			Save(r.Context())
+			Save(context.Background())
 	}()
 
 	tenantSlug := ""
@@ -353,7 +381,7 @@ func (h *APIKeyHandler) validateAppToken(w http.ResponseWriter, r *http.Request,
 		tenantIDStr = a.TenantID.String()
 		if t, err := h.ent.Tenant.Query().
 			Where(tenant.IDEQ(*a.TenantID)).
-			Only(r.Context()); err == nil {
+			Only(ctx); err == nil {
 			tenantSlug = t.Slug
 		}
 	}
@@ -363,7 +391,7 @@ func (h *APIKeyHandler) validateAppToken(w http.ResponseWriter, r *http.Request,
 		roles = []string{"superuser", "service"}
 	}
 
-	writeJSON(w, http.StatusOK, ValidateAPIKeyResponse{
+	return &ValidateAPIKeyResponse{
 		ClientID:    a.ClientID,
 		TenantID:    tenantIDStr,
 		TenantSlug:  tenantSlug,
@@ -371,7 +399,7 @@ func (h *APIKeyHandler) validateAppToken(w http.ResponseWriter, r *http.Request,
 		Roles:       roles,
 		Service:     string(a.AppType),
 		Environment: string(a.Environment),
-	})
+	}, http.StatusOK, "", "", nil
 }
 
 // ListAPIKeys lists all API keys for the current tenant.
