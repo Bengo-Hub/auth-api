@@ -17,6 +17,8 @@ const (
 	FieldID = "id"
 	// FieldRequestType holds the string denoting the request_type field in the database.
 	FieldRequestType = "request_type"
+	// FieldService holds the string denoting the service field in the database.
+	FieldService = "service"
 	// FieldTenantID holds the string denoting the tenant_id field in the database.
 	FieldTenantID = "tenant_id"
 	// FieldRequesterName holds the string denoting the requester_name field in the database.
@@ -51,6 +53,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldRequestType,
+	FieldService,
 	FieldTenantID,
 	FieldRequesterName,
 	FieldRequesterEmail,
@@ -187,6 +190,11 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByRequestType orders the results by the request_type field.
 func ByRequestType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRequestType, opts...).ToFunc()
+}
+
+// ByService orders the results by the service field.
+func ByService(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldService, opts...).ToFunc()
 }
 
 // ByTenantID orders the results by the tenant_id field.

@@ -20,6 +20,8 @@ type IntegrationRequest struct {
 	ID uuid.UUID `json:"id,omitempty"`
 	// Which integration is being requested — extensible beyond eTIMS as the portal grows
 	RequestType string `json:"request_type,omitempty"`
+	// Single service this request is for (treasury, notifications, sso) — set for service_access_* requests from the generic developer-portal apply form; null for other request types like app_production_access
+	Service string `json:"service,omitempty"`
 	// Set for an onboarded-tenant request; null for an external lead with no tenant yet
 	TenantID *uuid.UUID `json:"tenant_id,omitempty"`
 	// RequesterName holds the value of the "requester_name" field.
@@ -56,7 +58,7 @@ func (*IntegrationRequest) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case integrationrequest.FieldTenantID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case integrationrequest.FieldRequestType, integrationrequest.FieldRequesterName, integrationrequest.FieldRequesterEmail, integrationrequest.FieldRequesterPhone, integrationrequest.FieldCompanyName, integrationrequest.FieldKraPin, integrationrequest.FieldIntegrationMode, integrationrequest.FieldNotes, integrationrequest.FieldSource, integrationrequest.FieldStatus, integrationrequest.FieldAdminNotes:
+		case integrationrequest.FieldRequestType, integrationrequest.FieldService, integrationrequest.FieldRequesterName, integrationrequest.FieldRequesterEmail, integrationrequest.FieldRequesterPhone, integrationrequest.FieldCompanyName, integrationrequest.FieldKraPin, integrationrequest.FieldIntegrationMode, integrationrequest.FieldNotes, integrationrequest.FieldSource, integrationrequest.FieldStatus, integrationrequest.FieldAdminNotes:
 			values[i] = new(sql.NullString)
 		case integrationrequest.FieldCreatedAt, integrationrequest.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -88,6 +90,12 @@ func (_m *IntegrationRequest) assignValues(columns []string, values []any) error
 				return fmt.Errorf("unexpected type %T for field request_type", values[i])
 			} else if value.Valid {
 				_m.RequestType = value.String
+			}
+		case integrationrequest.FieldService:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field service", values[i])
+			} else if value.Valid {
+				_m.Service = value.String
 			}
 		case integrationrequest.FieldTenantID:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -206,6 +214,9 @@ func (_m *IntegrationRequest) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("request_type=")
 	builder.WriteString(_m.RequestType)
+	builder.WriteString(", ")
+	builder.WriteString("service=")
+	builder.WriteString(_m.Service)
 	builder.WriteString(", ")
 	if v := _m.TenantID; v != nil {
 		builder.WriteString("tenant_id=")

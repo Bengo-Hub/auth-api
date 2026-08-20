@@ -43,6 +43,26 @@ func (_u *IntegrationRequestUpdate) SetNillableRequestType(v *string) *Integrati
 	return _u
 }
 
+// SetService sets the "service" field.
+func (_u *IntegrationRequestUpdate) SetService(v string) *IntegrationRequestUpdate {
+	_u.mutation.SetService(v)
+	return _u
+}
+
+// SetNillableService sets the "service" field if the given value is not nil.
+func (_u *IntegrationRequestUpdate) SetNillableService(v *string) *IntegrationRequestUpdate {
+	if v != nil {
+		_u.SetService(*v)
+	}
+	return _u
+}
+
+// ClearService clears the value of the "service" field.
+func (_u *IntegrationRequestUpdate) ClearService() *IntegrationRequestUpdate {
+	_u.mutation.ClearService()
+	return _u
+}
+
 // SetTenantID sets the "tenant_id" field.
 func (_u *IntegrationRequestUpdate) SetTenantID(v uuid.UUID) *IntegrationRequestUpdate {
 	_u.mutation.SetTenantID(v)
@@ -325,6 +345,12 @@ func (_u *IntegrationRequestUpdate) sqlSave(ctx context.Context) (_node int, err
 	if value, ok := _u.mutation.RequestType(); ok {
 		_spec.SetField(integrationrequest.FieldRequestType, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.Service(); ok {
+		_spec.SetField(integrationrequest.FieldService, field.TypeString, value)
+	}
+	if _u.mutation.ServiceCleared() {
+		_spec.ClearField(integrationrequest.FieldService, field.TypeString)
+	}
 	if value, ok := _u.mutation.TenantID(); ok {
 		_spec.SetField(integrationrequest.FieldTenantID, field.TypeUUID, value)
 	}
@@ -410,6 +436,26 @@ func (_u *IntegrationRequestUpdateOne) SetNillableRequestType(v *string) *Integr
 	if v != nil {
 		_u.SetRequestType(*v)
 	}
+	return _u
+}
+
+// SetService sets the "service" field.
+func (_u *IntegrationRequestUpdateOne) SetService(v string) *IntegrationRequestUpdateOne {
+	_u.mutation.SetService(v)
+	return _u
+}
+
+// SetNillableService sets the "service" field if the given value is not nil.
+func (_u *IntegrationRequestUpdateOne) SetNillableService(v *string) *IntegrationRequestUpdateOne {
+	if v != nil {
+		_u.SetService(*v)
+	}
+	return _u
+}
+
+// ClearService clears the value of the "service" field.
+func (_u *IntegrationRequestUpdateOne) ClearService() *IntegrationRequestUpdateOne {
+	_u.mutation.ClearService()
 	return _u
 }
 
@@ -724,6 +770,12 @@ func (_u *IntegrationRequestUpdateOne) sqlSave(ctx context.Context) (_node *Inte
 	}
 	if value, ok := _u.mutation.RequestType(); ok {
 		_spec.SetField(integrationrequest.FieldRequestType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Service(); ok {
+		_spec.SetField(integrationrequest.FieldService, field.TypeString, value)
+	}
+	if _u.mutation.ServiceCleared() {
+		_spec.ClearField(integrationrequest.FieldService, field.TypeString)
 	}
 	if value, ok := _u.mutation.TenantID(); ok {
 		_spec.SetField(integrationrequest.FieldTenantID, field.TypeUUID, value)

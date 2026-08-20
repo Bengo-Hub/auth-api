@@ -23,6 +23,9 @@ func (IntegrationRequest) Fields() []ent.Field {
 		field.String("request_type").
 			Default("etims_integration").
 			Comment("Which integration is being requested — extensible beyond eTIMS as the portal grows"),
+		field.String("service").
+			Optional().
+			Comment("Single service this request is for (treasury, notifications, sso) — set for service_access_* requests from the generic developer-portal apply form; null for other request types like app_production_access"),
 		field.UUID("tenant_id", uuid.UUID{}).
 			Optional().
 			Nillable().
