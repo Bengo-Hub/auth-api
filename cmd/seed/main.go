@@ -73,11 +73,6 @@ func main() {
 		return
 	}
 
-	// 3. Seed demo user (primary tenant = codevertex-demo, last in list)
-	if err := seedDemoUser(ctx, client, hasher, tenantEntities); err != nil {
-		log.Fatalf("seed demo user: %v", err)
-	}
-
 	// 4. Seed platform super admin
 	if err := seedAdminUser(ctx, client, hasher, tenantEntities); err != nil {
 		log.Fatalf("seed admin user: %v", err)
