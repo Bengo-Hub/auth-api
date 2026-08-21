@@ -26,21 +26,22 @@ func s2sPlatformClaims(next http.HandlerFunc) http.HandlerFunc {
 
 // RouterDeps defines router construction dependencies.
 type RouterDeps struct {
-	HealthHandler       http.HandlerFunc
-	AuthHandlers        AuthHandlers
-	UserHandler         *handlers.UserHandler
-	LegalHandler        *handlers.LegalHandler
-	ReferralLinkHandler *handlers.ReferralLinkHandler
-	EquityPortalHandler *handlers.EquityPortalHandler
-	OutletHandler       *handlers.OutletHandler
-	RBACHandler         *handlers.RBACHandler
-	K8sMonitorHandler   *handlers.K8sMonitorHandler
-	EquityPortalAuth    func(http.Handler) http.Handler
-	RequireAuthHandler  func(http.Handler) http.Handler
-	TryAuthHandler      func(http.Handler) http.Handler
-	RateLimitLogin      func(http.Handler) http.Handler
-	RateLimitToken      func(http.Handler) http.Handler
-	MetricsHandler      http.Handler
+	HealthHandler        http.HandlerFunc
+	AuthHandlers         AuthHandlers
+	UserHandler          *handlers.UserHandler
+	LegalHandler         *handlers.LegalHandler
+	ReferralLinkHandler  *handlers.ReferralLinkHandler
+	EquityPortalHandler  *handlers.EquityPortalHandler
+	OutletHandler        *handlers.OutletHandler
+	RBACHandler          *handlers.RBACHandler
+	K8sMonitorHandler    *handlers.K8sMonitorHandler
+	SealedSecretsHandler *handlers.SealedSecretsHandler
+	EquityPortalAuth     func(http.Handler) http.Handler
+	RequireAuthHandler   func(http.Handler) http.Handler
+	TryAuthHandler       func(http.Handler) http.Handler
+	RateLimitLogin       func(http.Handler) http.Handler
+	RateLimitToken       func(http.Handler) http.Handler
+	MetricsHandler       http.Handler
 	// InternalServiceKey gates internal S2S endpoints (X-API-Key header).
 	InternalServiceKey string
 	// ValidateInternalAppKey is the dual-mode companion to InternalServiceKey: a
@@ -563,6 +564,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 				// replaces the removed Prometheus/Grafana stack.
 				if deps.K8sMonitorHandler != nil {
 					r.Get("/platform-monitor/overview", deps.K8sMonitorHandler.Overview)
+				}
+				// Sealed Secrets master-key status + rotate/backup-refresh trigger
+				// (dispatches a devops-k8s GitHub Action — see sealed_secrets_handler.go).
+				if deps.SealedSecretsHandler != nil {
+					r.Get("/infra/sealed-secrets/status", deps.SealedSecretsHandler.Status)
+					r.Post("/infra/sealed-secrets/rotate", deps.SealedSecretsHandler.Rotate)
 				}
 				// Integration-request review queue (eTIMS + future integrations).
 				if deps.AuthHandlers.AdminListIntegrationRequests != nil {

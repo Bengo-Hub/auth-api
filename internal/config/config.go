@@ -22,6 +22,21 @@ type Config struct {
 	Backup        BackupConfig        `envPrefix:"BACKUP_"`
 	WebAuthn      WebAuthnConfig      `envPrefix:"AUTH_WEBAUTHN_"`
 	Notifications NotificationsConfig `envPrefix:""`
+	DevOps        DevOpsConfig        `envPrefix:"DEVOPS_"`
+}
+
+// DevOpsConfig holds credentials for auth-api's platform-admin "Infrastructure Monitor" panel to
+// trigger devops-k8s GitHub Actions workflows (currently: Sealed Secrets key rotate/backup-refresh
+// — see sealed_secrets_handler.go). RepoToken is a fine-grained PAT scoped ONLY to
+// Bengo-Hub/devops-k8s with "Actions: write" permission — it dispatches workflows, it does NOT
+// need (and should not be granted) "Secrets: write"; the workflow itself uses its own existing
+// PROPAGATE_PAT/GH_PAT repo secret for the actual `gh secret set` call. Empty by default (every
+// environment until explicitly configured) — the handler returns a clear 503 rather than failing
+// to start.
+type DevOpsConfig struct {
+	RepoToken string `env:"REPO_TOKEN"`
+	RepoOwner string `env:"REPO_OWNER" envDefault:"Bengo-Hub"`
+	RepoName  string `env:"REPO_NAME" envDefault:"devops-k8s"`
 }
 
 // NotificationsConfig points to notifications-api for the handful of S2S emails auth-api itself

@@ -225,6 +225,11 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	}
 	k8sMonitorHandler := handlers.NewK8sMonitorHandler(k8sMonitorClient, logger)
 
+	// Sealed Secrets rotate/backup-refresh trigger — dispatches a devops-k8s GitHub Action,
+	// never touches the cluster or key material directly. cfg.DevOps.RepoToken is empty until
+	// explicitly configured; the handler degrades to a clear 503 rather than blocking startup.
+	sealedSecretsHandler := handlers.NewSealedSecretsHandler(cfg.DevOps.RepoToken, cfg.DevOps.RepoOwner, cfg.DevOps.RepoName, logger)
+
 	swaggerHandler, err := handlers.NewSwaggerHandler(apiKeyHandler)
 	if err != nil {
 		return nil, fmt.Errorf("build swagger handler: %w", err)
@@ -243,6 +248,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		EquityPortalHandler:    equityPortalHandler,
 		RBACHandler:            rbacHandler,
 		K8sMonitorHandler:      k8sMonitorHandler,
+		SealedSecretsHandler:   sealedSecretsHandler,
 		EquityPortalAuth:       handlers.EquityPortalAuth(tokenSvc),
 		AuthHandlers: httpapi.AuthHandlers{
 			Register:                           authHandler.Register,
