@@ -885,11 +885,23 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 			return nil, err
 		}
 	} else {
+		// Tracks whether any tenant this user is tied to is pending_approval, so a user whose
+		// ONLY tenant is still awaiting review gets the friendlier ErrTenantPendingApproval
+		// below instead of a generic "tenant not found" — mirrors what GetTenantBySlug already
+		// does when the caller specifies a slug explicitly. A user with several memberships,
+		// at least one of them active, still logs in normally; this only changes the error
+		// shown when NONE of them are usable yet.
+		sawPendingApproval := false
+
 		// Attempt 1: resolve from primary_tenant_id (fastest path).
 		if primaryID := strings.TrimSpace(userEntity.PrimaryTenantID); primaryID != "" {
 			if primaryTenantUUID, parseErr := uuid.Parse(primaryID); parseErr == nil {
-				if t, getErr := s.GetTenant(ctx, primaryTenantUUID); getErr == nil && t.Status == "active" {
-					tenantEntity = t
+				if t, getErr := s.GetTenant(ctx, primaryTenantUUID); getErr == nil {
+					if t.Status == "active" {
+						tenantEntity = t
+					} else if t.Status == TenantStatusPendingApproval {
+						sawPendingApproval = true
+					}
 				}
 			}
 		}
@@ -906,7 +918,10 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 				return nil, ErrInvalidCredentials
 			}
 			for _, m := range memberships {
-				if m.Edges.Tenant != nil && m.Edges.Tenant.Status == "active" {
+				if m.Edges.Tenant == nil {
+					continue
+				}
+				if m.Edges.Tenant.Status == "active" {
 					tenantEntity = m.Edges.Tenant
 					// Back-fill primary_tenant_id so future logins skip this fallback.
 					_ = s.entClient.User.UpdateOneID(userEntity.ID).
@@ -914,10 +929,16 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 						Exec(ctx)
 					break
 				}
+				if m.Edges.Tenant.Status == TenantStatusPendingApproval {
+					sawPendingApproval = true
+				}
 			}
 		}
 
 		if tenantEntity == nil {
+			if sawPendingApproval {
+				return nil, ErrTenantPendingApproval
+			}
 			return nil, ErrTenantNotFound
 		}
 	}

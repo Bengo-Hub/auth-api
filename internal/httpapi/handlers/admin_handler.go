@@ -859,9 +859,8 @@ func (h *AdminHandler) ApproveTenant(w http.ResponseWriter, r *http.Request) {
 	if claims, _ := authmiddleware.ClaimsFromContext(r.Context()); claims != nil {
 		actor = claims.Subject
 	}
-	// notifications-api (or a future subscriber) can watch for this event_type to email the
-	// tenant's admin(s) that they've been approved — not built in this change.
 	h.publishTenantLifecycleEvent(r.Context(), t, "approved", actor)
+	h.notifyFounder(r.Context(), t, "approved", "")
 	writeJSON(w, http.StatusOK, t)
 }
 
@@ -914,7 +913,46 @@ func (h *AdminHandler) RejectTenant(w http.ResponseWriter, r *http.Request) {
 		actor = claims.Subject
 	}
 	h.publishTenantLifecycleEvent(r.Context(), t, "rejected", actor)
+	h.notifyFounder(r.Context(), t, "rejected", strings.TrimSpace(req.Reason))
 	writeJSON(w, http.StatusOK, t)
+}
+
+// notifyFounder emails the tenant's founding user (its earliest TenantMembership — every
+// self-registered org has exactly one at the moment it's pending_approval, see
+// auth.Service.Register's create_new path) that their registration was approved or
+// rejected. Publishes auth.tenant.{approved,rejected}.notify — a DEDICATED event, kept
+// separate from publishTenantLifecycleEvent's generic created/updated/approved/rejected
+// payload — so this founder lookup only ever runs for these two actions, not on every
+// tenant profile edit. notifications-api's auth_consumer.go renders auth/tenant_approved
+// or auth/tenant_rejected and sends it; best-effort, a lookup/publish failure here must
+// never block the approve/reject response itself.
+func (h *AdminHandler) notifyFounder(ctx context.Context, t *ent.Tenant, eventType, reason string) {
+	membership, err := h.ent.TenantMembership.Query().
+		Where(tenantmembership.TenantID(t.ID)).
+		Order(ent.Asc(tenantmembership.FieldCreatedAt)).
+		WithUser().
+		First(ctx)
+	if err != nil || membership.Edges.User == nil || membership.Edges.User.Email == "" {
+		h.logger.Warn("notifyFounder: could not resolve a founding user to email",
+			zap.String("tenant_id", t.ID.String()), zap.String("event_type", eventType), zap.Error(err))
+		return
+	}
+	founder := membership.Edges.User
+	name := profileStr(founder.Profile, "name")
+	if name == "" {
+		name = founder.Email
+	}
+	payload := map[string]any{
+		"tenant_id": t.ID.String(),
+		"email":     founder.Email,
+		"name":      name,
+		"org_name":  t.Name,
+		"login_url": fmt.Sprintf("%s/login?tenant=%s", strings.TrimRight(h.authUIURL, "/"), t.Slug),
+	}
+	if reason != "" {
+		payload["reason"] = reason
+	}
+	h.publishEvent(ctx, t.ID, "auth.tenant", t.ID, eventType+".notify", payload)
 }
 
 // ProvisionTenantOAuthRedirects ensures the tenant's /{slug}/auth/callback URIs are
