@@ -98,6 +98,8 @@ type AuthHandlers struct {
 	AdminListTenants                   http.HandlerFunc
 	AdminUpdateTenant                  http.HandlerFunc
 	AdminDeleteTenant                  http.HandlerFunc
+	AdminApproveTenant                 http.HandlerFunc
+	AdminRejectTenant                  http.HandlerFunc
 	AdminProvisionTenantOAuthRedirects http.HandlerFunc
 	AdminCreateClient                  http.HandlerFunc
 	AdminListClients                   http.HandlerFunc
@@ -456,6 +458,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Route("/tenants/{tenant_id}", func(r chi.Router) {
 					r.Put("/", deps.AuthHandlers.AdminUpdateTenant)
 					r.Delete("/", deps.AuthHandlers.AdminDeleteTenant)
+					r.Post("/approve", deps.AuthHandlers.AdminApproveTenant)
+					r.Post("/reject", deps.AuthHandlers.AdminRejectTenant)
 					r.Post("/provision-oauth-redirects", deps.AuthHandlers.AdminProvisionTenantOAuthRedirects)
 					r.Route("/members", func(r chi.Router) {
 						r.Post("/", deps.AuthHandlers.AddTenantMember)

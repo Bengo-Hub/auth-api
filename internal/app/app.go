@@ -296,6 +296,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminListTenants:                   adminHandler.ListTenants,
 			AdminUpdateTenant:                  adminHandler.UpdateTenant,
 			AdminDeleteTenant:                  adminHandler.DeleteTenant,
+			AdminApproveTenant:                 adminHandler.ApproveTenant,
+			AdminRejectTenant:                  adminHandler.RejectTenant,
 			AdminProvisionTenantOAuthRedirects: adminHandler.ProvisionTenantOAuthRedirects,
 			AdminCreateClient:                  adminHandler.CreateClient,
 			AdminListClients:                   adminHandler.ListClients,
