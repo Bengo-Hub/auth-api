@@ -58,7 +58,22 @@ var (
 	ErrEmailDomainNotAllowed = errors.New("email domain not allowed")
 	// ErrTenantInactive indicates the requested tenant is not active.
 	ErrTenantInactive = errors.New("tenant is not active")
+	// ErrTenantPendingApproval indicates a self-registered tenant is still awaiting
+	// platform-admin review — distinct from ErrTenantInactive (suspended/deactivated)
+	// so the frontend can render "we're reviewing your registration" instead of a
+	// generic "this organization is inactive" message.
+	ErrTenantPendingApproval = errors.New("tenant is pending platform approval")
 )
+
+// TenantStatusPendingApproval is the Tenant.status value a brand-new self-registered
+// organisation starts in until a platform admin approves it (POST
+// /admin/tenants/{id}/approve). Orgs created directly by a platform admin (AdminHandler's
+// CreateTenant/CreateTenantPublic) are unaffected — they still default to "active".
+const TenantStatusPendingApproval = "pending_approval"
+
+// TenantStatusRejected is the terminal status a platform admin can set on a tenant that
+// was reviewed and declined (POST /admin/tenants/{id}/reject).
+const TenantStatusRejected = "rejected"
 
 // TenantMismatchError is returned when a user's credentials are valid but they
 // are not a member of the requested tenant. It carries the user's actual tenants
@@ -612,13 +627,17 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		if primaryUseCase == "" && len(in.NewOrg.UseCases) > 0 {
 			primaryUseCase = in.NewOrg.UseCases[0]
 		}
+		// New self-registered orgs start pending platform-admin review (see
+		// TenantStatusPendingApproval) — everything below (trial subscription, HQ outlet,
+		// redirect URIs) still provisions normally so the org is fully ready to go the
+		// moment it's approved; only the final session/token issuance is gated on status.
 		create := s.entClient.Tenant.Create().
 			SetName(in.NewOrg.Name).
 			SetSlug(in.NewOrg.Slug).
 			SetUseCase(primaryUseCase).
 			SetUseCases(in.NewOrg.UseCases).
 			SetVatRegistered(in.NewOrg.VatRegistered).
-			SetStatus("active")
+			SetStatus(TenantStatusPendingApproval)
 		if len(meta) > 0 {
 			create = create.SetMetadata(meta)
 		}
@@ -821,6 +840,16 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		createdPayload["service_id"] = in.ServiceID
 	}
 	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", createdPayload)
+
+	// The org (and this founding user, in the create_new case) exist now, but a
+	// pending_approval tenant must not be usable yet — no session/token is issued until a
+	// platform admin approves it. A "join existing" registration never reaches here in this
+	// state: GetTenantBySlug above already rejects a pending tenant before any user is
+	// created. Reusing the same sentinel error Login returns for a pending tenant keeps
+	// both paths giving the frontend one consistent error code to handle.
+	if tenantEntity.Status != "active" {
+		return nil, ErrTenantPendingApproval
+	}
 
 	return s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
@@ -2410,7 +2439,10 @@ func (s *Service) GetTenantBySlug(ctx context.Context, slug string) (*ent.Tenant
 		}
 		return nil, fmt.Errorf("query tenant: %w", err)
 	}
-	// Reject auth attempts against inactive/suspended tenants
+	// Reject auth attempts against inactive/suspended/not-yet-approved tenants.
+	if tenantEntity.Status == TenantStatusPendingApproval {
+		return nil, ErrTenantPendingApproval
+	}
 	if tenantEntity.Status != "active" {
 		return nil, ErrTenantInactive
 	}

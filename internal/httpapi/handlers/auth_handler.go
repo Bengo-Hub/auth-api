@@ -1016,6 +1016,9 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 		writeError(w, http.StatusNotFound, "tenant_not_found", "tenant not found", nil)
 	case errors.Is(err, auth.ErrTenantInactive):
 		writeError(w, http.StatusForbidden, "tenant_inactive", "tenant is not active", nil)
+	case errors.Is(err, auth.ErrTenantPendingApproval):
+		writeError(w, http.StatusForbidden, "tenant_pending_approval",
+			"Your organization registration is awaiting review by our platform team. We'll notify you by email once it's approved.", nil)
 	case errors.Is(err, auth.ErrPasswordTooWeak):
 		writeError(w, http.StatusUnprocessableEntity, "weak_password", "password does not meet requirements", nil)
 	case errors.Is(err, auth.ErrPasswordResetTokenInvalid):

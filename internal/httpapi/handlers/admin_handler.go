@@ -620,7 +620,18 @@ func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
 
 	p := pagination.Parse(r)
 	search := r.URL.Query().Get("search")
-	query := h.ent.Tenant.Query().Where(tenant.StatusEQ("active"))
+
+	// ?status=pending_approval|rejected|suspended|inactive|all — default stays "active" so
+	// every existing caller (org pickers, tenant search) is unaffected. "all" removes the
+	// filter entirely — used by the platform-admin tenant-approvals queue.
+	statusFilter := r.URL.Query().Get("status")
+	if statusFilter == "" {
+		statusFilter = "active"
+	}
+	query := h.ent.Tenant.Query()
+	if statusFilter != "all" {
+		query = query.Where(tenant.StatusEQ(statusFilter))
+	}
 
 	if search != "" {
 		searchPred := tenant.Or(
@@ -811,6 +822,99 @@ func (h *AdminHandler) DeleteTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+// ApproveTenant handles POST /api/v1/admin/tenants/{tenant_id}/approve — activates a
+// self-registered tenant that's awaiting platform-admin review (Tenant.status ==
+// auth.TenantStatusPendingApproval), letting its founder (and anyone else who tried to
+// join it) actually log in for the first time. Everything else about the tenant (trial
+// subscription, HQ outlet, redirect URIs) was already provisioned at registration time —
+// this endpoint only flips status.
+func (h *AdminHandler) ApproveTenant(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "tenant_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid id", nil)
+		return
+	}
+	t, err := h.ent.Tenant.Get(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
+		return
+	}
+	if t.Status != auth.TenantStatusPendingApproval {
+		writeError(w, http.StatusConflict, "invalid_state",
+			fmt.Sprintf("tenant status is %q, not pending approval", t.Status), nil)
+		return
+	}
+	t, err = h.ent.Tenant.UpdateOneID(id).SetStatus("active").Save(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to approve tenant", nil)
+		return
+	}
+	actor := ""
+	if claims, _ := authmiddleware.ClaimsFromContext(r.Context()); claims != nil {
+		actor = claims.Subject
+	}
+	// notifications-api (or a future subscriber) can watch for this event_type to email the
+	// tenant's admin(s) that they've been approved — not built in this change.
+	h.publishTenantLifecycleEvent(r.Context(), t, "approved", actor)
+	writeJSON(w, http.StatusOK, t)
+}
+
+// RejectTenant handles POST /api/v1/admin/tenants/{tenant_id}/reject — declines a
+// pending_approval tenant registration. Optional JSON body {"reason": "..."} is stored in
+// tenant metadata for the audit trail. A rejected tenant stays in the database (not
+// deleted) so the decision and its reason remain visible; DeleteTenant is still available
+// separately if a platform admin wants to remove it entirely.
+func (h *AdminHandler) RejectTenant(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "tenant_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid id", nil)
+		return
+	}
+	var req struct {
+		Reason string `json:"reason,omitempty"`
+	}
+	_ = decodeJSON(r, &req) // body is optional; ignore a missing/empty one
+
+	t, err := h.ent.Tenant.Get(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
+		return
+	}
+	if t.Status != auth.TenantStatusPendingApproval {
+		writeError(w, http.StatusConflict, "invalid_state",
+			fmt.Sprintf("tenant status is %q, not pending approval", t.Status), nil)
+		return
+	}
+	update := h.ent.Tenant.UpdateOneID(id).SetStatus(auth.TenantStatusRejected)
+	if reason := strings.TrimSpace(req.Reason); reason != "" {
+		meta := map[string]any{}
+		if t.Metadata != nil {
+			meta = t.Metadata
+		}
+		meta["rejection_reason"] = reason
+		update = update.SetMetadata(meta)
+	}
+	t, err = update.Save(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to reject tenant", nil)
+		return
+	}
+	actor := ""
+	if claims, _ := authmiddleware.ClaimsFromContext(r.Context()); claims != nil {
+		actor = claims.Subject
+	}
+	h.publishTenantLifecycleEvent(r.Context(), t, "rejected", actor)
+	writeJSON(w, http.StatusOK, t)
 }
 
 // ProvisionTenantOAuthRedirects ensures the tenant's /{slug}/auth/callback URIs are
