@@ -596,7 +596,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 		// delete button called a route that was never registered. The admin client CRUD
 		// above (now with secret generation + rotation) is the one consolidated path.
 
-		// Legal documents (public read, admin write)
+		// Legal documents (public read, admin write). NOTE: RequireAuthHandler only
+		// proves the caller is *someone*; the /admin/* routes below additionally
+		// enforce platform-admin inside the handler (isPlatformOrS2SAdmin), since
+		// chi has no admin-only middleware group in this service.
 		if deps.LegalHandler != nil {
 			r.Get("/legal/documents/{type}", deps.LegalHandler.GetCurrentDocument)
 			r.Group(func(r chi.Router) {
@@ -629,7 +632,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 			})
 		}
 
-		// Equity portal JWT issuance (admin authed) + portal data endpoint
+		// Equity portal JWT issuance (platform-admin only, enforced in the handler)
+		// + portal data endpoint. The minted portal token carries scope
+		// token.ScopeEquityPortal, which RequireAuth rejects everywhere else, so it
+		// can only ever reach the EquityPortalAuth group below.
 		if deps.EquityPortalHandler != nil {
 			r.Group(func(r chi.Router) {
 				if deps.RequireAuthHandler != nil {

@@ -58,6 +58,10 @@ func (a *Auth) RequireAuth(next http.Handler) http.Handler {
 						return
 					}
 				}
+				if claims.IsEquityPortalOnly() {
+					writeAuthErrorCode(w, http.StatusForbidden, "invalid_token_scope", equityPortalScopeRejection)
+					return
+				}
 				ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
@@ -76,6 +80,10 @@ func (a *Auth) RequireAuth(next http.Handler) http.Handler {
 							writeAuthError(w, http.StatusUnauthorized, "token revoked")
 							return
 						}
+					}
+					if claims.IsEquityPortalOnly() {
+						writeAuthErrorCode(w, http.StatusForbidden, "invalid_token_scope", equityPortalScopeRejection)
+						return
 					}
 					ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
 					next.ServeHTTP(w, r.WithContext(ctx))
@@ -97,7 +105,8 @@ func (a *Auth) TryAuth(next http.Handler) http.Handler {
 		if authHeader != "" && strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
 			tokenStr := strings.TrimSpace(authHeader[7:])
 			claims, err := a.validator.ValidateAccessToken(tokenStr)
-			if err == nil {
+			// Portal-only tokens are never a session: leave the context anonymous.
+			if err == nil && !claims.IsEquityPortalOnly() {
 				if a.revoked != nil && claims != nil && claims.ID != "" {
 					if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && !revoked {
 						ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
@@ -118,7 +127,8 @@ func (a *Auth) TryAuth(next http.Handler) http.Handler {
 			tokenStr := a.resolveSessionCookie(r.Context(), cookie.Value)
 			if tokenStr != "" {
 				claims, err := a.validator.ValidateAccessToken(tokenStr)
-				if err == nil {
+				// Portal-only tokens are never a session: leave the context anonymous.
+				if err == nil && !claims.IsEquityPortalOnly() {
 					if a.revoked != nil && claims != nil && claims.ID != "" {
 						if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && !revoked {
 							ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
@@ -155,12 +165,22 @@ func (a *Auth) resolveSessionCookie(ctx context.Context, value string) string {
 	return ""
 }
 
+// equityPortalScopeRejection is returned when an equity-holder portal link token
+// is presented on a normal session route. The portal token is minted for a bare
+// holder UUID with no login, so honouring it here would turn a shareable link
+// into a full platform session.
+const equityPortalScopeRejection = "equity portal tokens are only valid on equity portal routes"
+
 func writeAuthError(w http.ResponseWriter, status int, message string) {
+	writeAuthErrorCode(w, status, "unauthorized", message)
+}
+
+func writeAuthErrorCode(w http.ResponseWriter, status int, code string, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"error": message,
-		"code":  "unauthorized",
+		"code":  code,
 	})
 }
 
