@@ -62,8 +62,17 @@ func NewEquityPortalHandler(entClient *ent.Client, tokenSvc *token.Service, issu
 // and also persists a short link for easy sharing.
 // POST /api/v1/admin/equity-holders/{treasury_holder_id}/portal-link
 func (h *EquityPortalHandler) GeneratePortalLink(w http.ResponseWriter, r *http.Request) {
-	if _, ok := authmiddleware.ClaimsFromContext(r.Context()); !ok {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "authentication required", nil)
+		return
+	}
+	// Platform-admin only: the holder id comes straight from the URL, so any
+	// authenticated caller could otherwise mint a password-less portal token for
+	// an arbitrary equity holder (and, before the scope check in
+	// middleware.RequireAuth, use it as a full session token everywhere).
+	if !isPlatformOrS2SAdmin(claims) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
 		return
 	}
 
@@ -74,11 +83,13 @@ func (h *EquityPortalHandler) GeneratePortalLink(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Scope + audience deliberately narrow this token to the equity portal only;
+	// middleware.RequireAuth rejects token.ScopeEquityPortal on every other route.
 	portalToken, exp, err := h.tokenSvc.MintAccessToken(token.AccessTokenInput{
 		UserID:    holderUUID,
 		SessionID: uuid.New(),
-		Scopes:    []string{"equity_portal"},
-		Audience:  []string{h.issuer},
+		Scopes:    []string{token.ScopeEquityPortal},
+		Audience:  []string{token.AudienceEquityPortal},
 	})
 	if err != nil {
 		h.logger.Error("failed to mint portal token", zap.Error(err))
@@ -165,7 +176,7 @@ func (h *EquityPortalHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"holder_id":  claims.Subject,
-		"scope":      "equity_portal",
+		"scope":      token.ScopeEquityPortal,
 		"fetched_at": time.Now().Format(time.RFC3339),
 	})
 }
@@ -184,14 +195,12 @@ func EquityPortalAuth(tokenSvc *token.Service) func(http.Handler) http.Handler {
 				writeError(w, http.StatusUnauthorized, "unauthorized", "invalid portal token", nil)
 				return
 			}
-			for _, s := range claims.Scope {
-				if s == "equity_portal" {
-					ctx := context.WithValue(r.Context(), equityPortalClaimsKey{}, claims)
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
-				}
+			if claims.HasScope(token.ScopeEquityPortal) {
+				ctx := context.WithValue(r.Context(), equityPortalClaimsKey{}, claims)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
 			}
-			writeError(w, http.StatusForbidden, "forbidden", "token scope must be equity_portal", nil)
+			writeError(w, http.StatusForbidden, "forbidden", "token scope must be "+token.ScopeEquityPortal, nil)
 		})
 	}
 }

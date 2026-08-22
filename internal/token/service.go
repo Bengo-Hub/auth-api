@@ -18,6 +18,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// ScopeEquityPortal marks a narrowly-scoped, password-less equity-holder portal
+// token. It is deliberately NOT a session token: middleware.RequireAuth/TryAuth
+// reject any token carrying this scope, so it only works on the explicit
+// /equity-portal/* routes gated by handlers.EquityPortalAuth. Without that
+// rejection a portal link (mintable for any holder id, valid for hours) would
+// double as a full session credential on every RequireAuth-protected route.
+const ScopeEquityPortal = "equity_portal"
+
+// AudienceEquityPortal is the JWT audience stamped on portal tokens so that any
+// downstream consumer validating `aud` also refuses them as session tokens.
+const AudienceEquityPortal = "equity-portal"
+
 // Claims represents the JWT registered claims plus auth specific metadata.
 type Claims struct {
 	SessionID   string   `json:"sid"`
@@ -61,6 +73,26 @@ type Claims struct {
 	SubscriptionExempt bool `json:"sub_exempt,omitempty"`
 
 	jwt.RegisteredClaims
+}
+
+// HasScope reports whether the token carries the given scope.
+func (c *Claims) HasScope(scope string) bool {
+	if c == nil {
+		return false
+	}
+	for _, s := range c.Scope {
+		if s == scope {
+			return true
+		}
+	}
+	return false
+}
+
+// IsEquityPortalOnly reports whether these claims come from an equity-holder
+// portal link rather than an interactive login. Such tokens must never be
+// accepted as a general session (see ScopeEquityPortal).
+func (c *Claims) IsEquityPortalOnly() bool {
+	return c.HasScope(ScopeEquityPortal)
 }
 
 // AccessTokenInput defines metadata for token minting.
