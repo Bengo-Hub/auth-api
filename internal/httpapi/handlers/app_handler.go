@@ -118,13 +118,14 @@ func requirePlatformAdmin(claims *token.Claims) bool {
 	return claims.IsPlatformOwner
 }
 
-// tenantDeveloperRoles mirrors auth-ui's DashboardSidebar.tsx DEVELOPER_PORTAL_ROLES —
-// keep both lists in sync. These are ordinary TenantMembership role strings (tenant-scoped,
-// NOT platform-wide — see requirePlatformAdmin above for that distinction).
+// tenantDeveloperRoles mirrors auth-ui's useDashboardNav.ts DEVELOPER_PORTAL_ROLES — keep
+// both lists in sync. Deliberately just "developer": a bare tenant admin/owner/superuser
+// role string must NOT qualify on its own, for the same reason requirePlatformAdmin above
+// rejects a bare "superuser" string — these are ordinary TenantMembership roles (tenant-
+// scoped, e.g. the admin of Urban Loft Cafe), never to be confused with actual platform
+// admin/superuser status. A tenant admin/owner needs the "developer" role explicitly
+// granted to manage that tenant's Apps, same as anyone else on it.
 var tenantDeveloperRoles = map[string]bool{
-	"admin":     true,
-	"owner":     true,
-	"superuser": true,
 	"developer": true,
 }
 
