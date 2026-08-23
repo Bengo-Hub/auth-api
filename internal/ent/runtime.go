@@ -29,6 +29,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/platformbackupsetting"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
+	"github.com/bengobox/auth-api/internal/ent/resellerapplication"
 	"github.com/bengobox/auth-api/internal/ent/role"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/schema"
@@ -710,6 +711,38 @@ func init() {
 	referrallinkDescID := referrallinkFields[0].Descriptor()
 	// referrallink.DefaultID holds the default value on creation for the id field.
 	referrallink.DefaultID = referrallinkDescID.Default.(func() uuid.UUID)
+	resellerapplicationFields := schema.ResellerApplication{}.Fields()
+	_ = resellerapplicationFields
+	// resellerapplicationDescBusinessName is the schema descriptor for business_name field.
+	resellerapplicationDescBusinessName := resellerapplicationFields[2].Descriptor()
+	// resellerapplication.BusinessNameValidator is a validator for the "business_name" field. It is called by the builders before save.
+	resellerapplication.BusinessNameValidator = resellerapplicationDescBusinessName.Validators[0].(func(string) error)
+	// resellerapplicationDescContactEmail is the schema descriptor for contact_email field.
+	resellerapplicationDescContactEmail := resellerapplicationFields[5].Descriptor()
+	// resellerapplication.ContactEmailValidator is a validator for the "contact_email" field. It is called by the builders before save.
+	resellerapplication.ContactEmailValidator = resellerapplicationDescContactEmail.Validators[0].(func(string) error)
+	// resellerapplicationDescCountry is the schema descriptor for country field.
+	resellerapplicationDescCountry := resellerapplicationFields[7].Descriptor()
+	// resellerapplication.DefaultCountry holds the default value on creation for the country field.
+	resellerapplication.DefaultCountry = resellerapplicationDescCountry.Default.(string)
+	// resellerapplicationDescKybReference is the schema descriptor for kyb_reference field.
+	resellerapplicationDescKybReference := resellerapplicationFields[10].Descriptor()
+	// resellerapplication.KybReferenceValidator is a validator for the "kyb_reference" field. It is called by the builders before save.
+	resellerapplication.KybReferenceValidator = resellerapplicationDescKybReference.Validators[0].(func(string) error)
+	// resellerapplicationDescCreatedAt is the schema descriptor for created_at field.
+	resellerapplicationDescCreatedAt := resellerapplicationFields[14].Descriptor()
+	// resellerapplication.DefaultCreatedAt holds the default value on creation for the created_at field.
+	resellerapplication.DefaultCreatedAt = resellerapplicationDescCreatedAt.Default.(func() time.Time)
+	// resellerapplicationDescUpdatedAt is the schema descriptor for updated_at field.
+	resellerapplicationDescUpdatedAt := resellerapplicationFields[15].Descriptor()
+	// resellerapplication.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	resellerapplication.DefaultUpdatedAt = resellerapplicationDescUpdatedAt.Default.(func() time.Time)
+	// resellerapplication.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	resellerapplication.UpdateDefaultUpdatedAt = resellerapplicationDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// resellerapplicationDescID is the schema descriptor for id field.
+	resellerapplicationDescID := resellerapplicationFields[0].Descriptor()
+	// resellerapplication.DefaultID holds the default value on creation for the id field.
+	resellerapplication.DefaultID = resellerapplicationDescID.Default.(func() uuid.UUID)
 	roleFields := schema.Role{}.Fields()
 	_ = roleFields
 	// roleDescRoleCode is the schema descriptor for role_code field.
@@ -798,24 +831,28 @@ func init() {
 	tenantDescIsDemo := tenantFields[5].Descriptor()
 	// tenant.DefaultIsDemo holds the default value on creation for the is_demo field.
 	tenant.DefaultIsDemo = tenantDescIsDemo.Default.(bool)
+	// tenantDescIsReseller is the schema descriptor for is_reseller field.
+	tenantDescIsReseller := tenantFields[6].Descriptor()
+	// tenant.DefaultIsReseller holds the default value on creation for the is_reseller field.
+	tenant.DefaultIsReseller = tenantDescIsReseller.Default.(bool)
 	// tenantDescCountry is the schema descriptor for country field.
-	tenantDescCountry := tenantFields[10].Descriptor()
+	tenantDescCountry := tenantFields[12].Descriptor()
 	// tenant.DefaultCountry holds the default value on creation for the country field.
 	tenant.DefaultCountry = tenantDescCountry.Default.(string)
 	// tenantDescTimezone is the schema descriptor for timezone field.
-	tenantDescTimezone := tenantFields[11].Descriptor()
+	tenantDescTimezone := tenantFields[13].Descriptor()
 	// tenant.DefaultTimezone holds the default value on creation for the timezone field.
 	tenant.DefaultTimezone = tenantDescTimezone.Default.(string)
 	// tenantDescVatRegistered is the schema descriptor for vat_registered field.
-	tenantDescVatRegistered := tenantFields[17].Descriptor()
+	tenantDescVatRegistered := tenantFields[19].Descriptor()
 	// tenant.DefaultVatRegistered holds the default value on creation for the vat_registered field.
 	tenant.DefaultVatRegistered = tenantDescVatRegistered.Default.(bool)
 	// tenantDescCreatedAt is the schema descriptor for created_at field.
-	tenantDescCreatedAt := tenantFields[25].Descriptor()
+	tenantDescCreatedAt := tenantFields[27].Descriptor()
 	// tenant.DefaultCreatedAt holds the default value on creation for the created_at field.
 	tenant.DefaultCreatedAt = tenantDescCreatedAt.Default.(func() time.Time)
 	// tenantDescUpdatedAt is the schema descriptor for updated_at field.
-	tenantDescUpdatedAt := tenantFields[26].Descriptor()
+	tenantDescUpdatedAt := tenantFields[28].Descriptor()
 	// tenant.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	tenant.DefaultUpdatedAt = tenantDescUpdatedAt.Default.(func() time.Time)
 	// tenant.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

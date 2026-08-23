@@ -30,6 +30,7 @@ type RouterDeps struct {
 	AuthHandlers         AuthHandlers
 	UserHandler          *handlers.UserHandler
 	LegalHandler         *handlers.LegalHandler
+	ResellerHandler      *handlers.ResellerHandler
 	ReferralLinkHandler  *handlers.ReferralLinkHandler
 	EquityPortalHandler  *handlers.EquityPortalHandler
 	OutletHandler        *handlers.OutletHandler
@@ -617,6 +618,24 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Post("/admin/legal/documents", deps.LegalHandler.UpsertDocument)
 				r.Get("/admin/equity/applications", deps.LegalHandler.ListApplications)
 				r.Put("/admin/equity/applications/{id}", deps.LegalHandler.UpdateApplication)
+			})
+		}
+
+		// Certified Reseller & Partner Program applications — mirrors the equity
+		// application flow's auth/permission gating exactly (see legal_handler.go above),
+		// substituting reseller for equity. Self-serve apply's JWT is optional, same
+		// idiom as /integration-requests above: with a tenant JWT this is an existing
+		// tenant applying to also become a reseller; without one it's a prospective
+		// partner with no Codevertex tenant yet.
+		if deps.ResellerHandler != nil {
+			r.With(deps.TryAuthHandler).Post("/auth/reseller/apply", deps.ResellerHandler.CreateApplication)
+			r.Group(func(r chi.Router) {
+				if deps.RequireAuthHandler != nil {
+					r.Use(deps.RequireAuthHandler)
+				}
+				r.Get("/admin/reseller/applications", deps.ResellerHandler.ListApplications)
+				r.Get("/admin/reseller/applications/{id}", deps.ResellerHandler.GetApplication)
+				r.Put("/admin/reseller/applications/{id}", deps.ResellerHandler.UpdateApplication)
 			})
 		}
 

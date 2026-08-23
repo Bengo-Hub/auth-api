@@ -204,6 +204,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	integrationRequestHandler := handlers.NewIntegrationRequestHandler(entClient, etimsNotifier, hasher, authService, logger)
 	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger)
 	legalHandler := handlers.NewLegalHandler(entClient, logger)
+	resellerHandler := handlers.NewResellerHandler(entClient, logger)
 	referralLinkHandler := handlers.NewReferralLinkHandler(entClient, logger)
 	equityPortalHandler := handlers.NewEquityPortalHandler(entClient, tokenSvc, cfg.Token.Issuer, cfg.App.AuthUIURL, logger)
 	rbacHandler := handlers.NewRBACHandler(authService, logger)
@@ -244,6 +245,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		MetricsHandler:         promhttp.Handler(),
 		UserHandler:            userHandler,
 		LegalHandler:           legalHandler,
+		ResellerHandler:        resellerHandler,
 		ReferralLinkHandler:    referralLinkHandler,
 		EquityPortalHandler:    equityPortalHandler,
 		RBACHandler:            rbacHandler,

@@ -1,4 +1,4 @@
-h1:DlN3BkZnp8t5x7gUECBvcsdq7uR4Nn7lb4GJYS4IBp8=
+h1:2V5IsbY0s2x9ozx3SfqHl5WQ/NqytJKrhWYF9hc/GLA=
 20260418145526_initial_with_fix.sql h1:PPhZsHSwYMGYB1hN9CRT/hZUuo/n5QZI+9ZXUlHmXOE=
 20260427115501_add_terms_accepted_to_users.sql h1:HM8zaomTVrJDWTZiGSFknYAAYqUV5Wc/qmh4j3oUcng=
 20260429072541_equity_legal.sql h1:EZ/2ZvuTU11gKbWXXJJTb9KdTKGONFbAiP6jRqFaddA=
@@ -19,3 +19,4 @@ h1:DlN3BkZnp8t5x7gUECBvcsdq7uR4Nn7lb4GJYS4IBp8=
 20260818181303_add_integration_requests.sql h1:bZbBolShBNoGOcDjFDCFLwRb2LbG96HN+/14sU3GRjI=
 20260818193458_add_app_environment.sql h1:p6mc/CmK47IFQu9+Dot/tQ4ZSirEaFopE5XmrP3henM=
 20260820113753_add_integration_request_service.sql h1:w392TVfP6ubHdka7P8Ac+BTJrqUhu9PIn93KaPCffJc=
+20260823140835_add_reseller_application_and_tenant_fields.sql h1:3PrsYeA3Mmlqmo0fp9uDCfmZmARwDMFfSx/FxnAnQaM=

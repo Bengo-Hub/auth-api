@@ -33,7 +33,7 @@ func NewLegalHandler(entClient *ent.Client, logger *zap.Logger) *LegalHandler {
 func (h *LegalHandler) GetCurrentDocument(w http.ResponseWriter, r *http.Request) {
 	docType := chi.URLParam(r, "type")
 	if !isValidDocType(docType) {
-		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, or DPA", nil)
+		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, DPA, or RESELLER_AGREEMENT", nil)
 		return
 	}
 
@@ -103,7 +103,7 @@ func (h *LegalHandler) UpsertDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isValidDocType(req.DocType) {
-		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, or DPA", nil)
+		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, DPA, or RESELLER_AGREEMENT", nil)
 		return
 	}
 	effDate, err := time.Parse(time.DateOnly, req.EffectiveDate)
@@ -227,7 +227,7 @@ func (h *LegalHandler) AcceptDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isValidDocType(req.DocType) {
-		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, or DPA", nil)
+		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, DPA, or RESELLER_AGREEMENT", nil)
 		return
 	}
 
@@ -273,7 +273,7 @@ func parseSignatureUpload(w http.ResponseWriter, r *http.Request) (docType, docV
 	docType = r.FormValue("doc_type")
 	docVersion = r.FormValue("doc_version")
 	if !isValidDocType(docType) {
-		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, or DPA", nil)
+		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, DPA, or RESELLER_AGREEMENT", nil)
 		return "", "", "", false
 	}
 
@@ -579,7 +579,7 @@ func (h *LegalHandler) UpdateApplication(w http.ResponseWriter, r *http.Request)
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 func isValidDocType(t string) bool {
-	return t == "EPA" || t == "MSA" || t == "DPA"
+	return t == "EPA" || t == "MSA" || t == "DPA" || t == "RESELLER_AGREEMENT"
 }
 
 func toApplicationResponse(a *ent.EquityHolderApplication) map[string]any {

@@ -80,6 +80,34 @@ func (_c *TenantCreate) SetNillableIsDemo(v *bool) *TenantCreate {
 	return _c
 }
 
+// SetIsReseller sets the "is_reseller" field.
+func (_c *TenantCreate) SetIsReseller(v bool) *TenantCreate {
+	_c.mutation.SetIsReseller(v)
+	return _c
+}
+
+// SetNillableIsReseller sets the "is_reseller" field if the given value is not nil.
+func (_c *TenantCreate) SetNillableIsReseller(v *bool) *TenantCreate {
+	if v != nil {
+		_c.SetIsReseller(*v)
+	}
+	return _c
+}
+
+// SetManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field.
+func (_c *TenantCreate) SetManagedByResellerTenantID(v uuid.UUID) *TenantCreate {
+	_c.mutation.SetManagedByResellerTenantID(v)
+	return _c
+}
+
+// SetNillableManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field if the given value is not nil.
+func (_c *TenantCreate) SetNillableManagedByResellerTenantID(v *uuid.UUID) *TenantCreate {
+	if v != nil {
+		_c.SetManagedByResellerTenantID(*v)
+	}
+	return _c
+}
+
 // SetContactEmail sets the "contact_email" field.
 func (_c *TenantCreate) SetContactEmail(v string) *TenantCreate {
 	_c.mutation.SetContactEmail(v)
@@ -433,6 +461,10 @@ func (_c *TenantCreate) defaults() {
 		v := tenant.DefaultIsDemo
 		_c.mutation.SetIsDemo(v)
 	}
+	if _, ok := _c.mutation.IsReseller(); !ok {
+		v := tenant.DefaultIsReseller
+		_c.mutation.SetIsReseller(v)
+	}
 	if _, ok := _c.mutation.Country(); !ok {
 		v := tenant.DefaultCountry
 		_c.mutation.SetCountry(v)
@@ -485,6 +517,9 @@ func (_c *TenantCreate) check() error {
 	}
 	if _, ok := _c.mutation.IsDemo(); !ok {
 		return &ValidationError{Name: "is_demo", err: errors.New(`ent: missing required field "Tenant.is_demo"`)}
+	}
+	if _, ok := _c.mutation.IsReseller(); !ok {
+		return &ValidationError{Name: "is_reseller", err: errors.New(`ent: missing required field "Tenant.is_reseller"`)}
 	}
 	if _, ok := _c.mutation.VatRegistered(); !ok {
 		return &ValidationError{Name: "vat_registered", err: errors.New(`ent: missing required field "Tenant.vat_registered"`)}
@@ -550,6 +585,14 @@ func (_c *TenantCreate) createSpec() (*Tenant, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.IsDemo(); ok {
 		_spec.SetField(tenant.FieldIsDemo, field.TypeBool, value)
 		_node.IsDemo = value
+	}
+	if value, ok := _c.mutation.IsReseller(); ok {
+		_spec.SetField(tenant.FieldIsReseller, field.TypeBool, value)
+		_node.IsReseller = value
+	}
+	if value, ok := _c.mutation.ManagedByResellerTenantID(); ok {
+		_spec.SetField(tenant.FieldManagedByResellerTenantID, field.TypeUUID, value)
+		_node.ManagedByResellerTenantID = &value
 	}
 	if value, ok := _c.mutation.ContactEmail(); ok {
 		_spec.SetField(tenant.FieldContactEmail, field.TypeString, value)
@@ -776,6 +819,36 @@ func (u *TenantUpsert) SetIsDemo(v bool) *TenantUpsert {
 // UpdateIsDemo sets the "is_demo" field to the value that was provided on create.
 func (u *TenantUpsert) UpdateIsDemo() *TenantUpsert {
 	u.SetExcluded(tenant.FieldIsDemo)
+	return u
+}
+
+// SetIsReseller sets the "is_reseller" field.
+func (u *TenantUpsert) SetIsReseller(v bool) *TenantUpsert {
+	u.Set(tenant.FieldIsReseller, v)
+	return u
+}
+
+// UpdateIsReseller sets the "is_reseller" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateIsReseller() *TenantUpsert {
+	u.SetExcluded(tenant.FieldIsReseller)
+	return u
+}
+
+// SetManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field.
+func (u *TenantUpsert) SetManagedByResellerTenantID(v uuid.UUID) *TenantUpsert {
+	u.Set(tenant.FieldManagedByResellerTenantID, v)
+	return u
+}
+
+// UpdateManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field to the value that was provided on create.
+func (u *TenantUpsert) UpdateManagedByResellerTenantID() *TenantUpsert {
+	u.SetExcluded(tenant.FieldManagedByResellerTenantID)
+	return u
+}
+
+// ClearManagedByResellerTenantID clears the value of the "managed_by_reseller_tenant_id" field.
+func (u *TenantUpsert) ClearManagedByResellerTenantID() *TenantUpsert {
+	u.SetNull(tenant.FieldManagedByResellerTenantID)
 	return u
 }
 
@@ -1245,6 +1318,41 @@ func (u *TenantUpsertOne) SetIsDemo(v bool) *TenantUpsertOne {
 func (u *TenantUpsertOne) UpdateIsDemo() *TenantUpsertOne {
 	return u.Update(func(s *TenantUpsert) {
 		s.UpdateIsDemo()
+	})
+}
+
+// SetIsReseller sets the "is_reseller" field.
+func (u *TenantUpsertOne) SetIsReseller(v bool) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetIsReseller(v)
+	})
+}
+
+// UpdateIsReseller sets the "is_reseller" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateIsReseller() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateIsReseller()
+	})
+}
+
+// SetManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field.
+func (u *TenantUpsertOne) SetManagedByResellerTenantID(v uuid.UUID) *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetManagedByResellerTenantID(v)
+	})
+}
+
+// UpdateManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field to the value that was provided on create.
+func (u *TenantUpsertOne) UpdateManagedByResellerTenantID() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateManagedByResellerTenantID()
+	})
+}
+
+// ClearManagedByResellerTenantID clears the value of the "managed_by_reseller_tenant_id" field.
+func (u *TenantUpsertOne) ClearManagedByResellerTenantID() *TenantUpsertOne {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearManagedByResellerTenantID()
 	})
 }
 
@@ -1939,6 +2047,41 @@ func (u *TenantUpsertBulk) SetIsDemo(v bool) *TenantUpsertBulk {
 func (u *TenantUpsertBulk) UpdateIsDemo() *TenantUpsertBulk {
 	return u.Update(func(s *TenantUpsert) {
 		s.UpdateIsDemo()
+	})
+}
+
+// SetIsReseller sets the "is_reseller" field.
+func (u *TenantUpsertBulk) SetIsReseller(v bool) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetIsReseller(v)
+	})
+}
+
+// UpdateIsReseller sets the "is_reseller" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateIsReseller() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateIsReseller()
+	})
+}
+
+// SetManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field.
+func (u *TenantUpsertBulk) SetManagedByResellerTenantID(v uuid.UUID) *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.SetManagedByResellerTenantID(v)
+	})
+}
+
+// UpdateManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field to the value that was provided on create.
+func (u *TenantUpsertBulk) UpdateManagedByResellerTenantID() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.UpdateManagedByResellerTenantID()
+	})
+}
+
+// ClearManagedByResellerTenantID clears the value of the "managed_by_reseller_tenant_id" field.
+func (u *TenantUpsertBulk) ClearManagedByResellerTenantID() *TenantUpsertBulk {
+	return u.Update(func(s *TenantUpsert) {
+		s.ClearManagedByResellerTenantID()
 	})
 }
 

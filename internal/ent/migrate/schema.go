@@ -320,7 +320,7 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "entity_id", Type: field.TypeUUID},
 		{Name: "entity_type", Type: field.TypeEnum, Enums: []string{"tenant", "user"}},
-		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA"}},
+		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT"}},
 		{Name: "doc_version", Type: field.TypeString, Size: 32},
 		{Name: "accepted_at", Type: field.TypeTime},
 		{Name: "ip_address", Type: field.TypeString, Nullable: true, Size: 64},
@@ -349,7 +349,7 @@ var (
 	// LegalDocumentsColumns holds the columns for the "legal_documents" table.
 	LegalDocumentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
-		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA"}},
+		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT"}},
 		{Name: "version", Type: field.TypeString, Size: 32},
 		{Name: "html_content", Type: field.TypeString, Size: 2147483647},
 		{Name: "effective_date", Type: field.TypeTime},
@@ -725,6 +725,48 @@ var (
 			},
 		},
 	}
+	// ResellerApplicationsColumns holds the columns for the "reseller_applications" table.
+	ResellerApplicationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "tenant_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "business_name", Type: field.TypeString},
+		{Name: "business_registration_no", Type: field.TypeString, Nullable: true},
+		{Name: "tax_pin", Type: field.TypeString, Nullable: true},
+		{Name: "contact_email", Type: field.TypeString},
+		{Name: "contact_phone", Type: field.TypeString, Nullable: true},
+		{Name: "country", Type: field.TypeString, Nullable: true, Default: "KE"},
+		{Name: "requested_tier", Type: field.TypeEnum, Enums: []string{"registered", "certified", "premier"}, Default: "registered"},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "kyb_pending", "kyb_approved", "agreement_pending", "approved", "rejected"}, Default: "pending"},
+		{Name: "kyb_reference", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "kyb_result", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "agreement_acceptance_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// ResellerApplicationsTable holds the schema information for the "reseller_applications" table.
+	ResellerApplicationsTable = &schema.Table{
+		Name:       "reseller_applications",
+		Columns:    ResellerApplicationsColumns,
+		PrimaryKey: []*schema.Column{ResellerApplicationsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "resellerapplication_tenant_id",
+				Unique:  false,
+				Columns: []*schema.Column{ResellerApplicationsColumns[1]},
+			},
+			{
+				Name:    "resellerapplication_status",
+				Unique:  false,
+				Columns: []*schema.Column{ResellerApplicationsColumns[9]},
+			},
+			{
+				Name:    "resellerapplication_tenant_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{ResellerApplicationsColumns[1], ResellerApplicationsColumns[9]},
+			},
+		},
+	}
 	// RolesColumns holds the columns for the "roles" table.
 	RolesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -822,6 +864,8 @@ var (
 		{Name: "status", Type: field.TypeString, Default: "active"},
 		{Name: "subscription_exempt", Type: field.TypeBool, Default: false},
 		{Name: "is_demo", Type: field.TypeBool, Default: false},
+		{Name: "is_reseller", Type: field.TypeBool, Default: false},
+		{Name: "managed_by_reseller_tenant_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "contact_email", Type: field.TypeString, Nullable: true},
 		{Name: "contact_phone", Type: field.TypeString, Nullable: true},
 		{Name: "logo_url", Type: field.TypeString, Nullable: true},
@@ -863,7 +907,12 @@ var (
 			{
 				Name:    "tenant_subscription_plan",
 				Unique:  false,
-				Columns: []*schema.Column{TenantsColumns[19]},
+				Columns: []*schema.Column{TenantsColumns[21]},
+			},
+			{
+				Name:    "tenant_managed_by_reseller_tenant_id",
+				Unique:  false,
+				Columns: []*schema.Column{TenantsColumns[7]},
 			},
 		},
 	}
@@ -1121,6 +1170,7 @@ var (
 		PlatformBackupSettingsTable,
 		PortalShortLinksTable,
 		ReferralLinksTable,
+		ResellerApplicationsTable,
 		RolesTable,
 		RolePermissionsTable,
 		SessionsTable,

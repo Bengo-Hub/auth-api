@@ -78,6 +78,9 @@ type PortalShortLink func(*sql.Selector)
 // ReferralLink is the predicate function for referrallink builders.
 type ReferralLink func(*sql.Selector)
 
+// ResellerApplication is the predicate function for resellerapplication builders.
+type ResellerApplication func(*sql.Selector)
+
 // Role is the predicate function for role builders.
 type Role func(*sql.Selector)
 

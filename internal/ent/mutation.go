@@ -36,6 +36,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
+	"github.com/bengobox/auth-api/internal/ent/resellerapplication"
 	"github.com/bengobox/auth-api/internal/ent/role"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -83,6 +84,7 @@ const (
 	TypePlatformBackupSetting   = "PlatformBackupSetting"
 	TypePortalShortLink         = "PortalShortLink"
 	TypeReferralLink            = "ReferralLink"
+	TypeResellerApplication     = "ResellerApplication"
 	TypeRole                    = "Role"
 	TypeRolePermission          = "RolePermission"
 	TypeSession                 = "Session"
@@ -20990,6 +20992,1268 @@ func (m *ReferralLinkMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ReferralLink edge %s", name)
 }
 
+// ResellerApplicationMutation represents an operation that mutates the ResellerApplication nodes in the graph.
+type ResellerApplicationMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *uuid.UUID
+	tenant_id                *uuid.UUID
+	business_name            *string
+	business_registration_no *string
+	tax_pin                  *string
+	contact_email            *string
+	contact_phone            *string
+	country                  *string
+	requested_tier           *resellerapplication.RequestedTier
+	status                   *resellerapplication.Status
+	kyb_reference            *string
+	kyb_result               *string
+	agreement_acceptance_id  *uuid.UUID
+	notes                    *string
+	created_at               *time.Time
+	updated_at               *time.Time
+	clearedFields            map[string]struct{}
+	done                     bool
+	oldValue                 func(context.Context) (*ResellerApplication, error)
+	predicates               []predicate.ResellerApplication
+}
+
+var _ ent.Mutation = (*ResellerApplicationMutation)(nil)
+
+// resellerapplicationOption allows management of the mutation configuration using functional options.
+type resellerapplicationOption func(*ResellerApplicationMutation)
+
+// newResellerApplicationMutation creates new mutation for the ResellerApplication entity.
+func newResellerApplicationMutation(c config, op Op, opts ...resellerapplicationOption) *ResellerApplicationMutation {
+	m := &ResellerApplicationMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeResellerApplication,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withResellerApplicationID sets the ID field of the mutation.
+func withResellerApplicationID(id uuid.UUID) resellerapplicationOption {
+	return func(m *ResellerApplicationMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ResellerApplication
+		)
+		m.oldValue = func(ctx context.Context) (*ResellerApplication, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ResellerApplication.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withResellerApplication sets the old ResellerApplication of the mutation.
+func withResellerApplication(node *ResellerApplication) resellerapplicationOption {
+	return func(m *ResellerApplicationMutation) {
+		m.oldValue = func(context.Context) (*ResellerApplication, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ResellerApplicationMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ResellerApplicationMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ResellerApplication entities.
+func (m *ResellerApplicationMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ResellerApplicationMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ResellerApplicationMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ResellerApplication.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (m *ResellerApplicationMutation) SetTenantID(u uuid.UUID) {
+	m.tenant_id = &u
+}
+
+// TenantID returns the value of the "tenant_id" field in the mutation.
+func (m *ResellerApplicationMutation) TenantID() (r uuid.UUID, exists bool) {
+	v := m.tenant_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTenantID returns the old "tenant_id" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldTenantID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTenantID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTenantID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTenantID: %w", err)
+	}
+	return oldValue.TenantID, nil
+}
+
+// ClearTenantID clears the value of the "tenant_id" field.
+func (m *ResellerApplicationMutation) ClearTenantID() {
+	m.tenant_id = nil
+	m.clearedFields[resellerapplication.FieldTenantID] = struct{}{}
+}
+
+// TenantIDCleared returns if the "tenant_id" field was cleared in this mutation.
+func (m *ResellerApplicationMutation) TenantIDCleared() bool {
+	_, ok := m.clearedFields[resellerapplication.FieldTenantID]
+	return ok
+}
+
+// ResetTenantID resets all changes to the "tenant_id" field.
+func (m *ResellerApplicationMutation) ResetTenantID() {
+	m.tenant_id = nil
+	delete(m.clearedFields, resellerapplication.FieldTenantID)
+}
+
+// SetBusinessName sets the "business_name" field.
+func (m *ResellerApplicationMutation) SetBusinessName(s string) {
+	m.business_name = &s
+}
+
+// BusinessName returns the value of the "business_name" field in the mutation.
+func (m *ResellerApplicationMutation) BusinessName() (r string, exists bool) {
+	v := m.business_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBusinessName returns the old "business_name" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldBusinessName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBusinessName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBusinessName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBusinessName: %w", err)
+	}
+	return oldValue.BusinessName, nil
+}
+
+// ResetBusinessName resets all changes to the "business_name" field.
+func (m *ResellerApplicationMutation) ResetBusinessName() {
+	m.business_name = nil
+}
+
+// SetBusinessRegistrationNo sets the "business_registration_no" field.
+func (m *ResellerApplicationMutation) SetBusinessRegistrationNo(s string) {
+	m.business_registration_no = &s
+}
+
+// BusinessRegistrationNo returns the value of the "business_registration_no" field in the mutation.
+func (m *ResellerApplicationMutation) BusinessRegistrationNo() (r string, exists bool) {
+	v := m.business_registration_no
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBusinessRegistrationNo returns the old "business_registration_no" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldBusinessRegistrationNo(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBusinessRegistrationNo is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBusinessRegistrationNo requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBusinessRegistrationNo: %w", err)
+	}
+	return oldValue.BusinessRegistrationNo, nil
+}
+
+// ClearBusinessRegistrationNo clears the value of the "business_registration_no" field.
+func (m *ResellerApplicationMutation) ClearBusinessRegistrationNo() {
+	m.business_registration_no = nil
+	m.clearedFields[resellerapplication.FieldBusinessRegistrationNo] = struct{}{}
+}
+
+// BusinessRegistrationNoCleared returns if the "business_registration_no" field was cleared in this mutation.
+func (m *ResellerApplicationMutation) BusinessRegistrationNoCleared() bool {
+	_, ok := m.clearedFields[resellerapplication.FieldBusinessRegistrationNo]
+	return ok
+}
+
+// ResetBusinessRegistrationNo resets all changes to the "business_registration_no" field.
+func (m *ResellerApplicationMutation) ResetBusinessRegistrationNo() {
+	m.business_registration_no = nil
+	delete(m.clearedFields, resellerapplication.FieldBusinessRegistrationNo)
+}
+
+// SetTaxPin sets the "tax_pin" field.
+func (m *ResellerApplicationMutation) SetTaxPin(s string) {
+	m.tax_pin = &s
+}
+
+// TaxPin returns the value of the "tax_pin" field in the mutation.
+func (m *ResellerApplicationMutation) TaxPin() (r string, exists bool) {
+	v := m.tax_pin
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTaxPin returns the old "tax_pin" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldTaxPin(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTaxPin is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTaxPin requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTaxPin: %w", err)
+	}
+	return oldValue.TaxPin, nil
+}
+
+// ClearTaxPin clears the value of the "tax_pin" field.
+func (m *ResellerApplicationMutation) ClearTaxPin() {
+	m.tax_pin = nil
+	m.clearedFields[resellerapplication.FieldTaxPin] = struct{}{}
+}
+
+// TaxPinCleared returns if the "tax_pin" field was cleared in this mutation.
+func (m *ResellerApplicationMutation) TaxPinCleared() bool {
+	_, ok := m.clearedFields[resellerapplication.FieldTaxPin]
+	return ok
+}
+
+// ResetTaxPin resets all changes to the "tax_pin" field.
+func (m *ResellerApplicationMutation) ResetTaxPin() {
+	m.tax_pin = nil
+	delete(m.clearedFields, resellerapplication.FieldTaxPin)
+}
+
+// SetContactEmail sets the "contact_email" field.
+func (m *ResellerApplicationMutation) SetContactEmail(s string) {
+	m.contact_email = &s
+}
+
+// ContactEmail returns the value of the "contact_email" field in the mutation.
+func (m *ResellerApplicationMutation) ContactEmail() (r string, exists bool) {
+	v := m.contact_email
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContactEmail returns the old "contact_email" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldContactEmail(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContactEmail is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContactEmail requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContactEmail: %w", err)
+	}
+	return oldValue.ContactEmail, nil
+}
+
+// ResetContactEmail resets all changes to the "contact_email" field.
+func (m *ResellerApplicationMutation) ResetContactEmail() {
+	m.contact_email = nil
+}
+
+// SetContactPhone sets the "contact_phone" field.
+func (m *ResellerApplicationMutation) SetContactPhone(s string) {
+	m.contact_phone = &s
+}
+
+// ContactPhone returns the value of the "contact_phone" field in the mutation.
+func (m *ResellerApplicationMutation) ContactPhone() (r string, exists bool) {
+	v := m.contact_phone
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContactPhone returns the old "contact_phone" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldContactPhone(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContactPhone is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContactPhone requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContactPhone: %w", err)
+	}
+	return oldValue.ContactPhone, nil
+}
+
+// ClearContactPhone clears the value of the "contact_phone" field.
+func (m *ResellerApplicationMutation) ClearContactPhone() {
+	m.contact_phone = nil
+	m.clearedFields[resellerapplication.FieldContactPhone] = struct{}{}
+}
+
+// ContactPhoneCleared returns if the "contact_phone" field was cleared in this mutation.
+func (m *ResellerApplicationMutation) ContactPhoneCleared() bool {
+	_, ok := m.clearedFields[resellerapplication.FieldContactPhone]
+	return ok
+}
+
+// ResetContactPhone resets all changes to the "contact_phone" field.
+func (m *ResellerApplicationMutation) ResetContactPhone() {
+	m.contact_phone = nil
+	delete(m.clearedFields, resellerapplication.FieldContactPhone)
+}
+
+// SetCountry sets the "country" field.
+func (m *ResellerApplicationMutation) SetCountry(s string) {
+	m.country = &s
+}
+
+// Country returns the value of the "country" field in the mutation.
+func (m *ResellerApplicationMutation) Country() (r string, exists bool) {
+	v := m.country
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCountry returns the old "country" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldCountry(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCountry is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCountry requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCountry: %w", err)
+	}
+	return oldValue.Country, nil
+}
+
+// ClearCountry clears the value of the "country" field.
+func (m *ResellerApplicationMutation) ClearCountry() {
+	m.country = nil
+	m.clearedFields[resellerapplication.FieldCountry] = struct{}{}
+}
+
+// CountryCleared returns if the "country" field was cleared in this mutation.
+func (m *ResellerApplicationMutation) CountryCleared() bool {
+	_, ok := m.clearedFields[resellerapplication.FieldCountry]
+	return ok
+}
+
+// ResetCountry resets all changes to the "country" field.
+func (m *ResellerApplicationMutation) ResetCountry() {
+	m.country = nil
+	delete(m.clearedFields, resellerapplication.FieldCountry)
+}
+
+// SetRequestedTier sets the "requested_tier" field.
+func (m *ResellerApplicationMutation) SetRequestedTier(rt resellerapplication.RequestedTier) {
+	m.requested_tier = &rt
+}
+
+// RequestedTier returns the value of the "requested_tier" field in the mutation.
+func (m *ResellerApplicationMutation) RequestedTier() (r resellerapplication.RequestedTier, exists bool) {
+	v := m.requested_tier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestedTier returns the old "requested_tier" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldRequestedTier(ctx context.Context) (v resellerapplication.RequestedTier, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestedTier is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestedTier requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestedTier: %w", err)
+	}
+	return oldValue.RequestedTier, nil
+}
+
+// ResetRequestedTier resets all changes to the "requested_tier" field.
+func (m *ResellerApplicationMutation) ResetRequestedTier() {
+	m.requested_tier = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *ResellerApplicationMutation) SetStatus(r resellerapplication.Status) {
+	m.status = &r
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ResellerApplicationMutation) Status() (r resellerapplication.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldStatus(ctx context.Context) (v resellerapplication.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ResellerApplicationMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetKybReference sets the "kyb_reference" field.
+func (m *ResellerApplicationMutation) SetKybReference(s string) {
+	m.kyb_reference = &s
+}
+
+// KybReference returns the value of the "kyb_reference" field in the mutation.
+func (m *ResellerApplicationMutation) KybReference() (r string, exists bool) {
+	v := m.kyb_reference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKybReference returns the old "kyb_reference" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldKybReference(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKybReference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKybReference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKybReference: %w", err)
+	}
+	return oldValue.KybReference, nil
+}
+
+// ClearKybReference clears the value of the "kyb_reference" field.
+func (m *ResellerApplicationMutation) ClearKybReference() {
+	m.kyb_reference = nil
+	m.clearedFields[resellerapplication.FieldKybReference] = struct{}{}
+}
+
+// KybReferenceCleared returns if the "kyb_reference" field was cleared in this mutation.
+func (m *ResellerApplicationMutation) KybReferenceCleared() bool {
+	_, ok := m.clearedFields[resellerapplication.FieldKybReference]
+	return ok
+}
+
+// ResetKybReference resets all changes to the "kyb_reference" field.
+func (m *ResellerApplicationMutation) ResetKybReference() {
+	m.kyb_reference = nil
+	delete(m.clearedFields, resellerapplication.FieldKybReference)
+}
+
+// SetKybResult sets the "kyb_result" field.
+func (m *ResellerApplicationMutation) SetKybResult(s string) {
+	m.kyb_result = &s
+}
+
+// KybResult returns the value of the "kyb_result" field in the mutation.
+func (m *ResellerApplicationMutation) KybResult() (r string, exists bool) {
+	v := m.kyb_result
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKybResult returns the old "kyb_result" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldKybResult(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKybResult is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKybResult requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKybResult: %w", err)
+	}
+	return oldValue.KybResult, nil
+}
+
+// ClearKybResult clears the value of the "kyb_result" field.
+func (m *ResellerApplicationMutation) ClearKybResult() {
+	m.kyb_result = nil
+	m.clearedFields[resellerapplication.FieldKybResult] = struct{}{}
+}
+
+// KybResultCleared returns if the "kyb_result" field was cleared in this mutation.
+func (m *ResellerApplicationMutation) KybResultCleared() bool {
+	_, ok := m.clearedFields[resellerapplication.FieldKybResult]
+	return ok
+}
+
+// ResetKybResult resets all changes to the "kyb_result" field.
+func (m *ResellerApplicationMutation) ResetKybResult() {
+	m.kyb_result = nil
+	delete(m.clearedFields, resellerapplication.FieldKybResult)
+}
+
+// SetAgreementAcceptanceID sets the "agreement_acceptance_id" field.
+func (m *ResellerApplicationMutation) SetAgreementAcceptanceID(u uuid.UUID) {
+	m.agreement_acceptance_id = &u
+}
+
+// AgreementAcceptanceID returns the value of the "agreement_acceptance_id" field in the mutation.
+func (m *ResellerApplicationMutation) AgreementAcceptanceID() (r uuid.UUID, exists bool) {
+	v := m.agreement_acceptance_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgreementAcceptanceID returns the old "agreement_acceptance_id" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldAgreementAcceptanceID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgreementAcceptanceID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgreementAcceptanceID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgreementAcceptanceID: %w", err)
+	}
+	return oldValue.AgreementAcceptanceID, nil
+}
+
+// ClearAgreementAcceptanceID clears the value of the "agreement_acceptance_id" field.
+func (m *ResellerApplicationMutation) ClearAgreementAcceptanceID() {
+	m.agreement_acceptance_id = nil
+	m.clearedFields[resellerapplication.FieldAgreementAcceptanceID] = struct{}{}
+}
+
+// AgreementAcceptanceIDCleared returns if the "agreement_acceptance_id" field was cleared in this mutation.
+func (m *ResellerApplicationMutation) AgreementAcceptanceIDCleared() bool {
+	_, ok := m.clearedFields[resellerapplication.FieldAgreementAcceptanceID]
+	return ok
+}
+
+// ResetAgreementAcceptanceID resets all changes to the "agreement_acceptance_id" field.
+func (m *ResellerApplicationMutation) ResetAgreementAcceptanceID() {
+	m.agreement_acceptance_id = nil
+	delete(m.clearedFields, resellerapplication.FieldAgreementAcceptanceID)
+}
+
+// SetNotes sets the "notes" field.
+func (m *ResellerApplicationMutation) SetNotes(s string) {
+	m.notes = &s
+}
+
+// Notes returns the value of the "notes" field in the mutation.
+func (m *ResellerApplicationMutation) Notes() (r string, exists bool) {
+	v := m.notes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNotes returns the old "notes" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldNotes(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNotes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNotes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNotes: %w", err)
+	}
+	return oldValue.Notes, nil
+}
+
+// ClearNotes clears the value of the "notes" field.
+func (m *ResellerApplicationMutation) ClearNotes() {
+	m.notes = nil
+	m.clearedFields[resellerapplication.FieldNotes] = struct{}{}
+}
+
+// NotesCleared returns if the "notes" field was cleared in this mutation.
+func (m *ResellerApplicationMutation) NotesCleared() bool {
+	_, ok := m.clearedFields[resellerapplication.FieldNotes]
+	return ok
+}
+
+// ResetNotes resets all changes to the "notes" field.
+func (m *ResellerApplicationMutation) ResetNotes() {
+	m.notes = nil
+	delete(m.clearedFields, resellerapplication.FieldNotes)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ResellerApplicationMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ResellerApplicationMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ResellerApplicationMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ResellerApplicationMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ResellerApplicationMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ResellerApplication entity.
+// If the ResellerApplication object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ResellerApplicationMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ResellerApplicationMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the ResellerApplicationMutation builder.
+func (m *ResellerApplicationMutation) Where(ps ...predicate.ResellerApplication) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ResellerApplicationMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ResellerApplicationMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ResellerApplication, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ResellerApplicationMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ResellerApplicationMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ResellerApplication).
+func (m *ResellerApplicationMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ResellerApplicationMutation) Fields() []string {
+	fields := make([]string, 0, 15)
+	if m.tenant_id != nil {
+		fields = append(fields, resellerapplication.FieldTenantID)
+	}
+	if m.business_name != nil {
+		fields = append(fields, resellerapplication.FieldBusinessName)
+	}
+	if m.business_registration_no != nil {
+		fields = append(fields, resellerapplication.FieldBusinessRegistrationNo)
+	}
+	if m.tax_pin != nil {
+		fields = append(fields, resellerapplication.FieldTaxPin)
+	}
+	if m.contact_email != nil {
+		fields = append(fields, resellerapplication.FieldContactEmail)
+	}
+	if m.contact_phone != nil {
+		fields = append(fields, resellerapplication.FieldContactPhone)
+	}
+	if m.country != nil {
+		fields = append(fields, resellerapplication.FieldCountry)
+	}
+	if m.requested_tier != nil {
+		fields = append(fields, resellerapplication.FieldRequestedTier)
+	}
+	if m.status != nil {
+		fields = append(fields, resellerapplication.FieldStatus)
+	}
+	if m.kyb_reference != nil {
+		fields = append(fields, resellerapplication.FieldKybReference)
+	}
+	if m.kyb_result != nil {
+		fields = append(fields, resellerapplication.FieldKybResult)
+	}
+	if m.agreement_acceptance_id != nil {
+		fields = append(fields, resellerapplication.FieldAgreementAcceptanceID)
+	}
+	if m.notes != nil {
+		fields = append(fields, resellerapplication.FieldNotes)
+	}
+	if m.created_at != nil {
+		fields = append(fields, resellerapplication.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, resellerapplication.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ResellerApplicationMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case resellerapplication.FieldTenantID:
+		return m.TenantID()
+	case resellerapplication.FieldBusinessName:
+		return m.BusinessName()
+	case resellerapplication.FieldBusinessRegistrationNo:
+		return m.BusinessRegistrationNo()
+	case resellerapplication.FieldTaxPin:
+		return m.TaxPin()
+	case resellerapplication.FieldContactEmail:
+		return m.ContactEmail()
+	case resellerapplication.FieldContactPhone:
+		return m.ContactPhone()
+	case resellerapplication.FieldCountry:
+		return m.Country()
+	case resellerapplication.FieldRequestedTier:
+		return m.RequestedTier()
+	case resellerapplication.FieldStatus:
+		return m.Status()
+	case resellerapplication.FieldKybReference:
+		return m.KybReference()
+	case resellerapplication.FieldKybResult:
+		return m.KybResult()
+	case resellerapplication.FieldAgreementAcceptanceID:
+		return m.AgreementAcceptanceID()
+	case resellerapplication.FieldNotes:
+		return m.Notes()
+	case resellerapplication.FieldCreatedAt:
+		return m.CreatedAt()
+	case resellerapplication.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ResellerApplicationMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case resellerapplication.FieldTenantID:
+		return m.OldTenantID(ctx)
+	case resellerapplication.FieldBusinessName:
+		return m.OldBusinessName(ctx)
+	case resellerapplication.FieldBusinessRegistrationNo:
+		return m.OldBusinessRegistrationNo(ctx)
+	case resellerapplication.FieldTaxPin:
+		return m.OldTaxPin(ctx)
+	case resellerapplication.FieldContactEmail:
+		return m.OldContactEmail(ctx)
+	case resellerapplication.FieldContactPhone:
+		return m.OldContactPhone(ctx)
+	case resellerapplication.FieldCountry:
+		return m.OldCountry(ctx)
+	case resellerapplication.FieldRequestedTier:
+		return m.OldRequestedTier(ctx)
+	case resellerapplication.FieldStatus:
+		return m.OldStatus(ctx)
+	case resellerapplication.FieldKybReference:
+		return m.OldKybReference(ctx)
+	case resellerapplication.FieldKybResult:
+		return m.OldKybResult(ctx)
+	case resellerapplication.FieldAgreementAcceptanceID:
+		return m.OldAgreementAcceptanceID(ctx)
+	case resellerapplication.FieldNotes:
+		return m.OldNotes(ctx)
+	case resellerapplication.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case resellerapplication.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ResellerApplication field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResellerApplicationMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case resellerapplication.FieldTenantID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTenantID(v)
+		return nil
+	case resellerapplication.FieldBusinessName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBusinessName(v)
+		return nil
+	case resellerapplication.FieldBusinessRegistrationNo:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBusinessRegistrationNo(v)
+		return nil
+	case resellerapplication.FieldTaxPin:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTaxPin(v)
+		return nil
+	case resellerapplication.FieldContactEmail:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContactEmail(v)
+		return nil
+	case resellerapplication.FieldContactPhone:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContactPhone(v)
+		return nil
+	case resellerapplication.FieldCountry:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCountry(v)
+		return nil
+	case resellerapplication.FieldRequestedTier:
+		v, ok := value.(resellerapplication.RequestedTier)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestedTier(v)
+		return nil
+	case resellerapplication.FieldStatus:
+		v, ok := value.(resellerapplication.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case resellerapplication.FieldKybReference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKybReference(v)
+		return nil
+	case resellerapplication.FieldKybResult:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKybResult(v)
+		return nil
+	case resellerapplication.FieldAgreementAcceptanceID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgreementAcceptanceID(v)
+		return nil
+	case resellerapplication.FieldNotes:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNotes(v)
+		return nil
+	case resellerapplication.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case resellerapplication.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ResellerApplication field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ResellerApplicationMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ResellerApplicationMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ResellerApplicationMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ResellerApplication numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ResellerApplicationMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(resellerapplication.FieldTenantID) {
+		fields = append(fields, resellerapplication.FieldTenantID)
+	}
+	if m.FieldCleared(resellerapplication.FieldBusinessRegistrationNo) {
+		fields = append(fields, resellerapplication.FieldBusinessRegistrationNo)
+	}
+	if m.FieldCleared(resellerapplication.FieldTaxPin) {
+		fields = append(fields, resellerapplication.FieldTaxPin)
+	}
+	if m.FieldCleared(resellerapplication.FieldContactPhone) {
+		fields = append(fields, resellerapplication.FieldContactPhone)
+	}
+	if m.FieldCleared(resellerapplication.FieldCountry) {
+		fields = append(fields, resellerapplication.FieldCountry)
+	}
+	if m.FieldCleared(resellerapplication.FieldKybReference) {
+		fields = append(fields, resellerapplication.FieldKybReference)
+	}
+	if m.FieldCleared(resellerapplication.FieldKybResult) {
+		fields = append(fields, resellerapplication.FieldKybResult)
+	}
+	if m.FieldCleared(resellerapplication.FieldAgreementAcceptanceID) {
+		fields = append(fields, resellerapplication.FieldAgreementAcceptanceID)
+	}
+	if m.FieldCleared(resellerapplication.FieldNotes) {
+		fields = append(fields, resellerapplication.FieldNotes)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ResellerApplicationMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ResellerApplicationMutation) ClearField(name string) error {
+	switch name {
+	case resellerapplication.FieldTenantID:
+		m.ClearTenantID()
+		return nil
+	case resellerapplication.FieldBusinessRegistrationNo:
+		m.ClearBusinessRegistrationNo()
+		return nil
+	case resellerapplication.FieldTaxPin:
+		m.ClearTaxPin()
+		return nil
+	case resellerapplication.FieldContactPhone:
+		m.ClearContactPhone()
+		return nil
+	case resellerapplication.FieldCountry:
+		m.ClearCountry()
+		return nil
+	case resellerapplication.FieldKybReference:
+		m.ClearKybReference()
+		return nil
+	case resellerapplication.FieldKybResult:
+		m.ClearKybResult()
+		return nil
+	case resellerapplication.FieldAgreementAcceptanceID:
+		m.ClearAgreementAcceptanceID()
+		return nil
+	case resellerapplication.FieldNotes:
+		m.ClearNotes()
+		return nil
+	}
+	return fmt.Errorf("unknown ResellerApplication nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ResellerApplicationMutation) ResetField(name string) error {
+	switch name {
+	case resellerapplication.FieldTenantID:
+		m.ResetTenantID()
+		return nil
+	case resellerapplication.FieldBusinessName:
+		m.ResetBusinessName()
+		return nil
+	case resellerapplication.FieldBusinessRegistrationNo:
+		m.ResetBusinessRegistrationNo()
+		return nil
+	case resellerapplication.FieldTaxPin:
+		m.ResetTaxPin()
+		return nil
+	case resellerapplication.FieldContactEmail:
+		m.ResetContactEmail()
+		return nil
+	case resellerapplication.FieldContactPhone:
+		m.ResetContactPhone()
+		return nil
+	case resellerapplication.FieldCountry:
+		m.ResetCountry()
+		return nil
+	case resellerapplication.FieldRequestedTier:
+		m.ResetRequestedTier()
+		return nil
+	case resellerapplication.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case resellerapplication.FieldKybReference:
+		m.ResetKybReference()
+		return nil
+	case resellerapplication.FieldKybResult:
+		m.ResetKybResult()
+		return nil
+	case resellerapplication.FieldAgreementAcceptanceID:
+		m.ResetAgreementAcceptanceID()
+		return nil
+	case resellerapplication.FieldNotes:
+		m.ResetNotes()
+		return nil
+	case resellerapplication.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case resellerapplication.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ResellerApplication field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ResellerApplicationMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ResellerApplicationMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ResellerApplicationMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ResellerApplicationMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ResellerApplicationMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ResellerApplicationMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ResellerApplicationMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown ResellerApplication unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ResellerApplicationMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown ResellerApplication edge %s", name)
+}
+
 // RoleMutation represents an operation that mutates the Role nodes in the graph.
 type RoleMutation struct {
 	config
@@ -23405,46 +24669,48 @@ func (m *SessionMutation) ResetEdge(name string) error {
 // TenantMutation represents an operation that mutates the Tenant nodes in the graph.
 type TenantMutation struct {
 	config
-	op                      Op
-	typ                     string
-	id                      *uuid.UUID
-	name                    *string
-	slug                    *string
-	status                  *string
-	subscription_exempt     *bool
-	is_demo                 *bool
-	contact_email           *string
-	contact_phone           *string
-	logo_url                *string
-	website                 *string
-	country                 *string
-	timezone                *string
-	brand_colors            *map[string]interface{}
-	org_size                *string
-	use_case                *string
-	use_cases               *[]string
-	appenduse_cases         []string
-	tax_pin                 *string
-	vat_registered          *bool
-	vat_registered_on       *time.Time
-	subscription_plan       *string
-	subscription_status     *string
-	subscription_expires_at *time.Time
-	subscription_id         *string
-	tier_limits             *map[string]interface{}
-	metadata                *map[string]interface{}
-	created_at              *time.Time
-	updated_at              *time.Time
-	clearedFields           map[string]struct{}
-	memberships             map[uuid.UUID]struct{}
-	removedmemberships      map[uuid.UUID]struct{}
-	clearedmemberships      bool
-	outlets                 map[uuid.UUID]struct{}
-	removedoutlets          map[uuid.UUID]struct{}
-	clearedoutlets          bool
-	done                    bool
-	oldValue                func(context.Context) (*Tenant, error)
-	predicates              []predicate.Tenant
+	op                            Op
+	typ                           string
+	id                            *uuid.UUID
+	name                          *string
+	slug                          *string
+	status                        *string
+	subscription_exempt           *bool
+	is_demo                       *bool
+	is_reseller                   *bool
+	managed_by_reseller_tenant_id *uuid.UUID
+	contact_email                 *string
+	contact_phone                 *string
+	logo_url                      *string
+	website                       *string
+	country                       *string
+	timezone                      *string
+	brand_colors                  *map[string]interface{}
+	org_size                      *string
+	use_case                      *string
+	use_cases                     *[]string
+	appenduse_cases               []string
+	tax_pin                       *string
+	vat_registered                *bool
+	vat_registered_on             *time.Time
+	subscription_plan             *string
+	subscription_status           *string
+	subscription_expires_at       *time.Time
+	subscription_id               *string
+	tier_limits                   *map[string]interface{}
+	metadata                      *map[string]interface{}
+	created_at                    *time.Time
+	updated_at                    *time.Time
+	clearedFields                 map[string]struct{}
+	memberships                   map[uuid.UUID]struct{}
+	removedmemberships            map[uuid.UUID]struct{}
+	clearedmemberships            bool
+	outlets                       map[uuid.UUID]struct{}
+	removedoutlets                map[uuid.UUID]struct{}
+	clearedoutlets                bool
+	done                          bool
+	oldValue                      func(context.Context) (*Tenant, error)
+	predicates                    []predicate.Tenant
 }
 
 var _ ent.Mutation = (*TenantMutation)(nil)
@@ -23729,6 +24995,91 @@ func (m *TenantMutation) OldIsDemo(ctx context.Context) (v bool, err error) {
 // ResetIsDemo resets all changes to the "is_demo" field.
 func (m *TenantMutation) ResetIsDemo() {
 	m.is_demo = nil
+}
+
+// SetIsReseller sets the "is_reseller" field.
+func (m *TenantMutation) SetIsReseller(b bool) {
+	m.is_reseller = &b
+}
+
+// IsReseller returns the value of the "is_reseller" field in the mutation.
+func (m *TenantMutation) IsReseller() (r bool, exists bool) {
+	v := m.is_reseller
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsReseller returns the old "is_reseller" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldIsReseller(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsReseller is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsReseller requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsReseller: %w", err)
+	}
+	return oldValue.IsReseller, nil
+}
+
+// ResetIsReseller resets all changes to the "is_reseller" field.
+func (m *TenantMutation) ResetIsReseller() {
+	m.is_reseller = nil
+}
+
+// SetManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field.
+func (m *TenantMutation) SetManagedByResellerTenantID(u uuid.UUID) {
+	m.managed_by_reseller_tenant_id = &u
+}
+
+// ManagedByResellerTenantID returns the value of the "managed_by_reseller_tenant_id" field in the mutation.
+func (m *TenantMutation) ManagedByResellerTenantID() (r uuid.UUID, exists bool) {
+	v := m.managed_by_reseller_tenant_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldManagedByResellerTenantID returns the old "managed_by_reseller_tenant_id" field's value of the Tenant entity.
+// If the Tenant object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMutation) OldManagedByResellerTenantID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldManagedByResellerTenantID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldManagedByResellerTenantID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldManagedByResellerTenantID: %w", err)
+	}
+	return oldValue.ManagedByResellerTenantID, nil
+}
+
+// ClearManagedByResellerTenantID clears the value of the "managed_by_reseller_tenant_id" field.
+func (m *TenantMutation) ClearManagedByResellerTenantID() {
+	m.managed_by_reseller_tenant_id = nil
+	m.clearedFields[tenant.FieldManagedByResellerTenantID] = struct{}{}
+}
+
+// ManagedByResellerTenantIDCleared returns if the "managed_by_reseller_tenant_id" field was cleared in this mutation.
+func (m *TenantMutation) ManagedByResellerTenantIDCleared() bool {
+	_, ok := m.clearedFields[tenant.FieldManagedByResellerTenantID]
+	return ok
+}
+
+// ResetManagedByResellerTenantID resets all changes to the "managed_by_reseller_tenant_id" field.
+func (m *TenantMutation) ResetManagedByResellerTenantID() {
+	m.managed_by_reseller_tenant_id = nil
+	delete(m.clearedFields, tenant.FieldManagedByResellerTenantID)
 }
 
 // SetContactEmail sets the "contact_email" field.
@@ -24879,7 +26230,7 @@ func (m *TenantMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TenantMutation) Fields() []string {
-	fields := make([]string, 0, 26)
+	fields := make([]string, 0, 28)
 	if m.name != nil {
 		fields = append(fields, tenant.FieldName)
 	}
@@ -24894,6 +26245,12 @@ func (m *TenantMutation) Fields() []string {
 	}
 	if m.is_demo != nil {
 		fields = append(fields, tenant.FieldIsDemo)
+	}
+	if m.is_reseller != nil {
+		fields = append(fields, tenant.FieldIsReseller)
+	}
+	if m.managed_by_reseller_tenant_id != nil {
+		fields = append(fields, tenant.FieldManagedByResellerTenantID)
 	}
 	if m.contact_email != nil {
 		fields = append(fields, tenant.FieldContactEmail)
@@ -24976,6 +26333,10 @@ func (m *TenantMutation) Field(name string) (ent.Value, bool) {
 		return m.SubscriptionExempt()
 	case tenant.FieldIsDemo:
 		return m.IsDemo()
+	case tenant.FieldIsReseller:
+		return m.IsReseller()
+	case tenant.FieldManagedByResellerTenantID:
+		return m.ManagedByResellerTenantID()
 	case tenant.FieldContactEmail:
 		return m.ContactEmail()
 	case tenant.FieldContactPhone:
@@ -25037,6 +26398,10 @@ func (m *TenantMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldSubscriptionExempt(ctx)
 	case tenant.FieldIsDemo:
 		return m.OldIsDemo(ctx)
+	case tenant.FieldIsReseller:
+		return m.OldIsReseller(ctx)
+	case tenant.FieldManagedByResellerTenantID:
+		return m.OldManagedByResellerTenantID(ctx)
 	case tenant.FieldContactEmail:
 		return m.OldContactEmail(ctx)
 	case tenant.FieldContactPhone:
@@ -25122,6 +26487,20 @@ func (m *TenantMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetIsDemo(v)
+		return nil
+	case tenant.FieldIsReseller:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsReseller(v)
+		return nil
+	case tenant.FieldManagedByResellerTenantID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetManagedByResellerTenantID(v)
 		return nil
 	case tenant.FieldContactEmail:
 		v, ok := value.(string)
@@ -25300,6 +26679,9 @@ func (m *TenantMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *TenantMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(tenant.FieldManagedByResellerTenantID) {
+		fields = append(fields, tenant.FieldManagedByResellerTenantID)
+	}
 	if m.FieldCleared(tenant.FieldContactEmail) {
 		fields = append(fields, tenant.FieldContactEmail)
 	}
@@ -25368,6 +26750,9 @@ func (m *TenantMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *TenantMutation) ClearField(name string) error {
 	switch name {
+	case tenant.FieldManagedByResellerTenantID:
+		m.ClearManagedByResellerTenantID()
+		return nil
 	case tenant.FieldContactEmail:
 		m.ClearContactEmail()
 		return nil
@@ -25444,6 +26829,12 @@ func (m *TenantMutation) ResetField(name string) error {
 		return nil
 	case tenant.FieldIsDemo:
 		m.ResetIsDemo()
+		return nil
+	case tenant.FieldIsReseller:
+		m.ResetIsReseller()
+		return nil
+	case tenant.FieldManagedByResellerTenantID:
+		m.ResetManagedByResellerTenantID()
 		return nil
 	case tenant.FieldContactEmail:
 		m.ResetContactEmail()
