@@ -260,6 +260,50 @@ func (h *LegalHandler) AcceptDocument(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// parseSignatureUpload extracts and validates a multipart signature_image upload (jpg/png,
+// ≤2MB) shared by SignDocument and SignDocumentAsEquityHolder. On failure it writes the
+// response itself and returns ok=false — callers should just return.
+func parseSignatureUpload(w http.ResponseWriter, r *http.Request) (docType, docVersion, dataURL string, ok bool) {
+	const maxSize = 2 << 20 // 2 MB
+	if err := r.ParseMultipartForm(maxSize); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_form", "failed to parse form (max 2MB)", nil)
+		return "", "", "", false
+	}
+
+	docType = r.FormValue("doc_type")
+	docVersion = r.FormValue("doc_version")
+	if !isValidDocType(docType) {
+		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, or DPA", nil)
+		return "", "", "", false
+	}
+
+	file, header, err := r.FormFile("signature_image")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing_file", "signature_image file is required", nil)
+		return "", "", "", false
+	}
+	defer file.Close()
+
+	ct := header.Header.Get("Content-Type")
+	if ct != "image/jpeg" && ct != "image/jpg" && ct != "image/png" {
+		writeError(w, http.StatusBadRequest, "invalid_file_type", "signature_image must be jpg or png", nil)
+		return "", "", "", false
+	}
+
+	data, err := io.ReadAll(io.LimitReader(file, maxSize+1))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "read_error", "failed to read file", nil)
+		return "", "", "", false
+	}
+	if int64(len(data)) > maxSize {
+		writeError(w, http.StatusRequestEntityTooLarge, "file_too_large", "signature_image must be ≤ 2MB", nil)
+		return "", "", "", false
+	}
+
+	dataURL = fmt.Sprintf("data:%s;base64,%s", ct, base64.StdEncoding.EncodeToString(data))
+	return docType, docVersion, dataURL, true
+}
+
 // SignDocument accepts a multipart upload of a signature image (jpg/png ≤ 2MB)
 // and stores the base64 data URL in the legal_acceptance record.
 // POST /api/v1/auth/legal/sign
@@ -271,43 +315,10 @@ func (h *LegalHandler) SignDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const maxSize = 2 << 20 // 2 MB
-	if err := r.ParseMultipartForm(maxSize); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_form", "failed to parse form (max 2MB)", nil)
+	docType, docVersion, dataURL, ok := parseSignatureUpload(w, r)
+	if !ok {
 		return
 	}
-
-	docType := r.FormValue("doc_type")
-	docVersion := r.FormValue("doc_version")
-	if !isValidDocType(docType) {
-		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, or DPA", nil)
-		return
-	}
-
-	file, header, err := r.FormFile("signature_image")
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "missing_file", "signature_image file is required", nil)
-		return
-	}
-	defer file.Close()
-
-	ct := header.Header.Get("Content-Type")
-	if ct != "image/jpeg" && ct != "image/jpg" && ct != "image/png" {
-		writeError(w, http.StatusBadRequest, "invalid_file_type", "signature_image must be jpg or png", nil)
-		return
-	}
-
-	data, err := io.ReadAll(io.LimitReader(file, maxSize+1))
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "read_error", "failed to read file", nil)
-		return
-	}
-	if int64(len(data)) > maxSize {
-		writeError(w, http.StatusRequestEntityTooLarge, "file_too_large", "signature_image must be ≤ 2MB", nil)
-		return
-	}
-
-	dataURL := fmt.Sprintf("data:%s;base64,%s", ct, base64.StdEncoding.EncodeToString(data))
 
 	tenantID, err := uuid.Parse(claims.TenantID)
 	if err != nil {
@@ -317,7 +328,7 @@ func (h *LegalHandler) SignDocument(w http.ResponseWriter, r *http.Request) {
 
 	acceptance, err := h.ent.LegalAcceptance.Create().
 		SetEntityID(tenantID).
-		SetEntityType("tenant").
+		SetEntityType(legalacceptance.EntityTypeTenant).
 		SetDocType(legalacceptance.DocType(docType)).
 		SetDocVersion(docVersion).
 		SetAcceptedAt(time.Now()).
