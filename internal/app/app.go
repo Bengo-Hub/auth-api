@@ -205,6 +205,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger)
 	legalHandler := handlers.NewLegalHandler(entClient, logger)
 	resellerHandler := handlers.NewResellerHandler(entClient, logger)
+	resellerPortalHandler := handlers.NewResellerPortalHandler(entClient, logger)
 	referralLinkHandler := handlers.NewReferralLinkHandler(entClient, logger)
 	equityPortalHandler := handlers.NewEquityPortalHandler(entClient, tokenSvc, cfg.Token.Issuer, cfg.App.AuthUIURL, logger)
 	rbacHandler := handlers.NewRBACHandler(authService, logger)
@@ -246,6 +247,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		UserHandler:            userHandler,
 		LegalHandler:           legalHandler,
 		ResellerHandler:        resellerHandler,
+		ResellerPortalHandler:  resellerPortalHandler,
 		ReferralLinkHandler:    referralLinkHandler,
 		EquityPortalHandler:    equityPortalHandler,
 		RBACHandler:            rbacHandler,

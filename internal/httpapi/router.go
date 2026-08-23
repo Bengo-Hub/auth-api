@@ -26,23 +26,24 @@ func s2sPlatformClaims(next http.HandlerFunc) http.HandlerFunc {
 
 // RouterDeps defines router construction dependencies.
 type RouterDeps struct {
-	HealthHandler        http.HandlerFunc
-	AuthHandlers         AuthHandlers
-	UserHandler          *handlers.UserHandler
-	LegalHandler         *handlers.LegalHandler
-	ResellerHandler      *handlers.ResellerHandler
-	ReferralLinkHandler  *handlers.ReferralLinkHandler
-	EquityPortalHandler  *handlers.EquityPortalHandler
-	OutletHandler        *handlers.OutletHandler
-	RBACHandler          *handlers.RBACHandler
-	K8sMonitorHandler    *handlers.K8sMonitorHandler
-	SealedSecretsHandler *handlers.SealedSecretsHandler
-	EquityPortalAuth     func(http.Handler) http.Handler
-	RequireAuthHandler   func(http.Handler) http.Handler
-	TryAuthHandler       func(http.Handler) http.Handler
-	RateLimitLogin       func(http.Handler) http.Handler
-	RateLimitToken       func(http.Handler) http.Handler
-	MetricsHandler       http.Handler
+	HealthHandler         http.HandlerFunc
+	AuthHandlers          AuthHandlers
+	UserHandler           *handlers.UserHandler
+	LegalHandler          *handlers.LegalHandler
+	ResellerHandler       *handlers.ResellerHandler
+	ResellerPortalHandler *handlers.ResellerPortalHandler
+	ReferralLinkHandler   *handlers.ReferralLinkHandler
+	EquityPortalHandler   *handlers.EquityPortalHandler
+	OutletHandler         *handlers.OutletHandler
+	RBACHandler           *handlers.RBACHandler
+	K8sMonitorHandler     *handlers.K8sMonitorHandler
+	SealedSecretsHandler  *handlers.SealedSecretsHandler
+	EquityPortalAuth      func(http.Handler) http.Handler
+	RequireAuthHandler    func(http.Handler) http.Handler
+	TryAuthHandler        func(http.Handler) http.Handler
+	RateLimitLogin        func(http.Handler) http.Handler
+	RateLimitToken        func(http.Handler) http.Handler
+	MetricsHandler        http.Handler
 	// InternalServiceKey gates internal S2S endpoints (X-API-Key header).
 	InternalServiceKey string
 	// ValidateInternalAppKey is the dual-mode companion to InternalServiceKey: a
@@ -636,6 +637,19 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Get("/admin/reseller/applications", deps.ResellerHandler.ListApplications)
 				r.Get("/admin/reseller/applications/{id}", deps.ResellerHandler.GetApplication)
 				r.Put("/admin/reseller/applications/{id}", deps.ResellerHandler.UpdateApplication)
+			})
+		}
+
+		// Reseller self-service portal (read-only, any authenticated member of a certified
+		// reseller tenant — is_reseller checked inside the handler, not a separate admin gate).
+		// See ResellerPortalHandler's own doc comment / plan register item G9.
+		if deps.ResellerPortalHandler != nil {
+			r.Group(func(r chi.Router) {
+				if deps.RequireAuthHandler != nil {
+					r.Use(deps.RequireAuthHandler)
+				}
+				r.Get("/reseller/me", deps.ResellerPortalHandler.GetOwnStatus)
+				r.Get("/reseller/clients", deps.ResellerPortalHandler.GetOwnClients)
 			})
 		}
 
