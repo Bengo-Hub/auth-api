@@ -29,6 +29,10 @@ type Tenant struct {
 	SubscriptionExempt bool `json:"subscription_exempt,omitempty"`
 	// Demo tenant flag: when true this tenant is a sandbox/demo and downstream services (treasury) exclude it from platform revenue. Additive, defaults false.
 	IsDemo bool `json:"is_demo,omitempty"`
+	// Marks this tenant as a certified reseller/partner org, unlocking reseller-portal access. Additive, defaults false.
+	IsReseller bool `json:"is_reseller,omitempty"`
+	// The certified reseller/partner tenant that is this tenant's commercial channel of record, if any. Single, exclusive relationship — a tenant has at most one reseller of record at a time. Null = direct/no reseller. Does NOT grant the reseller any operational access to this tenant's own data — see the plan's §6A for the deliberate access-boundary design.
+	ManagedByResellerTenantID *uuid.UUID `json:"managed_by_reseller_tenant_id,omitempty"`
 	// Primary billing and alerts email for this organisation
 	ContactEmail *string `json:"contact_email,omitempty"`
 	// Primary contact phone (E.164 format)
@@ -111,9 +115,11 @@ func (*Tenant) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case tenant.FieldManagedByResellerTenantID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case tenant.FieldBrandColors, tenant.FieldUseCases, tenant.FieldTierLimits, tenant.FieldMetadata:
 			values[i] = new([]byte)
-		case tenant.FieldSubscriptionExempt, tenant.FieldIsDemo, tenant.FieldVatRegistered:
+		case tenant.FieldSubscriptionExempt, tenant.FieldIsDemo, tenant.FieldIsReseller, tenant.FieldVatRegistered:
 			values[i] = new(sql.NullBool)
 		case tenant.FieldName, tenant.FieldSlug, tenant.FieldStatus, tenant.FieldContactEmail, tenant.FieldContactPhone, tenant.FieldLogoURL, tenant.FieldWebsite, tenant.FieldCountry, tenant.FieldTimezone, tenant.FieldOrgSize, tenant.FieldUseCase, tenant.FieldTaxPin, tenant.FieldSubscriptionPlan, tenant.FieldSubscriptionStatus, tenant.FieldSubscriptionID:
 			values[i] = new(sql.NullString)
@@ -171,6 +177,19 @@ func (_m *Tenant) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field is_demo", values[i])
 			} else if value.Valid {
 				_m.IsDemo = value.Bool
+			}
+		case tenant.FieldIsReseller:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_reseller", values[i])
+			} else if value.Valid {
+				_m.IsReseller = value.Bool
+			}
+		case tenant.FieldManagedByResellerTenantID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field managed_by_reseller_tenant_id", values[i])
+			} else if value.Valid {
+				_m.ManagedByResellerTenantID = new(uuid.UUID)
+				*_m.ManagedByResellerTenantID = *value.S.(*uuid.UUID)
 			}
 		case tenant.FieldContactEmail:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -380,6 +399,14 @@ func (_m *Tenant) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("is_demo=")
 	builder.WriteString(fmt.Sprintf("%v", _m.IsDemo))
+	builder.WriteString(", ")
+	builder.WriteString("is_reseller=")
+	builder.WriteString(fmt.Sprintf("%v", _m.IsReseller))
+	builder.WriteString(", ")
+	if v := _m.ManagedByResellerTenantID; v != nil {
+		builder.WriteString("managed_by_reseller_tenant_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	if v := _m.ContactEmail; v != nil {
 		builder.WriteString("contact_email=")

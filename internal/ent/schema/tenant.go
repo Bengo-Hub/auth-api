@@ -41,6 +41,13 @@ func (Tenant) Fields() []ent.Field {
 		field.Bool("is_demo").
 			Default(false).
 			Comment("Demo tenant flag: when true this tenant is a sandbox/demo and downstream services (treasury) exclude it from platform revenue. Additive, defaults false."),
+		field.Bool("is_reseller").
+			Default(false).
+			Comment("Marks this tenant as a certified reseller/partner org, unlocking reseller-portal access. Additive, defaults false."),
+		field.UUID("managed_by_reseller_tenant_id", uuid.UUID{}).
+			Optional().
+			Nillable().
+			Comment("The certified reseller/partner tenant that is this tenant's commercial channel of record, if any. Single, exclusive relationship — a tenant has at most one reseller of record at a time. Null = direct/no reseller. Does NOT grant the reseller any operational access to this tenant's own data — see the plan's §6A for the deliberate access-boundary design."),
 
 		// ── Contact & Branding ────────────────────────────────────────────────
 		field.String("contact_email").
@@ -158,5 +165,6 @@ func (Tenant) Indexes() []ent.Index {
 		index.Fields("slug").Unique(),
 		index.Fields("status"),
 		index.Fields("subscription_plan"),
+		index.Fields("managed_by_reseller_tenant_id"),
 	}
 }

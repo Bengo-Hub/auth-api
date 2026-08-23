@@ -36,6 +36,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/platformbackupsetting"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
+	"github.com/bengobox/auth-api/internal/ent/resellerapplication"
 	"github.com/bengobox/auth-api/internal/ent/role"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -131,6 +132,7 @@ func checkColumn(t, c string) error {
 			platformbackupsetting.Table:   platformbackupsetting.ValidColumn,
 			portalshortlink.Table:         portalshortlink.ValidColumn,
 			referrallink.Table:            referrallink.ValidColumn,
+			resellerapplication.Table:     resellerapplication.ValidColumn,
 			role.Table:                    role.ValidColumn,
 			rolepermission.Table:          rolepermission.ValidColumn,
 			session.Table:                 session.ValidColumn,

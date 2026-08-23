@@ -60,6 +60,8 @@ type Tx struct {
 	PortalShortLink *PortalShortLinkClient
 	// ReferralLink is the client for interacting with the ReferralLink builders.
 	ReferralLink *ReferralLinkClient
+	// ResellerApplication is the client for interacting with the ResellerApplication builders.
+	ResellerApplication *ResellerApplicationClient
 	// Role is the client for interacting with the Role builders.
 	Role *RoleClient
 	// RolePermission is the client for interacting with the RolePermission builders.
@@ -237,6 +239,7 @@ func (tx *Tx) init() {
 	tx.PlatformBackupSetting = NewPlatformBackupSettingClient(tx.config)
 	tx.PortalShortLink = NewPortalShortLinkClient(tx.config)
 	tx.ReferralLink = NewReferralLinkClient(tx.config)
+	tx.ResellerApplication = NewResellerApplicationClient(tx.config)
 	tx.Role = NewRoleClient(tx.config)
 	tx.RolePermission = NewRolePermissionClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)

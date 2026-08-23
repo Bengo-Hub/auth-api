@@ -18,7 +18,7 @@ type LegalDocument struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement
+	// Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement, RESELLER_AGREEMENT=Certified Reseller & Partner Program agreement
 	DocType legaldocument.DocType `json:"doc_type,omitempty"`
 	// Version string e.g. v1.0, v2.1
 	Version string `json:"version,omitempty"`

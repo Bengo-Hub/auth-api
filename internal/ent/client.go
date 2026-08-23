@@ -40,6 +40,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/platformbackupsetting"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
+	"github.com/bengobox/auth-api/internal/ent/resellerapplication"
 	"github.com/bengobox/auth-api/internal/ent/role"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -106,6 +107,8 @@ type Client struct {
 	PortalShortLink *PortalShortLinkClient
 	// ReferralLink is the client for interacting with the ReferralLink builders.
 	ReferralLink *ReferralLinkClient
+	// ResellerApplication is the client for interacting with the ResellerApplication builders.
+	ResellerApplication *ResellerApplicationClient
 	// Role is the client for interacting with the Role builders.
 	Role *RoleClient
 	// RolePermission is the client for interacting with the RolePermission builders.
@@ -163,6 +166,7 @@ func (c *Client) init() {
 	c.PlatformBackupSetting = NewPlatformBackupSettingClient(c.config)
 	c.PortalShortLink = NewPortalShortLinkClient(c.config)
 	c.ReferralLink = NewReferralLinkClient(c.config)
+	c.ResellerApplication = NewResellerApplicationClient(c.config)
 	c.Role = NewRoleClient(c.config)
 	c.RolePermission = NewRolePermissionClient(c.config)
 	c.Session = NewSessionClient(c.config)
@@ -290,6 +294,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PlatformBackupSetting:   NewPlatformBackupSettingClient(cfg),
 		PortalShortLink:         NewPortalShortLinkClient(cfg),
 		ReferralLink:            NewReferralLinkClient(cfg),
+		ResellerApplication:     NewResellerApplicationClient(cfg),
 		Role:                    NewRoleClient(cfg),
 		RolePermission:          NewRolePermissionClient(cfg),
 		Session:                 NewSessionClient(cfg),
@@ -344,6 +349,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PlatformBackupSetting:   NewPlatformBackupSettingClient(cfg),
 		PortalShortLink:         NewPortalShortLinkClient(cfg),
 		ReferralLink:            NewReferralLinkClient(cfg),
+		ResellerApplication:     NewResellerApplicationClient(cfg),
 		Role:                    NewRoleClient(cfg),
 		RolePermission:          NewRolePermissionClient(cfg),
 		Session:                 NewSessionClient(cfg),
@@ -389,9 +395,10 @@ func (c *Client) Use(hooks ...Hook) {
 		c.IntegrationRequest, c.LegalAcceptance, c.LegalDocument, c.LoginAttempt,
 		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
 		c.Outlet, c.PasswordPolicy, c.PasswordResetToken, c.Permission,
-		c.PlatformBackupSetting, c.PortalShortLink, c.ReferralLink, c.Role,
-		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserEmail, c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
+		c.PlatformBackupSetting, c.PortalShortLink, c.ReferralLink,
+		c.ResellerApplication, c.Role, c.RolePermission, c.Session, c.Tenant,
+		c.TenantMembership, c.UsageMetric, c.User, c.UserEmail, c.UserIdentity,
+		c.UserPhone, c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -406,9 +413,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.IntegrationRequest, c.LegalAcceptance, c.LegalDocument, c.LoginAttempt,
 		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
 		c.Outlet, c.PasswordPolicy, c.PasswordResetToken, c.Permission,
-		c.PlatformBackupSetting, c.PortalShortLink, c.ReferralLink, c.Role,
-		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserEmail, c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
+		c.PlatformBackupSetting, c.PortalShortLink, c.ReferralLink,
+		c.ResellerApplication, c.Role, c.RolePermission, c.Session, c.Tenant,
+		c.TenantMembership, c.UsageMetric, c.User, c.UserEmail, c.UserIdentity,
+		c.UserPhone, c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -465,6 +473,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PortalShortLink.mutate(ctx, m)
 	case *ReferralLinkMutation:
 		return c.ReferralLink.mutate(ctx, m)
+	case *ResellerApplicationMutation:
+		return c.ResellerApplication.mutate(ctx, m)
 	case *RoleMutation:
 		return c.Role.mutate(ctx, m)
 	case *RolePermissionMutation:
@@ -3764,6 +3774,139 @@ func (c *ReferralLinkClient) mutate(ctx context.Context, m *ReferralLinkMutation
 	}
 }
 
+// ResellerApplicationClient is a client for the ResellerApplication schema.
+type ResellerApplicationClient struct {
+	config
+}
+
+// NewResellerApplicationClient returns a client for the ResellerApplication from the given config.
+func NewResellerApplicationClient(c config) *ResellerApplicationClient {
+	return &ResellerApplicationClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `resellerapplication.Hooks(f(g(h())))`.
+func (c *ResellerApplicationClient) Use(hooks ...Hook) {
+	c.hooks.ResellerApplication = append(c.hooks.ResellerApplication, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `resellerapplication.Intercept(f(g(h())))`.
+func (c *ResellerApplicationClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ResellerApplication = append(c.inters.ResellerApplication, interceptors...)
+}
+
+// Create returns a builder for creating a ResellerApplication entity.
+func (c *ResellerApplicationClient) Create() *ResellerApplicationCreate {
+	mutation := newResellerApplicationMutation(c.config, OpCreate)
+	return &ResellerApplicationCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ResellerApplication entities.
+func (c *ResellerApplicationClient) CreateBulk(builders ...*ResellerApplicationCreate) *ResellerApplicationCreateBulk {
+	return &ResellerApplicationCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ResellerApplicationClient) MapCreateBulk(slice any, setFunc func(*ResellerApplicationCreate, int)) *ResellerApplicationCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ResellerApplicationCreateBulk{err: fmt.Errorf("calling to ResellerApplicationClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ResellerApplicationCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ResellerApplicationCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ResellerApplication.
+func (c *ResellerApplicationClient) Update() *ResellerApplicationUpdate {
+	mutation := newResellerApplicationMutation(c.config, OpUpdate)
+	return &ResellerApplicationUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ResellerApplicationClient) UpdateOne(_m *ResellerApplication) *ResellerApplicationUpdateOne {
+	mutation := newResellerApplicationMutation(c.config, OpUpdateOne, withResellerApplication(_m))
+	return &ResellerApplicationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ResellerApplicationClient) UpdateOneID(id uuid.UUID) *ResellerApplicationUpdateOne {
+	mutation := newResellerApplicationMutation(c.config, OpUpdateOne, withResellerApplicationID(id))
+	return &ResellerApplicationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ResellerApplication.
+func (c *ResellerApplicationClient) Delete() *ResellerApplicationDelete {
+	mutation := newResellerApplicationMutation(c.config, OpDelete)
+	return &ResellerApplicationDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ResellerApplicationClient) DeleteOne(_m *ResellerApplication) *ResellerApplicationDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ResellerApplicationClient) DeleteOneID(id uuid.UUID) *ResellerApplicationDeleteOne {
+	builder := c.Delete().Where(resellerapplication.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ResellerApplicationDeleteOne{builder}
+}
+
+// Query returns a query builder for ResellerApplication.
+func (c *ResellerApplicationClient) Query() *ResellerApplicationQuery {
+	return &ResellerApplicationQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeResellerApplication},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ResellerApplication entity by its id.
+func (c *ResellerApplicationClient) Get(ctx context.Context, id uuid.UUID) (*ResellerApplication, error) {
+	return c.Query().Where(resellerapplication.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ResellerApplicationClient) GetX(ctx context.Context, id uuid.UUID) *ResellerApplication {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ResellerApplicationClient) Hooks() []Hook {
+	return c.hooks.ResellerApplication
+}
+
+// Interceptors returns the client interceptors.
+func (c *ResellerApplicationClient) Interceptors() []Interceptor {
+	return c.inters.ResellerApplication
+}
+
+func (c *ResellerApplicationClient) mutate(ctx context.Context, m *ResellerApplicationMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ResellerApplicationCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ResellerApplicationUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ResellerApplicationUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ResellerApplicationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ResellerApplication mutation op: %q", m.Op())
+	}
+}
+
 // RoleClient is a client for the Role schema.
 type RoleClient struct {
 	config
@@ -5555,9 +5698,9 @@ type (
 		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
 		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
 		PasswordPolicy, PasswordResetToken, Permission, PlatformBackupSetting,
-		PortalShortLink, ReferralLink, Role, RolePermission, Session, Tenant,
-		TenantMembership, UsageMetric, User, UserEmail, UserIdentity, UserPhone,
-		WebAuthnCredential []ent.Hook
+		PortalShortLink, ReferralLink, ResellerApplication, Role, RolePermission,
+		Session, Tenant, TenantMembership, UsageMetric, User, UserEmail, UserIdentity,
+		UserPhone, WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
@@ -5565,8 +5708,8 @@ type (
 		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
 		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
 		PasswordPolicy, PasswordResetToken, Permission, PlatformBackupSetting,
-		PortalShortLink, ReferralLink, Role, RolePermission, Session, Tenant,
-		TenantMembership, UsageMetric, User, UserEmail, UserIdentity, UserPhone,
-		WebAuthnCredential []ent.Interceptor
+		PortalShortLink, ReferralLink, ResellerApplication, Role, RolePermission,
+		Session, Tenant, TenantMembership, UsageMetric, User, UserEmail, UserIdentity,
+		UserPhone, WebAuthnCredential []ent.Interceptor
 	}
 )

@@ -30,7 +30,7 @@ func (LegalAcceptance) Fields() []ent.Field {
 			Comment("Whether entity_id refers to a tenant or a user"),
 
 		field.Enum("doc_type").
-			Values("EPA", "MSA", "DPA"),
+			Values("EPA", "MSA", "DPA", "RESELLER_AGREEMENT"),
 
 		field.String("doc_version").
 			NotEmpty().

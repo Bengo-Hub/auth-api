@@ -81,6 +81,16 @@ func IsDemo(v bool) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldIsDemo, v))
 }
 
+// IsReseller applies equality check predicate on the "is_reseller" field. It's identical to IsResellerEQ.
+func IsReseller(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldIsReseller, v))
+}
+
+// ManagedByResellerTenantID applies equality check predicate on the "managed_by_reseller_tenant_id" field. It's identical to ManagedByResellerTenantIDEQ.
+func ManagedByResellerTenantID(v uuid.UUID) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldManagedByResellerTenantID, v))
+}
+
 // ContactEmail applies equality check predicate on the "contact_email" field. It's identical to ContactEmailEQ.
 func ContactEmail(v string) predicate.Tenant {
 	return predicate.Tenant(sql.FieldEQ(FieldContactEmail, v))
@@ -379,6 +389,66 @@ func IsDemoEQ(v bool) predicate.Tenant {
 // IsDemoNEQ applies the NEQ predicate on the "is_demo" field.
 func IsDemoNEQ(v bool) predicate.Tenant {
 	return predicate.Tenant(sql.FieldNEQ(FieldIsDemo, v))
+}
+
+// IsResellerEQ applies the EQ predicate on the "is_reseller" field.
+func IsResellerEQ(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldIsReseller, v))
+}
+
+// IsResellerNEQ applies the NEQ predicate on the "is_reseller" field.
+func IsResellerNEQ(v bool) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNEQ(FieldIsReseller, v))
+}
+
+// ManagedByResellerTenantIDEQ applies the EQ predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDEQ(v uuid.UUID) predicate.Tenant {
+	return predicate.Tenant(sql.FieldEQ(FieldManagedByResellerTenantID, v))
+}
+
+// ManagedByResellerTenantIDNEQ applies the NEQ predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDNEQ(v uuid.UUID) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNEQ(FieldManagedByResellerTenantID, v))
+}
+
+// ManagedByResellerTenantIDIn applies the In predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDIn(vs ...uuid.UUID) predicate.Tenant {
+	return predicate.Tenant(sql.FieldIn(FieldManagedByResellerTenantID, vs...))
+}
+
+// ManagedByResellerTenantIDNotIn applies the NotIn predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDNotIn(vs ...uuid.UUID) predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotIn(FieldManagedByResellerTenantID, vs...))
+}
+
+// ManagedByResellerTenantIDGT applies the GT predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDGT(v uuid.UUID) predicate.Tenant {
+	return predicate.Tenant(sql.FieldGT(FieldManagedByResellerTenantID, v))
+}
+
+// ManagedByResellerTenantIDGTE applies the GTE predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDGTE(v uuid.UUID) predicate.Tenant {
+	return predicate.Tenant(sql.FieldGTE(FieldManagedByResellerTenantID, v))
+}
+
+// ManagedByResellerTenantIDLT applies the LT predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDLT(v uuid.UUID) predicate.Tenant {
+	return predicate.Tenant(sql.FieldLT(FieldManagedByResellerTenantID, v))
+}
+
+// ManagedByResellerTenantIDLTE applies the LTE predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDLTE(v uuid.UUID) predicate.Tenant {
+	return predicate.Tenant(sql.FieldLTE(FieldManagedByResellerTenantID, v))
+}
+
+// ManagedByResellerTenantIDIsNil applies the IsNil predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDIsNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldIsNull(FieldManagedByResellerTenantID))
+}
+
+// ManagedByResellerTenantIDNotNil applies the NotNil predicate on the "managed_by_reseller_tenant_id" field.
+func ManagedByResellerTenantIDNotNil() predicate.Tenant {
+	return predicate.Tenant(sql.FieldNotNull(FieldManagedByResellerTenantID))
 }
 
 // ContactEmailEQ applies the EQ predicate on the "contact_email" field.

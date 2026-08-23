@@ -25,6 +25,10 @@ const (
 	FieldSubscriptionExempt = "subscription_exempt"
 	// FieldIsDemo holds the string denoting the is_demo field in the database.
 	FieldIsDemo = "is_demo"
+	// FieldIsReseller holds the string denoting the is_reseller field in the database.
+	FieldIsReseller = "is_reseller"
+	// FieldManagedByResellerTenantID holds the string denoting the managed_by_reseller_tenant_id field in the database.
+	FieldManagedByResellerTenantID = "managed_by_reseller_tenant_id"
 	// FieldContactEmail holds the string denoting the contact_email field in the database.
 	FieldContactEmail = "contact_email"
 	// FieldContactPhone holds the string denoting the contact_phone field in the database.
@@ -97,6 +101,8 @@ var Columns = []string{
 	FieldStatus,
 	FieldSubscriptionExempt,
 	FieldIsDemo,
+	FieldIsReseller,
+	FieldManagedByResellerTenantID,
 	FieldContactEmail,
 	FieldContactPhone,
 	FieldLogoURL,
@@ -141,6 +147,8 @@ var (
 	DefaultSubscriptionExempt bool
 	// DefaultIsDemo holds the default value on creation for the "is_demo" field.
 	DefaultIsDemo bool
+	// DefaultIsReseller holds the default value on creation for the "is_reseller" field.
+	DefaultIsReseller bool
 	// DefaultCountry holds the default value on creation for the "country" field.
 	DefaultCountry string
 	// DefaultTimezone holds the default value on creation for the "timezone" field.
@@ -188,6 +196,16 @@ func BySubscriptionExempt(opts ...sql.OrderTermOption) OrderOption {
 // ByIsDemo orders the results by the is_demo field.
 func ByIsDemo(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIsDemo, opts...).ToFunc()
+}
+
+// ByIsReseller orders the results by the is_reseller field.
+func ByIsReseller(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsReseller, opts...).ToFunc()
+}
+
+// ByManagedByResellerTenantID orders the results by the managed_by_reseller_tenant_id field.
+func ByManagedByResellerTenantID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldManagedByResellerTenantID, opts...).ToFunc()
 }
 
 // ByContactEmail orders the results by the contact_email field.

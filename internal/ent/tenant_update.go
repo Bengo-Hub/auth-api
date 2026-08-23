@@ -102,6 +102,40 @@ func (_u *TenantUpdate) SetNillableIsDemo(v *bool) *TenantUpdate {
 	return _u
 }
 
+// SetIsReseller sets the "is_reseller" field.
+func (_u *TenantUpdate) SetIsReseller(v bool) *TenantUpdate {
+	_u.mutation.SetIsReseller(v)
+	return _u
+}
+
+// SetNillableIsReseller sets the "is_reseller" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableIsReseller(v *bool) *TenantUpdate {
+	if v != nil {
+		_u.SetIsReseller(*v)
+	}
+	return _u
+}
+
+// SetManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field.
+func (_u *TenantUpdate) SetManagedByResellerTenantID(v uuid.UUID) *TenantUpdate {
+	_u.mutation.SetManagedByResellerTenantID(v)
+	return _u
+}
+
+// SetNillableManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field if the given value is not nil.
+func (_u *TenantUpdate) SetNillableManagedByResellerTenantID(v *uuid.UUID) *TenantUpdate {
+	if v != nil {
+		_u.SetManagedByResellerTenantID(*v)
+	}
+	return _u
+}
+
+// ClearManagedByResellerTenantID clears the value of the "managed_by_reseller_tenant_id" field.
+func (_u *TenantUpdate) ClearManagedByResellerTenantID() *TenantUpdate {
+	_u.mutation.ClearManagedByResellerTenantID()
+	return _u
+}
+
 // SetContactEmail sets the "contact_email" field.
 func (_u *TenantUpdate) SetContactEmail(v string) *TenantUpdate {
 	_u.mutation.SetContactEmail(v)
@@ -611,6 +645,15 @@ func (_u *TenantUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.IsDemo(); ok {
 		_spec.SetField(tenant.FieldIsDemo, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.IsReseller(); ok {
+		_spec.SetField(tenant.FieldIsReseller, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ManagedByResellerTenantID(); ok {
+		_spec.SetField(tenant.FieldManagedByResellerTenantID, field.TypeUUID, value)
+	}
+	if _u.mutation.ManagedByResellerTenantIDCleared() {
+		_spec.ClearField(tenant.FieldManagedByResellerTenantID, field.TypeUUID)
+	}
 	if value, ok := _u.mutation.ContactEmail(); ok {
 		_spec.SetField(tenant.FieldContactEmail, field.TypeString, value)
 	}
@@ -907,6 +950,40 @@ func (_u *TenantUpdateOne) SetNillableIsDemo(v *bool) *TenantUpdateOne {
 	if v != nil {
 		_u.SetIsDemo(*v)
 	}
+	return _u
+}
+
+// SetIsReseller sets the "is_reseller" field.
+func (_u *TenantUpdateOne) SetIsReseller(v bool) *TenantUpdateOne {
+	_u.mutation.SetIsReseller(v)
+	return _u
+}
+
+// SetNillableIsReseller sets the "is_reseller" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableIsReseller(v *bool) *TenantUpdateOne {
+	if v != nil {
+		_u.SetIsReseller(*v)
+	}
+	return _u
+}
+
+// SetManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field.
+func (_u *TenantUpdateOne) SetManagedByResellerTenantID(v uuid.UUID) *TenantUpdateOne {
+	_u.mutation.SetManagedByResellerTenantID(v)
+	return _u
+}
+
+// SetNillableManagedByResellerTenantID sets the "managed_by_reseller_tenant_id" field if the given value is not nil.
+func (_u *TenantUpdateOne) SetNillableManagedByResellerTenantID(v *uuid.UUID) *TenantUpdateOne {
+	if v != nil {
+		_u.SetManagedByResellerTenantID(*v)
+	}
+	return _u
+}
+
+// ClearManagedByResellerTenantID clears the value of the "managed_by_reseller_tenant_id" field.
+func (_u *TenantUpdateOne) ClearManagedByResellerTenantID() *TenantUpdateOne {
+	_u.mutation.ClearManagedByResellerTenantID()
 	return _u
 }
 
@@ -1448,6 +1525,15 @@ func (_u *TenantUpdateOne) sqlSave(ctx context.Context) (_node *Tenant, err erro
 	}
 	if value, ok := _u.mutation.IsDemo(); ok {
 		_spec.SetField(tenant.FieldIsDemo, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.IsReseller(); ok {
+		_spec.SetField(tenant.FieldIsReseller, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ManagedByResellerTenantID(); ok {
+		_spec.SetField(tenant.FieldManagedByResellerTenantID, field.TypeUUID, value)
+	}
+	if _u.mutation.ManagedByResellerTenantIDCleared() {
+		_spec.ClearField(tenant.FieldManagedByResellerTenantID, field.TypeUUID)
 	}
 	if value, ok := _u.mutation.ContactEmail(); ok {
 		_spec.SetField(tenant.FieldContactEmail, field.TypeString, value)

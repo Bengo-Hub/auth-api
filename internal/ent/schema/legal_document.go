@@ -11,7 +11,8 @@ import (
 
 // LegalDocument stores the current and historical versions of platform legal documents.
 // Covered types: EPA (Equity Participation Agreement), MSA (Master Services Agreement),
-// DPA (Data Processing Agreement) — governed by Kenya Companies Act 2015 and DPA 2019.
+// DPA (Data Processing Agreement), RESELLER_AGREEMENT (Certified Reseller & Partner
+// Program agreement) — governed by Kenya Companies Act 2015 and DPA 2019.
 type LegalDocument struct {
 	ent.Schema
 }
@@ -23,8 +24,8 @@ func (LegalDocument) Fields() []ent.Field {
 			Immutable(),
 
 		field.Enum("doc_type").
-			Values("EPA", "MSA", "DPA").
-			Comment("Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement"),
+			Values("EPA", "MSA", "DPA", "RESELLER_AGREEMENT").
+			Comment("Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement, RESELLER_AGREEMENT=Certified Reseller & Partner Program agreement"),
 
 		field.String("version").
 			NotEmpty().
