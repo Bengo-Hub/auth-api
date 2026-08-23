@@ -203,8 +203,12 @@ func TestBackupHandler_RejectsNonPlatformOwner(t *testing.T) {
 // authenticated member of a tenant (even a cashier with zero elevated permissions)
 // could create and manage Apps (self-serve API credentials) for that tenant, despite
 // CreateApp's own comment claiming "tenant apps require admin+". hasTenantDeveloperRole
-// mirrors auth-ui's DashboardSidebar.tsx DEVELOPER_PORTAL_ROLES; these tests assert the
+// mirrors auth-ui's useDashboardNav.ts DEVELOPER_PORTAL_ROLES; these tests assert the
 // fix and must fail loudly if the missing-check regresses.
+//
+// Deliberately just "developer" — a bare tenant admin/owner/superuser role string must
+// NOT qualify on its own (explicit product decision: these are ordinary TenantMembership
+// roles, tenant-scoped, never to be confused with actual platform admin/superuser status).
 
 func TestHasTenantDeveloperRole(t *testing.T) {
 	cases := []struct {
@@ -212,10 +216,10 @@ func TestHasTenantDeveloperRole(t *testing.T) {
 		roles []string
 		want  bool
 	}{
-		{"admin qualifies", []string{"admin"}, true},
-		{"owner qualifies", []string{"owner"}, true},
-		{"superuser qualifies", []string{"superuser"}, true},
 		{"developer qualifies", []string{"developer"}, true},
+		{"bare admin role does not qualify (tenant-scoped, not platform)", []string{"admin"}, false},
+		{"bare owner role does not qualify", []string{"owner"}, false},
+		{"bare superuser role does not qualify", []string{"superuser"}, false},
 		{"member alone does not qualify", []string{"member"}, false},
 		{"cashier alone does not qualify", []string{"cashier"}, false},
 		{"empty roles does not qualify", []string{}, false},
@@ -245,6 +249,26 @@ func TestAppHandler_CreateApp_RejectsTenantMemberWithoutDeveloperRole(t *testing
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("CreateApp with bare 'member' role: status = %d, want %d (a plain tenant member must not be able to mint Apps)", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestAppHandler_CreateApp_RejectsBareTenantAdminRole(t *testing.T) {
+	h := &AppHandler{}
+	// A bare "admin" TenantMembership role (an ordinary tenant's own admin, not a platform
+	// admin — claims.IsPlatformOwner is false here) must NOT be treated as sufficient. Only an
+	// explicitly-granted "developer" role, or platform ownership, qualifies.
+	tenantAdmin := &token.Claims{
+		Roles:    []string{"admin"},
+		TenantID: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/apps", strings.NewReader(`{"name":"a-tenant-app"}`))
+	req = req.WithContext(authmiddleware.ContextWithClaims(req.Context(), tenantAdmin))
+	h.CreateApp(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("CreateApp with bare tenant 'admin' role: status = %d, want %d (a tenant admin without the 'developer' role must not be able to mint Apps)", rec.Code, http.StatusForbidden)
 	}
 }
 
