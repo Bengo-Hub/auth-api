@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
@@ -194,6 +195,68 @@ func TestBackupHandler_RejectsNonPlatformOwner(t *testing.T) {
 				t.Errorf("%s: status = %d, want %d (non-platform-owner must be rejected)", tc.name, rec.Code, http.StatusForbidden)
 			}
 		})
+	}
+}
+
+// AppHandler's tenant App CRUD (Create/List/Get/Update/RotateToken/Revoke/Delete/
+// Suspend/Resume) previously had NO role check at all for tenant-type apps — any
+// authenticated member of a tenant (even a cashier with zero elevated permissions)
+// could create and manage Apps (self-serve API credentials) for that tenant, despite
+// CreateApp's own comment claiming "tenant apps require admin+". hasTenantDeveloperRole
+// mirrors auth-ui's DashboardSidebar.tsx DEVELOPER_PORTAL_ROLES; these tests assert the
+// fix and must fail loudly if the missing-check regresses.
+
+func TestHasTenantDeveloperRole(t *testing.T) {
+	cases := []struct {
+		name  string
+		roles []string
+		want  bool
+	}{
+		{"admin qualifies", []string{"admin"}, true},
+		{"owner qualifies", []string{"owner"}, true},
+		{"superuser qualifies", []string{"superuser"}, true},
+		{"developer qualifies", []string{"developer"}, true},
+		{"member alone does not qualify", []string{"member"}, false},
+		{"cashier alone does not qualify", []string{"cashier"}, false},
+		{"empty roles does not qualify", []string{}, false},
+		{"nil roles does not qualify", nil, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			claims := &token.Claims{Roles: c.roles}
+			if got := hasTenantDeveloperRole(claims); got != c.want {
+				t.Errorf("hasTenantDeveloperRole(%v) = %v, want %v", c.roles, got, c.want)
+			}
+		})
+	}
+}
+
+func TestAppHandler_CreateApp_RejectsTenantMemberWithoutDeveloperRole(t *testing.T) {
+	h := &AppHandler{}
+	member := &token.Claims{
+		Roles:    []string{"member"},
+		TenantID: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/apps", strings.NewReader(`{"name":"a-tenant-app"}`))
+	req = req.WithContext(authmiddleware.ContextWithClaims(req.Context(), member))
+	h.CreateApp(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("CreateApp with bare 'member' role: status = %d, want %d (a plain tenant member must not be able to mint Apps)", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestAppHandler_ListApps_RejectsTenantMemberWithoutDeveloperRole(t *testing.T) {
+	h := &AppHandler{}
+	cashier := &token.Claims{Roles: []string{"cashier"}, TenantID: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"}
+
+	rec := httptest.NewRecorder()
+	h.ListApps(rec, reqWithClaims(cashier))
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("ListApps with bare 'cashier' role: status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 }
 

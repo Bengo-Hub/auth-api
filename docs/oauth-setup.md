@@ -183,7 +183,7 @@ The `redirect_url` is computed from `cfg.Token.Issuer`. The blob is encrypted at
 
 ### Option B — Configure via auth-ui admin
 
-After deploying auth-api with dummy placeholder seeds, any platform admin can open [https://accounts.codevertexafrica.com/dashboard/integrations](https://accounts.codevertexafrica.com/dashboard/integrations), select the provider, and paste in the real client_id/client_secret/redirect_url. The UI calls `POST /api/v1/admin/integrations` which updates the same `IntegrationConfig` row.
+After deploying auth-api with dummy placeholder seeds, any platform admin can open [https://accounts.codevertexafrica.com/dashboard/developer/integrations](https://accounts.codevertexafrica.com/dashboard/developer/integrations), select the provider, and paste in the real client_id/client_secret/redirect_url. The UI calls `POST /api/v1/admin/integrations` which updates the same `IntegrationConfig` row.
 
 ---
 

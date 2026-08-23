@@ -118,6 +118,31 @@ func requirePlatformAdmin(claims *token.Claims) bool {
 	return claims.IsPlatformOwner
 }
 
+// tenantDeveloperRoles mirrors auth-ui's DashboardSidebar.tsx DEVELOPER_PORTAL_ROLES —
+// keep both lists in sync. These are ordinary TenantMembership role strings (tenant-scoped,
+// NOT platform-wide — see requirePlatformAdmin above for that distinction).
+var tenantDeveloperRoles = map[string]bool{
+	"admin":     true,
+	"owner":     true,
+	"superuser": true,
+	"developer": true,
+}
+
+// hasTenantDeveloperRole reports whether claims carry a tenant-scoped role entitled to
+// manage the caller's own tenant's Apps (Developer Portal). Does not check platform
+// ownership — callers must separately check requirePlatformAdmin for the platform-wide
+// bypass, matching every other access check in this file. Without this check, any
+// authenticated member of a tenant (even a cashier with zero elevated permissions) could
+// create/list/manage tenant Apps despite the "tenant apps require admin+" intent below.
+func hasTenantDeveloperRole(claims *token.Claims) bool {
+	for _, r := range claims.Roles {
+		if tenantDeveloperRoles[r] {
+			return true
+		}
+	}
+	return false
+}
+
 // reservedPlatformScopes are cross-tenant trust markers that must never appear on a
 // tenant-scoped app, no matter who creates it — a tenant app carrying one would be
 // functionally indistinguishable from the shared platform S2S credential
@@ -232,6 +257,10 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if appType == app.AppTypeTenant {
+		if !requirePlatformAdmin(claims) && !hasTenantDeveloperRole(claims) {
+			writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required to create tenant apps", nil)
+			return
+		}
 		if err := validateTenantAppScopes(req.Scopes); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_scope", err.Error(), nil)
 			return
@@ -317,6 +346,11 @@ func (h *AppHandler) ListApps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !requirePlatformAdmin(claims) && !hasTenantDeveloperRole(claims) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required", nil)
+		return
+	}
+
 	q := h.ent.App.Query()
 	if !requirePlatformAdmin(claims) {
 		// Tenant admins only see their own apps.
@@ -367,9 +401,15 @@ func (h *AppHandler) GetApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify access
-	if !requirePlatformAdmin(claims) && (a.TenantID == nil || a.TenantID.String() != claims.TenantID) {
-		writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
-		return
+	if !requirePlatformAdmin(claims) {
+		if a.TenantID == nil || a.TenantID.String() != claims.TenantID {
+			writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
+			return
+		}
+		if !hasTenantDeveloperRole(claims) {
+			writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required", nil)
+			return
+		}
 	}
 
 	writeJSON(w, http.StatusOK, appToResponse(a))
@@ -398,9 +438,15 @@ func (h *AppHandler) UpdateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get app", nil)
 		return
 	}
-	if !requirePlatformAdmin(claims) && (existing.TenantID == nil || existing.TenantID.String() != claims.TenantID) {
-		writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
-		return
+	if !requirePlatformAdmin(claims) {
+		if existing.TenantID == nil || existing.TenantID.String() != claims.TenantID {
+			writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
+			return
+		}
+		if !hasTenantDeveloperRole(claims) {
+			writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required", nil)
+			return
+		}
 	}
 
 	var req struct {
@@ -467,9 +513,15 @@ func (h *AppHandler) RotateToken(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get app", nil)
 		return
 	}
-	if !requirePlatformAdmin(claims) && (existing.TenantID == nil || existing.TenantID.String() != claims.TenantID) {
-		writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
-		return
+	if !requirePlatformAdmin(claims) {
+		if existing.TenantID == nil || existing.TenantID.String() != claims.TenantID {
+			writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
+			return
+		}
+		if !hasTenantDeveloperRole(claims) {
+			writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required", nil)
+			return
+		}
 	}
 
 	newToken, newPrefix, newHash, err := generateAppToken()
@@ -524,9 +576,15 @@ func (h *AppHandler) RevokeApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get app", nil)
 		return
 	}
-	if !requirePlatformAdmin(claims) && (existing.TenantID == nil || existing.TenantID.String() != claims.TenantID) {
-		writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
-		return
+	if !requirePlatformAdmin(claims) {
+		if existing.TenantID == nil || existing.TenantID.String() != claims.TenantID {
+			writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
+			return
+		}
+		if !hasTenantDeveloperRole(claims) {
+			writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required", nil)
+			return
+		}
 	}
 
 	var req struct {
@@ -581,10 +639,15 @@ func (h *AppHandler) DeleteApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "forbidden", "superuser required to delete platform apps", nil)
 		return
 	}
-	if existing.AppType == app.AppTypeTenant && !requirePlatformAdmin(claims) &&
-		(existing.TenantID == nil || existing.TenantID.String() != claims.TenantID) {
-		writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
-		return
+	if existing.AppType == app.AppTypeTenant && !requirePlatformAdmin(claims) {
+		if existing.TenantID == nil || existing.TenantID.String() != claims.TenantID {
+			writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
+			return
+		}
+		if !hasTenantDeveloperRole(claims) {
+			writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required", nil)
+			return
+		}
 	}
 
 	if err := h.ent.App.DeleteOneID(appID).Exec(r.Context()); err != nil {
@@ -618,9 +681,15 @@ func (h *AppHandler) SuspendApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get app", nil)
 		return
 	}
-	if !requirePlatformAdmin(claims) && (existing.TenantID == nil || existing.TenantID.String() != claims.TenantID) {
-		writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
-		return
+	if !requirePlatformAdmin(claims) {
+		if existing.TenantID == nil || existing.TenantID.String() != claims.TenantID {
+			writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
+			return
+		}
+		if !hasTenantDeveloperRole(claims) {
+			writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required", nil)
+			return
+		}
 	}
 	if existing.Status != app.StatusActive {
 		writeError(w, http.StatusConflict, "invalid_state", "only an active app can be suspended", nil)
@@ -657,9 +726,15 @@ func (h *AppHandler) ResumeApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get app", nil)
 		return
 	}
-	if !requirePlatformAdmin(claims) && (existing.TenantID == nil || existing.TenantID.String() != claims.TenantID) {
-		writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
-		return
+	if !requirePlatformAdmin(claims) {
+		if existing.TenantID == nil || existing.TenantID.String() != claims.TenantID {
+			writeError(w, http.StatusForbidden, "forbidden", "access denied", nil)
+			return
+		}
+		if !hasTenantDeveloperRole(claims) {
+			writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required", nil)
+			return
+		}
 	}
 	if existing.Status != app.StatusSuspended {
 		writeError(w, http.StatusConflict, "invalid_state", "only a suspended app can be resumed", nil)
