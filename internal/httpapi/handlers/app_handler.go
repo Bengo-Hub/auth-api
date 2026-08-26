@@ -796,6 +796,20 @@ func (h *AppHandler) PromoteToProduction(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	h.logger.Info("app promoted to production", zap.String("app_id", appID.String()), zap.String("promoted_by", claims.Subject))
+	// Publish auth.app.promoted_to_production so subscriptions-api can auto-provision a zero-
+	// balance ApiTokenWallet for this tenant+service (see subscriptions-api's app_promotion
+	// consumer) — closes the "nothing wires an approved integrator into billing" gap: without
+	// this, a promoted App had no wallet row at all until an admin manually created a
+	// subscription. A tenant-less (platform) App has nothing to provision, so only publish when
+	// TenantID is set.
+	if updated.TenantID != nil {
+		writeOutboxEvent(r.Context(), h.ent, h.logger, *updated.TenantID, "auth.app", updated.ID, "promoted_to_production", map[string]any{
+			"app_id":      updated.ID.String(),
+			"tenant_id":   updated.TenantID.String(),
+			"scopes":      updated.Scopes,
+			"environment": string(updated.Environment),
+		})
+	}
 	writeJSON(w, http.StatusOK, appToResponse(updated))
 }
 
