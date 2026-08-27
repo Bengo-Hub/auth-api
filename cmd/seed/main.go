@@ -96,6 +96,14 @@ func main() {
 		log.Printf("⚠️  seed erp demo staff: %v", err)
 	}
 
+	// 6c. Seed a small curated set of TruLoad commercial-weighing demo staff under
+	// codevertex-demo. admin@demo.codevertexafrica.com (seeded above) already covers the
+	// commercial tenant-admin role; truload-backend's own seeder assigns the real local
+	// TruLoad role by matching on email.
+	if err := seedTruLoadDemoStaff(ctx, client, hasher, demoTenant); err != nil {
+		log.Printf("⚠️  seed truload demo staff: %v", err)
+	}
+
 	// 7. Seed KURA admin (index 2)
 	if err := seedKURAAdmin(ctx, client, hasher, tenantEntities[2]); err != nil {
 		log.Printf("⚠️  seed kura admin: %v", err)

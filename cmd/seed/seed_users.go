@@ -352,6 +352,89 @@ func seedERPDemoStaff(ctx context.Context, client *ent.Client, hasher *password.
 	return nil
 }
 
+// truloadDemoStaffSpec mirrors erpDemoStaffSpec's shape. Unlike ERP, truload-backend is a
+// separate .NET service with its OWN local role catalogue (Commercial Weighing Manager/
+// Supervisor/Operator/Finance/Auditor) — it does not JIT-map a global auth-api role the way
+// erp-api's authmanagement/sso.py does. The "role" field here is informational/for-display only
+// today; truload-backend's own UserSeeder.cs (SeedCommercialDemoTenantAdminAsync/
+// SeedCommercialDemoStaffAsync) assigns the real local TruLoad role by matching on email.
+type truloadDemoStaffSpec struct {
+	email string
+	name  string
+	role  string
+}
+
+// truloadDemoStaff lists a small CURATED set of commercial-weighing demo staff under
+// codevertex-demo — deliberately not a full role roster (mirrors erpDemoStaff's one-per-role
+// convention, scaled down since truload's commercial use case only needs a couple of working
+// demo logins beyond the tenant admin). admin@demo.codevertexafrica.com already covers the
+// Commercial Weighing Manager/tenant-admin role via seedDemoTenantAdmin — not duplicated here.
+// Enforcement-side demo staff are deliberately NOT seeded here (out of scope, see
+// .claude/memory/truload-commercial-billing-platform-owner-demo-cleanup-2026-08-27.md).
+var truloadDemoStaff = []truloadDemoStaffSpec{
+	{"commercial.operator@demo.codevertexafrica.com", "Demo Weighbridge Operator", "commercial_weighing_operator"},
+	{"commercial.finance@demo.codevertexafrica.com", "Demo Finance Officer", "commercial_finance"},
+}
+
+// seedTruLoadDemoStaff seeds the curated commercial-weighing demo staff above under
+// codevertex-demo. Same idempotent create-or-find + membership + outbox-event pattern as
+// seedERPDemoStaff, without POS PIN/outlet scope (truload users are not POS terminal operators).
+func seedTruLoadDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Hasher, demoTenant *tenantRef) error {
+	log.Println("Seeding TruLoad commercial-weighing demo staff under codevertex-demo...")
+	demoStaffPassword := os.Getenv("SEED_DEMO_STAFF_PASSWORD")
+	if demoStaffPassword == "" {
+		demoStaffPassword = "DemoStaff2024!"
+	}
+
+	for _, s := range truloadDemoStaff {
+		staffHash, hashErr := hasher.Hash(demoStaffPassword)
+		if hashErr != nil {
+			log.Printf("  ⚠️  hash password for %s: %v", s.email, hashErr)
+			continue
+		}
+		isNew := false
+		staffUser, createErr := client.User.Create().
+			SetEmail(s.email).
+			SetPasswordHash(staffHash).
+			SetStatus("active").
+			SetPrimaryTenantID(demoTenant.ID.String()).
+			SetProfile(map[string]any{
+				"name":       s.name,
+				"created_by": "seed",
+				"role":       s.role,
+			}).
+			Save(ctx)
+		if createErr != nil {
+			staffUser, createErr = client.User.Query().Where(user.EmailEQ(s.email)).Only(ctx)
+			if createErr != nil {
+				log.Printf("  ⚠️  seed truload demo staff %s: %v", s.email, createErr)
+				continue
+			}
+			log.Printf("  ✓ TruLoad demo staff exists: %s (%s)", s.email, s.role)
+		} else {
+			isNew = true
+			log.Printf("  ✓ Created TruLoad demo staff: %s (%s)", s.email, s.role)
+		}
+
+		seedMembership(ctx, client, staffUser.ID, demoTenant.ID, demoTenant.Slug, s.role)
+
+		eventType := "updated"
+		if isNew {
+			eventType = "created"
+		}
+		publishSeedUserEvent(ctx, client, demoTenant.ID, staffUser.ID, map[string]any{
+			"user_id":     staffUser.ID.String(),
+			"email":       s.email,
+			"full_name":   s.name,
+			"tenant_id":   demoTenant.ID.String(),
+			"tenant_slug": demoTenant.Slug,
+			"roles":       []string{s.role},
+			"method":      "seed",
+		}, eventType)
+	}
+	return nil
+}
+
 // seedTenantStaffUsers seeds a generic staff user for every tenant.
 func seedTenantStaffUsers(ctx context.Context, client *ent.Client, hasher *password.Hasher, tenantEntities []*tenantRef) error {
 	log.Println("Seeding staff users for all tenants...")
