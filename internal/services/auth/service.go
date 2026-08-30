@@ -346,10 +346,15 @@ func defaultTrialPlan(useCase string, metadata map[string]any, selected string) 
 	// the modules that use case's dashboards actually need.
 	case "hospitality", "quick_service", "services", "food_delivery", "hotel", "restaurant", "bar", "cafe":
 		return "POWERSUITE_HOSP_BASIC"
-	case "retail", "grocery", "warehouse", "warehousing", "e_commerce", "ecommerce", "hardware":
+	case "retail", "grocery", "warehouse", "warehousing", "e_commerce", "ecommerce", "hardware", "agrovet":
 		return "POWERSUITE_DUKA_BASIC"
-	case "pharmacy", "chemist", "agrovet":
-		return "POWERSUITE_DAWA_BASIC"
+	case "pharmacy", "chemist":
+		// The DAWA family (subscriptions-api cmd/seed/bundles.go) was retired 2026-08-29 —
+		// pos-api carries no pharmacy use case any more. A pharmacy/chemist tenant's real
+		// successor is hospital-service's own AFYA_CHEMIST tier (a different product family,
+		// service_tag "hospital"): CreateTrialSubscription resolves facility_type="chemist"
+		// automatically from the plan's own metadata, no extra plumbing needed here.
+		return "AFYA_CHEMIST"
 	default:
 		return "STARTER"
 	}
