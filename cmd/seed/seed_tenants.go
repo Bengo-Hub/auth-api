@@ -209,6 +209,11 @@ type outletDef struct {
 	isHQ    bool
 	address string
 	pinMsg  string
+	// metadata carries additive, outlet-specific hints downstream services already sync via the
+	// existing generic Outlet.metadata JSON field (no schema change here) — e.g. hospital-api
+	// reads metadata["facility_type"] to resolve which Afya tier's nav to show for this outlet,
+	// same mechanism as the existing address/contact_* keys it already reads from here.
+	metadata map[string]any
 }
 
 // outletsByTenant defines the outlets to seed per tenant slug.
@@ -244,12 +249,28 @@ var outletsByTenant = map[string][]outletDef{
 			address: "Demo Health Centre, Upper Hill, Nairobi",
 			pinMsg:  "Welcome to Demo Health Pharmacy — verify prescriptions at counter",
 		},
-		// Hospital/clinic outlet — Codevertex Afya (consultation, lab, pharmacy, billing)
+		// Hospital/clinic outlet — Codevertex Afya (consultation, lab, pharmacy, billing).
+		// No facility_type metadata set: this is the full-tier showcase outlet (hospital-ui's
+		// useFacilityType() falls back to 'hospital', the richest tier, when an outlet has none
+		// set), kept deliberately unclassified so it stays useful for full-feature sales demos.
 		{
 			slug: "demo-hospital", code: "AFYA",
 			name: "Demo Afya Clinic", useCase: "hospital", isHQ: false,
 			address: "Demo Health Centre, Upper Hill, Nairobi",
 			pinMsg:  "Welcome to Demo Afya Clinic — verify patient identity before opening a chart",
+		},
+		// Chemist outlet — Codevertex Afya's standalone Chemist tier (walk-in OTC sale +
+		// dispense-against-external-prescription only, typically a 1-2-person shop; see
+		// hospital-ui's facility-nomenclature.ts CHEMIST_MODULES). Same use_case ("hospital", so
+		// hospital-api's HospitalAcceptedUseCases sync still picks it up) as demo-hospital, but
+		// distinguished by facility_type in metadata — a SECOND outlet under the SAME tenant,
+		// not a second demo tenant, per the fleet's one-demo-tenant convention.
+		{
+			slug: "demo-chemist", code: "AFYAC",
+			name: "Demo Chemist Shop", useCase: "hospital", isHQ: false,
+			address: "Demo Estate Road, Kasarani, Nairobi",
+			pinMsg:  "Welcome to Demo Chemist Shop — ring up a walk-in sale from Pharmacy",
+			metadata: map[string]any{"facility_type": "chemist"},
 		},
 		// Services outlet — salon, spa, appointments
 		{
@@ -342,6 +363,9 @@ func seedOutletsForTenant(ctx context.Context, client *ent.Client, tenantID uuid
 				if d.pinMsg != "" {
 					upd = upd.SetNillablePinLoginMessage(&d.pinMsg)
 				}
+				if len(d.metadata) > 0 {
+					upd = upd.SetMetadata(d.metadata)
+				}
 			} else {
 				// Backfill only when unset.
 				if existing.Name == "" {
@@ -352,6 +376,9 @@ func seedOutletsForTenant(ctx context.Context, client *ent.Client, tenantID uuid
 				}
 				if existing.PinLoginMessage == nil && d.pinMsg != "" {
 					upd = upd.SetNillablePinLoginMessage(&d.pinMsg)
+				}
+				if len(existing.Metadata) == 0 && len(d.metadata) > 0 {
+					upd = upd.SetMetadata(d.metadata)
 				}
 			}
 			if _, err2 := upd.Save(ctx); err2 != nil {
@@ -378,6 +405,9 @@ func seedOutletsForTenant(ctx context.Context, client *ent.Client, tenantID uuid
 		}
 		if d.pinMsg != "" {
 			create = create.SetNillablePinLoginMessage(&d.pinMsg)
+		}
+		if len(d.metadata) > 0 {
+			create = create.SetMetadata(d.metadata)
 		}
 		if _, err2 := create.Save(ctx); err2 != nil {
 			return fmt.Errorf("create outlet %s/%s: %w", tenantSlug, d.slug, err2)

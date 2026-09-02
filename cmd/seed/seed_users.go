@@ -153,13 +153,21 @@ var demoStaff = []demoStaffSpec{
 	// Codevertex Afya (hospital-service) clinical staff — SSO-only (no POS PIN), scoped
 	// to demo-hospital. Distinct emails from pos-api's own pharmacist@demo above (this is
 	// an additive, hospital-service-scoped identity set — pos-api's pharmacy demo data is
-	// untouched). Roles doctor/nurse registered in seed_roles_catalogue.go/seed_permissions.go;
-	// pharmacist/records_clerk already exist from pos-api's clinical seed.
+	// untouched). doctor/nurse/pharmacist/records_clerk are hospital-api's OWN local RBAC roles
+	// (rbac/seed.go), unrelated to pos-api's clinical module — that module (and its own
+	// pharmacist/records_clerk role rows) was decisively removed 2026-08-29; this comment
+	// previously (incorrectly) implied they still came from there.
 	{"doctor@demo.codevertexafrica.com", "Dr. Amina Otieno", "doctor", "", []string{"demo-hospital"}},
 	{"nurse@demo.codevertexafrica.com", "Nurse Faith Wanjiru", "nurse", "", []string{"demo-hospital"}},
 	{"pharmacist.afya@demo.codevertexafrica.com", "Demo Afya Pharmacist", "pharmacist", "", []string{"demo-hospital"}},
 	{"records@demo.codevertexafrica.com", "Demo Afya Records Clerk", "records_clerk", "", []string{"demo-hospital"}},
 	{"mgr.hospital@demo.codevertexafrica.com", "Demo Afya Clinic Manager", "manager", "", []string{"demo-hospital"}},
+
+	// Codevertex Afya Chemist tier — a standalone walk-in-sale/dispensing-only outlet
+	// (demo-chemist, distinct from demo-hospital), typically a real-world 1-2-person shop. One
+	// account, holding hospital-api's pharmacist role (already grants prescribe+dispense+
+	// collect_own — everything the New Sale flow needs solo), is enough to demo the whole thing.
+	{"pharmacist.chemist@demo.codevertexafrica.com", "Demo Chemist Pharmacist", "pharmacist", "", []string{"demo-chemist"}},
 }
 
 // seedDemoStaff seeds all demo staff users under the codevertex-demo tenant.
