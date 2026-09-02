@@ -214,9 +214,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// Allow all localhost origins for development
 			if origin == "http://localhost:3000" ||
 				origin == "http://localhost:3001" ||
+				origin == "http://localhost:3010" || // hospital-ui pins this port (avoids clashing with sibling UIs that default to 3000)
 				origin == "http://localhost:4101" ||
 				origin == "http://127.0.0.1:3000" ||
 				origin == "http://127.0.0.1:3001" ||
+				origin == "http://127.0.0.1:3010" ||
 				origin == "https://localhost:3000" ||
 				origin == "https://auth.codevertex.local:4101" {
 				return true
