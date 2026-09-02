@@ -145,6 +145,37 @@ func (h *OutletHandler) requireTenantAdmin(r *http.Request) bool {
 	return false
 }
 
+func (h *OutletHandler) isPlatformOwner(r *http.Request) bool {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	return ok && claims != nil && claims.IsPlatformOwner
+}
+
+// restrictFacilityTypeMetadata prevents an ordinary tenant admin from writing
+// metadata.facility_type on their own outlet. facility_type drives hospital-ui's whole
+// adaptive sidebar (which nav tier a login sees) and is meant to track what the tenant
+// actually subscribes to (hospital-api's own Outlet.facility_type schema comment: this field
+// is "NOT a licensing/feature-gating field — that stays the subscription plan's job", the flip
+// side of which is that IT must track the real plan, not be self-service). hospital-api's own
+// backend feature access stays correctly gated on the real subscription regardless
+// (subscriptions.RequireFeature reads the JWT's plan-derived feature list, never facility_type),
+// so this is a presentation-only exposure, not a security hole — but it is real: found live
+// 2026-09-02 that any tenant-admin-equivalent role (not just platform staff) could inflate their
+// own outlet's nav to a richer tier than they pay for by editing outlet metadata, with nothing
+// to stop or flag the mismatch. keepExisting is the outlet's CURRENT facility_type (empty string
+// on create, or the pre-update value) — re-applied after stripping the caller's attempted value so
+// SetMetadata's whole-map-replace semantics can't also silently wipe a value platform staff
+// legitimately set earlier.
+func restrictFacilityTypeMetadata(isPlatformOwnerCaller bool, metadata map[string]any, keepExisting string) {
+	if isPlatformOwnerCaller || metadata == nil {
+		return
+	}
+	if keepExisting != "" {
+		metadata["facility_type"] = keepExisting
+	} else {
+		delete(metadata, "facility_type")
+	}
+}
+
 // withOutletContacts merges the location/contact payload keys into an outlet event payload so
 // downstream mirrors (pos receipts, inventory) stay in sync: the physical address/location and
 // the freeform metadata — notably metadata.contact_phones, a list of {label, value} pairs
@@ -346,6 +377,7 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 		create = create.SetPinLoginMessage(req.PinLoginMessage)
 	}
 	if req.Metadata != nil {
+		restrictFacilityTypeMetadata(h.isPlatformOwner(r), req.Metadata, "")
 		create = create.SetMetadata(req.Metadata)
 	}
 
@@ -441,6 +473,8 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 		update = update.SetPinLoginMessage(req.PinLoginMessage)
 	}
 	if req.Metadata != nil {
+		existingFacilityType, _ := existing.Metadata["facility_type"].(string)
+		restrictFacilityTypeMetadata(h.isPlatformOwner(r), req.Metadata, existingFacilityType)
 		update = update.SetMetadata(req.Metadata)
 	}
 	update = update.SetIsHq(req.IsHQ)
