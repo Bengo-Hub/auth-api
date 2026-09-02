@@ -162,6 +162,13 @@ var demoStaff = []demoStaffSpec{
 	{"pharmacist.afya@demo.codevertexafrica.com", "Demo Afya Pharmacist", "pharmacist", "", []string{"demo-hospital"}},
 	{"records@demo.codevertexafrica.com", "Demo Afya Records Clerk", "records_clerk", "", []string{"demo-hospital"}},
 	{"mgr.hospital@demo.codevertexafrica.com", "Demo Afya Clinic Manager", "manager", "", []string{"demo-hospital"}},
+	// hospital-api's own RoleCashier (rbac/seed.go) — the universal billing-desk fallback that
+	// collects ANY department's charge (consultation fee, lab, pharmacy dispense, etc. — every
+	// one already posts a real BillableCharge via billing.PostCharge). Not to be confused with
+	// pos-api's retail "cashier@demo" below, a different role in a different service scoped to
+	// POS outlets, not demo-hospital. Added 2026-09-02 so this already-built role is actually
+	// demoable, not just correct in code nobody could reach from the login screen.
+	{"cashier.afya@demo.codevertexafrica.com", "Demo Afya Cashier", "cashier", "", []string{"demo-hospital"}},
 
 	// Codevertex Afya Chemist tier — a standalone walk-in-sale/dispensing-only outlet
 	// (demo-chemist, distinct from demo-hospital), typically a real-world 1-2-person shop. One
