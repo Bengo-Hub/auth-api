@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bengobox/auth-api/internal/ent"
@@ -774,33 +775,115 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	// token's tenant is the correct active context. Fall back to primary
 	// tenant, and only fall back further to the cross-tenant union when
 	// there is no active-tenant membership at all.
-	activeTenantIDStr := userEntity.PrimaryTenantID
+	// Captured once, before the goroutines below start: StartVerificationClock
+	// reassigns the userEntity variable itself (possibly concurrently), so
+	// anything reading userEntity's fields from another goroutine must use a
+	// snapshot taken before that point, not userEntity directly.
+	userPrimaryTenantID := userEntity.PrimaryTenantID
+	activeTenantIDStr := userPrimaryTenantID
 	if claims.TenantID != "" {
 		activeTenantIDStr = claims.TenantID
 	}
+
+	// The lookups below are independent of each other (each touches its own
+	// table, none reads another's result), so they run concurrently instead
+	// of as 6 sequential round trips -- this was the main contributor to
+	// slow/timing-out dashboard loads reported 2026-09-04. StartVerificationClock
+	// can write, but to a different row (this user's own) than anything the
+	// other 5 goroutines read, so there's no ordering hazard between them.
+	var wg sync.WaitGroup
 	var roles, permissions []string
-	if activeTenantUUID, parseErr := uuid.Parse(activeTenantIDStr); parseErr == nil {
-		roles, permissions, err = h.service.GetUserRolesAndPermissionsForTenant(r.Context(), userID, activeTenantUUID)
-	}
-	if len(roles) == 0 && len(permissions) == 0 {
-		var allRoles, allPermissions []string
-		allRoles, allPermissions, err = h.service.GetUserRolesAndPermissions(r.Context(), userID)
-		if len(roles) == 0 {
-			roles = allRoles
+	var rolesErr error
+	var isPlatformOwner bool
+	var mfaEnabled bool
+	var mfaErr error
+	var memberships []*ent.TenantMembership
+	var membershipsErr error
+	var activeTenant *ent.Tenant
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if activeTenantUUID, parseErr := uuid.Parse(activeTenantIDStr); parseErr == nil {
+			roles, permissions, rolesErr = h.service.GetUserRolesAndPermissionsForTenant(r.Context(), userID, activeTenantUUID)
 		}
-		if len(permissions) == 0 {
-			permissions = allPermissions
+		if len(roles) == 0 && len(permissions) == 0 {
+			allRoles, allPermissions, fallbackErr := h.service.GetUserRolesAndPermissions(r.Context(), userID)
+			if len(roles) == 0 {
+				roles = allRoles
+			}
+			if len(permissions) == 0 {
+				permissions = allPermissions
+			}
+			// Matches the original sequential code's plain reuse of one `err`
+			// variable across both calls: the fallback's result (nil on
+			// success) always wins over whatever the first call set.
+			rolesErr = fallbackErr
 		}
-	}
-	if err != nil {
-		h.logger.Warn("failed to load roles/permissions in /me", zap.Error(err))
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		isPlatformOwner = h.service.IsPlatformOwner(r.Context(), userID)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		mfaEnabled, mfaErr = h.service.IsMFAEnabled(r.Context(), userID)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		memberships, membershipsErr = h.service.ListUserTenantMemberships(r.Context(), userID)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Falls back to the user's primary tenant when the token-minted tenant
+		// can't be loaded (deleted, or a stale claim from before a membership
+		// change) -- previously a bad/stale claims.TenantID left the dashboard
+		// permanently showing "not part of any organization" even though the
+		// user's own primary tenant was perfectly valid, until their token
+		// happened to be reissued.
+		tryTenant := func(idStr string) *ent.Tenant {
+			id, parseErr := uuid.Parse(idStr)
+			if parseErr != nil {
+				return nil
+			}
+			t, tErr := h.service.GetTenant(r.Context(), id)
+			if tErr != nil {
+				h.logger.Warn("failed to load tenant in /me", zap.String("tenant_id", idStr), zap.Error(tErr))
+				return nil
+			}
+			return t
+		}
+		if activeTenantIDStr != "" {
+			activeTenant = tryTenant(activeTenantIDStr)
+		}
+		if activeTenant == nil && userPrimaryTenantID != "" && userPrimaryTenantID != activeTenantIDStr {
+			activeTenant = tryTenant(userPrimaryTenantID)
+		}
+	}()
+
+	// StartVerificationClock on first exposure so an existing (unverified) account
+	// gets its full notice window from now, not from when it was created.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		userEntity = h.service.StartVerificationClock(r.Context(), userEntity)
+	}()
+
+	wg.Wait()
+
+	if rolesErr != nil {
+		h.logger.Warn("failed to load roles/permissions in /me", zap.Error(rolesErr))
 		roles = claims.Roles
 		permissions = nil
 	}
-
-	// Start the verification clock on first exposure so an existing (unverified) account
-	// gets its full notice window from now, not from when it was created.
-	userEntity = h.service.StartVerificationClock(r.Context(), userEntity)
 
 	out := userViewFromEnt(userEntity)
 	if out == nil {
@@ -822,12 +905,12 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	// role (admin/superuser) held specifically within the platform tenant
 	// ("codevertex") — mere presence in that tenant (e.g. role "COO") is not
 	// enough, and it is independent of which tenant is currently active.
-	if h.service.IsPlatformOwner(r.Context(), userID) {
+	if isPlatformOwner {
 		out["is_platform_owner"] = true
 	}
 
 	// MFA status
-	if mfaEnabled, err := h.service.IsMFAEnabled(r.Context(), userID); err == nil {
+	if mfaErr == nil {
 		out["mfa_enabled"] = mfaEnabled
 	}
 
@@ -839,37 +922,31 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve and embed the ACTIVE tenant as a nested object so frontend
 	// useAuth and test_sso_me_endpoint can read tenant.id / tenant.slug directly.
-	// Reuses activeTenantIDStr resolved above for the roles/permissions scoping.
-	if activeTenantIDStr != "" {
-		if tenantID, parseErr := uuid.Parse(activeTenantIDStr); parseErr == nil {
-			if tenantEntity, tErr := h.service.GetTenant(r.Context(), tenantID); tErr == nil {
-				tenantView := tenantViewFromEnt(tenantEntity)
-				// Inject subscription_features from JWT claims (not stored in DB).
-				// JWT is the freshest source; decoding avoids a round-trip to subscription-api.
-				if len(claims.SubscriptionFeatures) > 0 {
-					tenantView["subscription_features"] = claims.SubscriptionFeatures
-				}
-				// Compute grace_period_ends_at so the frontend doesn't need to hard-code the 7-day rule.
-				if tenantEntity.SubscriptionExpiresAt != nil {
-					graceEnd := tenantEntity.SubscriptionExpiresAt.Add(7 * 24 * time.Hour)
-					tenantView["subscription_grace_ends_at"] = graceEnd
-				}
-				out["tenant"] = tenantView
-				out["tenant_id"] = tenantEntity.ID.String()
-				out["tenant_slug"] = tenantEntity.Slug
-			} else {
-				h.logger.Warn("failed to load active tenant in /me", zap.Error(tErr))
-			}
+	// activeTenant was resolved concurrently above, already falling back to the
+	// user's primary tenant if the token-minted one couldn't be loaded.
+	if activeTenant != nil {
+		tenantView := tenantViewFromEnt(activeTenant)
+		// Inject subscription_features from JWT claims (not stored in DB).
+		// JWT is the freshest source; decoding avoids a round-trip to subscription-api.
+		if len(claims.SubscriptionFeatures) > 0 {
+			tenantView["subscription_features"] = claims.SubscriptionFeatures
 		}
+		// Compute grace_period_ends_at so the frontend doesn't need to hard-code the 7-day rule.
+		if activeTenant.SubscriptionExpiresAt != nil {
+			graceEnd := activeTenant.SubscriptionExpiresAt.Add(7 * 24 * time.Hour)
+			tenantView["subscription_grace_ends_at"] = graceEnd
+		}
+		out["tenant"] = tenantView
+		out["tenant_id"] = activeTenant.ID.String()
+		out["tenant_slug"] = activeTenant.Slug
 	}
 
 	// Include every tenant the user is a member of (with roles per tenant).
 	// The frontend uses this to: (a) populate the tenant switcher so
 	// activeTenant matches the user's ACTUAL org, not necessarily the
 	// platform-owner primary, (b) show an accurate org count on the overview.
-	memberships, mErr := h.service.ListUserTenantMemberships(r.Context(), userID)
-	if mErr != nil {
-		h.logger.Warn("failed to load memberships in /me", zap.Error(mErr))
+	if membershipsErr != nil {
+		h.logger.Warn("failed to load memberships in /me", zap.Error(membershipsErr))
 	}
 	if memberships != nil {
 		tenants := make([]map[string]any, 0, len(memberships))
