@@ -660,14 +660,22 @@ func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdmin(r) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
 	idStr := chi.URLParam(r, "tenant_id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid id", nil)
+		return
+	}
+	// Own-tenant admins/superusers may update their own tenant's profile
+	// (branding, contact info, tax details, ...) -- this was previously
+	// gated by requireAdmin (platform-wide only), which meant no tenant's
+	// own admin could ever update their own branding, only a platform
+	// owner or an S2S admin-scoped token. See requireAdmin's own comment:
+	// "Use requireTenantAdmin instead for actions scoped to the caller's
+	// own tenant" -- every sibling tenant-scoped handler in this file
+	// (member CRUD, service-pin) already follows that; this one didn't.
+	if !h.requireTenantAdmin(r, id) {
+		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
 		return
 	}
 
@@ -738,6 +746,14 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 		update.SetVatRegistered(*req.VatRegistered)
 	}
 	if req.IsDemo != nil {
+		// Platform-admin only (excludes a tenant from platform revenue, see
+		// tenantRequest's own field comment) -- now that this handler accepts
+		// a tenant's own admin (requireTenantAdmin above), that broader
+		// audience must NOT be able to flip this on themselves.
+		if !h.requireAdmin(r) {
+			writeError(w, http.StatusForbidden, "forbidden", "platform admin scope required to change is_demo", nil)
+			return
+		}
 		update.SetIsDemo(*req.IsDemo)
 	}
 	if req.VatRegisteredOn != nil {
