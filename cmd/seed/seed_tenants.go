@@ -303,7 +303,7 @@ var outletsByTenant = map[string][]outletDef{
 		// TruLoad: commercial weighbridge station — the original generic outlet, kept
 		// deliberately unclassified (no metadata.vertical) so it stays the full-feature showcase
 		// outlet, same reasoning as demo-hospital above. truload-backend maps this one to the
-		// pre-existing TRULOAD-DEMO organisation (its primary/fallback demo org), while the two
+		// pre-existing CODEVERTEX-DEMO organisation (its primary/fallback demo org), while the two
 		// vertical-classified outlets below get their OWN outlet-scoped organisations.
 		{
 			slug: "demo-commercial", code: "COMM",

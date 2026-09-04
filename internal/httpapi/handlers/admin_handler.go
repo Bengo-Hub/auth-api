@@ -1741,6 +1741,15 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		}
 		if outletID != nil {
 			payload["outlet_id"] = outletID.String()
+			// Also include the human-readable outlet code — the seed path
+			// (cmd/seed/seed_users.go) already sends this so downstream services
+			// (e.g. truload-backend's AuthDemoSyncService) can route a persona to
+			// its outlet-scoped local org without reverse-engineering this UUID.
+			// Without it, a member added here (rather than via seed) would silently
+			// fall back to that consumer's primary/default outlet.
+			if o, oErr := h.ent.Outlet.Get(r.Context(), *outletID); oErr == nil {
+				payload["outlet_code"] = o.Code
+			}
 		}
 		// For brand-new accounts, flag a welcome email with the SSO login link.
 		// The plaintext temp password is never emitted — only the login URL is.
@@ -2305,13 +2314,27 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 	}
 
 	// Publish auth.user.updated so downstream services can sync role/outlet changes.
+	// tenant_slug and email are REQUIRED by at least one consumer (truload-backend's
+	// AuthDemoSyncService gates every event on both before doing anything) — omitting
+	// them here meant every role/outlet change made through this endpoint was silently
+	// dropped downstream, never just the outlet routing.
 	eventPayload := map[string]any{
 		"user_id":   userID.String(),
 		"tenant_id": tenantID.String(),
 		"roles":     updated.Roles,
 	}
+	if u, uErr := h.ent.User.Get(r.Context(), userID); uErr == nil {
+		eventPayload["email"] = u.Email
+		eventPayload["full_name"] = profileStr(u.Profile, "name")
+	}
+	if t, tErr := h.ent.Tenant.Get(r.Context(), tenantID); tErr == nil {
+		eventPayload["tenant_slug"] = t.Slug
+	}
 	if outletIDPtr != nil {
 		eventPayload["outlet_id"] = outletIDPtr.String()
+		if o, oErr := h.ent.Outlet.Get(r.Context(), *outletIDPtr); oErr == nil {
+			eventPayload["outlet_code"] = o.Code
+		}
 	}
 	h.publishEvent(r.Context(), tenantID, "auth.user", userID, "updated", eventPayload)
 
