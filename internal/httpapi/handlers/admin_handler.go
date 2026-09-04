@@ -96,6 +96,7 @@ func (h *AdminHandler) requireAdmin(r *http.Request) bool {
 func (h *AdminHandler) requireTenantAdmin(r *http.Request, tenantID uuid.UUID) bool {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok || claims == nil {
+		h.logger.Warn("requireTenantAdmin: no claims in context", zap.String("target_tenant_id", tenantID.String()))
 		return false
 	}
 
@@ -113,6 +114,12 @@ func (h *AdminHandler) requireTenantAdmin(r *http.Request, tenantID uuid.UUID) b
 
 	// Tenant admins may only act on their own tenant.
 	if claims.TenantID == "" || claims.TenantID != tenantID.String() {
+		h.logger.Warn("requireTenantAdmin: tenant mismatch or missing tenant_id claim",
+			zap.String("target_tenant_id", tenantID.String()),
+			zap.String("claims_tenant_id", claims.TenantID),
+			zap.Strings("claims_roles", claims.Roles),
+			zap.Strings("claims_scope", claims.Scope),
+			zap.String("subject", claims.Subject))
 		return false
 	}
 	for _, role := range claims.Roles {
@@ -120,6 +127,10 @@ func (h *AdminHandler) requireTenantAdmin(r *http.Request, tenantID uuid.UUID) b
 			return true
 		}
 	}
+	h.logger.Warn("requireTenantAdmin: tenant matches but no admin/superuser role",
+		zap.String("target_tenant_id", tenantID.String()),
+		zap.Strings("claims_roles", claims.Roles),
+		zap.String("subject", claims.Subject))
 	return false
 }
 
