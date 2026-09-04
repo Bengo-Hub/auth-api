@@ -300,12 +300,37 @@ var outletsByTenant = map[string][]outletDef{
 			address: "Demo Industrial Park, Athi River, Kenya",
 			pinMsg:  "Welcome to Demo Manufacturing — check the production schedule",
 		},
-		// TruLoad: commercial weighbridge station
+		// TruLoad: commercial weighbridge station — the original generic outlet, kept
+		// deliberately unclassified (no metadata.vertical) so it stays the full-feature showcase
+		// outlet, same reasoning as demo-hospital above. truload-backend maps this one to the
+		// pre-existing TRULOAD-DEMO organisation (its primary/fallback demo org), while the two
+		// vertical-classified outlets below get their OWN outlet-scoped organisations.
 		{
 			slug: "demo-commercial", code: "COMM",
 			name: "Demo Commercial Weighbridge", useCase: "commercial_weighing", isHQ: false,
 			address: "Demo Industrial Zone, Athi River, Kenya",
 			pinMsg:  "Welcome to Demo Commercial Weighbridge — log in to begin weighing session",
+		},
+		// TruLoad: Quarry / Mining vertical weighbridge — one of the two verticals this platform's
+		// quarry/waste-treatment prospect actually needs demoed (real per-tonnage tariff billing,
+		// facility-owned-scale business model). metadata.vertical matches truload-backend's
+		// Constants/CommercialVerticals.cs "quarry" key — a SECOND commercial_weighing outlet
+		// under the ONE demo tenant, not a second demo tenant, same pattern as demo-chemist above.
+		{
+			slug: "demo-quarry", code: "QUARRY",
+			name: "Demo Quarry & Mining Weighbridge", useCase: "commercial_weighing", isHQ: false,
+			address: "Demo Quarry Site, Machakos, Kenya",
+			pinMsg:  "Welcome to Demo Quarry Weighbridge — log in to begin weighing session",
+			metadata: map[string]any{"vertical": "quarry"},
+		},
+		// TruLoad: Waste Management vertical weighbridge — the other core vertical this prospect
+		// needs demoed. metadata.vertical matches CommercialVerticals.cs's "waste_management" key.
+		{
+			slug: "demo-waste", code: "WASTE",
+			name: "Demo Waste Management Weighbridge", useCase: "commercial_weighing", isHQ: false,
+			address: "Demo Waste Transfer Station, Ruai, Nairobi",
+			pinMsg:  "Welcome to Demo Waste Weighbridge — log in to begin weighing session",
+			metadata: map[string]any{"vertical": "waste_management"},
 		},
 		// TruLoad: axle load enforcement checkpoint
 		{
@@ -325,6 +350,20 @@ var outletsByTenant = map[string][]outletDef{
 			address: "Masterspace HQ, Nairobi, Kenya",
 		},
 	},
+}
+
+// outletCodeForSlug looks up an outlet's short code (e.g. "QUARRY") from its slug within a
+// tenant's outletsByTenant list. Used by seed_users.go to carry a human-readable outlet
+// identifier in the auth.user.* event payload — cheaper and less error-prone for a downstream
+// consumer than reversing outletSeedID's SHA1-based UUID back into a slug. Returns "" if the
+// tenant/slug pair isn't found (caller treats that as "no outlet scoping").
+func outletCodeForSlug(tenantSlug, outletSlug string) string {
+	for _, d := range outletsByTenant[tenantSlug] {
+		if d.slug == outletSlug {
+			return d.code
+		}
+	}
+	return ""
 }
 
 // outletSeedID returns a deterministic UUID for an outlet using the same formula

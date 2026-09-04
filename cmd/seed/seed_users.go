@@ -371,24 +371,39 @@ func seedERPDemoStaff(ctx context.Context, client *ent.Client, hasher *password.
 // separate .NET service with its OWN local role catalogue (Commercial Weighing Manager/
 // Supervisor/Operator/Finance/Auditor) — it does not JIT-map a global auth-api role the way
 // erp-api's authmanagement/sso.py does. The "role" field here is informational/for-display only
-// today; truload-backend's own UserSeeder.cs (SeedCommercialDemoTenantAdminAsync/
-// SeedCommercialDemoStaffAsync) assigns the real local TruLoad role by matching on email.
+// today; truload-backend's own Services/Background/AuthDemoSyncService.cs assigns the real local
+// TruLoad role by matching on email against its RoleMap.
+//
+// outletSlug scopes this persona to ONE codevertex-demo outlet (within outletsByTenant). TruLoad
+// hosts multiple commercial-weighing outlets under codevertex-demo (demo-commercial, demo-quarry,
+// demo-waste — one generic + one per vertical this platform's quarry prospect needs demoed), and
+// unlike inventory/pos-api's multi-outlet staff model, a truload-backend ApplicationUser belongs
+// to exactly ONE Organization — so each persona needs exactly one outlet, not a slice of them.
 type truloadDemoStaffSpec struct {
-	email string
-	name  string
-	role  string
+	email      string
+	name       string
+	role       string
+	outletSlug string
 }
 
 // truloadDemoStaff lists a small CURATED set of commercial-weighing demo staff under
 // codevertex-demo — deliberately not a full role roster (mirrors erpDemoStaff's one-per-role
 // convention, scaled down since truload's commercial use case only needs a couple of working
-// demo logins beyond the tenant admin). admin@demo.codevertexafrica.com already covers the
-// Commercial Weighing Manager/tenant-admin role via seedDemoTenantAdmin — not duplicated here.
+// demo logins per outlet beyond the tenant admin). admin@demo.codevertexafrica.com already covers
+// the Commercial Weighing Manager/tenant-admin role via seedDemoTenantAdmin — not duplicated here.
 // Enforcement-side demo staff are deliberately NOT seeded here (out of scope, see
 // .claude/memory/truload-commercial-billing-platform-owner-demo-cleanup-2026-08-27.md).
 var truloadDemoStaff = []truloadDemoStaffSpec{
-	{"commercial.operator@demo.codevertexafrica.com", "Demo Weighbridge Operator", "commercial_weighing_operator"},
-	{"commercial.finance@demo.codevertexafrica.com", "Demo Finance Officer", "commercial_finance"},
+	// Original generic outlet — the pre-existing two personas, now explicitly outlet-scoped
+	// (previously carried no outlet at all, since only one outlet/org existed).
+	{"commercial.operator@demo.codevertexafrica.com", "Demo Weighbridge Operator", "commercial_weighing_operator", "demo-commercial"},
+	{"commercial.finance@demo.codevertexafrica.com", "Demo Finance Officer", "commercial_finance", "demo-commercial"},
+	// Quarry / Mining vertical outlet.
+	{"quarry.operator@demo.codevertexafrica.com", "Demo Quarry Weighbridge Operator", "commercial_weighing_operator", "demo-quarry"},
+	{"quarry.finance@demo.codevertexafrica.com", "Demo Quarry Finance Officer", "commercial_finance", "demo-quarry"},
+	// Waste Management vertical outlet.
+	{"waste.operator@demo.codevertexafrica.com", "Demo Waste Weighbridge Operator", "commercial_weighing_operator", "demo-waste"},
+	{"waste.finance@demo.codevertexafrica.com", "Demo Waste Finance Officer", "commercial_finance", "demo-waste"},
 }
 
 // seedTruLoadDemoStaff seeds the curated commercial-weighing demo staff above under
@@ -437,7 +452,7 @@ func seedTruLoadDemoStaff(ctx context.Context, client *ent.Client, hasher *passw
 		if isNew {
 			eventType = "created"
 		}
-		publishSeedUserEvent(ctx, client, demoTenant.ID, staffUser.ID, map[string]any{
+		payload := map[string]any{
 			"user_id":     staffUser.ID.String(),
 			"email":       s.email,
 			"full_name":   s.name,
@@ -445,7 +460,22 @@ func seedTruLoadDemoStaff(ctx context.Context, client *ent.Client, hasher *passw
 			"tenant_slug": demoTenant.Slug,
 			"roles":       []string{s.role},
 			"method":      "seed",
-		}, eventType)
+		}
+		// Outlet scoping: truload-backend's AuthDemoSyncService routes this persona to the
+		// correct outlet-specific Organization by outlet_code (a short human-readable string —
+		// deliberately not asking a .NET consumer to reverse outletSeedID's SHA1-based UUID back
+		// into a slug). outlet_id/outlet_ids are also included for parity with the shape every
+		// other publishSeedUserEvent call already carries, in case a future consumer needs the
+		// real auth-api outlet UUID instead.
+		if s.outletSlug != "" {
+			outletID := outletSeedID(demoTenant.Slug, s.outletSlug)
+			payload["outlet_id"] = outletID.String()
+			payload["outlet_ids"] = []string{outletID.String()}
+			if code := outletCodeForSlug(demoTenant.Slug, s.outletSlug); code != "" {
+				payload["outlet_code"] = code
+			}
+		}
+		publishSeedUserEvent(ctx, client, demoTenant.ID, staffUser.ID, payload, eventType)
 	}
 	return nil
 }
