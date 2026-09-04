@@ -756,14 +756,25 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	if req.VatRegistered != nil {
 		update.SetVatRegistered(*req.VatRegistered)
 	}
+	// Fetched once and reused below (is_demo change-detection + metadata merge) so a
+	// same-value resend (the frontend PUTs the whole tenant object back, not a partial
+	// patch) never needs to compare against a second, redundant fetch.
+	existing, _ := h.ent.Tenant.Get(r.Context(), id)
 	if req.IsDemo != nil {
 		// Platform-admin only (excludes a tenant from platform revenue, see
 		// tenantRequest's own field comment) -- now that this handler accepts
 		// a tenant's own admin (requireTenantAdmin above), that broader
-		// audience must NOT be able to flip this on themselves.
-		if !h.requireAdmin(r) {
-			writeError(w, http.StatusForbidden, "forbidden", "platform admin scope required to change is_demo", nil)
-			return
+		// audience must NOT be able to flip this on themselves. Gated on an
+		// ACTUAL change, not mere presence in the payload: the frontend PUTs
+		// the full tenant object back on every save (including is_demo's
+		// current, unchanged value), so gating on presence alone made every
+		// ordinary tenant-admin save 403 -- even ones that never touched
+		// is_demo at all.
+		if existing == nil || existing.IsDemo != *req.IsDemo {
+			if !h.requireAdmin(r) {
+				writeError(w, http.StatusForbidden, "forbidden", "platform admin scope required to change is_demo", nil)
+				return
+			}
 		}
 		update.SetIsDemo(*req.IsDemo)
 	}
@@ -777,7 +788,6 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 
 	// Update metadata if provided
 	if req.Metadata != nil || req.ContactEmail != "" || req.ContactPhone != "" {
-		existing, _ := h.ent.Tenant.Get(r.Context(), id)
 		metadata := make(map[string]interface{})
 		if existing != nil && existing.Metadata != nil {
 			metadata = existing.Metadata
