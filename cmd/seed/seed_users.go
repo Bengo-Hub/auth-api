@@ -369,16 +369,19 @@ func seedERPDemoStaff(ctx context.Context, client *ent.Client, hasher *password.
 
 // truloadDemoStaffSpec mirrors erpDemoStaffSpec's shape. Unlike ERP, truload-backend is a
 // separate .NET service with its OWN local role catalogue (Commercial Weighing Manager/
-// Supervisor/Operator/Finance/Auditor) — it does not JIT-map a global auth-api role the way
-// erp-api's authmanagement/sso.py does. The "role" field here is informational/for-display only
-// today; truload-backend's own Services/Background/AuthDemoSyncService.cs assigns the real local
-// TruLoad role by matching on email against its RoleMap.
+// Supervisor/Operator/Finance/Auditor, plus Enforcement's Station Manager/Weighing
+// Operator/Enforcement Officer/Inspector/Auditor) — it does not JIT-map a global auth-api role the
+// way erp-api's authmanagement/sso.py does. The "role" field here is published verbatim in the
+// auth.user.* event's "roles" array; truload-backend's own
+// Services/Background/AuthDemoSyncService.cs assigns the real local TruLoad role by matching that
+// string against its own RoleMap (not by email — email only identifies which user row to update).
 //
 // outletSlug scopes this persona to ONE codevertex-demo outlet (within outletsByTenant). TruLoad
-// hosts multiple commercial-weighing outlets under codevertex-demo (demo-commercial, demo-quarry,
-// demo-waste — one generic + one per vertical this platform's quarry prospect needs demoed), and
-// unlike inventory/pos-api's multi-outlet staff model, a truload-backend ApplicationUser belongs
-// to exactly ONE Organization — so each persona needs exactly one outlet, not a slice of them.
+// hosts multiple outlets under codevertex-demo (demo-commercial, demo-quarry, demo-waste — one
+// generic + one per commercial vertical this platform's quarry prospect needs demoed — plus
+// demo-enforcement for axle-load enforcement), and unlike inventory/pos-api's multi-outlet staff
+// model, a truload-backend ApplicationUser belongs to exactly ONE Organization — so each persona
+// needs exactly one outlet, not a slice of them.
 type truloadDemoStaffSpec struct {
 	email      string
 	name       string
@@ -386,31 +389,48 @@ type truloadDemoStaffSpec struct {
 	outletSlug string
 }
 
-// truloadDemoStaff lists a small CURATED set of commercial-weighing demo staff under
-// codevertex-demo — deliberately not a full role roster (mirrors erpDemoStaff's one-per-role
-// convention, scaled down since truload's commercial use case only needs a couple of working
-// demo logins per outlet beyond the tenant admin). admin@demo.codevertexafrica.com already covers
-// the Commercial Weighing Manager/tenant-admin role via seedDemoTenantAdmin — not duplicated here.
-// Enforcement-side demo staff are deliberately NOT seeded here (out of scope, see
-// .claude/memory/truload-commercial-billing-platform-owner-demo-cleanup-2026-08-27.md).
+// truloadDemoStaff lists a small CURATED set of commercial-weighing AND axle-load-enforcement
+// demo staff under codevertex-demo — deliberately not an exhaustive role roster (mirrors
+// erpDemoStaff's one-per-role convention, scaled down to a couple of working demo logins per
+// outlet beyond the tenant admin). admin@demo.codevertexafrica.com already covers the Commercial
+// Weighing Manager/tenant-admin role via seedDemoTenantAdmin at the demo-commercial outlet — not
+// duplicated here; demo-commercial DOES get its own Manager/Supervisor/Auditor personas below so
+// the full 5-commercial-role Playwright sweep has real accounts to exercise, scoped to just that
+// one outlet (not duplicated across demo-quarry/demo-waste too).
+//
+// Enforcement-side demo staff (demo-enforcement, code ENF, use_case axle_load_enforcement) were
+// previously deliberately NOT seeded (see
+// .claude/memory/truload-commercial-billing-platform-owner-demo-cleanup-2026-08-27.md) — that
+// decision is reversed: truload-backend's AuthDemoSyncService now wires up an ENF outlet
+// Organization/Station, so 2 enforcement personas are seeded to actually exercise it end-to-end.
 var truloadDemoStaff = []truloadDemoStaffSpec{
 	// Original generic outlet — the pre-existing two personas, now explicitly outlet-scoped
 	// (previously carried no outlet at all, since only one outlet/org existed).
 	{"commercial.operator@demo.codevertexafrica.com", "Demo Weighbridge Operator", "commercial_weighing_operator", "demo-commercial"},
 	{"commercial.finance@demo.codevertexafrica.com", "Demo Finance Officer", "commercial_finance", "demo-commercial"},
+	// Manager/Supervisor/Auditor personas — primary outlet only, completing the 5-commercial-role
+	// set (Operator/Finance above already existed) truload-backend's RoleSeeder.cs defines.
+	{"commercial.manager@demo.codevertexafrica.com", "Demo Weighbridge Manager", "commercial_weighing_manager", "demo-commercial"},
+	{"commercial.supervisor@demo.codevertexafrica.com", "Demo Weighbridge Supervisor", "commercial_weighing_supervisor", "demo-commercial"},
+	{"commercial.auditor@demo.codevertexafrica.com", "Demo Weighbridge Auditor", "commercial_weighing_auditor", "demo-commercial"},
 	// Quarry / Mining vertical outlet.
 	{"quarry.operator@demo.codevertexafrica.com", "Demo Quarry Weighbridge Operator", "commercial_weighing_operator", "demo-quarry"},
 	{"quarry.finance@demo.codevertexafrica.com", "Demo Quarry Finance Officer", "commercial_finance", "demo-quarry"},
 	// Waste Management vertical outlet.
 	{"waste.operator@demo.codevertexafrica.com", "Demo Waste Weighbridge Operator", "commercial_weighing_operator", "demo-waste"},
 	{"waste.finance@demo.codevertexafrica.com", "Demo Waste Finance Officer", "commercial_finance", "demo-waste"},
+	// Axle-load enforcement outlet. Only 2 of the 5 enforcement roles: Weighing Operator can run a
+	// full enforcement weighing session end-to-end, Station Manager covers the supervisory demo
+	// path — exhaustive enforcement-role coverage isn't needed for this initiative.
+	{"enforcement.operator@demo.codevertexafrica.com", "Demo Enforcement Weighing Operator", "enforcement_weighing_operator", "demo-enforcement"},
+	{"enforcement.manager@demo.codevertexafrica.com", "Demo Enforcement Station Manager", "enforcement_station_manager", "demo-enforcement"},
 }
 
-// seedTruLoadDemoStaff seeds the curated commercial-weighing demo staff above under
-// codevertex-demo. Same idempotent create-or-find + membership + outbox-event pattern as
-// seedERPDemoStaff, without POS PIN/outlet scope (truload users are not POS terminal operators).
+// seedTruLoadDemoStaff seeds the curated commercial-weighing AND axle-load-enforcement demo staff
+// above under codevertex-demo. Same idempotent create-or-find + membership + outbox-event pattern
+// as seedERPDemoStaff, without POS PIN/outlet scope (truload users are not POS terminal operators).
 func seedTruLoadDemoStaff(ctx context.Context, client *ent.Client, hasher *password.Hasher, demoTenant *tenantRef) error {
-	log.Println("Seeding TruLoad commercial-weighing demo staff under codevertex-demo...")
+	log.Println("Seeding TruLoad commercial-weighing and enforcement demo staff under codevertex-demo...")
 	demoStaffPassword := os.Getenv("SEED_DEMO_STAFF_PASSWORD")
 	if demoStaffPassword == "" {
 		demoStaffPassword = "DemoStaff2024!"
