@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"sort"
+	"strings"
 )
 
 // Config represents the use-case specific configuration.
@@ -237,4 +239,47 @@ func (s *Service) ResolveConfig(ctx context.Context, useCase string) *Config {
 			},
 		}
 	}
+}
+
+// MergeConfigs unions the features/applicable_services of several use cases into one
+// Config — for a multi-use_case tenant (e.g. retail + logistics), "applicable" must
+// mean "applicable to ANY of the tenant's selected use cases," not just the first one
+// a caller happens to resolve. Settings/nomenclature come from the first (primary)
+// use case, since those are presentation labels that can't meaningfully merge.
+func (s *Service) MergeConfigs(ctx context.Context, useCases []string) *Config {
+	if len(useCases) == 0 {
+		return s.ResolveConfig(ctx, "other")
+	}
+	if len(useCases) == 1 {
+		return s.ResolveConfig(ctx, useCases[0])
+	}
+	featureSet := map[string]struct{}{}
+	serviceSet := map[string]struct{}{}
+	displayNames := make([]string, 0, len(useCases))
+	for _, uc := range useCases {
+		cfg := s.ResolveConfig(ctx, uc)
+		for _, f := range cfg.Features {
+			featureSet[f] = struct{}{}
+		}
+		for _, svc := range cfg.ApplicableServices {
+			serviceSet[svc] = struct{}{}
+		}
+		displayNames = append(displayNames, cfg.DisplayName)
+	}
+	return &Config{
+		UseCase:            strings.Join(useCases, ","),
+		DisplayName:        strings.Join(displayNames, " + "),
+		Features:           setToSortedSlice(featureSet),
+		ApplicableServices: setToSortedSlice(serviceSet),
+		Settings:           s.ResolveConfig(ctx, useCases[0]).Settings,
+	}
+}
+
+func setToSortedSlice(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

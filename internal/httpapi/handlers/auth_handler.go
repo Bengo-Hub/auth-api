@@ -74,6 +74,7 @@ type AuthService interface {
 // UseCaseService describes the use case logic capabilities.
 type UseCaseService interface {
 	ResolveConfig(ctx context.Context, useCase string) *usecase.Config
+	MergeConfigs(ctx context.Context, useCases []string) *usecase.Config
 }
 
 // Logout revokes the current session and token.
@@ -1015,13 +1016,23 @@ func (h *AuthHandler) AcceptTerms(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) GetUseCaseConfig(w http.ResponseWriter, r *http.Request) {
 	useCase := r.URL.Query().Get("use_case")
 
-	// If no use_case provided, try to resolve from current tenant in context
+	// If no use_case provided, resolve from the current tenant in context. A tenant
+	// with multiple selected use_cases (e.g. retail + logistics) gets the UNION of
+	// every use case's applicable_services/features, not just its first one —
+	// otherwise a legitimately multi-vertical tenant would see only a slice of what
+	// it actually has access to.
 	if useCase == "" {
 		claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 		if ok && claims.TenantSlug != "" {
 			tenant, err := h.service.GetTenantBySlug(r.Context(), claims.TenantSlug)
-			if err == nil && tenant != nil && tenant.UseCase != nil {
-				useCase = *tenant.UseCase
+			if err == nil && tenant != nil {
+				if len(tenant.UseCases) > 0 {
+					writeJSON(w, http.StatusOK, h.usecase.MergeConfigs(r.Context(), tenant.UseCases))
+					return
+				}
+				if tenant.UseCase != nil {
+					useCase = *tenant.UseCase
+				}
 			}
 		}
 	}
@@ -1190,8 +1201,13 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 		"subscription_status":     tenant.SubscriptionStatus,
 		"subscription_expires_at": tenant.SubscriptionExpiresAt,
 		"tier_limits":             tenant.TierLimits,
-		"created_at":              tenant.CreatedAt,
-		"updated_at":              tenant.UpdatedAt,
+		// Business vertical(s), e.g. "retail", "hospitality". Consumed by auth-ui's
+		// My Organization > Billing tab and any other frontend that needs to scope
+		// what it shows (e.g. subscription plans) to what this tenant actually is.
+		"use_case":   tenant.UseCase,
+		"use_cases":  tenant.UseCases,
+		"created_at": tenant.CreatedAt,
+		"updated_at": tenant.UpdatedAt,
 	}
 }
 
