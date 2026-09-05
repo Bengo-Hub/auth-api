@@ -62,6 +62,54 @@ func (h *UserHandler) requirePlatformAdmin(r *http.Request) bool {
 	return ok && claims != nil && claims.IsPlatformOwner
 }
 
+// requireAdminForTenant authorizes a privileged per-user admin action (password
+// reset) for either a platform admin, or a tenant admin of the SAME tenant the
+// target user belongs to — preventing a tenant A admin from acting on a tenant B
+// user via a guessed/enumerated user_id. Uses the broader tenant-admin role set
+// (kept in sync with auth-ui's TENANT_ADMIN_ROLES, mirroring outlet_handler.go's
+// identical list) rather than admin_handler.go's stricter superuser/admin pair,
+// since a Team-page "reset a colleague's password" action should be reachable by
+// any real tenant admin.
+func (h *UserHandler) requireAdminForTenant(r *http.Request, targetTenantID uuid.UUID) bool {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok || claims == nil {
+		return false
+	}
+	if claims.IsPlatformOwner {
+		return true
+	}
+	for _, s := range claims.Scope {
+		if s == "admin" || s == "auth.admin" {
+			return true
+		}
+	}
+	if targetTenantID == uuid.Nil || claims.TenantID != targetTenantID.String() {
+		return false
+	}
+	for _, role := range claims.Roles {
+		switch role {
+		case "superuser", "admin", "owner", "super_admin", "tenant_admin":
+			return true
+		}
+	}
+	return false
+}
+
+// resolveUserTenantID finds a user's tenant: their primary tenant if set, else their
+// first membership. Returns uuid.Nil if the user has no tenant at all (an orphan
+// platform-level account, only actionable by a platform admin).
+func (h *UserHandler) resolveUserTenantID(ctx context.Context, u *ent.User) uuid.UUID {
+	if u.PrimaryTenantID != "" {
+		if tid, err := uuid.Parse(u.PrimaryTenantID); err == nil {
+			return tid
+		}
+	}
+	if m, err := h.ent.TenantMembership.Query().Where(tenantmembership.UserID(u.ID)).First(ctx); err == nil {
+		return m.TenantID
+	}
+	return uuid.Nil
+}
+
 // userResponse is the public representation of a user (no password hash).
 type userResponse struct {
 	ID              uuid.UUID           `json:"id"`
@@ -600,16 +648,27 @@ type adminResetPasswordRequest struct {
 }
 
 // AdminResetPassword sets a user's password directly without the current
-// password (platform admin only). POST /api/v1/admin/users/{user_id}/reset-password
+// password. Callable by a platform admin, or a tenant admin acting on a user of
+// their OWN tenant. POST /api/v1/admin/users/{user_id}/reset-password
 // Generates a temporary password when none is supplied and returns it ONCE.
 func (h *UserHandler) AdminResetPassword(w http.ResponseWriter, r *http.Request) {
-	if !h.requirePlatformAdmin(r) {
-		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
-		return
-	}
 	userID, err := uuid.Parse(chi.URLParam(r, "user_id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_id", "invalid user ID", nil)
+		return
+	}
+
+	u, err := h.ent.User.Get(r.Context(), userID)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "user not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
+		return
+	}
+	if !h.requireAdminForTenant(r, h.resolveUserTenantID(r.Context(), u)) {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin or tenant admin required", nil)
 		return
 	}
 
@@ -629,16 +688,6 @@ func (h *UserHandler) AdminResetPassword(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		h.logger.Error("hash password", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "could not reset password", nil)
-		return
-	}
-
-	u, err := h.ent.User.Get(r.Context(), userID)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, "not_found", "user not found", nil)
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
 		return
 	}
 
@@ -665,12 +714,9 @@ func (h *UserHandler) AdminResetPassword(w http.ResponseWriter, r *http.Request)
 }
 
 // AdminSendPasswordResetEmail triggers the standard password-reset email for a
-// user (platform admin only). POST /api/v1/admin/users/{user_id}/send-password-reset
+// user. Callable by a platform admin, or a tenant admin acting on a user of their
+// OWN tenant. POST /api/v1/admin/users/{user_id}/send-password-reset
 func (h *UserHandler) AdminSendPasswordResetEmail(w http.ResponseWriter, r *http.Request) {
-	if !h.requirePlatformAdmin(r) {
-		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
-		return
-	}
 	userID, err := uuid.Parse(chi.URLParam(r, "user_id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_id", "invalid user ID", nil)
@@ -686,20 +732,18 @@ func (h *UserHandler) AdminSendPasswordResetEmail(w http.ResponseWriter, r *http
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
 		return
 	}
+	targetTenantID := h.resolveUserTenantID(r.Context(), u)
+	if !h.requireAdminForTenant(r, targetTenantID) {
+		writeError(w, http.StatusForbidden, "forbidden", "platform admin or tenant admin required", nil)
+		return
+	}
 
 	// Resolve the user's tenant slug (RequestPasswordReset is tenant-scoped and
 	// verifies membership). Prefer the primary tenant, else the first membership.
 	slug := ""
-	if u.PrimaryTenantID != "" {
-		if tid, pErr := uuid.Parse(u.PrimaryTenantID); pErr == nil {
-			if t, tErr := h.ent.Tenant.Get(r.Context(), tid); tErr == nil {
-				slug = t.Slug
-			}
-		}
-	}
-	if slug == "" {
-		if m, mErr := h.ent.TenantMembership.Query().Where(tenantmembership.UserID(userID)).WithTenant().First(r.Context()); mErr == nil && m.Edges.Tenant != nil {
-			slug = m.Edges.Tenant.Slug
+	if targetTenantID != uuid.Nil {
+		if t, tErr := h.ent.Tenant.Get(r.Context(), targetTenantID); tErr == nil {
+			slug = t.Slug
 		}
 	}
 	if slug == "" {
