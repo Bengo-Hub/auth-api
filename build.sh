@@ -187,6 +187,23 @@ else
   warn "update_helm_values function not available - helm values not updated"
 fi
 
+# Keep auth-session-cleanup's pinned image in lockstep with this build (2026-09-08):
+# it runs auth-api's own /usr/local/bin/auth-session-cleanup binary but is a plain
+# CronJob manifest (manifests/auth-session-cleanup-cronjob.yaml, no values.yaml of
+# its own), so it's invisible to update_helm_values above and was previously left on
+# a hand-pinned tag that would silently go stale after this exact build. Was ":latest"
+# + imagePullPolicy:Always until 2026-09-08 -- re-pulled from Docker Hub on every
+# hourly run, which is what actually caused a live ErrImagePull alert that day.
+if [[ "$APP_NAME" == "auth-api" ]] && declare -f update_plain_manifest_image >/dev/null 2>&1; then
+  update_plain_manifest_image \
+    "manifests/auth-session-cleanup-cronjob.yaml" \
+    ".spec.jobTemplate.spec.template.spec.containers[0].image" \
+    "${IMAGE_REPO}:${GIT_COMMIT_ID}" \
+    || warn "auth-session-cleanup image update failed - it will keep running its last-pinned tag"
+else
+  warn "update_plain_manifest_image function not available - auth-session-cleanup image not updated"
+fi
+
 info "Deployment summary"
 echo "  Image      : ${IMAGE_REPO}:${GIT_COMMIT_ID}"
 echo "  Namespace  : ${NAMESPACE}"
