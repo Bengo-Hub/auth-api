@@ -88,6 +88,11 @@ func (s *SubscriptionSubscriber) handle(msg *nats.Msg) {
 		}
 	}
 	newPlanCode, _ := wrapper.Payload["new_plan_code"].(string)
+	// subscriptions-api's SetTenantExemption emits this field so auth-api's own
+	// Tenant.subscription_exempt (the copy actually stamped into the sub_exempt JWT claim)
+	// stays in sync with subscriptions-api's local mirror — the platform-admin "grant
+	// exemption" action only ever wrote subscriptions-api's own copy before this.
+	exemptVal, exemptPresent := wrapper.Payload["subscription_exempt"].(bool)
 
 	if tenantIDStr == "" && tenantSlug == "" {
 		s.logger.Warn("subscription.updated event missing tenant_id and tenant_slug, skipping")
@@ -124,6 +129,9 @@ func (s *SubscriptionSubscriber) handle(msg *nats.Msg) {
 		upd = upd.SetSubscriptionPlan(newPlanCode)
 		upd = upd.SetSubscriptionStatus("ACTIVE")
 	}
+	if exemptPresent {
+		upd = upd.SetSubscriptionExempt(exemptVal)
+	}
 	if _, err = upd.Save(ctx); err != nil {
 		s.logger.Warn("subscription.updated: failed to update tenant subscription cache",
 			zap.String("tenant_slug", tenantEntity.Slug),
@@ -149,5 +157,7 @@ func (s *SubscriptionSubscriber) handle(msg *nats.Msg) {
 	s.logger.Info("tenant subscription cache updated",
 		zap.String("tenant_slug", tenantEntity.Slug),
 		zap.String("new_plan_code", newPlanCode),
+		zap.Bool("subscription_exempt_present", exemptPresent),
+		zap.Bool("subscription_exempt", exemptVal),
 	)
 }
