@@ -77,6 +77,13 @@ type Claims struct {
 	// Mirrors the shared-auth-client Claims field; bypasses ALL subscription gating downstream.
 	SubscriptionExempt bool `json:"sub_exempt,omitempty"`
 
+	// SupportFeeStatus/SupportFeeDueAt (must match authclient Claims field) drive
+	// RequireSupportFeeCurrentForMutations for a perpetual/one-time-license tenant's annual
+	// support-fee obligation — an axis independent of SubscriptionStatus/SubscriptionExpires.
+	// Absent/nil = no support-fee obligation at all, the gate always passes.
+	SupportFeeStatus string `json:"support_fee_status,omitempty"`
+	SupportFeeDueAt  *int64 `json:"support_fee_due_at,omitempty"`
+
 	jwt.RegisteredClaims
 }
 
@@ -137,6 +144,11 @@ type AccessTokenInput struct {
 	IsDemo             bool   // true for demo tenant/users
 	AllowOverage       bool   // tenant opted in to pay-as-you-go extra usage
 	SubscriptionExempt bool   // platform-granted per-tenant subscription exemption
+
+	// Support-fee data (optional, from subscription-service — perpetual/one-time-license
+	// tenants only). Empty/nil = tenant has no support-fee obligation at all.
+	SupportFeeStatus string
+	SupportFeeDueAt  *time.Time
 }
 
 // Service handles JWT minting and verification.
@@ -236,6 +248,11 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 		if input.SubscriptionExpires != nil {
 			ts := input.SubscriptionExpires.Unix()
 			claims.SubscriptionExpires = &ts
+		}
+		claims.SupportFeeStatus = input.SupportFeeStatus
+		if input.SupportFeeDueAt != nil {
+			ts := input.SupportFeeDueAt.Unix()
+			claims.SupportFeeDueAt = &ts
 		}
 	}
 	if input.BillingMode != "" {

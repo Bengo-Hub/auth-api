@@ -49,6 +49,11 @@ type TenantSubscription struct {
 	IsPerpetual  bool   `json:"is_perpetual"`
 	// AllowOverage is the tenant's opt-in extra-usage master switch (pay-as-you-go).
 	AllowOverage bool `json:"allow_overage"`
+	// SupportFeeStatus/SupportFeeDueAt reflect a perpetual/one-time-license tenant's current
+	// annual support-fee cycle (empty/nil = no support-fee obligation at all) — minted into the
+	// JWT support_fee_status/support_fee_due_at claims for RequireSupportFeeCurrentForMutations.
+	SupportFeeStatus string     `json:"support_fee_status,omitempty"`
+	SupportFeeDueAt  *time.Time `json:"support_fee_due_at,omitempty"`
 }
 
 // SubscriptionPlan represents a plan from subscription-service.
