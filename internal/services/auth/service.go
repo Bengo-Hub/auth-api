@@ -1814,6 +1814,7 @@ func (s *Service) EnrichTokenWithSubscription(ctx context.Context, tenantID uuid
 	in.SubscriptionFeatures = sub.Features
 	in.SubscriptionLimits = sub.Limits
 	in.ActiveProducts = sub.ActiveProducts
+	in.ActiveServiceTags = sub.ActiveServiceTags
 	in.SubscriptionTier = sub.TierOrder
 	in.AllowOverage = sub.AllowOverage
 	// One-time perpetual licences never expire: omit the JWT expiry so the
