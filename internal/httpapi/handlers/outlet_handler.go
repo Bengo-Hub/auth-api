@@ -29,12 +29,18 @@ type OutletHandler struct {
 	// Nil in local/dev setups without a subscription client configured — that degrades to
 	// "no limit enforced" (fail open), matching every other subscription-lookup call site on
 	// this platform (see [[subscription-gate-fail-open]]).
-	subs   *subscription.Client
-	logger *zap.Logger
+	subs *subscription.Client
+	// subEnricher re-populates the full subscription claim set (plan, status, features,
+	// limits, active_service_tags, expiry, tier, overage, billing_mode) on the outlet-select
+	// re-mint, exactly like the OIDC and REST login/refresh flows — implemented by auth.Service,
+	// same interface oidc_handler.go already consumes. Nil-safe: EnrichAccessTokenInput's
+	// caller (SelectOutlet) only invokes it when non-nil.
+	subEnricher SubscriptionEnricher
+	logger      *zap.Logger
 }
 
-func NewOutletHandler(entClient *ent.Client, tokens *token.Service, subs *subscription.Client, logger *zap.Logger) *OutletHandler {
-	return &OutletHandler{ent: entClient, tokens: tokens, subs: subs, logger: logger}
+func NewOutletHandler(entClient *ent.Client, tokens *token.Service, subs *subscription.Client, subEnricher SubscriptionEnricher, logger *zap.Logger) *OutletHandler {
+	return &OutletHandler{ent: entClient, tokens: tokens, subs: subs, subEnricher: subEnricher, logger: logger}
 }
 
 // outletLimitReached reports whether creating one more outlet for tenantID would exceed the
@@ -599,26 +605,39 @@ func (h *OutletHandler) SelectOutlet(w http.ResponseWriter, r *http.Request) {
 		sessionID = uuid.New()
 	}
 
-	newToken, _, err := h.tokens.MintAccessToken(token.AccessTokenInput{
-		UserID:               userID,
-		TenantID:             &tenantID,
-		TenantSlug:           claims.TenantSlug,
-		SessionID:            sessionID,
-		Email:                claims.Email,
-		Scopes:               claims.Scope,
-		Roles:                claims.Roles,
-		Permissions:          claims.Permissions,
-		IsPlatformOwner:      claims.IsPlatformOwner,
-		OutletID:             o.ID.String(),
-		OutletCode:           o.Code,
-		OutletUseCase:        o.UseCase,
-		IsHQUser:             o.IsHq,
-		SubscriptionPlan:     claims.SubscriptionPlan,
-		SubscriptionStatus:   claims.SubscriptionStatus,
-		SubscriptionFeatures: claims.SubscriptionFeatures,
-		SubscriptionLimits:   claims.SubscriptionLimits,
-		ActiveProducts:       claims.ActiveProducts,
-	})
+	// Carry forward tenant-level flags that gate/seed EnrichAccessTokenInput below (it does
+	// not itself set IsDemo/SubscriptionExempt — those come from the caller, per its own
+	// contract) — these are static per tenant/session, not something the outlet-select step
+	// changes, so it's correct to copy them from the just-validated exchange token rather than
+	// reloading the tenant entity.
+	tokenInput := token.AccessTokenInput{
+		UserID:             userID,
+		TenantID:           &tenantID,
+		TenantSlug:         claims.TenantSlug,
+		SessionID:          sessionID,
+		Email:              claims.Email,
+		Scopes:             claims.Scope,
+		Roles:              claims.Roles,
+		Permissions:        claims.Permissions,
+		IsPlatformOwner:    claims.IsPlatformOwner,
+		IsDemo:             claims.IsDemo,
+		SubscriptionExempt: claims.SubscriptionExempt,
+		OutletID:           o.ID.String(),
+		OutletCode:         o.Code,
+		OutletUseCase:      o.UseCase,
+		IsHQUser:           o.IsHq,
+	}
+	// Re-fetch the full subscription claim set fresh from subscription-service rather than
+	// copying it from the old token — this is the same EnrichAccessTokenInput call the OIDC and
+	// REST login/refresh flows already use, and fixes a prior bug here where ActiveServiceTags,
+	// SubscriptionExpires, SubscriptionTier, AllowOverage and BillingMode were never carried
+	// forward at all, so a fresh outlet-select token could fail RequireServiceAccess/
+	// RequireActiveSubscriptionForMutationsWithGrace checks that a plain login token passed.
+	if h.subEnricher != nil {
+		h.subEnricher.EnrichAccessTokenInput(r.Context(), tenantID, &tokenInput)
+	}
+
+	newToken, _, err := h.tokens.MintAccessToken(tokenInput)
 	if err != nil {
 		h.logger.Error("mint outlet token", zap.Error(err))
 		http.Error(w, "internal error", http.StatusInternalServerError)
