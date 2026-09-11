@@ -35,6 +35,11 @@ type TenantSubscription struct {
 	// line — minted into the JWT active_products claim so the app-switcher can show only
 	// activated apps without an extra network call.
 	ActiveProducts []string `json:"active_products"`
+	// ActiveServiceTags is the set of service_tags (ordering/pos/inventory/treasury/logistics/
+	// erp/marketflow/...) the tenant currently has ANY entitlement in — minted into the JWT
+	// active_service_tags claim so RequireServiceAccess can block a whole module the tenant's
+	// plan never included, not just a specific feature within one.
+	ActiveServiceTags []string `json:"active_service_tags"`
 	// Scenario resolution from subscription-service. BillingMode is one of
 	// "recurring" | "one_time" | "service_charge"; IsPerpetual marks a paid
 	// one-time licence that must never expire (JWT omits expiry for these).

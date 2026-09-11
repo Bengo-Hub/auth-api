@@ -63,6 +63,11 @@ type Claims struct {
 	// line (must match authclient Claims field) — lets the app-switcher show only activated
 	// apps without a per-page-load network call.
 	ActiveProducts []string `json:"active_products,omitempty"`
+	// ActiveServiceTags is the set of service_tags (ordering/pos/inventory/treasury/logistics/
+	// erp/marketflow/...) the tenant currently has ANY entitlement in (must match authclient
+	// Claims field) — lets RequireServiceAccess block a whole module the tenant's plan never
+	// included at all, distinct from a specific feature lock within a module they do have.
+	ActiveServiceTags []string `json:"active_service_tags,omitempty"`
 
 	// Billing model and demo flags
 	BillingMode  string `json:"billing_mode,omitempty"`      // "service_charge" bypasses subscription gating
@@ -125,6 +130,7 @@ type AccessTokenInput struct {
 	SubscriptionExpires  *time.Time
 	SubscriptionTier     int
 	ActiveProducts       []string
+	ActiveServiceTags    []string
 
 	// Billing model and demo flags
 	BillingMode        string // "service_charge" bypasses subscription gating
@@ -226,6 +232,7 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 		claims.SubscriptionLimits = input.SubscriptionLimits
 		claims.SubscriptionTier = input.SubscriptionTier
 		claims.ActiveProducts = input.ActiveProducts
+		claims.ActiveServiceTags = input.ActiveServiceTags
 		if input.SubscriptionExpires != nil {
 			ts := input.SubscriptionExpires.Unix()
 			claims.SubscriptionExpires = &ts
