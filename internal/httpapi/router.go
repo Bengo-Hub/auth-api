@@ -160,6 +160,11 @@ type AuthHandlers struct {
 	S2SListTenantUsers http.HandlerFunc
 	// S2SUserEmailVerification returns the computed email-verification state for a user.
 	S2SUserEmailVerification http.HandlerFunc
+	// S2SSendUserEmailCode/S2SVerifyUserEmailCode are SendMyEmailCode/VerifyMyEmailCode for a
+	// downstream service that has already authenticated its own end user (including a
+	// terminal/PIN JWT auth-api has no key to verify) and forwards the request S2S.
+	S2SSendUserEmailCode   http.HandlerFunc
+	S2SVerifyUserEmailCode http.HandlerFunc
 	// S2SMFAStatus/S2SMFAVerify let a service with its own separate login
 	// credential (mail-ui's Stalwart mailbox password) still gate on this
 	// user's auth-api TOTP MFA when the email happens to match.
@@ -703,6 +708,14 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// shows the same graduated verify banner.
 			if deps.AuthHandlers.S2SUserEmailVerification != nil {
 				r.Get("/api/v1/s2s/users/{user_id}/email-verification", deps.AuthHandlers.S2SUserEmailVerification)
+			}
+			// S2S send/verify — lets a downstream service's own terminal/PIN session (which
+			// auth-api cannot itself validate) drive the SAME embedded OTP dialog as SSO.
+			if deps.AuthHandlers.S2SSendUserEmailCode != nil {
+				r.Post("/api/v1/s2s/users/{user_id}/email/send-code", deps.AuthHandlers.S2SSendUserEmailCode)
+			}
+			if deps.AuthHandlers.S2SVerifyUserEmailCode != nil {
+				r.Post("/api/v1/s2s/users/{user_id}/email/verify-code", deps.AuthHandlers.S2SVerifyUserEmailCode)
 			}
 			// S2S MFA federation (mail-ui webmail login) - see comments on the
 			// Deps fields above and on the handlers themselves.

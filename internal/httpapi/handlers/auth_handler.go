@@ -20,6 +20,7 @@ import (
 	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/usecase"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/pquerna/otp/totp"
@@ -1655,22 +1656,65 @@ func (h *AuthHandler) SendMyEmailCode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
 		return
 	}
-	email := normalizeSignupEmail(req.Email)
+
+	// Send with the user's real tenant + user id so notifications-api can resolve tenant
+	// branding (a nil tenant makes the tenant resolver fail and strips branding).
+	tenantID := uuid.Nil
+	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil && claims.TenantID != "" {
+		tenantID, _ = uuid.Parse(claims.TenantID)
+	}
+	h.sendMyEmailCode(r.Context(), w, userID, tenantID, req.Email)
+}
+
+// S2SSendUserEmailCode is SendMyEmailCode for callers who authenticate their own end user
+// (e.g. a downstream service's terminal/PIN JWT, which auth-api has no key to verify itself)
+// and forward the request S2S instead of a user-held auth-api JWT. Gated by INTERNAL_SERVICE_KEY.
+// POST /api/v1/s2s/users/{user_id}/email/send-code  body: {email, tenant_id?}
+func (h *AuthHandler) S2SSendUserEmailCode(w http.ResponseWriter, r *http.Request) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "email verification not configured", nil)
+		return
+	}
+	userID, err := uuid.Parse(strings.TrimSpace(chi.URLParam(r, "user_id")))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+		return
+	}
+
+	var req struct {
+		Email    string `json:"email"`
+		TenantID string `json:"tenant_id"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	tenantID := uuid.Nil
+	if req.TenantID != "" {
+		tenantID, _ = uuid.Parse(req.TenantID)
+	}
+	h.sendMyEmailCode(r.Context(), w, userID, tenantID, req.Email)
+}
+
+// sendMyEmailCode is the shared implementation behind SendMyEmailCode and
+// S2SSendUserEmailCode — only how userID/tenantID are resolved differs between them.
+func (h *AuthHandler) sendMyEmailCode(ctx context.Context, w http.ResponseWriter, userID, tenantID uuid.UUID, rawEmail string) {
+	email := normalizeSignupEmail(rawEmail)
 	if email == "" || !strings.Contains(email, "@") {
 		writeError(w, http.StatusBadRequest, "invalid_request", "a valid email is required", nil)
 		return
 	}
 	// Never let a user claim an address that belongs to someone else.
-	if h.service.EmailTakenByOther(r.Context(), email, userID) {
+	if h.service.EmailTakenByOther(ctx, email, userID) {
 		writeError(w, http.StatusConflict, "email_exists",
 			"That email is already used by another account.", nil)
 		return
 	}
 
 	rateKey := h.redisNamespace + ":verify:otp:rate:" + userID.String()
-	count, _ := h.redis.Incr(r.Context(), rateKey).Result()
+	count, _ := h.redis.Incr(ctx, rateKey).Result()
 	if count == 1 {
-		_ = h.redis.Expire(r.Context(), rateKey, 10*time.Minute).Err()
+		_ = h.redis.Expire(ctx, rateKey, 10*time.Minute).Err()
 	}
 	if count > 5 {
 		writeError(w, http.StatusTooManyRequests, "rate_limited",
@@ -1684,17 +1728,11 @@ func (h *AuthHandler) SendMyEmailCode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to generate code", nil)
 		return
 	}
-	_ = h.redis.Set(r.Context(), h.myEmailOTPKey(userID, email), hashOTP(otp), 10*time.Minute).Err()
+	_ = h.redis.Set(ctx, h.myEmailOTPKey(userID, email), hashOTP(otp), 10*time.Minute).Err()
 
-	// Send with the user's real tenant + user id so notifications-api can resolve tenant
-	// branding (a nil tenant makes the tenant resolver fail and strips branding).
-	tenantID := uuid.Nil
-	if claims, ok := authmiddleware.ClaimsFromContext(r.Context()); ok && claims != nil && claims.TenantID != "" {
-		tenantID, _ = uuid.Parse(claims.TenantID)
-	}
 	// Reuses the same OTP email path as signup verification. The notifications email gate
 	// always allows auth/otp templates, so an unverified user can still receive this.
-	h.service.SendOTPEmail(r.Context(), tenantID, userID, email, otp)
+	h.service.SendOTPEmail(ctx, tenantID, userID, email, otp)
 
 	writeJSON(w, http.StatusOK, map[string]any{"sent": true})
 }
@@ -1703,16 +1741,11 @@ func (h *AuthHandler) SendMyEmailCode(w http.ResponseWriter, r *http.Request) {
 // stored email when the proven address differs (placeholder → real).
 // POST /api/v1/auth/me/email/verify-code  body: {email, code}
 func (h *AuthHandler) VerifyMyEmailCode(w http.ResponseWriter, r *http.Request) {
-	if h.redis == nil || h.redisNamespace == "" {
-		writeError(w, http.StatusServiceUnavailable, "unavailable", "email verification not configured", nil)
-		return
-	}
 	userID, ok := h.myUserID(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth context", nil)
 		return
 	}
-
 	var req struct {
 		Email string `json:"email"`
 		Code  string `json:"code"`
@@ -1721,15 +1754,45 @@ func (h *AuthHandler) VerifyMyEmailCode(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
 		return
 	}
-	email := normalizeSignupEmail(req.Email)
-	code := strings.TrimSpace(req.Code)
+	h.verifyMyEmailCode(r.Context(), w, userID, req.Email, req.Code)
+}
+
+// S2SVerifyUserEmailCode is VerifyMyEmailCode for callers who authenticate their own end user
+// and forward the request S2S instead of a user-held auth-api JWT. Gated by INTERNAL_SERVICE_KEY.
+// POST /api/v1/s2s/users/{user_id}/email/verify-code  body: {email, code}
+func (h *AuthHandler) S2SVerifyUserEmailCode(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(strings.TrimSpace(chi.URLParam(r, "user_id")))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+		return
+	}
+	var req struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	h.verifyMyEmailCode(r.Context(), w, userID, req.Email, req.Code)
+}
+
+// verifyMyEmailCode is the shared implementation behind VerifyMyEmailCode and
+// S2SVerifyUserEmailCode — only how userID is resolved differs between them.
+func (h *AuthHandler) verifyMyEmailCode(ctx context.Context, w http.ResponseWriter, userID uuid.UUID, rawEmail, rawCode string) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "email verification not configured", nil)
+		return
+	}
+	email := normalizeSignupEmail(rawEmail)
+	code := strings.TrimSpace(rawCode)
 	if email == "" || code == "" {
 		writeError(w, http.StatusBadRequest, "invalid_request", "email and code are required", nil)
 		return
 	}
 
 	key := h.myEmailOTPKey(userID, email)
-	stored, err := h.redis.Get(r.Context(), key).Result()
+	stored, err := h.redis.Get(ctx, key).Result()
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "code_expired", "The code has expired or was not sent. Request a new one.", nil)
 		return
@@ -1738,9 +1801,9 @@ func (h *AuthHandler) VerifyMyEmailCode(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "code_invalid", "The verification code is incorrect.", nil)
 		return
 	}
-	_ = h.redis.Del(r.Context(), key).Err()
+	_ = h.redis.Del(ctx, key).Err()
 
-	if err := h.service.VerifyAndSetUserEmail(r.Context(), userID, email); err != nil {
+	if err := h.service.VerifyAndSetUserEmail(ctx, userID, email); err != nil {
 		if errors.Is(err, auth.ErrEmailAlreadyExists) {
 			writeError(w, http.StatusConflict, "email_exists",
 				"That email is already used by another account.", nil)
@@ -1753,7 +1816,7 @@ func (h *AuthHandler) VerifyMyEmailCode(w http.ResponseWriter, r *http.Request) 
 
 	// Bust the cached /me so the next call reflects verified=true immediately.
 	if h.redisNamespace != "" {
-		_ = h.redis.Del(r.Context(), fmt.Sprintf("%s:auth:me:%s", h.redisNamespace, userID.String())).Err()
+		_ = h.redis.Del(ctx, fmt.Sprintf("%s:auth:me:%s", h.redisNamespace, userID.String())).Err()
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"verified": true, "email": email})
