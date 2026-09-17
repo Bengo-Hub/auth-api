@@ -266,12 +266,13 @@ func (h *UserHandler) AdminGetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateUserRequest struct {
-	Email   string         `json:"email,omitempty"`
-	Profile map[string]any `json:"profile,omitempty"`
+	Email         string         `json:"email,omitempty"`
+	Profile       map[string]any `json:"profile,omitempty"`
+	EmailVerified *bool          `json:"email_verified,omitempty"`
 }
 
 // AdminUpdateUser godoc
-// @Summary Edit user email or profile (platform admin only)
+// @Summary Edit user email, profile, or force email_verified (platform admin only)
 func (h *UserHandler) AdminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if !h.requirePlatformAdmin(r) {
 		writeError(w, http.StatusForbidden, "forbidden", "platform admin required", nil)
@@ -296,6 +297,19 @@ func (h *UserHandler) AdminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Profile != nil {
 		upd = upd.SetProfile(req.Profile)
+	}
+	// Platform-admin override of the self-service/OAuth verification flow (see
+	// Service.VerifyEmailCode / the Google-login promotion path for the normal ways this
+	// flag gets set) -- for a real address a platform admin has independently confirmed the
+	// owner controls, without making them run the code-verification flow again. Setting
+	// false is also supported (e.g. correcting a wrongly-verified placeholder address).
+	if req.EmailVerified != nil {
+		upd = upd.SetEmailVerified(*req.EmailVerified)
+		if *req.EmailVerified {
+			upd = upd.SetEmailVerifiedAt(time.Now())
+		} else {
+			upd = upd.ClearEmailVerifiedAt()
+		}
 	}
 
 	u, err := upd.Save(r.Context())
