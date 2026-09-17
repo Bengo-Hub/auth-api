@@ -49,6 +49,7 @@ type App struct {
 	natsConn               *nats.Conn
 	outboxPublisher        *eventslib.OutboxPoller
 	subscriptionSubscriber *platformevents.SubscriptionSubscriber
+	etimsBranchSubscriber  *platformevents.EtimsBranchSubscriber
 	httpServer             *http.Server
 }
 
@@ -404,6 +405,18 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		}
 	}
 
+	// Outlet/branch two-way sync: mirrors treasury-api's registered KRA branch_id onto the
+	// outlet's own metadata so inventory-api/pos-api/treasury-api itself can all read one
+	// shared label instead of each needing a copy of treasury-api's EtimsDevice.
+	var etimsBranchSub *platformevents.EtimsBranchSubscriber
+	if natsConn != nil {
+		etimsBranchSub = platformevents.NewEtimsBranchSubscriber(entClient, logger)
+		if err := etimsBranchSub.Start(natsConn); err != nil {
+			logger.Warn("failed to start etims-branch subscriber", zap.Error(err))
+			etimsBranchSub = nil
+		}
+	}
+
 	// Start the platform-wide pg_dumpall DR backup scheduler. The master switch is
 	// cfg.Backup.ScheduleEnabled (default true); the actual backup run is still gated by
 	// the DB-stored auto_enabled flag (opt-in, default OFF). DSN reuses the same connection
@@ -423,6 +436,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		natsConn:               natsConn,
 		outboxPublisher:        outboxPub,
 		subscriptionSubscriber: subSubscriber,
+		etimsBranchSubscriber:  etimsBranchSub,
 		httpServer:             server,
 	}, nil
 }
@@ -448,6 +462,9 @@ func (a *App) Shutdown(ctx context.Context) error {
 	// Stop subscribers and outbox publisher
 	if a.subscriptionSubscriber != nil {
 		a.subscriptionSubscriber.Stop()
+	}
+	if a.etimsBranchSubscriber != nil {
+		a.etimsBranchSubscriber.Stop()
 	}
 	if a.outboxPublisher != nil {
 		a.outboxPublisher.Stop()
