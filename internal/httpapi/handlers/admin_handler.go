@@ -30,6 +30,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/pquerna/otp/totp"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -45,6 +46,28 @@ type AdminHandler struct {
 	subClient    *subscriptionclient.Client
 	hasher       *password.Hasher
 	authUIURL    string
+	tenantCache  *redis.Client
+}
+
+// SetTenantCache lets tenant updates drop the shared "tenant:<slug>" entry that
+// downstream services (ordering /config, notifications, ...) read, so a name,
+// logo or service branding change shows up without waiting out the 6h TTL.
+func (h *AdminHandler) SetTenantCache(rdb *redis.Client) {
+	h.tenantCache = rdb
+}
+
+func (h *AdminHandler) invalidateTenantCache(ctx context.Context, slugs ...string) {
+	if h.tenantCache == nil {
+		return
+	}
+	for _, slug := range slugs {
+		if slug == "" {
+			continue
+		}
+		if err := h.tenantCache.Del(ctx, "tenant:"+slug).Err(); err != nil {
+			h.logger.Warn("tenant cache invalidation failed", zap.String("slug", slug), zap.Error(err))
+		}
+	}
 }
 
 func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSvc *integrations.Service, subClient *subscriptionclient.Client, hasher *password.Hasher, authUIURL string, logger *zap.Logger) *AdminHandler {
@@ -798,6 +821,15 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 				if str, ok := v.(string); ok && str == "" {
 					continue
 				}
+				if k == MetadataKeyServiceBranding {
+					branding, err := mergeServiceBranding(metadata[k], v)
+					if err != nil {
+						writeError(w, http.StatusBadRequest, "invalid_service_branding", err.Error(), nil)
+						return
+					}
+					metadata[k] = branding
+					continue
+				}
 				metadata[k] = v
 			}
 		}
@@ -823,6 +855,12 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 		actor = claims.Subject
 	}
 	h.publishTenantLifecycleEvent(r.Context(), t, "updated", actor)
+
+	oldSlug := ""
+	if existing != nil {
+		oldSlug = existing.Slug
+	}
+	h.invalidateTenantCache(r.Context(), t.Slug, oldSlug)
 
 	writeJSON(w, http.StatusOK, t)
 }

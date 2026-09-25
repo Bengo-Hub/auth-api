@@ -58,6 +58,10 @@ func ValidateAndCompressLogoURL(raw string) (string, error) {
 		}
 		return raw, nil
 	}
+	if isSVGDataURI(raw) {
+		// Vector logos are kept as-is (no rasterizing) after a safety check.
+		return ValidateSVGDataURI(raw)
+	}
 
 	comma := strings.IndexByte(raw, ',')
 	if comma < 0 {

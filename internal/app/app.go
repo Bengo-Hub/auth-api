@@ -189,6 +189,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	}
 
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger)
+	adminHandler.SetTenantCache(redisClient)
 	// Platform-wide auto-backup activation (single-row, opt-in, default OFF).
 	platformBackupSvc := platformbackup.NewService(entClient)
 	backupHandler := handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled, platformBackupSvc)
