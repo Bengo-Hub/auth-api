@@ -75,3 +75,25 @@ func TestValidateAndCompressLogoURL_Empty(t *testing.T) {
 		t.Fatalf("expected clean clear, got %q err=%v", out, err)
 	}
 }
+
+// TestFitStoredLogo: a logo stored before the limits (oversized dimensions) is served within them,
+// is memoised, and a logo already within the limits or a hosted URL is returned untouched.
+func TestFitStoredLogo(t *testing.T) {
+	big := oversizedPNGDataURL(t, 1408, 768)
+	fit := FitStoredLogo(big)
+	if fit == big || !strings.HasPrefix(fit, "data:image/") {
+		t.Fatal("oversized logo was not fitted")
+	}
+	if needsFitting(fit) {
+		t.Fatalf("fitted logo still exceeds the limits (%d chars)", len(fit))
+	}
+	if again := FitStoredLogo(big); again != fit {
+		t.Fatal("fitting not memoised")
+	}
+	if FitStoredLogo(fit) != fit {
+		t.Fatal("a logo within the limits changed")
+	}
+	if u := "https://cdn.example.com/logo.png"; FitStoredLogo(u) != u {
+		t.Fatal("hosted logo changed")
+	}
+}
