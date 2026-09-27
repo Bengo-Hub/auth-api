@@ -690,6 +690,10 @@ func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to list tenants", nil)
 		return
 	}
+	// A list links each logo instead of inlining it (a platform owner's list was about 1 MB).
+	for _, t := range items {
+		t.LogoURL = logoRef(t)
+	}
 	writeJSON(w, http.StatusOK, pagination.NewResponse(items, total, p))
 }
 
@@ -726,7 +730,8 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	if req.Slug != "" {
 		update.SetSlug(req.Slug)
 	}
-	if req.LogoURL != "" {
+	if req.LogoURL != "" && !isOwnLogoRef(req.LogoURL) {
+		// A form re-saving the logo link it was given (isOwnLogoRef) leaves the stored logo as is.
 		// logo_url has no object-storage backing — it's stored inline as a data
 		// URI, so an unbounded upload bloats every /tenants/by-slug response and
 		// can crash consumers that embed or cache it (pos-ui, inventory-ui, ...).

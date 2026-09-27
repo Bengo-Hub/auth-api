@@ -115,6 +115,7 @@ type AuthHandlers struct {
 	AdminRotateKeys                    http.HandlerFunc
 	PublicCreateTenant                 http.HandlerFunc
 	PublicGetTenantBySlug              http.HandlerFunc
+	PublicGetTenantLogo                http.HandlerFunc
 	PublicGetTenantByID                http.HandlerFunc
 	PublicListMarketplaceTenants       http.HandlerFunc
 	AdminCreateIntegrationConfig       http.HandlerFunc
@@ -420,6 +421,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 				})
 			}
 			r.Get("/by-slug/{slug}", deps.AuthHandlers.PublicGetTenantBySlug)
+			// Tenant logo image (session payloads link here instead of inlining the image).
+			if deps.AuthHandlers.PublicGetTenantLogo != nil {
+				r.Get("/{slug}/logo", deps.AuthHandlers.PublicGetTenantLogo)
+			}
 			r.Get("/by-id/{tenant_id}", deps.AuthHandlers.PublicGetTenantByID)
 			// Cross-tenant marketplace directory (public, no auth) — bulk listing of
 			// active, non-demo tenants ranked by subscription tier. Same trust tier as

@@ -962,7 +962,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 				"name":         t.Name,
 				"slug":         t.Slug,
 				"brand_colors": t.BrandColors,
-				"logo_url":     t.LogoURL,
+				"logo_url":     logoRef(t),
 				"roles":        m.Roles,
 			})
 		}
@@ -1181,7 +1181,7 @@ func tenantViewFromEnt(tenant *ent.Tenant) map[string]any {
 		}
 	}
 
-	logoURL := tenant.LogoURL
+	logoURL := logoRef(tenant)
 	if logoURL == nil || *logoURL == "" {
 		logoURL = strPtr("https://accounts.codevertexafrica.com/images/logo/codevertex.png")
 	}
