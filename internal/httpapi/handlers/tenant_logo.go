@@ -11,6 +11,7 @@ import (
 
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/pkg/imageutil"
 )
 
 // Tenant logos are stored inline as base64 data: URIs (see imageutil). Embedding them in session
@@ -69,7 +70,8 @@ func (h *AdminHandler) GetTenantLogoPublic(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusNotFound, "not_found", "tenant has no logo", nil)
 		return
 	}
-	logo := *t.LogoURL
+	// Logos stored before the size limits are downscaled on the way out (memoised in imageutil).
+	logo := imageutil.FitStoredLogo(*t.LogoURL)
 	if !strings.HasPrefix(logo, "data:") {
 		http.Redirect(w, r, logo, http.StatusFound)
 		return

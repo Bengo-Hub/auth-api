@@ -612,6 +612,12 @@ func (h *AdminHandler) GetTenantByIDPublic(w http.ResponseWriter, r *http.Reques
 // publicTenantResponseFrom builds the shared public tenant response shape from an ent
 // Tenant row. Shared by the by-slug and by-id public lookup endpoints.
 func publicTenantResponseFrom(t *ent.Tenant) PublicTenantResponse {
+	logo := t.LogoURL
+	if logo != nil {
+		// Oversized logos stored before the limits are served downscaled (memoised).
+		fit := imageutil.FitStoredLogo(*logo)
+		logo = &fit
+	}
 	resp := PublicTenantResponse{
 		ID:                    t.ID.String(),
 		Name:                  t.Name,
@@ -620,7 +626,7 @@ func publicTenantResponseFrom(t *ent.Tenant) PublicTenantResponse {
 		IsDemo:                t.IsDemo,
 		ContactEmail:          t.ContactEmail,
 		ContactPhone:          t.ContactPhone,
-		LogoURL:               t.LogoURL,
+		LogoURL:               logo,
 		Website:               t.Website,
 		Country:               t.Country,
 		Timezone:              t.Timezone,

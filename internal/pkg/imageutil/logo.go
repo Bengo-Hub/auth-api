@@ -17,6 +17,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"strings"
+	"sync"
 )
 
 const (
@@ -30,8 +31,9 @@ const (
 	MaxDimension = 512
 
 	// MaxStoredBytes is the ceiling for the final re-encoded image bytes
-	// (before base64). Comfortably fits a 512px logo at PNG best-compression.
-	MaxStoredBytes = 350 * 1024 // 350KB
+	// (before base64). A 512px logo fits well under it at PNG best-compression;
+	// logos ride in tenant lookups and branding on every app, so keep them small.
+	MaxStoredBytes = 150 * 1024 // 150KB
 
 	// MaxPlainURLLen bounds a plain (non data:) logo URL — a hosted image URL
 	// has no business being longer than this.
@@ -96,8 +98,16 @@ func ValidateAndCompressLogoURL(raw string) (string, error) {
 	preferPNG := format == "png" || format == "gif" || hasAlpha(img)
 
 	if preferPNG {
-		if out, ok := encodePNGUnder(img, MaxStoredBytes); ok {
-			return toDataURL("image/png", out), nil
+		// Step the size down before giving up on PNG, so a transparent logo keeps its
+		// transparency instead of being flattened by the JPEG fallback.
+		for _, dim := range []int{MaxDimension, 384, 256} {
+			candidate := img
+			if bb := img.Bounds(); bb.Dx() > dim || bb.Dy() > dim {
+				candidate = resizeBox(img, dim)
+			}
+			if out, ok := encodePNGUnder(candidate, MaxStoredBytes); ok {
+				return toDataURL("image/png", out), nil
+			}
 		}
 	}
 	// Either a photographic/JPEG source, or PNG re-encoding still didn't fit —
@@ -208,4 +218,47 @@ func resizeBox(src image.Image, maxDim int) image.Image {
 		}
 	}
 	return dst
+}
+
+// fitted memoises FitStoredLogo per stored value (a handful of tenants, each logo compressed once
+// per process).
+var fitted sync.Map
+
+// FitStoredLogo returns a stored logo value that respects the current limits: a data: URI whose
+// image is larger than MaxStoredBytes or MaxDimension (uploaded before the limits applied) is
+// downscaled and re-encoded like a new upload; anything else is returned unchanged. The stored row
+// is not rewritten; the result is cached in memory, keyed by the stored value.
+func FitStoredLogo(raw string) string {
+	if !strings.HasPrefix(raw, "data:image/") || isSVGDataURI(raw) {
+		return raw
+	}
+	if v, ok := fitted.Load(raw); ok {
+		return v.(string)
+	}
+	out := raw
+	if needsFitting(raw) {
+		if shrunk, err := ValidateAndCompressLogoURL(raw); err == nil && shrunk != "" && len(shrunk) < len(raw) {
+			out = shrunk
+		}
+	}
+	fitted.Store(raw, out)
+	return out
+}
+
+// needsFitting reports whether a base64 image data URI exceeds the stored-size or dimension limit.
+func needsFitting(raw string) bool {
+	comma := strings.IndexByte(raw, ',')
+	if comma < 0 {
+		return false
+	}
+	payload := raw[comma+1:]
+	if base64.StdEncoding.DecodedLen(len(payload)) > MaxStoredBytes {
+		return true
+	}
+	decoded, err := base64.StdEncoding.DecodeString(payload)
+	if err != nil {
+		return false
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(decoded))
+	return err == nil && (cfg.Width > MaxDimension || cfg.Height > MaxDimension)
 }
