@@ -161,7 +161,7 @@ func (h *AdminHandler) ListMarketplaceTenants(w http.ResponseWriter, r *http.Req
 			ID:               t.ID.String(),
 			Slug:             t.Slug,
 			Name:             t.Name,
-			LogoURL:          t.LogoURL,
+			LogoURL:          logoRef(t),
 			BrandColors:      t.BrandColors,
 			SubscriptionPlan: t.SubscriptionPlan,
 			Country:          t.Country,
