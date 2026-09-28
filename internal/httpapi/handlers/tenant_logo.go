@@ -1,10 +1,9 @@
 package handlers
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -36,7 +35,7 @@ func logoRef(t *ent.Tenant) *string {
 		}
 		return t.LogoURL
 	}
-	u := logoPublicBase + "/api/v1/tenants/" + t.Slug + "/logo?v=" + logoVersion(*t.LogoURL)
+	u := logoPublicBase + "/api/v1/tenants/" + t.Slug + "/logo?v=" + logoVersion(t)
 	return &u
 }
 
@@ -46,9 +45,15 @@ func isOwnLogoRef(u string) bool {
 	return logoPublicBase != "" && strings.HasPrefix(u, logoPublicBase+"/api/v1/tenants/") && strings.Contains(u, "/logo")
 }
 
-func logoVersion(dataURI string) string {
-	sum := sha256.Sum256([]byte(dataURI))
-	return hex.EncodeToString(sum[:6])
+// logoVersion identifies a tenant's current logo cheaply: the tenant's last update time plus the
+// stored value's length. updated_at changes on every tenant update (logo included), so a new logo
+// always gets a new version; hashing the stored image on every /me call cost CPU per member tenant.
+func logoVersion(t *ent.Tenant) string {
+	n := 0
+	if t.LogoURL != nil {
+		n = len(*t.LogoURL)
+	}
+	return strconv.FormatInt(t.UpdatedAt.UnixNano(), 36) + "-" + strconv.Itoa(n)
 }
 
 // GetTenantLogoPublic serves a tenant's logo image. Public, like the other tenant lookups (a logo
@@ -81,7 +86,7 @@ func (h *AdminHandler) GetTenantLogoPublic(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusNotFound, "not_found", "tenant logo is not readable", nil)
 		return
 	}
-	etag := `"` + logoVersion(logo) + `"`
+	etag := `"` + logoVersion(t) + `"`
 	w.Header().Set("ETag", etag)
 	// A versioned request (?v=) never changes; an unversioned one is revalidated daily.
 	if r.URL.Query().Get("v") != "" {
