@@ -9,6 +9,7 @@ package imageutil
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -220,9 +221,39 @@ func resizeBox(src image.Image, maxDim int) image.Image {
 	return dst
 }
 
-// fitted memoises FitStoredLogo per stored value (a handful of tenants, each logo compressed once
-// per process).
-var fitted sync.Map
+// fitted memoises FitStoredLogo results, keyed by a hash of the stored value (never the value
+// itself, which can be hundreds of KB) and capped at maxFitted entries: when full, the oldest entry
+// is evicted, so memory stays bounded however many tenants or logo versions pass through.
+const maxFitted = 256
+
+var fitted = &fitCache{entries: map[[32]byte]string{}}
+
+type fitCache struct {
+	mu      sync.Mutex
+	entries map[[32]byte]string
+	order   [][32]byte
+}
+
+func (c *fitCache) get(k [32]byte) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	v, ok := c.entries[k]
+	return v, ok
+}
+
+func (c *fitCache) put(k [32]byte, v string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, ok := c.entries[k]; ok {
+		return
+	}
+	if len(c.order) >= maxFitted {
+		delete(c.entries, c.order[0])
+		c.order = c.order[1:]
+	}
+	c.entries[k] = v
+	c.order = append(c.order, k)
+}
 
 // FitStoredLogo returns a stored logo value that respects the current limits: a data: URI whose
 // image is larger than MaxStoredBytes or MaxDimension (uploaded before the limits applied) is
@@ -232,8 +263,9 @@ func FitStoredLogo(raw string) string {
 	if !strings.HasPrefix(raw, "data:image/") || isSVGDataURI(raw) {
 		return raw
 	}
-	if v, ok := fitted.Load(raw); ok {
-		return v.(string)
+	key := sha256.Sum256([]byte(raw))
+	if v, ok := fitted.get(key); ok {
+		return v
 	}
 	out := raw
 	if needsFitting(raw) {
@@ -241,7 +273,7 @@ func FitStoredLogo(raw string) string {
 			out = shrunk
 		}
 	}
-	fitted.Store(raw, out)
+	fitted.put(key, out)
 	return out
 }
 

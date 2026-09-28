@@ -97,3 +97,20 @@ func TestFitStoredLogo(t *testing.T) {
 		t.Fatal("hosted logo changed")
 	}
 }
+
+// TestFitCacheIsBounded: the memo never grows past maxFitted entries (oldest evicted first).
+func TestFitCacheIsBounded(t *testing.T) {
+	c := &fitCache{entries: map[[32]byte]string{}}
+	for i := 0; i < maxFitted+50; i++ {
+		var k [32]byte
+		k[0], k[1] = byte(i), byte(i>>8)
+		c.put(k, "v")
+	}
+	if len(c.entries) != maxFitted || len(c.order) != maxFitted {
+		t.Fatalf("cache holds %d entries (%d ordered), cap %d", len(c.entries), len(c.order), maxFitted)
+	}
+	var first [32]byte
+	if _, ok := c.get(first); ok {
+		t.Fatal("oldest entry not evicted")
+	}
+}

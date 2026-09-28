@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bengobox/auth-api/internal/ent"
 )
@@ -13,16 +14,17 @@ func TestLogoRef(t *testing.T) {
 	t.Cleanup(func() { SetLogoPublicBase("") })
 
 	inline := "data:image/png;base64," + strings.Repeat("A", 4000)
-	got := logoRef(&ent.Tenant{Slug: "small-steps", LogoURL: &inline})
+	updated := time.Date(2026, 9, 28, 8, 0, 0, 0, time.UTC)
+	got := logoRef(&ent.Tenant{Slug: "small-steps", LogoURL: &inline, UpdatedAt: updated})
 	if got == nil || !strings.HasPrefix(*got, "https://sso.example.com/api/v1/tenants/small-steps/logo?v=") || len(*got) > 120 {
 		t.Fatalf("inline logo ref = %v", got)
 	}
 	// Same logo, same version; a changed logo gets a new version.
 	other := inline + "B"
-	if again := logoRef(&ent.Tenant{Slug: "small-steps", LogoURL: &inline}); *again != *got {
+	if again := logoRef(&ent.Tenant{Slug: "small-steps", LogoURL: &inline, UpdatedAt: updated}); *again != *got {
 		t.Fatal("version not stable")
 	}
-	if changed := logoRef(&ent.Tenant{Slug: "small-steps", LogoURL: &other}); *changed == *got {
+	if changed := logoRef(&ent.Tenant{Slug: "small-steps", LogoURL: &other, UpdatedAt: updated.Add(time.Second)}); *changed == *got {
 		t.Fatal("version did not change with the logo")
 	}
 	hosted := "https://cdn.example.com/logo.png"
