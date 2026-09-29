@@ -279,6 +279,13 @@ var outletsByTenant = map[string][]outletDef{
 			address: "Demo Towers, Kilimani, Nairobi",
 			pinMsg:  "Welcome to Demo Beauty & Wellness — check appointments board",
 		},
+		// Services outlet on the printing_branding profile (job orders, production board).
+		{
+			slug: "demo-printing", code: "PRT",
+			name: "Demo Print & Branding", useCase: "services", isHQ: false,
+			address: "Demo Plaza, Moi Avenue, Nairobi",
+			pinMsg:  "Welcome to Demo Print & Branding. Check the production board for today's jobs.",
+		},
 		// Logistics hub — syncs to logistics-api only (dispatch, routing, rider management)
 		{
 			slug: "demo-logistics", code: "LOGIS",

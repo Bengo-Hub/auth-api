@@ -101,12 +101,12 @@ type demoStaffSpec struct {
 }
 
 // allPOSOutlets lists all codevertex-demo outlet slugs that matter for POS login.
-var allPOSOutlets = []string{"demo-hospitality", "demo-retail", "demo-quick", "demo-pharmacy", "demo-services"}
+var allPOSOutlets = []string{"demo-hospitality", "demo-retail", "demo-quick", "demo-pharmacy", "demo-services", "demo-printing"}
 
 // demoStaff lists all cross-platform demo staff under codevertex-demo.
 // PIN layout: manager=1111, cashier=2222, waiter=3333, kitchen=4444, bar=5555,
 //
-//	receptionist=6666, pharmacist=7777, stylist=8888, therapist=9999.
+//	receptionist=6666, pharmacist=7777, stylist=8888, therapist=9999, technician=7070.
 //
 // Admin (0000) is in seedDemoTenantAdmin.
 // Auth-api publishes auth.user.created + auth.user.pin_set events so pos-api
@@ -118,7 +118,7 @@ var demoStaff = []demoStaffSpec{
 	{"waiter@demo.codevertexafrica.com", "Demo Waiter", "waiter", "3333", []string{"demo-hospitality"}},
 	{"kitchen@demo.codevertexafrica.com", "Demo Kitchen", "kitchen", "4444", []string{"demo-hospitality", "demo-quick"}},
 	{"bar@demo.codevertexafrica.com", "Demo Bar Staff", "bar", "5555", []string{"demo-hospitality"}},
-	{"receptionist@demo.codevertexafrica.com", "Demo Receptionist", "receptionist", "6666", []string{"demo-hospitality", "demo-services"}},
+	{"receptionist@demo.codevertexafrica.com", "Demo Receptionist", "receptionist", "6666", []string{"demo-hospitality", "demo-services", "demo-printing"}},
 	// Pharmacy role
 	{"pharmacist@demo.codevertexafrica.com", "Grace Pharmacist", "pharmacist", "7777", []string{"demo-pharmacy"}},
 	// Services roles (beauty salon / spa / wellness)
@@ -129,7 +129,8 @@ var demoStaff = []demoStaffSpec{
 	{"driver@demo.codevertexafrica.com", "Demo Driver", "driver", "", nil},
 	{"coordinator@demo.codevertexafrica.com", "Demo Coordinator", "delivery_coordinator", "", nil},
 	// Cross-service roles
-	{"technician@demo.codevertexafrica.com", "Demo Technician", "technician", "", nil},
+	// Production staff at the print shop (the production board runs on the technician role).
+	{"technician@demo.codevertexafrica.com", "Demo Technician", "technician", "7070", []string{"demo-printing"}},
 	{"viewer@demo.codevertexafrica.com", "Demo Viewer", "viewer", "", nil},
 	{"customer@demo.codevertexafrica.com", "Demo Customer", "customer", "", nil},
 
