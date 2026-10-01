@@ -533,6 +533,7 @@ func (h *APIKeyHandler) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	announceKeyChanged(tenantID.String(), key.KeyHash)
 	h.logger.Info("API key revoked",
 		zap.String("key_id", keyID.String()),
 		zap.String("revoked_by", claims.Subject),

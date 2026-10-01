@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	ratelimit "github.com/Bengo-Hub/shared-ratelimit"
 	"context"
 	"net/http"
 	"time"
@@ -43,6 +44,9 @@ type RouterDeps struct {
 	TryAuthHandler        func(http.Handler) http.Handler
 	RateLimitLogin        func(http.Handler) http.Handler
 	RateLimitToken        func(http.Handler) http.Handler
+	// RateLimitSensitive guards unauthenticated code/account flows (email codes, password
+	// reset, registration, OTP) per client IP.
+	RateLimitSensitive func(http.Handler) http.Handler
 	MetricsHandler        http.Handler
 	// InternalServiceKey gates internal S2S endpoints (X-API-Key header).
 	InternalServiceKey string
@@ -202,11 +206,15 @@ type AuthHandlers struct {
 	WebAuthnDeleteCredential     http.HandlerFunc
 }
 
+// passThrough is the no-op middleware used when a limiter is not configured (tests).
+func passThrough(next http.Handler) http.Handler { return next }
+
 // NewRouter wires HTTP routes.
 func NewRouter(deps RouterDeps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.RealIP)
+	// Never chi's RealIP: it trusts client-sent True-Client-IP/X-Forwarded-For.
+	r.Use(ratelimit.TrustedRealIP)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
 	r.Use(cors.Handler(cors.Options{
@@ -293,17 +301,25 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Get("/openapi.json", deps.SwaggerHandler.OpenAPIJSON)
 			r.Options("/openapi.json", deps.SwaggerHandler.OpenAPIJSON)
 			r.With(deps.TryAuthHandler).Get("/authorize", deps.AuthHandlers.Authorize)
-			r.Post("/token", deps.AuthHandlers.Token)
+			if deps.RateLimitToken != nil {
+				r.With(deps.RateLimitToken).Post("/token", deps.AuthHandlers.Token)
+			} else {
+				r.Post("/token", deps.AuthHandlers.Token)
+			}
 			r.With(deps.RequireAuthHandler).Get("/userinfo", deps.AuthHandlers.UserInfo)
 		})
 		r.Route("/auth", func(r chi.Router) {
 			r.Get("/integrations/active", deps.AuthHandlers.ListActiveIntegrations)
 			r.Get("/use-case/config", deps.AuthHandlers.GetUseCaseConfig)
-			r.Post("/register", deps.AuthHandlers.Register)
-			r.Post("/register/oauth", deps.AuthHandlers.RegisterOAuth)
+			sensitive := passThrough
+			if deps.RateLimitSensitive != nil {
+				sensitive = deps.RateLimitSensitive
+			}
+			r.With(sensitive).Post("/register", deps.AuthHandlers.Register)
+			r.With(sensitive).Post("/register/oauth", deps.AuthHandlers.RegisterOAuth)
 			// Pre-signup email verification (unauthenticated).
-			r.Post("/email/send-code", deps.AuthHandlers.SendEmailCode)
-			r.Post("/email/verify-code", deps.AuthHandlers.VerifyEmailCode)
+			r.With(sensitive).Post("/email/send-code", deps.AuthHandlers.SendEmailCode)
+			r.With(sensitive).Post("/email/verify-code", deps.AuthHandlers.VerifyEmailCode)
 			// Authenticated verification for EXISTING accounts (the verify-email banner /
 			// dialog). Also replaces a placeholder address with the newly-proven real one.
 			if deps.RequireAuthHandler != nil && deps.AuthHandlers.SendMyEmailCode != nil {
@@ -320,8 +336,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 			} else {
 				r.Post("/refresh", deps.AuthHandlers.Refresh)
 			}
-			r.Post("/password-reset/request", deps.AuthHandlers.RequestPasswordReset)
-			r.Post("/password-reset/confirm", deps.AuthHandlers.ConfirmPasswordReset)
+			r.With(sensitive).Post("/password-reset/request", deps.AuthHandlers.RequestPasswordReset)
+			r.With(sensitive).Post("/password-reset/confirm", deps.AuthHandlers.ConfirmPasswordReset)
 			r.Post("/oauth/google/start", deps.AuthHandlers.GoogleOAuthStart)
 			r.Get("/oauth/google/callback", deps.AuthHandlers.GoogleOAuthCallback)
 			r.Post("/oauth/github/start", deps.AuthHandlers.GitHubOAuthStart)
@@ -393,8 +409,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 					})
 				}
 				r.Route("/otp", func(r chi.Router) {
-					r.Post("/send", deps.AuthHandlers.SendOTP)
-					r.Post("/verify", deps.AuthHandlers.VerifyOTP)
+					r.With(sensitive).Post("/send", deps.AuthHandlers.SendOTP)
+					r.With(sensitive).Post("/verify", deps.AuthHandlers.VerifyOTP)
 				})
 				r.Route("/sessions", func(r chi.Router) {
 					r.Get("/", deps.AuthHandlers.ListSessions)

@@ -1512,6 +1512,13 @@ func (h *AuthHandler) SendOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Same send cap as the email-code flows: 5 codes per user per 10 minutes.
+	if !h.allowCodeSend(r.Context(), h.redisNamespace+":vera:otp:rate:"+userID.String()) {
+		writeError(w, http.StatusTooManyRequests, "rate_limited",
+			"Too many codes requested. Please try again later.", nil)
+		return
+	}
+
 	otp, err := generateOTP()
 	if err != nil {
 		h.logger.Error("generate otp", zap.Error(err))
@@ -1559,18 +1566,11 @@ func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stored, err := h.redis.Get(r.Context(), h.otpKey(userID)).Result()
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "otp_expired", "OTP has expired or was not sent", nil)
+	// Atomic compare-and-consume with an attempt cap (see code_attempts.go).
+	if res := h.checkCode(r.Context(), h.otpKey(userID), strings.TrimSpace(req.OTP)); res != codeOK {
+		writeCodeError(w, res, "otp")
 		return
 	}
-	if stored != hashOTP(strings.TrimSpace(req.OTP)) {
-		writeError(w, http.StatusBadRequest, "otp_invalid", "OTP is incorrect", nil)
-		return
-	}
-
-	// Consume the OTP — one use only.
-	_ = h.redis.Del(r.Context(), h.otpKey(userID)).Err()
 
 	// Issue a short-lived otp_token for the Vera widget to present to marketflow-ai.
 	rawToken := make([]byte, 24)
@@ -1711,12 +1711,7 @@ func (h *AuthHandler) sendMyEmailCode(ctx context.Context, w http.ResponseWriter
 		return
 	}
 
-	rateKey := h.redisNamespace + ":verify:otp:rate:" + userID.String()
-	count, _ := h.redis.Incr(ctx, rateKey).Result()
-	if count == 1 {
-		_ = h.redis.Expire(ctx, rateKey, 10*time.Minute).Err()
-	}
-	if count > 5 {
+	if !h.allowCodeSend(ctx, h.redisNamespace+":verify:otp:rate:"+userID.String()) {
 		writeError(w, http.StatusTooManyRequests, "rate_limited",
 			"Too many verification attempts. Please try again later.", nil)
 		return
@@ -1791,17 +1786,10 @@ func (h *AuthHandler) verifyMyEmailCode(ctx context.Context, w http.ResponseWrit
 		return
 	}
 
-	key := h.myEmailOTPKey(userID, email)
-	stored, err := h.redis.Get(ctx, key).Result()
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "code_expired", "The code has expired or was not sent. Request a new one.", nil)
+	if res := h.checkCode(ctx, h.myEmailOTPKey(userID, email), code); res != codeOK {
+		writeCodeError(w, res, "code")
 		return
 	}
-	if stored != hashOTP(code) {
-		writeError(w, http.StatusBadRequest, "code_invalid", "The verification code is incorrect.", nil)
-		return
-	}
-	_ = h.redis.Del(ctx, key).Err()
 
 	if err := h.service.VerifyAndSetUserEmail(ctx, userID, email); err != nil {
 		if errors.Is(err, auth.ErrEmailAlreadyExists) {
@@ -1854,12 +1842,7 @@ func (h *AuthHandler) SendEmailCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Simple per-email rate limit: max 5 codes per 10 minutes.
-	rateKey := h.signupRateKey(email)
-	count, _ := h.redis.Incr(r.Context(), rateKey).Result()
-	if count == 1 {
-		_ = h.redis.Expire(r.Context(), rateKey, 10*time.Minute).Err()
-	}
-	if count > 5 {
+	if !h.allowCodeSend(r.Context(), h.signupRateKey(email)) {
 		writeError(w, http.StatusTooManyRequests, "rate_limited",
 			"Too many verification attempts. Please try again later.", nil)
 		return
@@ -1914,19 +1897,13 @@ func (h *AuthHandler) VerifyEmailCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stored, err := h.redis.Get(r.Context(), h.signupOTPKey(email)).Result()
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "code_expired", "The code has expired or was not sent. Request a new one.", nil)
-		return
-	}
-	if stored != hashOTP(code) {
-		writeError(w, http.StatusBadRequest, "code_invalid", "The verification code is incorrect.", nil)
+	if res := h.checkCode(r.Context(), h.signupOTPKey(email), code); res != codeOK {
+		writeCodeError(w, res, "code")
 		return
 	}
 
-	// Consume the code and mark the email verified for 30 minutes (long enough to
+	// The code is consumed; mark the email verified for 30 minutes (long enough to
 	// finish the rest of the signup wizard).
-	_ = h.redis.Del(r.Context(), h.signupOTPKey(email)).Err()
 	_ = h.redis.Set(r.Context(), h.signupVerifiedKey(email), "1", 30*time.Minute).Err()
 
 	// If the email already belongs to an account (the verify-email banner flow for an

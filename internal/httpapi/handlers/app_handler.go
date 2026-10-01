@@ -487,6 +487,7 @@ func (h *AppHandler) UpdateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to update app", nil)
 		return
 	}
+	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
 	writeJSON(w, http.StatusOK, appToResponse(updated))
 }
 
@@ -543,6 +544,7 @@ func (h *AppHandler) RotateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
 	h.logger.Info("app token rotated",
 		zap.String("app_id", appID.String()),
 		zap.String("rotated_by", claims.Subject),
@@ -605,6 +607,7 @@ func (h *AppHandler) RevokeApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
 	h.logger.Info("app revoked",
 		zap.String("app_id", appID.String()),
 		zap.String("revoked_by", claims.Subject),
@@ -656,6 +659,7 @@ func (h *AppHandler) DeleteApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete app", nil)
 		return
 	}
+	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -702,6 +706,7 @@ func (h *AppHandler) SuspendApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to suspend app", nil)
 		return
 	}
+	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
 	h.logger.Info("app suspended", zap.String("app_id", appID.String()), zap.String("suspended_by", claims.Subject))
 	writeJSON(w, http.StatusOK, appToResponse(updated))
 }
@@ -848,3 +853,10 @@ func (h *AppHandler) IsValidInternalServiceToken(ctx context.Context, tokenStr s
 // ValidateAppToken is intentionally absent: validation of bng_app_* tokens
 // is handled by APIKeyHandler.ValidateAPIKey, which detects the prefix and
 // delegates to the apps table. This avoids a duplicate validation endpoint.
+
+func tenantIDOf(a *ent.App) string {
+	if a == nil || a.TenantID == nil {
+		return ""
+	}
+	return a.TenantID.String()
+}

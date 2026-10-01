@@ -3,7 +3,6 @@ package platformbackup
 import (
 	"compress/gzip"
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"os"
@@ -12,16 +11,18 @@ import (
 	"strings"
 	"time"
 
+	sharedcache "github.com/Bengo-Hub/cache"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	"github.com/bengobox/auth-api/internal/modules/platformbackup/destination"
 )
 
-// schedulerAdvisoryLockKey is a fixed, service-unique key for the Postgres session
-// advisory lock that guards the daily run so only ONE replica executes it. The value is
-// arbitrary but stable; it differs per service to avoid cross-service contention on a
-// shared cluster. ("AUTB" — auth backup)
-const schedulerAdvisoryLockKey int64 = 0x4155_5442 // 'A','U','T','B'
+// schedulerLockPrefix keys the Redis lease that makes each hourly tick run on ONE replica.
+// It replaced a session pg_try_advisory_lock, which is unreliable through PgBouncer's
+// transaction pooling (lock and unlock can land on different server connections, leaking the
+// lock or letting a second replica in).
+const schedulerLockPrefix = "auth:platformbackup:tick"
 
 // SchedulerConfig configures the platform-wide pg_dumpall auto-backup + retention churn.
 // Enabled is a MASTER switch (BACKUP_SCHEDULE_ENABLED, default true); the actual backup run
@@ -33,23 +34,23 @@ type SchedulerConfig struct {
 }
 
 // Scheduler runs a daily platform-wide pg_dumpall DR backup + retention churn. It uses a
-// time-until-next-hour timer loop (no external cron dep) and a Postgres advisory lock so
-// only one replica performs the work. The backup ONLY runs when the DB-stored
+// time-until-next-hour timer loop (no external cron dep) and a once-per-hour Redis lease so
+// only one replica performs each tick. The backup ONLY runs when the DB-stored
 // auto_enabled flag is true (opt-in; default OFF).
 type Scheduler struct {
 	svc      *Service
-	db       *sql.DB
+	rdb      redis.UniversalClient
 	cfg      SchedulerConfig
 	log      *zap.Logger
 	uploader *destination.Uploader // optional; mirrors each dump to a configured remote
 }
 
 // NewScheduler builds the platform backup scheduler.
-func NewScheduler(svc *Service, db *sql.DB, cfg SchedulerConfig, log *zap.Logger) *Scheduler {
+func NewScheduler(svc *Service, rdb redis.UniversalClient, cfg SchedulerConfig, log *zap.Logger) *Scheduler {
 	if cfg.BackupDir == "" {
 		cfg.BackupDir = "/data/backups"
 	}
-	return &Scheduler{svc: svc, db: db, cfg: cfg, log: log.Named("platformbackup.Scheduler")}
+	return &Scheduler{svc: svc, rdb: rdb, cfg: cfg, log: log.Named("platformbackup.Scheduler")}
 }
 
 // WithUploader attaches a best-effort remote mirror for each written dump. When
@@ -89,34 +90,35 @@ func (sc *Scheduler) Start(ctx context.Context) {
 	}()
 }
 
-// runGuarded acquires the advisory lock and, if won, runs the platform backup (only when
-// the DB auto_enabled flag is true AND backupHour matches the activated schedule hour) then
-// runs the retention churn. One replica per tick.
+// runGuarded runs the tick on one replica: the platform backup (only when the DB
+// auto_enabled flag is true AND backupHour matches the activated schedule hour) then the
+// retention churn. Hourly ticks run once per hour fleet-wide (RunOnce keyed by the hour); the
+// startup churn (backupHour -1) only needs mutual exclusion.
 func (sc *Scheduler) runGuarded(ctx context.Context, backupHour int) {
-	conn, err := sc.db.Conn(ctx)
+	var ran bool
+	var err error
+	if backupHour < 0 {
+		ran, err = sharedcache.RunExclusive(ctx, sc.rdb, sc.log, schedulerLockPrefix+":startup", 30*time.Minute, sc.tick(backupHour))
+	} else {
+		ran, err = sharedcache.RunOnce(ctx, sc.rdb, sc.log, sharedcache.PeriodKey(schedulerLockPrefix, time.Hour), time.Hour, sc.tick(backupHour))
+	}
 	if err != nil {
-		sc.log.Warn("scheduler: acquire conn failed", zap.Error(err))
-		return
+		sc.log.Warn("scheduler: tick not run", zap.Bool("ran", ran), zap.Error(err))
+	} else if !ran {
+		sc.log.Debug("scheduler: another replica owns this tick; skipping")
 	}
-	defer func() { _ = conn.Close() }()
+}
 
-	var got bool
-	if err := conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, schedulerAdvisoryLockKey).Scan(&got); err != nil {
-		sc.log.Warn("scheduler: advisory lock failed", zap.Error(err))
-		return
+func (sc *Scheduler) tick(backupHour int) func(ctx context.Context) error {
+	return func(ctx context.Context) error {
+		return sc.runTick(ctx, backupHour)
 	}
-	if !got {
-		sc.log.Debug("scheduler: another replica holds the lock; skipping")
-		return
-	}
-	defer func() {
-		_, _ = conn.ExecContext(context.Background(), `SELECT pg_advisory_unlock($1)`, schedulerAdvisoryLockKey)
-	}()
+}
 
+func (sc *Scheduler) runTick(ctx context.Context, backupHour int) error {
 	settings, err := sc.svc.Get(ctx)
 	if err != nil {
-		sc.log.Warn("scheduler: load settings failed", zap.Error(err))
-		return
+		return fmt.Errorf("load settings: %w", err)
 	}
 
 	// OPT-IN gate: never run the platform backup unless explicitly activated.
@@ -130,6 +132,7 @@ func (sc *Scheduler) runGuarded(ctx context.Context, backupHour int) {
 
 	// Always run retention churn so stale files are pruned regardless of the activation state.
 	sc.churn(settings.RetentionDays)
+	return nil
 }
 
 // runPlatformBackup executes pg_dumpall for the whole cluster and writes a gzipped dump to
