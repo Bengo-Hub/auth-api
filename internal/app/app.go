@@ -1,15 +1,14 @@
 package app
 
 import (
+	sharedcache "github.com/Bengo-Hub/cache"
 	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
-	"time"
 
 	eventslib "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/audit"
-	"github.com/bengobox/auth-api/internal/cache"
 	k8sclient "github.com/bengobox/auth-api/internal/clients/k8s"
 	subscriptionclient "github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/config"
@@ -65,7 +64,12 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		}
 	}
 
-	redisClient, err := cache.New(cfg.Redis)
+	redisClient, err := sharedcache.NewRedis(ctx, sharedcache.RedisConfig{
+		Addr:     cfg.Redis.Addr,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+		TLS:      cfg.Redis.EnableTLS,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +149,10 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			PollPeriod: cfg.Events.OutboxPollPeriod,
 		})
 		outboxPub.Start(ctx)
+
+		// Announce API key / App token changes to every service's pods (auth-client
+		// APIKeyValidator.InvalidateHash) so revocation takes effect at once.
+		handlers.SetKeyBroadcaster(eventslib.NewBroadcaster(logger, natsConn, "auth"))
 	}
 
 	authService := auth.New(auth.Dependencies{
@@ -171,7 +179,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	// Enable session cookie resolution: bb_session cookies now contain a session
 	// UUID instead of the full JWT (admin tokens exceed browser 4KB cookie limit).
 	authMiddleware.SetSessionResolver(httpmiddleware.NewRedisSessionResolver(redisClient, cfg.Redis.Namespace))
-	rateLimiter := httpmiddleware.NewRateLimiter(redisClient, cfg.Redis.Namespace)
+	rateLimits := httpmiddleware.NewRateLimits(redisClient, logger, cfg.Redis.Namespace)
 	oidcService := oidc.New(entClient, tokenSvc, cfg)
 	oidcHandler := handlers.NewOIDCHandlerWithRolesPermissions(cfg, oidcService, authMiddleware, tokenSvc, authService, logger)
 	mfaService := mfa.New(entClient, cfg.Token.Issuer)
@@ -386,8 +394,9 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		},
 		RequireAuthHandler: authMiddleware.RequireAuth,
 		TryAuthHandler:     authMiddleware.TryAuth,
-		RateLimitLogin:     rateLimiter.Limit("login", 60, time.Minute, func(r *http.Request) string { return r.RemoteAddr }),
-		RateLimitToken:     rateLimiter.Limit("token", 120, time.Minute, func(r *http.Request) string { return r.RemoteAddr }),
+		RateLimitLogin:     rateLimits.Login(),
+		RateLimitToken:     rateLimits.Token(),
+		RateLimitSensitive: rateLimits.Sensitive(),
 	})
 
 	server := &http.Server{
@@ -425,7 +434,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	// cfg.Backup.ScheduleEnabled (default true); the actual backup run is still gated by
 	// the DB-stored auto_enabled flag (opt-in, default OFF). DSN reuses the same connection
 	// string the ent client connects with (cfg.Database.URL).
-	platformbackup.NewScheduler(platformBackupSvc, sqlDB, platformbackup.SchedulerConfig{
+	platformbackup.NewScheduler(platformBackupSvc, redisClient, platformbackup.SchedulerConfig{
 		Enabled:   cfg.Backup.ScheduleEnabled,
 		BackupDir: cfg.Backup.Dir,
 		DSN:       cfg.Database.URL,
