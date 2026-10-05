@@ -1666,6 +1666,20 @@ func (h *AuthHandler) SendMyEmailCode(w http.ResponseWriter, r *http.Request) {
 	h.sendMyEmailCode(r.Context(), w, userID, tenantID, req.Email)
 }
 
+// S2SUserPlatformOwner answers whether a user is a platform owner (admin or superuser in the
+// platform tenant), the same rule token minting uses. A downstream service that signs its own
+// end users in (pos-api's staff PIN) asks it so a platform admin's session there is marked the
+// same way as their SSO session. Gated by INTERNAL_SERVICE_KEY.
+// GET /api/v1/s2s/users/{user_id}/platform-owner
+func (h *AuthHandler) S2SUserPlatformOwner(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(strings.TrimSpace(chi.URLParam(r, "user_id")))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"is_platform_owner": h.service.IsPlatformOwner(r.Context(), userID)})
+}
+
 // S2SSendUserEmailCode is SendMyEmailCode for callers who authenticate their own end user
 // (e.g. a downstream service's terminal/PIN JWT, which auth-api has no key to verify itself)
 // and forward the request S2S instead of a user-held auth-api JWT. Gated by INTERNAL_SERVICE_KEY.
