@@ -170,6 +170,9 @@ type AuthHandlers struct {
 	// terminal/PIN JWT auth-api has no key to verify) and forwards the request S2S.
 	S2SSendUserEmailCode   http.HandlerFunc
 	S2SVerifyUserEmailCode http.HandlerFunc
+	// S2SUserPlatformOwner tells a downstream service with its own sign-in (pos-api PIN)
+	// whether the user is a platform owner.
+	S2SUserPlatformOwner http.HandlerFunc
 	// S2SMFAStatus/S2SMFAVerify let a service with its own separate login
 	// credential (mail-ui's Stalwart mailbox password) still gate on this
 	// user's auth-api TOTP MFA when the email happens to match.
@@ -737,6 +740,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 			}
 			if deps.AuthHandlers.S2SVerifyUserEmailCode != nil {
 				r.Post("/api/v1/s2s/users/{user_id}/email/verify-code", deps.AuthHandlers.S2SVerifyUserEmailCode)
+			}
+			if deps.AuthHandlers.S2SUserPlatformOwner != nil {
+				r.Get("/api/v1/s2s/users/{user_id}/platform-owner", deps.AuthHandlers.S2SUserPlatformOwner)
 			}
 			// S2S MFA federation (mail-ui webmail login) - see comments on the
 			// Deps fields above and on the handlers themselves.
