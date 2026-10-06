@@ -163,6 +163,8 @@ type AuthHandlers struct {
 	RemoveTenantMember http.HandlerFunc
 	// S2SListTenantUsers lists a tenant's active members for S2S callers (X-API-Key).
 	S2SListTenantUsers http.HandlerFunc
+	// S2STenantBillingContact answers which phone a tenant's billing messages go to.
+	S2STenantBillingContact http.HandlerFunc
 	// S2SUserEmailVerification returns the computed email-verification state for a user.
 	S2SUserEmailVerification http.HandlerFunc
 	// S2SSendUserEmailCode/S2SVerifyUserEmailCode are SendMyEmailCode/VerifyMyEmailCode for a
@@ -727,6 +729,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// S2S tenant user listing (erp-api employee backfill).
 			if deps.AuthHandlers.S2SListTenantUsers != nil {
 				r.Get("/api/v1/s2s/{tenant}/users", deps.AuthHandlers.S2SListTenantUsers)
+			}
+			// S2S billing phone (tenant admin, else main outlet, else tenant): notifications-api
+			// sends subscription invoices and payment reminders there over WhatsApp.
+			if deps.AuthHandlers.S2STenantBillingContact != nil {
+				r.Get("/api/v1/s2s/{tenant}/billing-contact", deps.AuthHandlers.S2STenantBillingContact)
 			}
 			// S2S email-verification state — downstream /auth/me forwards this so every app
 			// shows the same graduated verify banner.
