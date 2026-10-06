@@ -2233,28 +2233,15 @@ func (h *AdminHandler) S2SListTenantUsers(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Resolve {tenant} as a UUID first, then fall back to slug.
-	var t *ent.Tenant
-	if tid, err := uuid.Parse(tenantRef); err == nil {
-		t, err = h.ent.Tenant.Get(r.Context(), tid)
-		if err != nil && !ent.IsNotFound(err) {
-			h.logger.Error("S2S list users: get tenant by id", zap.Error(err))
-			writeError(w, http.StatusInternalServerError, "server_error", "could not resolve tenant", nil)
-			return
-		}
+	t, err := h.tenantByRef(r.Context(), tenantRef)
+	if ent.IsNotFound(err) {
+		writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
+		return
 	}
-	if t == nil {
-		tt, err := h.ent.Tenant.Query().Where(tenant.SlugEQ(tenantRef)).Only(r.Context())
-		if ent.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
-			return
-		}
-		if err != nil {
-			h.logger.Error("S2S list users: get tenant by slug", zap.Error(err))
-			writeError(w, http.StatusInternalServerError, "server_error", "could not resolve tenant", nil)
-			return
-		}
-		t = tt
+	if err != nil {
+		h.logger.Error("S2S list users: resolve tenant", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not resolve tenant", nil)
+		return
 	}
 
 	members, err := h.ent.TenantMembership.Query().
