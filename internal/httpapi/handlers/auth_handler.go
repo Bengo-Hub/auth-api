@@ -1101,6 +1101,9 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 	switch {
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password", nil)
+	case errors.Is(err, auth.ErrAccountDisabled):
+		writeError(w, http.StatusForbidden, "account_disabled",
+			"This account has been disabled. Contact your organisation's administrator or support@codevertexafrica.com.", nil)
 	case errors.Is(err, auth.ErrTenantNotFound):
 		writeError(w, http.StatusNotFound, "tenant_not_found", "tenant not found", nil)
 	case errors.Is(err, auth.ErrTenantInactive):
