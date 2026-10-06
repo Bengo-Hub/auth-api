@@ -74,32 +74,60 @@ func outletContactPhone(meta map[string]any) string {
 	return ""
 }
 
-// pickBillingPhone is the one rule for where a tenant's bills go by phone: the first tenant
-// administrator with a phone (their primary phone, else the profile phone), else the head office
-// outlet's phone, else the tenant's own contact phone. Source says which one answered.
-func pickBillingPhone(admins []billingContactAdmin, hqPhone, tenantPhone string) (phone, source string) {
+// billingPhone is one place a tenant's bills can go by phone.
+type billingPhone struct {
+	Phone  string `json:"phone"`
+	Source string `json:"source"` // tenant_admin, main_outlet or tenant
+}
+
+// pickBillingPhones is the one rule for where a tenant's bills go by phone, in order: the first
+// tenant administrator with a phone (their primary phone, else the profile phone), then the head
+// office outlet's phone, then the tenant's own contact phone. One number per step, and a number
+// already listed is not repeated. A message goes to the first; the rest are its backups.
+func pickBillingPhones(admins []billingContactAdmin, hqPhone, tenantPhone string) []billingPhone {
+	out := []billingPhone{}
+	seen := map[string]bool{}
+	add := func(p, source string) bool {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			return false
+		}
+		if key := subscriberDigits(p); !seen[key] {
+			seen[key] = true
+			out = append(out, billingPhone{Phone: p, Source: source})
+		}
+		return true
+	}
 	for _, a := range admins {
 		if !isBillingAdminRole(a.Roles) {
 			continue
 		}
-		if p := strings.TrimSpace(a.PrimaryPhone); p != "" {
-			return p, "tenant_admin"
-		}
-		if p := strings.TrimSpace(a.ProfilePhone); p != "" {
-			return p, "tenant_admin"
+		if add(a.PrimaryPhone, "tenant_admin") || add(a.ProfilePhone, "tenant_admin") {
+			break
 		}
 	}
-	if p := strings.TrimSpace(hqPhone); p != "" {
-		return p, "main_outlet"
+	add(hqPhone, "main_outlet")
+	add(tenantPhone, "tenant")
+	return out
+}
+
+// subscriberDigits is the last nine digits, so "0745..." and "+254745..." count as one number.
+func subscriberDigits(p string) string {
+	var b strings.Builder
+	for _, r := range p {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
 	}
-	if p := strings.TrimSpace(tenantPhone); p != "" {
-		return p, "tenant"
+	d := b.String()
+	if len(d) > 9 {
+		return d[len(d)-9:]
 	}
-	return "", ""
+	return d
 }
 
 // S2STenantBillingContact answers where a tenant's billing messages go by phone (see
-// pickBillingPhone). notifications-api uses it to send subscription invoices and payment
+// pickBillingPhones): phone/source is the first, phones the whole ordered list. notifications-api uses it to send subscription invoices and payment
 // reminders over WhatsApp. Gated by INTERNAL_SERVICE_KEY.
 // GET /api/v1/s2s/{tenant}/billing-contact
 func (h *AdminHandler) S2STenantBillingContact(w http.ResponseWriter, r *http.Request) {
@@ -175,6 +203,10 @@ func (h *AdminHandler) S2STenantBillingContact(w http.ResponseWriter, r *http.Re
 		tenantPhone = *t.ContactPhone
 	}
 
-	phone, source := pickBillingPhone(admins, hqPhone, tenantPhone)
-	writeJSON(w, http.StatusOK, map[string]string{"phone": phone, "source": source})
+	phones := pickBillingPhones(admins, hqPhone, tenantPhone)
+	resp := map[string]any{"phone": "", "source": "", "phones": phones}
+	if len(phones) > 0 {
+		resp["phone"], resp["source"] = phones[0].Phone, phones[0].Source
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
