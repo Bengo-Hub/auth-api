@@ -954,6 +954,12 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		s.recordLoginAttempt(ctx, tenantEntity.ID, userEntity.ID, in.Email, false, "password_mismatch", in.IPAddress, in.UserAgent)
 		return nil, ErrInvalidCredentials
 	}
+	// Suspended, deactivated and soft-deleted accounts were able to sign in: nothing checked the
+	// user's own status, only the tenant's.
+	if !UserCanSignIn(userEntity.Status) {
+		s.recordLoginAttempt(ctx, tenantEntity.ID, userEntity.ID, in.Email, false, "account_disabled", in.IPAddress, in.UserAgent)
+		return nil, ErrAccountDisabled
+	}
 
 	// Verify membership in the resolved tenant. Platform owners (members of the
 	// platform tenant) may sign in to ANY tenant — the same cross-tenant access
@@ -1065,6 +1071,10 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (*AuthResult, er
 
 	if sessionEntity.ExpiresAt.Before(time.Now()) {
 		return nil, ErrInvalidCredentials
+	}
+	// A session opened before the account was suspended must not keep refreshing.
+	if u := sessionEntity.Edges.User; u != nil && !UserCanSignIn(u.Status) {
+		return nil, ErrAccountDisabled
 	}
 
 	var tenantEntity *ent.Tenant
@@ -1751,6 +1761,11 @@ func (s *Service) isPlatformOwnerUser(ctx context.Context, userID uuid.UUID) boo
 }
 
 func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*AuthResult, error) {
+	// Every sign-in path (password, passkey, Google and other OAuth, PIN, registration) ends
+	// here, so a disabled account is refused in one place.
+	if in.User != nil && !UserCanSignIn(in.User.Status) {
+		return nil, ErrAccountDisabled
+	}
 	refreshPlain, refreshHash, err := s.tokenSvc.GenerateRefreshToken()
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
