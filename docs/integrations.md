@@ -377,7 +377,7 @@ r.Use(authMiddleware.RequireAuth)
   - Codes use the email code engine: SHA-256 hash in Redis, 5 minute expiry, 5 attempts per
     code, 5 sends per phone per 10 minutes, plus the sensitive IP limit on the routes.
   - Delivery: `auth.user.otp.requested` with `phone` (and no `email`); notifications-api sends
-    the `auth/otp` SMS from the platform sender.
+    the `auth_otp` WhatsApp AUTHENTICATION template (copy-code button) from the platform number.
 - `POST /api/v1/s2s/tenants/{tenant_id}/members` accepts phone-only members (`phone`, `name`,
   `roles`). An account already holding the phone is reused; otherwise one is created with a
   `p<digits>@placeholder.local` email, a random unrevealed password and the phone as its primary
