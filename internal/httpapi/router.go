@@ -165,6 +165,9 @@ type AuthHandlers struct {
 	S2SListTenantUsers http.HandlerFunc
 	// S2STenantBillingContact answers which phone a tenant's billing messages go to.
 	S2STenantBillingContact http.HandlerFunc
+	// S2STenantsReach pages through tenants (or one tenant's staff) with ordered contacts for
+	// notifications-api broadcasts.
+	S2STenantsReach http.HandlerFunc
 	// S2SUserEmailVerification returns the computed email-verification state for a user.
 	S2SUserEmailVerification http.HandlerFunc
 	// S2SSendUserEmailCode/S2SVerifyUserEmailCode are SendMyEmailCode/VerifyMyEmailCode for a
@@ -734,6 +737,13 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// sends subscription invoices and payment reminders there over WhatsApp.
 			if deps.AuthHandlers.S2STenantBillingContact != nil {
 				r.Get("/api/v1/s2s/{tenant}/billing-contact", deps.AuthHandlers.S2STenantBillingContact)
+			}
+			// S2S broadcast reach (owners and admins with verified contacts first, then the tenant's
+			// contacts, then the head office outlet's), paged: notifications-api's bulk messages.
+			// Registered before /{tenant}/... routes would not matter: the literal "tenants" segment
+			// sits on its own path.
+			if deps.AuthHandlers.S2STenantsReach != nil {
+				r.Get("/api/v1/s2s/tenants/reach", deps.AuthHandlers.S2STenantsReach)
 			}
 			// S2S email-verification state — downstream /auth/me forwards this so every app
 			// shows the same graduated verify banner.
