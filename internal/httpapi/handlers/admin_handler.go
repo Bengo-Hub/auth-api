@@ -19,6 +19,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/userphone"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/password"
 	"github.com/bengobox/auth-api/internal/pkg/imageutil"
@@ -1682,6 +1683,73 @@ type tenantMemberResponse struct {
 	TempPassword string `json:"temp_password,omitempty"`
 }
 
+type directAddFailure struct {
+	status  int
+	code    string
+	message string
+}
+
+// phonePlaceholderEmail mints the synthetic address for a phone-only account. It ends in
+// ".local", so isPlaceholderEmail treats it as replaceable by a real address later.
+func phonePlaceholderEmail(e164 string) string {
+	return "p" + strings.TrimPrefix(e164, "+") + "@placeholder.local"
+}
+
+// createDirectAddUser creates an active account for a direct-add member. With withPassword the
+// account gets a temporary password (returned once) that must be changed on first SSO login;
+// without it (phone-only members) the password is random and never revealed, so the account
+// signs in only by phone code. A phone, when given and free, is stored as the primary UserPhone
+// so phone code sign-in works.
+func (h *AdminHandler) createDirectAddUser(ctx context.Context, tenantID uuid.UUID, email, name, rawPhone string, withPassword bool) (*ent.User, string, *directAddFailure) {
+	fail := func(status int, code, msg string) *directAddFailure {
+		return &directAddFailure{status: status, code: code, message: msg}
+	}
+	secret := generateTempPassword()
+	hash, err := h.hasher.Hash(secret)
+	if err != nil {
+		h.logger.Error("hash direct-add password", zap.Error(err))
+		return nil, "", fail(http.StatusInternalServerError, "server_error", "could not create account")
+	}
+	profile := map[string]any{}
+	if withPassword {
+		profile["must_change_password"] = true
+	}
+	if n := strings.TrimSpace(name); n != "" {
+		profile["name"] = n
+	}
+	phone := ""
+	if p := strings.TrimSpace(rawPhone); p != "" {
+		profile["phone"] = p
+		if norm, pErr := validateAndNormalizePhone(p); pErr == nil {
+			phone = norm
+		}
+	}
+	created, err := h.ent.User.Create().
+		SetEmail(email).
+		SetPasswordHash(hash).
+		SetStatus("active").
+		SetPrimaryTenantID(tenantID.String()).
+		SetProfile(profile).
+		Save(ctx)
+	if err != nil {
+		if ent.IsConstraintError(err) {
+			return nil, "", fail(http.StatusConflict, "conflict", "email already in use")
+		}
+		h.logger.Error("create direct-add user", zap.Error(err))
+		return nil, "", fail(http.StatusInternalServerError, "server_error", "could not create account")
+	}
+	if phone != "" {
+		// Unique per platform: a number already held by another account is left there.
+		if _, pErr := h.ent.UserPhone.Create().SetUserID(created.ID).SetPhone(phone).SetIsPrimary(true).Save(ctx); pErr != nil && !ent.IsConstraintError(pErr) {
+			h.logger.Warn("store direct-add phone", zap.Error(pErr))
+		}
+	}
+	if !withPassword {
+		secret = ""
+	}
+	return created, secret, nil
+}
+
 // AddTenantMember adds a user to a tenant with specified roles.
 // POST /api/v1/admin/tenants/{tenant_id}/members
 func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
@@ -1722,34 +1790,31 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			// Direct-add: create a new active account with a temporary password.
 			// The user must change it on first interactive (SSO) login; a PIN
 			// (if provided below) works for terminal login independently.
-			tempPassword = generateTempPassword()
-			hash, hErr := h.hasher.Hash(tempPassword)
-			if hErr != nil {
-				h.logger.Error("hash temp password", zap.Error(hErr))
-				writeError(w, http.StatusInternalServerError, "server_error", "could not create account", nil)
+			created, tp, fail := h.createDirectAddUser(r.Context(), tenantID, email, req.Name, req.Phone, true)
+			if fail != nil {
+				writeError(w, fail.status, fail.code, fail.message, nil)
 				return
 			}
-			profile := map[string]any{"must_change_password": true}
-			if strings.TrimSpace(req.Name) != "" {
-				profile["name"] = strings.TrimSpace(req.Name)
-			}
-			if strings.TrimSpace(req.Phone) != "" {
-				profile["phone"] = strings.TrimSpace(req.Phone)
-			}
-			created, cErr := h.ent.User.Create().
-				SetEmail(email).
-				SetPasswordHash(hash).
-				SetStatus("active").
-				SetPrimaryTenantID(tenantID.String()).
-				SetProfile(profile).
-				Save(r.Context())
-			if cErr != nil {
-				if ent.IsConstraintError(cErr) {
-					writeError(w, http.StatusConflict, "conflict", "email already in use", nil)
-					return
-				}
-				h.logger.Error("create direct-add user", zap.Error(cErr))
-				writeError(w, http.StatusInternalServerError, "server_error", "could not create account", nil)
+			userID, tempPassword = created.ID, tp
+		} else {
+			writeError(w, http.StatusInternalServerError, "server_error", "user lookup failed", nil)
+			return
+		}
+	} else if strings.TrimSpace(req.Phone) != "" {
+		// Phone-only member (customer portals such as Maskani owners and occupants, who sign in
+		// with a phone code). An existing account holding the phone is reused; otherwise one is
+		// created with a placeholder email and no usable password.
+		phone, pErr := validateAndNormalizePhone(strings.TrimSpace(req.Phone))
+		if pErr != nil {
+			writeError(w, http.StatusBadRequest, "invalid_phone", "phone must include the country code", nil)
+			return
+		}
+		if up, upErr := h.ent.UserPhone.Query().Where(userphone.PhoneEQ(phone)).Only(r.Context()); upErr == nil {
+			userID = up.UserID
+		} else if ent.IsNotFound(upErr) {
+			created, _, fail := h.createDirectAddUser(r.Context(), tenantID, phonePlaceholderEmail(phone), req.Name, phone, false)
+			if fail != nil {
+				writeError(w, fail.status, fail.code, fail.message, nil)
 				return
 			}
 			userID = created.ID
@@ -1758,7 +1823,7 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		writeError(w, http.StatusBadRequest, "invalid_request", "user_id or email is required", nil)
+		writeError(w, http.StatusBadRequest, "invalid_request", "user_id, email or phone is required", nil)
 		return
 	}
 

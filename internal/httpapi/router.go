@@ -68,6 +68,8 @@ type AuthHandlers struct {
 	SendEmailCode                      http.HandlerFunc
 	VerifyEmailCode                    http.HandlerFunc
 	SendMyEmailCode                    http.HandlerFunc
+	RequestPhoneOTP                    http.HandlerFunc
+	VerifyPhoneOTP                     http.HandlerFunc
 	VerifyMyEmailCode                  http.HandlerFunc
 	ListMyEmails                       http.HandlerFunc
 	SendAddEmailCode                   http.HandlerFunc
@@ -328,6 +330,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// Pre-signup email verification (unauthenticated).
 			r.With(sensitive).Post("/email/send-code", deps.AuthHandlers.SendEmailCode)
 			r.With(sensitive).Post("/email/verify-code", deps.AuthHandlers.VerifyEmailCode)
+			// Phone code sign-in for customer portals (member-only, see phone_otp_handler.go).
+			if deps.AuthHandlers.RequestPhoneOTP != nil {
+				r.With(sensitive).Post("/phone/otp/request", deps.AuthHandlers.RequestPhoneOTP)
+				r.With(sensitive).Post("/phone/otp/verify", deps.AuthHandlers.VerifyPhoneOTP)
+			}
 			// Authenticated verification for EXISTING accounts (the verify-email banner /
 			// dialog). Also replaces a placeholder address with the newly-proven real one.
 			if deps.RequireAuthHandler != nil && deps.AuthHandlers.SendMyEmailCode != nil {

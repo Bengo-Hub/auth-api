@@ -272,6 +272,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			SendEmailCode:                      authHandler.SendEmailCode,
 			VerifyEmailCode:                    authHandler.VerifyEmailCode,
 			SendMyEmailCode:                    authHandler.SendMyEmailCode,
+			RequestPhoneOTP:                    authHandler.RequestPhoneOTP,
+			VerifyPhoneOTP:                     authHandler.VerifyPhoneOTP,
 			VerifyMyEmailCode:                  authHandler.VerifyMyEmailCode,
 			S2SSendUserEmailCode:               authHandler.S2SSendUserEmailCode,
 			S2SVerifyUserEmailCode:             authHandler.S2SVerifyUserEmailCode,

@@ -51,6 +51,9 @@ type AuthService interface {
 	RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error
 	IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
+	FindPhoneLoginTarget(ctx context.Context, tenantSlug, phone string) (*auth.PhoneLoginTarget, error)
+	SendPhoneOTP(ctx context.Context, target *auth.PhoneLoginTarget, otp string, ttl time.Duration)
+	LoginWithPhoneOTP(ctx context.Context, target *auth.PhoneLoginTarget, clientID, ip, ua string) (*auth.AuthResult, error)
 	ListUserTenantMemberships(ctx context.Context, userID uuid.UUID) ([]*ent.TenantMembership, error)
 	IsPlatformOwner(ctx context.Context, userID uuid.UUID) bool
 	AcceptTerms(ctx context.Context, userID uuid.UUID) error
