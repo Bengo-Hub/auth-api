@@ -349,6 +349,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			RemoveTenantMember:       adminHandler.RemoveTenantMember,
 			S2SListTenantUsers:       adminHandler.S2SListTenantUsers,
 			S2STenantBillingContact:  adminHandler.S2STenantBillingContact,
+			S2STenantsReach:          adminHandler.S2STenantsReach,
 			S2SUserEmailVerification: adminHandler.S2SUserEmailVerification,
 			S2SMFAStatus:             adminHandler.S2SMFAStatus,
 			S2SMFAVerify:             adminHandler.S2SMFAVerify,
