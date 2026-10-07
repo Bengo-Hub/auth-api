@@ -670,6 +670,7 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "isp-billing-ui", Name: "Codevertex ISP Billing UI", ProductionHost: "ispbilling.codevertexafrica.com", Public: true},
 		{ID: "hospital-ui", Name: "Codevertex Hospital UI (Afya)", ProductionHost: "afya.codevertexafrica.com", Public: true},
 		{ID: "projects-ui", Name: "Codevertex Projects UI", ProductionHost: "projects.codevertexafrica.com", Public: true},
+		{ID: "maskani-ui", Name: "Maskani Property Platform", ProductionHost: "maskaniapp.codevertexafrica.com", Public: true},
 	}
 
 	// Collect all tenant slugs for OAuth redirect URI generation.

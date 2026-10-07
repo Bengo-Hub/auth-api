@@ -35,6 +35,8 @@ var KnownUseCases = []string{
 	// completeness.
 	"isp",
 	"hotspot",
+	// Maskani property platform: each estate or building is an outlet of the property tenant.
+	"property",
 }
 
 // ApplicableServices returns which downstream services receive outlet sync events
@@ -55,6 +57,8 @@ func ApplicableServices(useCase string) []string {
 		return []string{"truload"}
 	case "isp", "hotspot", "pppoe", "wifi":
 		return []string{"isp-billing"}
+	case "property", "estate", "real_estate":
+		return []string{"maskani-api"}
 	default:
 		return []string{}
 	}
@@ -224,6 +228,18 @@ func (s *Service) ResolveConfig(ctx context.Context, useCase string) *Config {
 				"catalog_nomenclature":  "Packages",
 				"item_nomenclature":     "Plan",
 				"category_nomenclature": "Service Type",
+			},
+		}
+	case "property":
+		return &Config{
+			UseCase:            "property",
+			DisplayName:        "Property Management",
+			ApplicableServices: applicable,
+			Features:           []string{"unit_register", "service_charge_billing", "unit_sales", "visitor_management", "work_orders"},
+			Settings: map[string]any{
+				"catalog_nomenclature":  "Charges",
+				"item_nomenclature":     "Unit",
+				"category_nomenclature": "Block",
 			},
 		}
 	default:
