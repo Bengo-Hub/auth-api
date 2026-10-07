@@ -44,9 +44,9 @@ func (s *Service) FindPhoneLoginTarget(ctx context.Context, tenantSlug, phone st
 	return &PhoneLoginTarget{User: up.Edges.User, Tenant: t, Phone: phone}, nil
 }
 
-// SendPhoneOTP publishes the code for notifications-api to deliver by SMS (same otp.requested event
-// as the email code, carrying phone instead of email). Platform sender, so tenant SMS credits never
-// block a sign-in.
+// SendPhoneOTP publishes the code for notifications-api to deliver on WhatsApp (same otp.requested
+// event as the email code, carrying phone instead of email). Platform sender, so a tenant's own
+// messaging plan never blocks a sign-in.
 func (s *Service) SendPhoneOTP(ctx context.Context, target *PhoneLoginTarget, otp string, ttl time.Duration) {
 	s.publishEvent(ctx, target.Tenant.ID, "auth.user", target.User.ID, "otp.requested", map[string]any{
 		"user_id":     target.User.ID.String(),
