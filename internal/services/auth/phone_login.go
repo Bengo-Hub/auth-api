@@ -44,11 +44,15 @@ func (s *Service) FindPhoneLoginTarget(ctx context.Context, tenantSlug, phone st
 	return &PhoneLoginTarget{User: up.Edges.User, Tenant: t, Phone: phone}, nil
 }
 
-// SendPhoneOTP publishes the code for notifications-api to deliver on WhatsApp (same otp.requested
-// event as the email code, carrying phone instead of email). Platform sender, so a tenant's own
-// messaging plan never blocks a sign-in.
-func (s *Service) SendPhoneOTP(ctx context.Context, target *PhoneLoginTarget, otp string, ttl time.Duration) {
-	s.publishEvent(ctx, target.Tenant.ID, "auth.user", target.User.ID, "otp.requested", map[string]any{
+// PhoneOTPChannelWhatsApp asks for the code on WhatsApp even when the member has an email.
+const PhoneOTPChannelWhatsApp = "whatsapp"
+
+// SendPhoneOTP publishes the code for notifications-api to deliver (the same otp.requested event as
+// the email code, with purpose phone_login). Email comes first when the member has a real address,
+// since it needs no approved WhatsApp template; WhatsApp carries it when there is no email or the
+// member asks for it. Platform sender, so a tenant's own messaging plan never blocks a sign-in.
+func (s *Service) SendPhoneOTP(ctx context.Context, target *PhoneLoginTarget, otp string, ttl time.Duration, channel string) {
+	payload := map[string]any{
 		"user_id":     target.User.ID.String(),
 		"tenant_id":   target.Tenant.ID.String(),
 		"phone":       target.Phone,
@@ -56,7 +60,12 @@ func (s *Service) SendPhoneOTP(ctx context.Context, target *PhoneLoginTarget, ot
 		"ttl_minutes": int(ttl.Minutes()),
 		"brand_name":  target.Tenant.Name,
 		"purpose":     "phone_login",
-	})
+		"channel":     PhoneOTPChannelWhatsApp,
+	}
+	if email := strings.TrimSpace(target.User.Email); channel != PhoneOTPChannelWhatsApp && email != "" && !isPlaceholderEmail(email) {
+		payload["login_email"], payload["channel"] = email, "email"
+	}
+	s.publishEvent(ctx, target.Tenant.ID, "auth.user", target.User.ID, "otp.requested", payload)
 }
 
 // LoginWithPhoneOTP issues a session after the handler has verified the code. The phone is

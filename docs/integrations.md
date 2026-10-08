@@ -368,16 +368,25 @@ r.Use(authMiddleware.RequireAuth)
 - Staff sign in through SSO with the public client `maskani-ui` (`maskaniapp.codevertexafrica.com`).
 - Each estate or building is an outlet with use case `property` (applicable service `maskani-api`).
 - Owners and occupants sign in with a phone code:
-  - `POST /api/v1/auth/phone/otp/request` `{tenant_slug, phone}` always answers `{sent: true}`. A
-    code is sent only when the E.164 phone is on file (`user_phones`) for an active member of that
-    tenant, so the endpoint cannot create accounts or reveal which numbers exist.
+  - `POST /api/v1/auth/phone/otp/request` `{tenant_slug, phone, channel?}` always answers
+    `{sent: true}`. A code is sent only when the E.164 phone is on file (`user_phones`) for an
+    active member of that tenant, so the endpoint cannot create accounts or reveal which numbers
+    exist. The answer never says which channel was used, for the same reason.
   - `POST /api/v1/auth/phone/otp/verify` `{tenant_slug, phone, code, client_id}` returns the
     standard token pair and marks the phone verified. An account with an authenticator app must
     use its password.
   - Codes use the email code engine: SHA-256 hash in Redis, 5 minute expiry, 5 attempts per
     code, 5 sends per phone per 10 minutes, plus the sensitive IP limit on the routes.
-  - Delivery: `auth.user.otp.requested` with `phone` (and no `email`); notifications-api sends
-    the `auth_otp` WhatsApp AUTHENTICATION template (copy-code button) from the platform number.
+  - Delivery (2026-10-08): email first, WhatsApp as the fallback. `auth.user.otp.requested`
+    always carries `phone` and `purpose: phone_login`. When the member has a real email (not a
+    placeholder) and the request did not ask for `channel: "whatsapp"`, the event also carries
+    `login_email` and `channel: "email"`, and notifications-api sends the `auth/otp_verification`
+    email. Otherwise `channel` is `"whatsapp"` and it sends the `auth_otp` AUTHENTICATION template
+    (copy-code button) from the platform number. The portal offers "Send it on WhatsApp instead"
+    on the code screen, which re-requests with `channel: "whatsapp"`.
+  - A phone receives a code only after the estate has invited that party (maskani
+    `POST /parties/{id}/invite` creates the member and its phone). An uninvited number gets the
+    same `{sent: true}` and no message, which looks like a delivery failure when testing.
 - `POST /api/v1/s2s/tenants/{tenant_id}/members` accepts phone-only members (`phone`, `name`,
   `roles`). An account already holding the phone is reused; otherwise one is created with a
   `p<digits>@placeholder.local` email, a random unrevealed password and the phone as its primary

@@ -19,6 +19,9 @@ type phoneOTPRequest struct {
 	Phone      string `json:"phone"`
 	Code       string `json:"code"`
 	ClientID   string `json:"client_id"`
+	// Channel is optional: "whatsapp" forces WhatsApp; anything else means email when the member
+	// has one, WhatsApp otherwise.
+	Channel string `json:"channel"`
 }
 
 func (h *AuthHandler) phoneOTPKey(tenantSlug, phone string) string {
@@ -64,7 +67,7 @@ func (h *AuthHandler) RequestPhoneOTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "unavailable", "could not store the code", nil)
 		return
 	}
-	h.service.SendPhoneOTP(r.Context(), target, otp, phoneOTPTTL)
+	h.service.SendPhoneOTP(r.Context(), target, otp, phoneOTPTTL, strings.ToLower(strings.TrimSpace(req.Channel)))
 	writeJSON(w, http.StatusOK, accepted)
 }
 
