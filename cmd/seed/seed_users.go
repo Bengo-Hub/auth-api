@@ -176,6 +176,17 @@ var demoStaff = []demoStaffSpec{
 	// account, holding hospital-api's pharmacist role (already grants prescribe+dispense+
 	// collect_own — everything the New Sale flow needs solo), is enough to demo the whole thing.
 	{"pharmacist.chemist@demo.codevertexafrica.com", "Demo Chemist Pharmacist", "pharmacist", "", []string{"demo-chemist"}},
+
+	// Maskani (property-service) estate staff, SSO-only, scoped to demo-estate (Shaba Village).
+	// Roles are property-specific names on purpose: codevertex-demo hosts every vertical, so
+	// maskani-api only maps generic names (manager, cashier, member) for tenants whose own use
+	// case is property. Owners and residents are not seeded here; they are estate parties that
+	// maskani-api invites (phone code sign-in, maskani_owner role).
+	{"estate.manager@demo.codevertexafrica.com", "Demo Estate Manager", "property_manager", "", []string{"demo-estate"}},
+	{"estate.accounts@demo.codevertexafrica.com", "Demo Estate Accountant", "estate_accountant", "", []string{"demo-estate"}},
+	{"estate.sales@demo.codevertexafrica.com", "Demo Estate Sales Officer", "property_sales", "", []string{"demo-estate"}},
+	{"estate.caretaker@demo.codevertexafrica.com", "Demo Estate Caretaker", "caretaker", "", []string{"demo-estate"}},
+	{"estate.security@demo.codevertexafrica.com", "Demo Estate Security Manager", "estate_security", "", []string{"demo-estate"}},
 }
 
 // seedDemoStaff seeds all demo staff users under the codevertex-demo tenant.

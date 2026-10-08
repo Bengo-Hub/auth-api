@@ -1657,6 +1657,42 @@ type addTenantMemberRequest struct {
 	Phone   string `json:"phone,omitempty"`
 	PIN     string `json:"pin,omitempty"`
 	Service string `json:"service,omitempty"`
+	// MergeRoles adds Roles to an existing member's roles instead of replacing them. Customer portal
+	// invites (Maskani owners) set it, so inviting someone who is already staff keeps their staff roles.
+	MergeRoles bool `json:"merge_roles,omitempty"`
+}
+
+// mergeRoleLists returns current plus any of extra not already present, in order.
+func mergeRoleLists(current, extra []string) []string {
+	out := append([]string{}, current...)
+	seen := make(map[string]bool, len(out))
+	for _, r := range out {
+		seen[r] = true
+	}
+	for _, r := range extra {
+		if r != "" && !seen[r] {
+			out = append(out, r)
+			seen[r] = true
+		}
+	}
+	return out
+}
+
+// attachPhoneIfFree gives an existing account the phone when no account holds it yet, so a member
+// added by email can also sign in with a phone code. A number held by another account is left alone.
+func (h *AdminHandler) attachPhoneIfFree(ctx context.Context, userID uuid.UUID, rawPhone string) {
+	phone, err := validateAndNormalizePhone(strings.TrimSpace(rawPhone))
+	if err != nil {
+		return
+	}
+	held, err := h.ent.UserPhone.Query().Where(userphone.PhoneEQ(phone)).Exist(ctx)
+	if err != nil || held {
+		return
+	}
+	hasPrimary, _ := h.ent.UserPhone.Query().Where(userphone.UserIDEQ(userID), userphone.IsPrimaryEQ(true)).Exist(ctx)
+	if _, err := h.ent.UserPhone.Create().SetUserID(userID).SetPhone(phone).SetIsPrimary(!hasPrimary).Save(ctx); err != nil && !ent.IsConstraintError(err) {
+		h.logger.Warn("attach member phone", zap.Error(err))
+	}
 }
 
 // updateMemberRequest is used by UpdateTenantMember. All fields are optional:
@@ -1786,6 +1822,9 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		u, uErr := h.ent.User.Query().Where(user.EmailEQ(email)).Only(r.Context())
 		if uErr == nil {
 			userID = u.ID
+			if strings.TrimSpace(req.Phone) != "" {
+				h.attachPhoneIfFree(r.Context(), userID, req.Phone)
+			}
 		} else if ent.IsNotFound(uErr) {
 			// Direct-add: create a new active account with a temporary password.
 			// The user must change it on first interactive (SSO) login; a PIN
@@ -1845,9 +1884,13 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 
 	var membership *ent.TenantMembership
 	if existingMember != nil {
-		// Update existing
+		// Update existing. A portal invite adds its role; an admin add sets the roles as given.
+		roles := req.Roles
+		if req.MergeRoles {
+			roles = mergeRoleLists(existingMember.Roles, req.Roles)
+		}
 		upd := existingMember.Update().
-			SetRoles(req.Roles).
+			SetRoles(roles).
 			SetStatus("active")
 		if outletID != nil {
 			upd = upd.SetOutletID(*outletID)
@@ -1886,7 +1929,7 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			"phone":          profileStr(u.Profile, "phone"),
 			"tenant_id":      tenantID.String(),
 			"tenant_slug":    tenantSlug,
-			"roles":          req.Roles,
+			"roles":          membership.Roles,
 			"method":         "admin_provisioned",
 			"email_verified": u.EmailVerified,
 		}
