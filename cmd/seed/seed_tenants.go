@@ -346,6 +346,16 @@ var outletsByTenant = map[string][]outletDef{
 			address: "Demo Weigh Station, Nakuru Highway, Kenya",
 			pinMsg:  "Welcome to Demo Enforcement — report to station commander",
 		},
+		// Maskani (property-service): the demo estate. Code SHABA matches maskani-api's
+		// cmd/seed-tenant property code, so the seeded Shaba Village property links to this outlet.
+		// use_case "property" is in maskani-api's PropertyUseCases and in no other service's
+		// accepted list, so only Maskani projects it.
+		{
+			slug: "demo-estate", code: "SHABA",
+			name: "Shaba Village (demo estate)", useCase: "property", isHQ: false,
+			address: "Off Mombasa Road, Syokimau, Machakos",
+			pinMsg:  "Welcome to Shaba Village. Check today's expected visitors on the gate tablet.",
+		},
 	},
 	"mss": {
 		{

@@ -391,6 +391,14 @@ r.Use(authMiddleware.RequireAuth)
   `roles`). An account already holding the phone is reused; otherwise one is created with a
   `p<digits>@placeholder.local` email, a random unrevealed password and the phone as its primary
   `user_phones` row.
+  - When `email` matches an existing account, `phone` is attached to that account as long as no
+    other account holds it (2026-10-08), so an owner invited with both can sign in with a phone code.
+  - `merge_roles: true` adds the roles to an existing membership instead of replacing them. Maskani
+    owner invites send it, so inviting someone who is already staff keeps their staff roles. The
+    `auth.user.created` event then carries the full role list.
+- Demo: the `codevertex-demo` seed has the `demo-estate` outlet (code `SHABA`, use case
+  `property`) and five estate staff with property-specific roles (`estate.*@demo...`), listed in
+  maskani-api `docs/demo-guide.md`.
 
 ---
 
