@@ -19,9 +19,10 @@ func TestPickBroadcastContactsOrder(t *testing.T) {
 		{firstName: "Titus", owner: true, emails: []string{"titus@urbanloft.co.ke"}, phones: []string{"0722000002"}},
 		{firstName: "Ann"}, // nothing verified: contributes nothing
 	}
-	emails, phones := pickBroadcastContacts(admins, tn, hq)
+	// The tenant contact is a verified account address; the branch email belongs to nobody.
+	emails, phones := pickBroadcastContacts(admins, tn, hq, map[string]bool{"info@urbanloft.co.ke": true})
 
-	wantEmails := []string{"titus@urbanloft.co.ke", "grace@urbanloft.co.ke", "info@urbanloft.co.ke", "branch@urbanloft.co.ke"}
+	wantEmails := []string{"titus@urbanloft.co.ke", "grace@urbanloft.co.ke", "info@urbanloft.co.ke"}
 	if len(emails) != len(wantEmails) {
 		t.Fatalf("emails %+v", emails)
 	}
@@ -33,8 +34,8 @@ func TestPickBroadcastContactsOrder(t *testing.T) {
 	if emails[0].Source != "owner" || emails[0].FirstName != "Titus" || !emails[0].Verified {
 		t.Errorf("owner comes first, verified, greeted by name: %+v", emails[0])
 	}
-	if emails[2].Source != "tenant" || emails[2].Verified {
-		t.Errorf("tenant contact is marked unverified: %+v", emails[2])
+	if emails[2].Source != "tenant" || !emails[2].Verified {
+		t.Errorf("a verified tenant contact is listed as verified: %+v", emails[2])
 	}
 	wantPhones := []string{"0722000002", "+254711000001", "+254700111222", "0700333444"}
 	for i, w := range wantPhones {
@@ -48,14 +49,18 @@ func TestPickBroadcastContactsDedupesAndFallsBack(t *testing.T) {
 	// The owner's verified phone is also the tenant phone: listed once, as the owner's.
 	tn := &ent.Tenant{ContactPhone: strp("+254722000002")}
 	admins := []reachPerson{{firstName: "Titus", owner: true, phones: []string{"0722000002"}}}
-	_, phones := pickBroadcastContacts(admins, tn, nil)
+	_, phones := pickBroadcastContacts(admins, tn, nil, nil)
 	if len(phones) != 1 || phones[0].Source != "owner" {
 		t.Fatalf("phones %+v", phones)
 	}
-	// No admins with verified contacts: the tenant's own contact is used.
-	emails, _ := pickBroadcastContacts(nil, &ent.Tenant{ContactEmail: strp("hello@shop.ke")}, nil)
+	// No admins with verified contacts: the tenant's own contact is used when it is verified.
+	emails, _ := pickBroadcastContacts(nil, &ent.Tenant{ContactEmail: strp("Hello@Shop.ke")}, nil, map[string]bool{"hello@shop.ke": true})
 	if len(emails) != 1 || emails[0].Source != "tenant" {
 		t.Fatalf("emails %+v", emails)
+	}
+	// An unverified tenant contact email is never used.
+	if emails, _ := pickBroadcastContacts(nil, &ent.Tenant{ContactEmail: strp("owner@gmail.com")}, nil, nil); len(emails) != 0 {
+		t.Fatalf("unverified contact email must be left out: %+v", emails)
 	}
 }
 
