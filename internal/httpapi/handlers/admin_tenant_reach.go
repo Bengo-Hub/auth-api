@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"sort"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/useremail"
 )
 
 // reachAddress is one way to reach a tenant or a person, in the order to try it.
@@ -128,7 +130,12 @@ func outletContactEmail(meta map[string]any) string {
 // addresses; then the tenant's configured contact; then the head office outlet's. A sender uses
 // the first valid address and keeps the rest as backups, so a business gets one copy. Unlike
 // billing (pickBillingPhones), unverified personal numbers are never used for broadcasts.
-func pickBroadcastContacts(admins []reachPerson, t *ent.Tenant, hq *ent.Outlet) (emails, phones []reachAddress) {
+//
+// Emails are only ever verified ones: a tenant or outlet contact email is used only when it is a
+// verified address of some account (verifiedEmails, lower-cased). On 2026-10-08 tenant contact
+// emails that were an owner's unconfirmed login were listed, then refused at send time, and the
+// sender saw a vague "not sent" for most of the list.
+func pickBroadcastContacts(admins []reachPerson, t *ent.Tenant, hq *ent.Outlet, verifiedEmails map[string]bool) (emails, phones []reachAddress) {
 	seenEmail, seenPhone := map[string]bool{}, map[string]bool{}
 	addEmail := func(v, source string, verified bool, first string) {
 		v = strings.TrimSpace(v)
@@ -162,14 +169,19 @@ func pickBroadcastContacts(admins []reachPerson, t *ent.Tenant, hq *ent.Outlet) 
 			addPhone(p, source, true, a.firstName)
 		}
 	}
+	addVerifiedEmail := func(v, source string) {
+		if verifiedEmails[strings.ToLower(strings.TrimSpace(v))] {
+			addEmail(v, source, true, "")
+		}
+	}
 	if t.ContactEmail != nil {
-		addEmail(*t.ContactEmail, "tenant", false, "")
+		addVerifiedEmail(*t.ContactEmail, "tenant")
 	}
 	if t.ContactPhone != nil {
 		addPhone(*t.ContactPhone, "tenant", false, "")
 	}
 	if hq != nil {
-		addEmail(outletContactEmail(hq.Metadata), "main_outlet", false, "")
+		addVerifiedEmail(outletContactEmail(hq.Metadata), "main_outlet")
 		addPhone(outletContactPhone(hq.Metadata), "main_outlet", false, "")
 	}
 	return emails, phones
@@ -299,6 +311,22 @@ func (h *AdminHandler) reachTenants(w http.ResponseWriter, r *http.Request, afte
 		}
 	}
 
+	var contactEmails []string
+	for _, t := range tenants {
+		if t.ContactEmail != nil {
+			contactEmails = append(contactEmails, *t.ContactEmail)
+		}
+		if hq := hqs[t.ID]; hq != nil {
+			contactEmails = append(contactEmails, outletContactEmail(hq.Metadata))
+		}
+	}
+	verified, err := h.verifiedEmailSet(ctx, contactEmails)
+	if err != nil {
+		h.logger.Error("S2S tenants reach: verified emails", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not check contact emails", nil)
+		return
+	}
+
 	out := make([]reachEntry, 0, len(tenants))
 	for _, t := range tenants {
 		e := reachEntry{Key: t.ID.String(), TenantID: t.ID.String(), Slug: t.Slug, BusinessName: t.Name}
@@ -308,7 +336,7 @@ func (h *AdminHandler) reachTenants(w http.ResponseWriter, r *http.Request, afte
 		if t.Timezone != nil {
 			e.Timezone = *t.Timezone
 		}
-		e.Emails, e.Phones = pickBroadcastContacts(admins[t.ID], t, hqs[t.ID])
+		e.Emails, e.Phones = pickBroadcastContacts(admins[t.ID], t, hqs[t.ID], verified)
 		out = append(out, e)
 	}
 	next := ""
@@ -316,6 +344,37 @@ func (h *AdminHandler) reachTenants(w http.ResponseWriter, r *http.Request, afte
 		next = tenants[len(tenants)-1].ID.String()
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": out, "next": next})
+}
+
+// verifiedEmailSet returns which of addrs (lower-cased) are a verified address of an active
+// account: a verified login email or a verified additional email. Two queries per page.
+func (h *AdminHandler) verifiedEmailSet(ctx context.Context, addrs []string) (map[string]bool, error) {
+	out := map[string]bool{}
+	var lookup []string
+	for _, a := range addrs {
+		if a = strings.TrimSpace(a); a != "" {
+			lookup = append(lookup, a, strings.ToLower(a))
+		}
+	}
+	if len(lookup) == 0 {
+		return out, nil
+	}
+	users, err := h.ent.User.Query().
+		Where(user.EmailIn(lookup...), user.EmailVerified(true), user.StatusEQ("active")).
+		Select(user.FieldEmail).Strings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	extra, err := h.ent.UserEmail.Query().
+		Where(useremail.EmailIn(lookup...), useremail.IsVerified(true)).
+		Select(useremail.FieldEmail).Strings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range append(users, extra...) {
+		out[strings.ToLower(strings.TrimSpace(e))] = true
+	}
+	return out, nil
 }
 
 func (h *AdminHandler) reachStaff(w http.ResponseWriter, r *http.Request, after string, limit int) {
