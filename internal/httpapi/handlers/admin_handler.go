@@ -1679,20 +1679,71 @@ func mergeRoleLists(current, extra []string) []string {
 }
 
 // attachPhoneIfFree gives an existing account the phone when no account holds it yet, so a member
-// added by email can also sign in with a phone code. A number held by another account is left alone.
-func (h *AdminHandler) attachPhoneIfFree(ctx context.Context, userID uuid.UUID, rawPhone string) {
+// added by email can also sign in with a phone code. A number held by a real account is left alone.
+// A number held by a phone-only placeholder of this same person (minted by an earlier phone invite)
+// moves to this account, but only when the placeholder belongs to no other tenant, so one tenant's
+// admin can never take a number away from someone's access elsewhere. Without this the phone code
+// lookup found the placeholder, which was not a member, and no code was ever sent.
+func (h *AdminHandler) attachPhoneIfFree(ctx context.Context, tenantID, userID uuid.UUID, rawPhone string) {
 	phone, err := validateAndNormalizePhone(strings.TrimSpace(rawPhone))
 	if err != nil {
 		return
 	}
-	held, err := h.ent.UserPhone.Query().Where(userphone.PhoneEQ(phone)).Exist(ctx)
-	if err != nil || held {
+	holder, err := h.ent.UserPhone.Query().Where(userphone.PhoneEQ(phone)).WithUser().Only(ctx)
+	if err == nil {
+		if holder.UserID != userID {
+			h.reclaimPlaceholderPhone(ctx, tenantID, userID, holder)
+		}
+		return
+	}
+	if !ent.IsNotFound(err) {
 		return
 	}
 	hasPrimary, _ := h.ent.UserPhone.Query().Where(userphone.UserIDEQ(userID), userphone.IsPrimaryEQ(true)).Exist(ctx)
 	if _, err := h.ent.UserPhone.Create().SetUserID(userID).SetPhone(phone).SetIsPrimary(!hasPrimary).Save(ctx); err != nil && !ent.IsConstraintError(err) {
 		h.logger.Warn("attach member phone", zap.Error(err))
 	}
+}
+
+// reclaimPlaceholderPhone moves a phone from a phone-only placeholder account to userID when the
+// placeholder has no active membership outside tenantID. Its membership here is retired, since
+// the real account is being added in its place.
+func (h *AdminHandler) reclaimPlaceholderPhone(ctx context.Context, tenantID, userID uuid.UUID, holder *ent.UserPhone) {
+	if holder.Edges.User == nil || !strings.HasSuffix(strings.ToLower(holder.Edges.User.Email), "@placeholder.local") {
+		return
+	}
+	elsewhere, err := h.ent.TenantMembership.Query().Where(
+		tenantmembership.UserID(holder.UserID),
+		tenantmembership.TenantIDNEQ(tenantID),
+		tenantmembership.Status("active"),
+	).Exist(ctx)
+	if err != nil || elsewhere {
+		return
+	}
+	hasPrimary, _ := h.ent.UserPhone.Query().Where(userphone.UserIDEQ(userID), userphone.IsPrimaryEQ(true)).Exist(ctx)
+	tx, err := h.ent.Tx(ctx)
+	if err != nil {
+		return
+	}
+	if err := tx.UserPhone.UpdateOne(holder).SetUserID(userID).SetIsPrimary(!hasPrimary).Exec(ctx); err != nil {
+		_ = tx.Rollback()
+		h.logger.Warn("reclaim placeholder phone", zap.Error(err))
+		return
+	}
+	if err := tx.TenantMembership.Update().Where(
+		tenantmembership.UserID(holder.UserID), tenantmembership.TenantID(tenantID),
+	).SetStatus("deactivated").Exec(ctx); err != nil {
+		_ = tx.Rollback()
+		h.logger.Warn("retire placeholder membership", zap.Error(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		h.logger.Warn("reclaim placeholder phone commit", zap.Error(err))
+		return
+	}
+	h.logger.Info("member phone moved from placeholder account",
+		zap.String("tenant_id", tenantID.String()), zap.String("to_user", userID.String()),
+		zap.String("from_user", holder.UserID.String()))
 }
 
 // updateMemberRequest is used by UpdateTenantMember. All fields are optional:
@@ -1823,7 +1874,7 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		if uErr == nil {
 			userID = u.ID
 			if strings.TrimSpace(req.Phone) != "" {
-				h.attachPhoneIfFree(r.Context(), userID, req.Phone)
+				h.attachPhoneIfFree(r.Context(), tenantID, userID, req.Phone)
 			}
 		} else if ent.IsNotFound(uErr) {
 			// Direct-add: create a new active account with a temporary password.
