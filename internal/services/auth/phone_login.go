@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/userphone"
@@ -27,21 +29,38 @@ func (s *Service) FindPhoneLoginTarget(ctx context.Context, tenantSlug, phone st
 	if strings.TrimSpace(tenantSlug) == "" || phone == "" {
 		return nil, ErrInvalidCredentials
 	}
+	// The caller answers the same either way, so the reason is only logged, with the phone masked.
+	miss := func(reason string) (*PhoneLoginTarget, error) {
+		s.logger.Info("phone login: no code sent", zap.String("tenant", tenantSlug),
+			zap.String("phone", maskPhone(phone)), zap.String("reason", reason))
+		return nil, ErrInvalidCredentials
+	}
 	t, err := s.GetTenantBySlug(ctx, tenantSlug)
 	if err != nil || t == nil || t.Status != "active" {
-		return nil, ErrInvalidCredentials
+		return miss("tenant not found or inactive")
 	}
 	up, err := s.entClient.UserPhone.Query().Where(userphone.PhoneEQ(phone)).WithUser().Only(ctx)
 	if err != nil || up.Edges.User == nil {
-		return nil, ErrInvalidCredentials
+		return miss("phone not on any account")
 	}
 	member, err := s.entClient.TenantMembership.Query().
 		Where(tenantmembership.UserID(up.UserID), tenantmembership.TenantID(t.ID), tenantmembership.Status("active")).
 		Exist(ctx)
-	if err != nil || !member || !UserCanSignIn(up.Edges.User.Status) {
-		return nil, ErrInvalidCredentials
+	if err != nil || !member {
+		return miss("account holding the phone is not an active member of the tenant")
+	}
+	if !UserCanSignIn(up.Edges.User.Status) {
+		return miss("account cannot sign in: " + up.Edges.User.Status)
 	}
 	return &PhoneLoginTarget{User: up.Edges.User, Tenant: t, Phone: phone}, nil
+}
+
+// maskPhone keeps the last three digits, enough to match a support report without logging the number.
+func maskPhone(p string) string {
+	if len(p) <= 3 {
+		return "***"
+	}
+	return strings.Repeat("*", len(p)-3) + p[len(p)-3:]
 }
 
 // PhoneOTPChannelWhatsApp asks for the code on WhatsApp even when the member has an email.
