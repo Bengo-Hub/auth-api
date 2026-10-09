@@ -687,15 +687,13 @@ The wire envelope uses `event_type` + `payload` (shared-events convention). Payl
 
 ### Event Publishing
 
-**Transport**: NATS JetStream
+**Transport**: core NATS, written first to the transactional outbox and published by the shared-events outbox poller through its core NATS adapter. Consumers capture the subjects into an `auth` JetStream stream.
 
 **Subject Pattern**: `auth.{entity}.{action}`
 
 **Reliability**:
-- At-least-once delivery
-- Event deduplication via event_id
-- Retry on failure
-- Dead letter queue for failed events
+- Events are committed with the change that caused them (outbox) and retried until published
+- Consumers deduplicate on the event `id`
 
 ---
 
@@ -705,8 +703,8 @@ The wire envelope uses `event_type` + `payload` (shared-events convention). Payl
 
 **JWT Tokens**:
 - Signed with RSA-256
-- Short-lived access tokens (15 minutes)
-- Long-lived refresh tokens (7 days)
+- Access tokens: 8 hours by default (`AUTH_TOKEN_ACCESS_TTL`)
+- Refresh tokens: 30 days by default (`AUTH_TOKEN_REFRESH_TTL`)
 - Token rotation on refresh
 
 **API Keys**:
