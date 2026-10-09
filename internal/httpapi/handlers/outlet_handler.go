@@ -82,6 +82,10 @@ type outletRequest struct {
 	Status          string         `json:"status,omitempty"`
 	PinLoginMessage string         `json:"pin_login_message,omitempty"`
 	Metadata        map[string]any `json:"metadata,omitempty"`
+	// Map pin of the outlet. Stored in metadata; logistics uses it for delivery quotes
+	// and dispatch, ordering for distances. Send both to set, omit both to keep.
+	Latitude  *float64 `json:"latitude,omitempty"`
+	Longitude *float64 `json:"longitude,omitempty"`
 }
 
 type outletResponse struct {
@@ -97,6 +101,8 @@ type outletResponse struct {
 	Status             string         `json:"status"`
 	PinLoginMessage    *string        `json:"pin_login_message,omitempty"`
 	Metadata           map[string]any `json:"metadata,omitempty"`
+	Latitude           *float64       `json:"latitude,omitempty"`
+	Longitude          *float64       `json:"longitude,omitempty"`
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 }
@@ -107,6 +113,7 @@ type selectOutletRequest struct {
 }
 
 func outletToResponse(o *ent.Outlet) outletResponse {
+	lat, lng := outletPin(o.Metadata)
 	return outletResponse{
 		ID:                 o.ID.String(),
 		TenantID:           o.TenantID.String(),
@@ -120,6 +127,8 @@ func outletToResponse(o *ent.Outlet) outletResponse {
 		Status:             o.Status,
 		PinLoginMessage:    o.PinLoginMessage,
 		Metadata:           o.Metadata,
+		Latitude:           lat,
+		Longitude:          lng,
 		CreatedAt:          o.CreatedAt,
 		UpdatedAt:          o.UpdatedAt,
 	}
@@ -190,10 +199,55 @@ func withOutletContacts(data map[string]any, o *ent.Outlet) map[string]any {
 	if o.Address != nil && *o.Address != "" {
 		data["address"] = *o.Address
 	}
+	if lat, lng := outletPin(o.Metadata); lat != nil && lng != nil {
+		data["latitude"], data["longitude"] = *lat, *lng
+	}
 	if len(o.Metadata) > 0 {
 		data["metadata"] = o.Metadata
 	}
 	return data
+}
+
+// outletPin reads the outlet's map pin from metadata.
+func outletPin(md map[string]any) (*float64, *float64) {
+	lat, ok1 := md["latitude"].(float64)
+	lng, ok2 := md["longitude"].(float64)
+	if !ok1 || !ok2 {
+		return nil, nil
+	}
+	return &lat, &lng
+}
+
+// applyOutletPin merges the request's pin into the metadata that will be stored. The
+// pin survives a metadata replace that does not mention it, and a request pin wins.
+func applyOutletPin(next, existing map[string]any, lat, lng *float64) (map[string]any, error) {
+	if lat != nil || lng != nil {
+		if lat == nil || lng == nil {
+			return nil, fmt.Errorf("send both latitude and longitude")
+		}
+		if *lat < -90 || *lat > 90 || *lng < -180 || *lng > 180 || (*lat == 0 && *lng == 0) {
+			return nil, fmt.Errorf("latitude or longitude is out of range")
+		}
+	}
+	if next == nil {
+		if lat == nil {
+			return nil, nil // nothing to change
+		}
+		next = map[string]any{}
+		for k, v := range existing {
+			next[k] = v
+		}
+	}
+	if lat != nil {
+		next["latitude"], next["longitude"] = *lat, *lng
+		return next, nil
+	}
+	if _, has := next["latitude"]; !has {
+		if el, eg := outletPin(existing); el != nil {
+			next["latitude"], next["longitude"] = *el, *eg
+		}
+	}
+	return next, nil
 }
 
 func (h *OutletHandler) publishOutletEvent(ctx context.Context, tenantID, outletID uuid.UUID, eventType string, data map[string]any) {
@@ -384,7 +438,14 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Metadata != nil {
 		restrictFacilityTypeMetadata(h.isPlatformOwner(r), req.Metadata, "")
-		create = create.SetMetadata(req.Metadata)
+	}
+	md, perr := applyOutletPin(req.Metadata, nil, req.Latitude, req.Longitude)
+	if perr != nil {
+		http.Error(w, perr.Error(), http.StatusBadRequest)
+		return
+	}
+	if md != nil {
+		create = create.SetMetadata(md)
 	}
 
 	o, err := create.Save(r.Context())
@@ -481,7 +542,14 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 	if req.Metadata != nil {
 		existingFacilityType, _ := existing.Metadata["facility_type"].(string)
 		restrictFacilityTypeMetadata(h.isPlatformOwner(r), req.Metadata, existingFacilityType)
-		update = update.SetMetadata(req.Metadata)
+	}
+	md, perr := applyOutletPin(req.Metadata, existing.Metadata, req.Latitude, req.Longitude)
+	if perr != nil {
+		http.Error(w, perr.Error(), http.StatusBadRequest)
+		return
+	}
+	if md != nil {
+		update = update.SetMetadata(md)
 	}
 	update = update.SetIsHq(req.IsHQ)
 
