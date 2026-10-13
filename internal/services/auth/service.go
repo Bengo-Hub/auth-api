@@ -1204,7 +1204,7 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 		return nil, ErrEmailDomainNotAllowed
 	}
 
-	userEntity, err := s.resolveUserFromGoogleProfile(ctx, tenantEntity, profile, tokenResp)
+	userEntity, err := s.resolveUserFromGoogleProfile(ctx, tenantEntity, s.oauthJoinRole(ctx, payload.ClientID), profile, tokenResp)
 	if err != nil {
 		return nil, err
 	}
@@ -1300,7 +1300,7 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 	if !s.isDomainAllowed(profile.Email) {
 		return nil, ErrEmailDomainNotAllowed
 	}
-	userEntity, err := s.resolveUserFromGitHubProfile(ctx, tenantEntity, profile, tokenResp)
+	userEntity, err := s.resolveUserFromGitHubProfile(ctx, tenantEntity, s.oauthJoinRole(ctx, payload.ClientID), profile, tokenResp)
 	if err != nil {
 		return nil, err
 	}
@@ -1382,7 +1382,7 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 	if !s.isDomainAllowed(email) {
 		return nil, ErrEmailDomainNotAllowed
 	}
-	userEntity, err := s.resolveUserFromMicrosoftProfile(ctx, tenantEntity, profile, tokenResp)
+	userEntity, err := s.resolveUserFromMicrosoftProfile(ctx, tenantEntity, s.oauthJoinRole(ctx, payload.ClientID), profile, tokenResp)
 	if err != nil {
 		return nil, err
 	}
@@ -1409,10 +1409,6 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 
 // RequestPasswordReset creates a reset token (would be emailed in production).
 func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequestInput) (string, error) {
-	tenantEntity, err := s.GetTenantBySlug(ctx, in.TenantSlug)
-	if err != nil {
-		return "", err
-	}
 	userEntity, err := s.entClient.User.Query().
 		Where(
 			user.EmailEQ(normalizeEmail(in.Email)),
@@ -1425,18 +1421,14 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 		return "", fmt.Errorf("query user: %w", err)
 	}
 
-	// Ensure membership exists (use First instead of Only to handle duplicate memberships gracefully)
-	_, err = s.entClient.TenantMembership.Query().
-		Where(
-			tenantmembership.UserID(userEntity.ID),
-			tenantmembership.TenantID(tenantEntity.ID),
-		).
-		First(ctx)
+	// The password belongs to the person, not to a tenant, so any of their memberships may ask
+	// for a reset. The requested tenant (the app they came from) brands the email and link when
+	// they belong to it; otherwise their own tenant does. Requiring a membership in the requested
+	// tenant meant the accounts page (which always asked as "codevertex") silently sent nothing
+	// to anyone outside the platform tenant.
+	tenantEntity, err := s.passwordResetTenant(ctx, userEntity, in.TenantSlug)
 	if err != nil {
-		if ent.IsNotFound(err) {
-			return "", ErrInvalidCredentials
-		}
-		return "", fmt.Errorf("verify membership: %w", err)
+		return "", err
 	}
 
 	tokenPlain, tokenHash, err := generatePasswordResetToken()
@@ -1480,6 +1472,41 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "password_reset.requested", resetPayload)
 
 	return tokenPlain, nil
+}
+
+// passwordResetTenant picks the tenant a reset email is sent under: the requested one when the
+// user is a member of it, else their primary tenant, else their first active membership.
+func (s *Service) passwordResetTenant(ctx context.Context, userEntity *ent.User, requestedSlug string) (*ent.Tenant, error) {
+	memberships, err := s.entClient.TenantMembership.Query().
+		Where(tenantmembership.UserID(userEntity.ID)).
+		WithTenant().
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list memberships: %w", err)
+	}
+	var primary, first *ent.Tenant
+	for _, m := range memberships {
+		t := m.Edges.Tenant
+		if t == nil || t.Status != "active" {
+			continue
+		}
+		if requestedSlug != "" && t.Slug == requestedSlug {
+			return t, nil
+		}
+		if t.ID.String() == userEntity.PrimaryTenantID {
+			primary = t
+		}
+		if first == nil {
+			first = t
+		}
+	}
+	if primary != nil {
+		return primary, nil
+	}
+	if first != nil {
+		return first, nil
+	}
+	return nil, ErrInvalidCredentials
 }
 
 // ConfirmPasswordReset validates reset token and updates password.
@@ -2047,7 +2074,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 	}, nil
 }
 
-func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity *ent.Tenant, profile *googleprovider.Profile, token *oauth2.Token) (*ent.User, error) {
+func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity *ent.Tenant, joinRole string, profile *googleprovider.Profile, token *oauth2.Token) (*ent.User, error) {
 	identity, err := s.entClient.UserIdentity.Query().
 		Where(
 			useridentity.ProviderEQ(googleProviderName),
@@ -2063,7 +2090,7 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 				return nil, fmt.Errorf("load user for identity: %w", err)
 			}
 		}
-		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
 			return nil, err
 		}
 		if err := s.updateIdentityTokens(ctx, identity.ID, profile, token); err != nil {
@@ -2113,7 +2140,7 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 		}
 	}
 
-	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
 		return nil, err
 	}
 
@@ -2129,7 +2156,7 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 			"phone":       profileStr(userEntity.Profile, "phone"),
 			"tenant_id":   tenantEntity.ID.String(),
 			"tenant_slug": tenantEntity.Slug,
-			"roles":       []string{"member"},
+			"roles":       []string{joinRole},
 			"method":      "google",
 		})
 	}
@@ -2137,7 +2164,7 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 	return userEntity, nil
 }
 
-func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity *ent.Tenant, profile *githubprovider.Profile, token *oauth2.Token) (*ent.User, error) {
+func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity *ent.Tenant, joinRole string, profile *githubprovider.Profile, token *oauth2.Token) (*ent.User, error) {
 	sub := fmt.Sprintf("%d", profile.ID)
 	email := normalizeEmail(profile.Email)
 	if email == "" {
@@ -2152,7 +2179,7 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 		Only(ctx)
 	if err == nil {
 		userEntity := identity.Edges.User
-		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
 			return nil, err
 		}
 		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.Name}, token); err != nil {
@@ -2191,7 +2218,7 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 		}
 		isNewUser = true
 	}
-	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
 		return nil, err
 	}
 	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.Name}, token); err != nil {
@@ -2205,14 +2232,14 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 			"phone":       profileStr(userEntity.Profile, "phone"),
 			"tenant_id":   tenantEntity.ID.String(),
 			"tenant_slug": tenantEntity.Slug,
-			"roles":       []string{"member"},
+			"roles":       []string{joinRole},
 			"method":      "github",
 		})
 	}
 	return userEntity, nil
 }
 
-func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEntity *ent.Tenant, profile *microsoftprovider.Profile, token *oauth2.Token) (*ent.User, error) {
+func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEntity *ent.Tenant, joinRole string, profile *microsoftprovider.Profile, token *oauth2.Token) (*ent.User, error) {
 	email := profile.Mail
 	if email == "" {
 		email = profile.UserPrincipalName
@@ -2231,7 +2258,7 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 		Only(ctx)
 	if err == nil {
 		userEntity := identity.Edges.User
-		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
 			return nil, err
 		}
 		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.DisplayName}, token); err != nil {
@@ -2270,7 +2297,7 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 		}
 		isNewUser = true
 	}
-	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID); err != nil {
+	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
 		return nil, err
 	}
 	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.DisplayName}, token); err != nil {
@@ -2284,7 +2311,7 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 			"phone":       profileStr(userEntity.Profile, "phone"),
 			"tenant_id":   tenantEntity.ID.String(),
 			"tenant_slug": tenantEntity.Slug,
-			"roles":       []string{"member"},
+			"roles":       []string{joinRole},
 			"method":      "microsoft",
 		})
 	}
@@ -2341,7 +2368,16 @@ func (s *Service) createIdentity(ctx context.Context, userID uuid.UUID, profile 
 	return nil
 }
 
-func (s *Service) ensureMembership(ctx context.Context, userID, tenantID uuid.UUID) error {
+// oauthJoinRole is the role a social sign-in gets in a tenant it has no membership in: the
+// customer-facing app's self-signup role (customer, driver, student), else "member".
+func (s *Service) oauthJoinRole(ctx context.Context, clientID string) string {
+	if role := s.SelfSignupRole(ctx, clientID); role != "" {
+		return role
+	}
+	return "member"
+}
+
+func (s *Service) ensureMembership(ctx context.Context, userID, tenantID uuid.UUID, role string) error {
 	exists, err := s.entClient.TenantMembership.Query().
 		Where(
 			tenantmembership.UserID(userID),
@@ -2357,7 +2393,7 @@ func (s *Service) ensureMembership(ctx context.Context, userID, tenantID uuid.UU
 	_, err = s.entClient.TenantMembership.Create().
 		SetUserID(userID).
 		SetTenantID(tenantID).
-		SetRoles([]string{"member"}).
+		SetRoles([]string{role}).
 		Save(ctx)
 	if err != nil {
 		// Ignore constraint errors (membership already exists due to race condition)
