@@ -52,6 +52,38 @@ The picker (auth-ui) lists the session user's organisations via `GET /api/v1/aut
 
 The `/token` endpoint also validates tenant membership when a specific tenant was requested in the authorization code metadata. Returns `access_denied` instead of silently falling back to another tenant. The REST `POST /auth/login` applies the same platform-owner bypass, so platform staff can sign in with credentials at any tenant's login screen. Unauthenticated `/authorize` no longer defaults the login tenant to `codevertex-demo` — with no `?tenant=`, login resolves the user's primary tenant.
 
+### 1.2. Customer-facing apps join people to the tenant (October 13, 2026)
+
+Staff apps (POS, inventory, treasury...) still need an invite. Apps whose users are a tenant's
+customers carry `metadata.self_signup_role` on their OAuthClient row, seeded in
+`cmd/seed/seed_users.go`:
+
+| Client | Role |
+|--------|------|
+| `ordering-ui` | `customer` |
+| `rider-app` | `driver` (not dispatchable until logistics approves the rider's KYC) |
+| `codevertex-website` | `student` (Digitika, platform tenant) |
+
+When a person with no membership in the requested tenant signs in through one of these apps,
+auth-api adds the membership with that role and publishes `auth.user.created`, instead of
+showing the organisation picker. This happens on `POST /auth/login` (the UI sends `client_id`),
+on `/authorize` for an existing session, and on Google, GitHub and Microsoft sign-in (the
+client id travels in the OAuth state). Existing memberships are never changed. The code is
+`internal/services/auth/self_service_join.go`.
+
+`POST /auth/register` into an existing tenant accepts only self-service roles (`member`,
+`customer`, `student`, `parent`, `driver`) and answers `403 role_not_allowed` for anything else.
+Before this, a signup could ask for any role, including `admin`. With no role requested, a
+customer-facing app's `self_signup_role` applies.
+
+`POST /api/v1/s2s/tenants/{tenant_id}/members` takes `skip_welcome: true` for callers that send
+their own onboarding email (Digitika student and parent accounts); notifications-api then skips
+`auth/welcome`.
+
+Password reset (`POST /auth/password-reset/request`) no longer needs a membership in the
+requested tenant. The reset goes out under that tenant when the person belongs to it, else
+under their own tenant, and the accounts reset link carries `tenant` for branding.
+
 ### 2. JWT Validation Pattern
 
 **Use Case**: Services validating tokens on each request
