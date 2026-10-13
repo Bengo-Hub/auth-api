@@ -2726,6 +2726,10 @@ func buildResetLink(metadata map[string]any, slug, serviceID, email, token strin
 		}
 	}
 	if appURL == "" {
+		// The tenant rides along so the accounts reset page shows that tenant's branding.
+		if slug != "" && slug != platformTenantSlug {
+			return fmt.Sprintf("%s?token=%s&tenant=%s", fallback, token, url.QueryEscape(slug))
+		}
 		return fmt.Sprintf("%s?token=%s", fallback, token)
 	}
 	base := appURL + "/" + slug + "/auth/reset-password"
