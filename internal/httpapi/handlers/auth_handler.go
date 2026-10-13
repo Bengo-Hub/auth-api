@@ -1111,6 +1111,9 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 		writeError(w, http.StatusNotFound, "tenant_not_found", "tenant not found", nil)
 	case errors.Is(err, auth.ErrTenantInactive):
 		writeError(w, http.StatusForbidden, "tenant_inactive", "tenant is not active", nil)
+	case errors.Is(err, auth.ErrRoleNotAllowed):
+		writeError(w, http.StatusForbidden, "role_not_allowed",
+			"That role is given by an organisation admin, not at sign-up.", nil)
 	case errors.Is(err, auth.ErrTenantPendingApproval):
 		writeError(w, http.StatusForbidden, "tenant_pending_approval",
 			"Your organization registration is awaiting review by our platform team. We'll notify you by email once it's approved.", nil)

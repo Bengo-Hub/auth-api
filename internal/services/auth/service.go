@@ -612,6 +612,11 @@ func (s *Service) MarkEmailVerifiedByEmail(ctx context.Context, email string) (b
 
 // Register creates a new user and returns session tokens.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, error) {
+	// Public registration may never self-assign a staff or admin role on an existing tenant:
+	// before this check any signup could join any organisation as "admin".
+	if in.OrgAction != "create_new" && strings.TrimSpace(in.Role) != "" && !IsSelfServiceRole(in.Role) {
+		return nil, ErrRoleNotAllowed
+	}
 	// Password validation is skipped for OAuth registrations (empty password).
 	if in.Password != "" {
 		if err := s.ValidatePassword(ctx, in.Password); err != nil {
@@ -792,13 +797,17 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
-	// Assign role: admin when founding a new org, member when joining existing.
-	// If a specific role was requested (e.g. "driver" from fleet invitation), use it.
+	// Assign role: admin when founding a new org, otherwise the role the person may take on
+	// themselves. A requested role (e.g. "driver" from a fleet invitation) is honoured only when
+	// it is a self-service role (checked before the user is created, above); a customer-facing
+	// app's own self-signup role (ordering-ui: customer) applies when none was requested.
 	initialRole := "member"
-	if in.Role != "" {
-		initialRole = in.Role
-	} else if in.OrgAction == "create_new" {
+	if in.OrgAction == "create_new" {
 		initialRole = "admin"
+	} else if in.Role != "" {
+		initialRole = strings.TrimSpace(in.Role)
+	} else if clientRole := s.SelfSignupRole(ctx, in.ClientID); clientRole != "" {
+		initialRole = clientRole
 	}
 
 	_, err = s.entClient.TenantMembership.Create().
@@ -973,6 +982,18 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		First(ctx)
 	if err != nil && ent.IsNotFound(err) && s.isPlatformOwnerUser(ctx, userEntity.ID) {
 		err = nil
+	}
+	// Signing in through a customer-facing app (ordering, rider, Digitika) to a tenant the
+	// person has no membership in makes them that tenant's customer (or learner, or rider
+	// applicant) instead of bouncing them to an organisation picker they cannot use.
+	if err != nil && ent.IsNotFound(err) {
+		if role := s.SelfSignupRole(ctx, in.ClientID); role != "" {
+			if joined, jErr := s.joinTenantAs(ctx, userEntity, tenantEntity, role, "self_signup"); jErr == nil && joined {
+				err = nil
+			} else if jErr != nil {
+				s.logger.Warn("self-service join on login failed", zap.String("user_id", userEntity.ID.String()), zap.Error(jErr))
+			}
+		}
 	}
 	if err != nil {
 		if ent.IsNotFound(err) {

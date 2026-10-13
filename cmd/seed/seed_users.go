@@ -647,6 +647,9 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		Name         string
 		RedirectURIs []string
 		Public       bool
+		// SelfSignupRole marks a customer-facing app: people who sign in or sign up through it
+		// join the requested tenant with this role (see auth.SelfSignupRole). Empty = staff app.
+		SelfSignupRole string
 	}
 
 	var tenantSlugs []string
@@ -662,12 +665,13 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		Name           string
 		ProductionHost string // e.g. "books.codevertexafrica.com"
 		Public         bool
+		SelfSignupRole string
 	}
 	clients := []clientDef{
 		{ID: "notifications-ui", Name: "Codevertex Notifications UI", ProductionHost: "notifications.codevertexafrica.com", Public: true},
-		{ID: "ordering-ui", Name: "Codevertex Ordering UI", ProductionHost: "ordering.codevertexafrica.com", Public: true},
-		{ID: "rider-app", Name: "Codevertex Rider App", ProductionHost: "riderapp.codevertexafrica.com", Public: true},
-		{ID: "codevertex-website", Name: "Codevertex Africa Limited Website", ProductionHost: "codevertexafrica.com", Public: true},
+		{ID: "ordering-ui", Name: "Codevertex Ordering UI", ProductionHost: "ordering.codevertexafrica.com", Public: true, SelfSignupRole: "customer"},
+		{ID: "rider-app", Name: "Codevertex Rider App", ProductionHost: "riderapp.codevertexafrica.com", Public: true, SelfSignupRole: "driver"},
+		{ID: "codevertex-website", Name: "Codevertex Africa Limited Website", ProductionHost: "codevertexafrica.com", Public: true, SelfSignupRole: "student"},
 		{ID: "subscriptions-ui", Name: "Codevertex Subscriptions UI", ProductionHost: "pricing.codevertexafrica.com", Public: true},
 		{ID: "treasury-ui", Name: "Codevertex Treasury UI", ProductionHost: "books.codevertexafrica.com", Public: true},
 		{ID: "pos-ui", Name: "Codevertex POS UI", ProductionHost: "pos.codevertexafrica.com", Public: true},
@@ -744,8 +748,9 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		oauthClients = append(oauthClients, oauthClientSpec{
 			ID:           c.ID,
 			Name:         c.Name,
-			RedirectURIs: uris,
-			Public:       c.Public,
+			RedirectURIs:   uris,
+			Public:         c.Public,
+			SelfSignupRole: c.SelfSignupRole,
 		})
 	}
 
@@ -757,7 +762,18 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		}
 
 		if existing != nil {
+			// Merge into the existing metadata so keys set elsewhere survive the reseed.
+			meta := map[string]any{}
+			for k, v := range existing.Metadata {
+				meta[k] = v
+			}
+			if c.SelfSignupRole != "" {
+				meta["self_signup_role"] = c.SelfSignupRole
+			} else {
+				delete(meta, "self_signup_role")
+			}
 			_, err := existing.Update().
+				SetMetadata(meta).
 				SetName(c.Name).
 				SetRedirectUris(c.RedirectURIs).
 				SetPublic(c.Public).
@@ -771,7 +787,12 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 			continue
 		}
 
+		createMeta := map[string]any{}
+		if c.SelfSignupRole != "" {
+			createMeta["self_signup_role"] = c.SelfSignupRole
+		}
 		_, err := client.OAuthClient.Create().
+			SetMetadata(createMeta).
 			SetClientID(c.ID).
 			SetName(c.Name).
 			SetRedirectUris(c.RedirectURIs).

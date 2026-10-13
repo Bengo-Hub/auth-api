@@ -51,6 +51,13 @@ type SubscriptionEnricher interface {
 	EnrichAccessTokenInput(ctx context.Context, tenantID uuid.UUID, in *token.AccessTokenInput)
 }
 
+// SelfServiceJoiner adds a signed-in person to a tenant with the client's self-signup role
+// (customer, rider applicant, learner) when the client is customer-facing. Implemented by
+// auth.Service; the same rule the password login applies.
+type SelfServiceJoiner interface {
+	JoinAsSelfServiceMember(ctx context.Context, userID uuid.UUID, tenantSlug, clientID string) (bool, error)
+}
+
 // OIDCHandler serves OIDC discovery and grant endpoints.
 type OIDCHandler struct {
 	cfg         *config.Config
@@ -59,6 +66,7 @@ type OIDCHandler struct {
 	tokenSvc    *token.Service
 	rolesPerms  RolesPermissionsProvider // optional: for permissions in access token
 	subEnricher SubscriptionEnricher     // optional: for subscription claims in access token
+	joiner      SelfServiceJoiner        // optional: customer-facing apps join people as customers
 	logger      *zap.Logger
 }
 
@@ -87,6 +95,9 @@ func NewOIDCHandlerWithRolesPermissions(cfg *config.Config, svc *oidc.Service, a
 	// reuse it so OIDC-issued tokens carry entitlements like the REST flow.
 	if enr, ok := rolesPerms.(SubscriptionEnricher); ok {
 		h.subEnricher = enr
+	}
+	if j, ok := rolesPerms.(SelfServiceJoiner); ok {
+		h.joiner = j
 	}
 	return h
 }
@@ -224,6 +235,15 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 			if m.TenantSlug == tenantFromURL || (m.TenantSlug == platformTenantSlug && isPlatformAdminRole(m.Roles)) {
 				isMember = true
 				break
+			}
+		}
+		// A customer-facing app (ordering, rider, Digitika) makes the signed-in person a
+		// customer of the tenant they are ordering from, instead of the organisation picker.
+		if !isMember && h.joiner != nil {
+			if joined, jErr := h.joiner.JoinAsSelfServiceMember(r.Context(), userID, tenantFromURL, clientID); jErr == nil && joined {
+				isMember = true
+			} else if jErr != nil {
+				h.logger.Warn("self-service join on authorize failed", zap.String("user_id", claims.Subject), zap.Error(jErr))
 			}
 		}
 		if !isMember {
