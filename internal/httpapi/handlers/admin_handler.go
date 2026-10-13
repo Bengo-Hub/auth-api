@@ -1660,6 +1660,9 @@ type addTenantMemberRequest struct {
 	// MergeRoles adds Roles to an existing member's roles instead of replacing them. Customer portal
 	// invites (Maskani owners) set it, so inviting someone who is already staff keeps their staff roles.
 	MergeRoles bool `json:"merge_roles,omitempty"`
+	// SkipWelcome stops the generic welcome email for this add. Set by callers that send their
+	// own onboarding email with the credentials (Digitika student and parent accounts).
+	SkipWelcome bool `json:"skip_welcome,omitempty"`
 }
 
 // mergeRoleLists returns current plus any of extra not already present, in order.
@@ -2002,6 +2005,9 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			payload["welcome"] = true
 			payload["must_change_password"] = true
 			payload["login_url"] = h.authUIURL
+		}
+		if req.SkipWelcome {
+			payload["skip_welcome"] = true
 		}
 		h.publishEvent(r.Context(), tenantID, "auth.user", userID, "created", payload)
 
