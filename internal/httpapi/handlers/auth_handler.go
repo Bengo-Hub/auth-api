@@ -1129,6 +1129,8 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 		writeError(w, http.StatusBadRequest, "invalid_token", "password reset token invalid or expired", nil)
 	case errors.Is(err, auth.ErrEmailAlreadyExists):
 		writeError(w, http.StatusConflict, "email_exists", "user with email already exists", nil)
+	case errors.Is(err, auth.ErrSocialSignInNotAllowed):
+		writeError(w, http.StatusForbidden, "social_sign_in_not_allowed", err.Error(), nil)
 	case errors.Is(err, auth.ErrTenantMembershipRequired):
 		writeError(w, http.StatusForbidden, "tenant_membership_required", "you do not have access to this organisation", nil)
 	case errors.Is(err, auth.ErrProviderNotEnabled):

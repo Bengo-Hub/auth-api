@@ -50,6 +50,9 @@ var (
 	ErrEmailAlreadyExists = errors.New("user with email already exists")
 	// ErrProviderNotEnabled indicates the requested OAuth provider is disabled.
 	ErrProviderNotEnabled = errors.New("oauth provider not enabled")
+	// ErrSocialSignInNotAllowed is returned when an account must use a stronger sign-in than a
+	// third-party identity: it has an authenticator app, or it is a platform administrator.
+	ErrSocialSignInNotAllowed = errors.New("this account must sign in with a password and authenticator code, or a passkey")
 	// ErrOAuthStateInvalid indicates malformed state payload.
 	ErrOAuthStateInvalid = errors.New("oauth state invalid")
 	// ErrEmailNotVerified indicates provider did not verify the email address.
@@ -1221,6 +1224,10 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 		return nil, err
 	}
 
+	if err := s.ensureSocialSignInAllowed(ctx, userEntity, tenantEntity, "google", in); err != nil {
+		return nil, err
+	}
+
 	result, err := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
@@ -1341,6 +1348,10 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 		"ip_address":  in.IPAddress,
 	})
 
+	if err := s.ensureSocialSignInAllowed(ctx, userEntity, tenantEntity, "github", in); err != nil {
+		return nil, err
+	}
+
 	result, issueErr := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
@@ -1439,6 +1450,10 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 		"method":      "microsoft",
 		"ip_address":  in.IPAddress,
 	})
+
+	if err := s.ensureSocialSignInAllowed(ctx, userEntity, tenantEntity, "microsoft", in); err != nil {
+		return nil, err
+	}
 
 	result, issueErr := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
@@ -2811,4 +2826,58 @@ func (s *Service) AcceptTerms(ctx context.Context, userID uuid.UUID) error {
 		return fmt.Errorf("accept terms: %w", err)
 	}
 	return nil
+}
+
+// ensureSocialSignInAllowed stops a third-party identity (Google, GitHub, Microsoft) from being the only
+// factor for an account that needs more. Password sign-in asks for the authenticator code when one is
+// enrolled, and social sign-in skipped that. So a social sign-in is refused for (1) any account with
+// an authenticator app enabled and (2) any platform-tenant staff or administrator account, which must
+// use a password plus code or a passkey. Customers, riders, students and ordinary tenant staff are unaffected.
+func (s *Service) ensureSocialSignInAllowed(ctx context.Context, userEntity *ent.User, tenantEntity *ent.Tenant, provider string, in OAuthCallbackInput) error {
+	reason := ""
+	if mfaOn, err := s.IsMFAEnabled(ctx, userEntity.ID); err != nil || mfaOn {
+		// A lookup error fails closed: better to ask for the password than to skip a second factor.
+		reason = "mfa_enabled"
+	} else if s.isPlatformStaffUser(ctx, userEntity.ID) {
+		reason = "platform_admin"
+	}
+	if reason == "" {
+		return nil
+	}
+	s.logger.Warn("social sign-in refused", zap.String("user_id", userEntity.ID.String()), zap.String("provider", provider), zap.String("reason", reason))
+	var tenantID *uuid.UUID
+	if tenantEntity != nil {
+		tenantID = &tenantEntity.ID
+	}
+	s.auditor.Record(ctx, audit.Entry{
+		TenantID:   tenantID,
+		UserID:     &userEntity.ID,
+		Action:     "auth.oauth." + provider + ".refused",
+		Resource:   "user",
+		ResourceID: userEntity.ID.String(),
+		IPAddress:  in.IPAddress,
+		UserAgent:  in.UserAgent,
+		Context:    map[string]any{"reason": reason},
+	})
+	return ErrSocialSignInNotAllowed
+}
+
+// isPlatformStaffUser reports whether the user holds any role other than the plain self-registered
+// "member" in the platform tenant, i.e. is Codevertex staff or an administrator.
+func (s *Service) isPlatformStaffUser(ctx context.Context, userID uuid.UUID) bool {
+	m, err := s.entClient.TenantMembership.Query().
+		Where(
+			tenantmembership.UserID(userID),
+			tenantmembership.HasTenantWith(tenant.SlugEQ(platformTenantSlug)),
+		).
+		Only(ctx)
+	if err != nil {
+		return !ent.IsNotFound(err) // fail closed on a lookup error
+	}
+	for _, r := range m.Roles {
+		if r != "member" {
+			return true
+		}
+	}
+	return false
 }
