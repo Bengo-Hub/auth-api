@@ -524,6 +524,7 @@ func (h *AuthHandler) GoogleOAuthStart(w http.ResponseWriter, r *http.Request) {
 		ClientID:    req.ClientID,
 		Flow:        req.Flow,
 		RedirectURI: req.RedirectURI,
+		ReturnTo:    req.ReturnTo,
 		IPAddress:   clientIP(r),
 		UserAgent:   userAgent(r),
 	})
@@ -620,6 +621,9 @@ func (h *AuthHandler) handleOAuthCallback(
 	// Redirect to frontend callback page. It reads the session cookie via
 	// /api/v1/auth/me and stores the user in the auth store.
 	target := frontendBase + "/auth/callback"
+	if result.ReturnTo != "" {
+		target += "?return_to=" + url.QueryEscape(result.ReturnTo)
+	}
 	http.Redirect(w, r, target, http.StatusFound)
 }
 
@@ -641,6 +645,7 @@ func (h *AuthHandler) GitHubOAuthStart(w http.ResponseWriter, r *http.Request) {
 		ClientID:    req.ClientID,
 		Flow:        req.Flow,
 		RedirectURI: req.RedirectURI,
+		ReturnTo:    req.ReturnTo,
 		IPAddress:   clientIP(r),
 		UserAgent:   userAgent(r),
 	})
@@ -669,6 +674,7 @@ func (h *AuthHandler) MicrosoftOAuthStart(w http.ResponseWriter, r *http.Request
 		ClientID:    req.ClientID,
 		Flow:        req.Flow,
 		RedirectURI: req.RedirectURI,
+		ReturnTo:    req.ReturnTo,
 		IPAddress:   clientIP(r),
 		UserAgent:   userAgent(r),
 	})
@@ -1123,6 +1129,8 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 		writeError(w, http.StatusBadRequest, "invalid_token", "password reset token invalid or expired", nil)
 	case errors.Is(err, auth.ErrEmailAlreadyExists):
 		writeError(w, http.StatusConflict, "email_exists", "user with email already exists", nil)
+	case errors.Is(err, auth.ErrTenantMembershipRequired):
+		writeError(w, http.StatusForbidden, "tenant_membership_required", "you do not have access to this organisation", nil)
 	case errors.Is(err, auth.ErrProviderNotEnabled):
 		writeError(w, http.StatusBadRequest, "provider_disabled", "oauth provider not enabled", nil)
 	case errors.Is(err, auth.ErrOAuthStateInvalid):
@@ -1320,10 +1328,8 @@ type googleOAuthStartRequest struct {
 	ClientID    string `json:"client_id"`
 	Flow        string `json:"flow"`
 	RedirectURI string `json:"redirect_uri"`
-	// ReturnTo is a frontend-only hint for where to land after the callback.
-	// Accepted so the DisallowUnknownFields JSON decoder doesn't 400 on requests
-	// from auth-ui; the server ignores it — the redirect destination is derived
-	// from the OAuthClient's registered redirect_uris.
+	// ReturnTo is where to send the person after sign-in (the app's authorize URL or a relative
+	// path). It is validated before it goes into the signed OAuth state.
 	ReturnTo string `json:"return_to"`
 }
 

@@ -275,6 +275,7 @@ type OAuthStartInput struct {
 	ClientID    string
 	Flow        string
 	RedirectURI string
+	ReturnTo    string
 	IPAddress   string
 	UserAgent   string
 }
@@ -316,6 +317,8 @@ type AuthResult struct {
 	SessionID             uuid.UUID
 	Roles                 []string // Scoped to the active Tenant (union across all tenants only when no active tenant); matches GET /me
 	Permissions           []string // Canonical permission codes, same scoping as Roles; matches GET /me
+	// ReturnTo is set by social sign-in: where the browser goes next (validated at start).
+	ReturnTo string
 }
 
 // GetTenant returns a tenant by ID.
@@ -1143,6 +1146,8 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
+		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer),
+		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
 	}
 
 	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
@@ -1164,7 +1169,8 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 
 	authURL, err := s.google.AuthCodeURL(ctx, stateToken)
 	if err != nil {
-		return "", err
+		// A disabled or unreadable provider config is an unavailable provider, not a server fault.
+		return "", fmt.Errorf("%w: %v", ErrProviderNotEnabled, err)
 	}
 	return authURL, nil
 }
@@ -1205,6 +1211,12 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 	}
 
 	userEntity, err := s.resolveUserFromGoogleProfile(ctx, tenantEntity, s.oauthJoinRole(ctx, payload.ClientID), profile, tokenResp)
+	if errors.Is(err, ErrTenantMembershipRequired) && payload.Defaulted && userEntity != nil {
+		// No organisation was named: sign the person in to their own tenant, not the platform's.
+		if home := s.userHomeTenant(ctx, userEntity); home != nil {
+			tenantEntity, err = home, nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1220,6 +1232,8 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 	if err != nil {
 		return nil, err
 	}
+
+	result.ReturnTo = payload.ReturnTo
 
 	s.auditor.Record(ctx, audit.Entry{
 		TenantID:   &tenantEntity.ID,
@@ -1262,12 +1276,18 @@ func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (str
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
+		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer),
+		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
 	}
 	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
 	if err != nil {
 		return "", fmt.Errorf("encode oauth state: %w", err)
 	}
-	return s.github.AuthCodeURL(ctx, stateToken)
+	authURL, err := s.github.AuthCodeURL(ctx, stateToken)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrProviderNotEnabled, err)
+	}
+	return authURL, nil
 }
 
 // CompleteGitHubOAuth handles GitHub callback.
@@ -1301,6 +1321,12 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 		return nil, ErrEmailDomainNotAllowed
 	}
 	userEntity, err := s.resolveUserFromGitHubProfile(ctx, tenantEntity, s.oauthJoinRole(ctx, payload.ClientID), profile, tokenResp)
+	if errors.Is(err, ErrTenantMembershipRequired) && payload.Defaulted && userEntity != nil {
+		// No organisation was named: sign the person in to their own tenant, not the platform's.
+		if home := s.userHomeTenant(ctx, userEntity); home != nil {
+			tenantEntity, err = home, nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1315,7 +1341,7 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 		"ip_address":  in.IPAddress,
 	})
 
-	return s.issueSession(ctx, issueSessionInput{
+	result, issueErr := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  payload.ClientID,
@@ -1323,6 +1349,11 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
 	})
+	if issueErr != nil {
+		return nil, issueErr
+	}
+	result.ReturnTo = payload.ReturnTo
+	return result, nil
 }
 
 // StartMicrosoftOAuth builds Microsoft authorization URL.
@@ -1340,12 +1371,18 @@ func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
+		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer),
+		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
 	}
 	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
 	if err != nil {
 		return "", fmt.Errorf("encode oauth state: %w", err)
 	}
-	return s.microsoft.AuthCodeURL(ctx, stateToken)
+	authURL, err := s.microsoft.AuthCodeURL(ctx, stateToken)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrProviderNotEnabled, err)
+	}
+	return authURL, nil
 }
 
 // CompleteMicrosoftOAuth handles Microsoft callback.
@@ -1383,6 +1420,12 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 		return nil, ErrEmailDomainNotAllowed
 	}
 	userEntity, err := s.resolveUserFromMicrosoftProfile(ctx, tenantEntity, s.oauthJoinRole(ctx, payload.ClientID), profile, tokenResp)
+	if errors.Is(err, ErrTenantMembershipRequired) && payload.Defaulted && userEntity != nil {
+		// No organisation was named: sign the person in to their own tenant, not the platform's.
+		if home := s.userHomeTenant(ctx, userEntity); home != nil {
+			tenantEntity, err = home, nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1397,7 +1440,7 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 		"ip_address":  in.IPAddress,
 	})
 
-	return s.issueSession(ctx, issueSessionInput{
+	result, issueErr := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  payload.ClientID,
@@ -1405,6 +1448,11 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
 	})
+	if issueErr != nil {
+		return nil, issueErr
+	}
+	result.ReturnTo = payload.ReturnTo
+	return result, nil
 }
 
 // RequestPasswordReset creates a reset token (would be emailed in production).
@@ -2090,8 +2138,8 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 				return nil, fmt.Errorf("load user for identity: %w", err)
 			}
 		}
-		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
-			return nil, err
+		if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
+			return userEntity, err
 		}
 		if err := s.updateIdentityTokens(ctx, identity.ID, profile, token); err != nil {
 			return nil, err
@@ -2140,8 +2188,8 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 		}
 	}
 
-	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
-		return nil, err
+	if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
+		return userEntity, err
 	}
 
 	if err := s.createIdentity(ctx, userEntity.ID, profile, token); err != nil {
@@ -2179,8 +2227,8 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 		Only(ctx)
 	if err == nil {
 		userEntity := identity.Edges.User
-		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
-			return nil, err
+		if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
+			return userEntity, err
 		}
 		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.Name}, token); err != nil {
 			return nil, err
@@ -2218,8 +2266,8 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 		}
 		isNewUser = true
 	}
-	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
-		return nil, err
+	if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
+		return userEntity, err
 	}
 	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.Name}, token); err != nil {
 		return nil, err
@@ -2258,8 +2306,8 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 		Only(ctx)
 	if err == nil {
 		userEntity := identity.Edges.User
-		if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
-			return nil, err
+		if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
+			return userEntity, err
 		}
 		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.DisplayName}, token); err != nil {
 			return nil, err
@@ -2297,8 +2345,8 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 		}
 		isNewUser = true
 	}
-	if err := s.ensureMembership(ctx, userEntity.ID, tenantEntity.ID, joinRole); err != nil {
-		return nil, err
+	if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
+		return userEntity, err
 	}
 	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.DisplayName}, token); err != nil {
 		return nil, err
@@ -2377,12 +2425,20 @@ func (s *Service) oauthJoinRole(ctx context.Context, clientID string) string {
 	return "member"
 }
 
-func (s *Service) ensureMembership(ctx context.Context, userID, tenantID uuid.UUID, role string) error {
+// ErrTenantMembershipRequired is returned when a social sign-in names an organisation the person
+// does not belong to and may not join on their own.
+var ErrTenantMembershipRequired = errors.New("you do not have access to this organisation")
+
+// ensureMembership makes sure the person belongs to the tenant they are signing in to. A social
+// sign-in may CREATE a membership only where policy allows it:
+//   - a customer-facing app (ordering, rider, Digitika) gives its own role (customer, driver, student)
+//   - the platform tenant lets a brand-new person self-register as "member"
+//
+// Anywhere else (a staff app, or another organisation) an existing membership is required, exactly as
+// for password sign-in. Before this, any social sign-in could join any organisation from any app.
+func (s *Service) ensureMembership(ctx context.Context, userEntity *ent.User, tenantEntity *ent.Tenant, role string) error {
 	exists, err := s.entClient.TenantMembership.Query().
-		Where(
-			tenantmembership.UserID(userID),
-			tenantmembership.TenantID(tenantID),
-		).
+		Where(tenantmembership.UserID(userEntity.ID), tenantmembership.TenantID(tenantEntity.ID)).
 		Exist(ctx)
 	if err != nil {
 		return fmt.Errorf("check tenant membership: %w", err)
@@ -2390,15 +2446,24 @@ func (s *Service) ensureMembership(ctx context.Context, userID, tenantID uuid.UU
 	if exists {
 		return nil
 	}
-	_, err = s.entClient.TenantMembership.Create().
-		SetUserID(userID).
-		SetTenantID(tenantID).
+	customerApp := role != "member"
+	selfRegister := false
+	if !customerApp && tenantEntity.Slug == platformTenantSlug {
+		hasAny, aErr := s.entClient.TenantMembership.Query().Where(tenantmembership.UserID(userEntity.ID)).Exist(ctx)
+		selfRegister = aErr == nil && !hasAny
+	}
+	if !customerApp && !selfRegister {
+		s.logger.Warn("social sign-in refused: not a member",
+			zap.String("user_id", userEntity.ID.String()), zap.String("tenant", tenantEntity.Slug))
+		return ErrTenantMembershipRequired
+	}
+	if _, err = s.entClient.TenantMembership.Create().
+		SetUserID(userEntity.ID).
+		SetTenantID(tenantEntity.ID).
 		SetRoles([]string{role}).
-		Save(ctx)
-	if err != nil {
+		Save(ctx); err != nil {
 		// Ignore constraint errors (membership already exists due to race condition)
 		if ent.IsConstraintError(err) {
-			s.logger.Warn("tenant membership already exists (race condition)", zap.String("user_id", userID.String()), zap.String("tenant_id", tenantID.String()))
 			return nil
 		}
 		return fmt.Errorf("create tenant membership: %w", err)

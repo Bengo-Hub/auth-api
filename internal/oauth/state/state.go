@@ -14,6 +14,12 @@ type Payload struct {
 	Flow        string `json:"flow"`
 	RedirectURI string `json:"redirect_uri"`
 	Nonce       string `json:"nonce"`
+	// ReturnTo is where to send the person after sign-in (the app's authorize URL, or a relative
+	// path). It is validated before it is stored, so the state never carries an arbitrary URL.
+	ReturnTo string `json:"return_to,omitempty"`
+	// Defaulted is true when no organisation was named and the platform tenant was used as a
+	// placeholder: a person who belongs elsewhere then signs in to their own tenant instead.
+	Defaulted bool `json:"defaulted,omitempty"`
 }
 
 // Encode signs the payload using HS256.
