@@ -20,7 +20,17 @@ type Payload struct {
 	// Defaulted is true when no organisation was named and the platform tenant was used as a
 	// placeholder: a person who belongs elsewhere then signs in to their own tenant instead.
 	Defaulted bool `json:"defaulted,omitempty"`
+	// Purpose separates the two kinds of token this package signs. Empty is a provider round trip
+	// (the OAuth state); PurposeSocialMFA is the short-lived challenge issued after a provider
+	// sign-in when the account still owes an authenticator code. Each decoder checks it, so one
+	// kind can never be replayed as the other.
+	Purpose string `json:"purpose,omitempty"`
+	// UserID is set only on a social MFA challenge: who has passed the provider step.
+	UserID string `json:"user_id,omitempty"`
 }
+
+// PurposeSocialMFA marks a challenge token issued while a social sign-in awaits the MFA code.
+const PurposeSocialMFA = "social_mfa"
 
 // Encode signs the payload using HS256.
 func Encode(secret string, payload Payload, ttl time.Duration) (string, error) {
@@ -34,6 +44,10 @@ func Encode(secret string, payload Payload, ttl time.Duration) (string, error) {
 		"flow":         payload.Flow,
 		"redirect_uri": payload.RedirectURI,
 		"nonce":        payload.Nonce,
+		"return_to":    payload.ReturnTo,
+		"defaulted":    payload.Defaulted,
+		"purpose":      payload.Purpose,
+		"user_id":      payload.UserID,
 		"iat":          now.Unix(),
 		"exp":          now.Add(ttl).Unix(),
 	}
@@ -68,6 +82,12 @@ func Decode(secret string, token string) (*Payload, error) {
 		Flow:        claimString(claims, "flow"),
 		RedirectURI: claimString(claims, "redirect_uri"),
 		Nonce:       claimString(claims, "nonce"),
+		ReturnTo:    claimString(claims, "return_to"),
+		Purpose:     claimString(claims, "purpose"),
+		UserID:      claimString(claims, "user_id"),
+	}
+	if d, ok := claims["defaulted"].(bool); ok {
+		payload.Defaulted = d
 	}
 	return payload, nil
 }

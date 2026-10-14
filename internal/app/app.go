@@ -300,6 +300,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			GitHubOAuthStart:                   authHandler.GitHubOAuthStart,
 			GitHubOAuthCallback:                authHandler.GitHubOAuthCallback,
 			MicrosoftOAuthStart:                authHandler.MicrosoftOAuthStart,
+			SocialMFAVerify:                    authHandler.SocialMFAVerify,
 			MicrosoftOAuthCallback:             authHandler.MicrosoftOAuthCallback,
 			WellKnownConfig:                    oidcHandler.WellKnownConfig,
 			JWKS:                               oidcHandler.JWKS,

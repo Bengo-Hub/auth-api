@@ -93,6 +93,7 @@ type AuthHandlers struct {
 	GitHubOAuthStart                   http.HandlerFunc
 	GitHubOAuthCallback                http.HandlerFunc
 	MicrosoftOAuthStart                http.HandlerFunc
+	SocialMFAVerify                    http.HandlerFunc
 	MicrosoftOAuthCallback             http.HandlerFunc
 	WellKnownConfig                    http.HandlerFunc
 	JWKS                               http.HandlerFunc
@@ -358,6 +359,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Post("/oauth/github/start", deps.AuthHandlers.GitHubOAuthStart)
 			r.Get("/oauth/github/callback", deps.AuthHandlers.GitHubOAuthCallback)
 			r.Post("/oauth/microsoft/start", deps.AuthHandlers.MicrosoftOAuthStart)
+			r.With(sensitive).Post("/oauth/mfa/verify", deps.AuthHandlers.SocialMFAVerify)
 			r.Get("/oauth/microsoft/callback", deps.AuthHandlers.MicrosoftOAuthCallback)
 
 			// GET /logout is public: for redirect-based logout (post_logout_redirect_uri from clients)

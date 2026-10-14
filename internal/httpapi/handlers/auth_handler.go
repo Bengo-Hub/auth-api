@@ -47,6 +47,8 @@ type AuthService interface {
 	CompleteGitHubOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
 	StartMicrosoftOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
 	CompleteMicrosoftOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
+	CompleteSocialMFA(ctx context.Context, in auth.SocialMFAInput) (*auth.AuthResult, error)
+	SocialMFAChallengeNonce(challenge string) (nonce string, ttl time.Duration, err error)
 	ListSessions(ctx context.Context, userID uuid.UUID) ([]*ent.Session, error)
 	RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error
@@ -592,7 +594,31 @@ func (h *AuthHandler) handleOAuthCallback(
 		return
 	}
 
-	// Set session cookie (mirrors Login handler logic).
+	// The account has an authenticator app: no session until the code is confirmed. The browser
+	// goes to the code page carrying only a short-lived signed challenge.
+	if result.MFAChallenge != "" {
+		target := frontendBase + "/auth/mfa?challenge=" + url.QueryEscape(result.MFAChallenge)
+		if result.ReturnTo != "" {
+			target += "&return_to=" + url.QueryEscape(result.ReturnTo)
+		}
+		http.Redirect(w, r, target, http.StatusFound)
+		return
+	}
+
+	h.setSessionCookie(w, r, result)
+
+	// Redirect to frontend callback page. It reads the session cookie via
+	// /api/v1/auth/me and stores the user in the auth store.
+	target := frontendBase + "/auth/callback"
+	if result.ReturnTo != "" {
+		target += "?return_to=" + url.QueryEscape(result.ReturnTo)
+	}
+	http.Redirect(w, r, target, http.StatusFound)
+}
+
+// setSessionCookie caches the access token under the session reference and sets the bb_session
+// cookie (mirrors the Login handler). Shared by the provider callback and the MFA code step.
+func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, r *http.Request, result *auth.AuthResult) {
 	sessionRef := result.SessionID.String()
 	if h.redis != nil && h.redisNamespace != "" {
 		sessionKey := h.redisNamespace + ":session_token:" + sessionRef
@@ -617,14 +643,69 @@ func (h *AuthHandler) handleOAuthCallback(
 		cookie.Domain = ".codevertexafrica.com"
 	}
 	http.SetCookie(w, cookie)
+}
 
-	// Redirect to frontend callback page. It reads the session cookie via
-	// /api/v1/auth/me and stores the user in the auth store.
-	target := frontendBase + "/auth/callback"
-	if result.ReturnTo != "" {
-		target += "?return_to=" + url.QueryEscape(result.ReturnTo)
+// socialMFAMaxAttempts is how many wrong codes one challenge accepts before it is dead.
+const socialMFAMaxAttempts = 5
+
+// SocialMFAVerify is the second step of a social sign-in for an account with an authenticator app.
+// POST /api/v1/auth/oauth/mfa/verify {challenge, totp_code}. The session cookie is set only here,
+// after the code checks out. A challenge allows a few attempts and works once.
+func (h *AuthHandler) SocialMFAVerify(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Challenge string `json:"challenge"`
+		TOTPCode  string `json:"totp_code"`
 	}
-	http.Redirect(w, r, target, http.StatusFound)
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || req.Challenge == "" || req.TOTPCode == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "challenge and totp_code are required", nil)
+		return
+	}
+	nonce, ttl, err := h.service.SocialMFAChallengeNonce(req.Challenge)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "challenge_invalid", "this sign-in has expired, start again", nil)
+		return
+	}
+	// Attempt limit and one-time use live in Redis so every pod agrees. Without Redis the 5 minute
+	// challenge lifetime is the only bound.
+	var usedKey string
+	if h.redis != nil && h.redisNamespace != "" {
+		attemptsKey := h.redisNamespace + ":social_mfa_attempts:" + nonce
+		usedKey = h.redisNamespace + ":social_mfa_used:" + nonce
+		if n, _ := h.redis.Exists(r.Context(), usedKey).Result(); n > 0 {
+			writeError(w, http.StatusBadRequest, "challenge_invalid", "this sign-in has already been used, start again", nil)
+			return
+		}
+		attempts, rErr := h.redis.Incr(r.Context(), attemptsKey).Result()
+		if rErr == nil {
+			if attempts == 1 {
+				h.redis.Expire(r.Context(), attemptsKey, ttl)
+			}
+			if attempts > socialMFAMaxAttempts {
+				writeError(w, http.StatusTooManyRequests, "too_many_attempts", "too many wrong codes, start again", nil)
+				return
+			}
+		}
+	}
+
+	result, err := h.service.CompleteSocialMFA(r.Context(), auth.SocialMFAInput{
+		Challenge: req.Challenge,
+		Code:      req.TOTPCode,
+		IPAddress: clientIP(r),
+		UserAgent: userAgent(r),
+	})
+	if err != nil {
+		if errors.Is(err, auth.ErrMFACodeInvalid) {
+			writeError(w, http.StatusUnauthorized, "invalid_totp", "invalid authenticator code", nil)
+			return
+		}
+		h.handleError(w, r, err)
+		return
+	}
+	if usedKey != "" {
+		h.redis.Set(r.Context(), usedKey, "1", ttl)
+	}
+	h.setSessionCookie(w, r, result)
+	writeJSON(w, http.StatusOK, map[string]any{"return_to": result.ReturnTo})
 }
 
 func (h *AuthHandler) GoogleOAuthCallback(w http.ResponseWriter, r *http.Request) {

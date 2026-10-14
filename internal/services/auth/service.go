@@ -51,7 +51,7 @@ var (
 	// ErrProviderNotEnabled indicates the requested OAuth provider is disabled.
 	ErrProviderNotEnabled = errors.New("oauth provider not enabled")
 	// ErrSocialSignInNotAllowed is returned when an account must use a stronger sign-in than a
-	// third-party identity: it has an authenticator app, or it is a platform administrator.
+	// third-party identity: it is a platform tenant staff or administrator account.
 	ErrSocialSignInNotAllowed = errors.New("this account must sign in with a password and authenticator code, or a passkey")
 	// ErrOAuthStateInvalid indicates malformed state payload.
 	ErrOAuthStateInvalid = errors.New("oauth state invalid")
@@ -322,6 +322,9 @@ type AuthResult struct {
 	Permissions           []string // Canonical permission codes, same scoping as Roles; matches GET /me
 	// ReturnTo is set by social sign-in: where the browser goes next (validated at start).
 	ReturnTo string
+	// MFAChallenge is set instead of tokens when a social sign-in still owes an authenticator code.
+	// The caller must not create a session; it hands the challenge to the browser for the code step.
+	MFAChallenge string
 }
 
 // GetTenant returns a tenant by ID.
@@ -1035,16 +1038,8 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		return nil, fmt.Errorf("verify membership: %w", err)
 	}
 
+	// Sign-ins are recorded in login_attempts and sessions; the audit log is for security events.
 	s.recordLoginAttempt(ctx, tenantEntity.ID, userEntity.ID, in.Email, true, "", in.IPAddress, in.UserAgent)
-	s.auditor.Record(ctx, audit.Entry{
-		TenantID:   &tenantEntity.ID,
-		UserID:     &userEntity.ID,
-		Action:     "auth.user.login",
-		Resource:   "session",
-		ResourceID: userEntity.ID.String(),
-		IPAddress:  in.IPAddress,
-		UserAgent:  in.UserAgent,
-	})
 
 	// Publish user.login event
 	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
@@ -1158,18 +1153,6 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 		return "", fmt.Errorf("encode oauth state: %w", err)
 	}
 
-	s.auditor.Record(ctx, audit.Entry{
-		TenantID:   &tenantEntity.ID,
-		Action:     "auth.oauth.google.start",
-		Resource:   "oauth_state",
-		ResourceID: payload.Nonce,
-		IPAddress:  in.IPAddress,
-		UserAgent:  in.UserAgent,
-		Context: map[string]any{
-			"client_id": payload.ClientID,
-		},
-	})
-
 	authURL, err := s.google.AuthCodeURL(ctx, stateToken)
 	if err != nil {
 		// A disabled or unreadable provider config is an unavailable provider, not a server fault.
@@ -1188,7 +1171,8 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 	}
 
 	payload, err := state.Decode(s.cfg.Security.OAuthStateSecret, in.State)
-	if err != nil {
+	if err != nil || payload.Purpose != "" {
+		// A social MFA challenge is signed with the same key; it must never pass as a provider state.
 		return nil, ErrOAuthStateInvalid
 	}
 
@@ -1227,6 +1211,10 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 	if err := s.ensureSocialSignInAllowed(ctx, userEntity, tenantEntity, "google", in); err != nil {
 		return nil, err
 	}
+	if s.socialMFARequired(ctx, userEntity.ID) {
+		// No session yet: the person confirms the authenticator code first.
+		return s.socialMFAResult(userEntity, tenantEntity, payload)
+	}
 
 	result, err := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
@@ -1241,19 +1229,6 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 	}
 
 	result.ReturnTo = payload.ReturnTo
-
-	s.auditor.Record(ctx, audit.Entry{
-		TenantID:   &tenantEntity.ID,
-		UserID:     &userEntity.ID,
-		Action:     "auth.oauth.google.success",
-		Resource:   "user",
-		ResourceID: userEntity.ID.String(),
-		IPAddress:  in.IPAddress,
-		UserAgent:  in.UserAgent,
-		Context: map[string]any{
-			"email": profile.Email,
-		},
-	})
 
 	// Publish user.login event for OAuth
 	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
@@ -1306,7 +1281,8 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 		return nil, ErrOAuthStateInvalid
 	}
 	payload, err := state.Decode(s.cfg.Security.OAuthStateSecret, in.State)
-	if err != nil {
+	if err != nil || payload.Purpose != "" {
+		// A social MFA challenge is signed with the same key; it must never pass as a provider state.
 		return nil, ErrOAuthStateInvalid
 	}
 	tenantEntity, err := s.GetTenantBySlug(ctx, payload.TenantSlug)
@@ -1350,6 +1326,9 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 
 	if err := s.ensureSocialSignInAllowed(ctx, userEntity, tenantEntity, "github", in); err != nil {
 		return nil, err
+	}
+	if s.socialMFARequired(ctx, userEntity.ID) {
+		return s.socialMFAResult(userEntity, tenantEntity, payload)
 	}
 
 	result, issueErr := s.issueSession(ctx, issueSessionInput{
@@ -1405,7 +1384,8 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 		return nil, ErrOAuthStateInvalid
 	}
 	payload, err := state.Decode(s.cfg.Security.OAuthStateSecret, in.State)
-	if err != nil {
+	if err != nil || payload.Purpose != "" {
+		// A social MFA challenge is signed with the same key; it must never pass as a provider state.
 		return nil, ErrOAuthStateInvalid
 	}
 	tenantEntity, err := s.GetTenantBySlug(ctx, payload.TenantSlug)
@@ -1453,6 +1433,9 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 
 	if err := s.ensureSocialSignInAllowed(ctx, userEntity, tenantEntity, "microsoft", in); err != nil {
 		return nil, err
+	}
+	if s.socialMFARequired(ctx, userEntity.ID) {
+		return s.socialMFAResult(userEntity, tenantEntity, payload)
 	}
 
 	result, issueErr := s.issueSession(ctx, issueSessionInput{
@@ -2829,36 +2812,14 @@ func (s *Service) AcceptTerms(ctx context.Context, userID uuid.UUID) error {
 }
 
 // ensureSocialSignInAllowed stops a third-party identity (Google, GitHub, Microsoft) from being the only
-// factor for an account that needs more. Password sign-in asks for the authenticator code when one is
-// enrolled, and social sign-in skipped that. So a social sign-in is refused for (1) any account with
-// an authenticator app enabled and (2) any platform-tenant staff or administrator account, which must
-// use a password plus code or a passkey. Customers, riders, students and ordinary tenant staff are unaffected.
+// factor for platform-tenant staff and administrators, who must use a password plus authenticator code
+// or a passkey. Customers, riders, students and ordinary tenant staff are unaffected here; an account
+// with an authenticator app is handled by the MFA step (see socialMFARequired), never by a bare session.
 func (s *Service) ensureSocialSignInAllowed(ctx context.Context, userEntity *ent.User, tenantEntity *ent.Tenant, provider string, in OAuthCallbackInput) error {
-	reason := ""
-	if mfaOn, err := s.IsMFAEnabled(ctx, userEntity.ID); err != nil || mfaOn {
-		// A lookup error fails closed: better to ask for the password than to skip a second factor.
-		reason = "mfa_enabled"
-	} else if s.isPlatformStaffUser(ctx, userEntity.ID) {
-		reason = "platform_admin"
-	}
-	if reason == "" {
+	if !s.isPlatformStaffUser(ctx, userEntity.ID) {
 		return nil
 	}
-	s.logger.Warn("social sign-in refused", zap.String("user_id", userEntity.ID.String()), zap.String("provider", provider), zap.String("reason", reason))
-	var tenantID *uuid.UUID
-	if tenantEntity != nil {
-		tenantID = &tenantEntity.ID
-	}
-	s.auditor.Record(ctx, audit.Entry{
-		TenantID:   tenantID,
-		UserID:     &userEntity.ID,
-		Action:     "auth.oauth." + provider + ".refused",
-		Resource:   "user",
-		ResourceID: userEntity.ID.String(),
-		IPAddress:  in.IPAddress,
-		UserAgent:  in.UserAgent,
-		Context:    map[string]any{"reason": reason},
-	})
+	s.auditSecurityEvent(ctx, userEntity, tenantEntity, "auth.oauth."+provider+".refused", map[string]any{"reason": "platform_admin"}, in.IPAddress, in.UserAgent)
 	return ErrSocialSignInNotAllowed
 }
 
