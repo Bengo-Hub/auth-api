@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"io"
 	"net/http"
@@ -102,6 +103,14 @@ func TestRelinkInlineImages(t *testing.T) {
 	}
 	if n, _ := h.RelinkInlineImages(ctx); n != 0 {
 		t.Errorf("rerun must find nothing, moved %d", n)
+	}
+
+	// A JPEG labelled as PNG is stored as what it is.
+	var jp bytes.Buffer
+	_ = jpeg.Encode(&jp, image.NewRGBA(image.Rect(0, 0, 4, 4)), nil)
+	mislabelled := "data:image/png;base64," + base64.StdEncoding.EncodeToString(jp.Bytes())
+	if link, err := persistImageRef(ctx, ten.ID, mislabelled, logoGroupBrand); err != nil || !strings.HasSuffix(link, ".jpg") {
+		t.Errorf("mislabelled jpeg: %q %v", link, err)
 	}
 
 	// Replacing the logo frees the old file; a file another tenant still links to stays.

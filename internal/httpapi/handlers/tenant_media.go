@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"entgo.io/ent/dialect/sql"
@@ -52,6 +53,13 @@ func persistImageRef(ctx context.Context, tenantID uuid.UUID, raw, group string)
 	data, err := base64.StdEncoding.DecodeString(raw[comma+1:])
 	if err != nil {
 		return "", fmt.Errorf("invalid image data: %w", err)
+	}
+	// Trust the bytes, not the label: browsers often label a JPEG as image/png. SVG is text and
+	// sniffs as text/xml, so its declared type is kept.
+	if mime != "image/svg+xml" {
+		if sniffed := http.DetectContentType(data); strings.HasPrefix(sniffed, "image/") {
+			mime = sniffed
+		}
 	}
 	ext := map[string]string{"image/png": ".png", "image/jpeg": ".jpg", "image/svg+xml": ".svg", "image/webp": ".webp", "image/gif": ".gif"}[mime]
 	if ext == "" {
