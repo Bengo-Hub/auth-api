@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"encoding/base64"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/Bengo-Hub/httpware/objectstore"
 
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/equityholderapplication"
@@ -21,11 +21,22 @@ import (
 // LegalHandler handles legal document management and acceptance (EPA/MSA/DPA).
 type LegalHandler struct {
 	ent    *ent.Client
+	media  *objectstore.Store // signature images, private
 	logger *zap.Logger
 }
 
-func NewLegalHandler(entClient *ent.Client, logger *zap.Logger) *LegalHandler {
-	return &LegalHandler{ent: entClient, logger: logger.Named("legal")}
+func NewLegalHandler(entClient *ent.Client, media *objectstore.Store, logger *zap.Logger) *LegalHandler {
+	return &LegalHandler{ent: entClient, media: media, logger: logger.Named("legal")}
+}
+
+// maxSignatureBytes keeps the limit signature uploads always had.
+const maxSignatureBytes = 2 << 20
+
+// RegisterLegalMediaTypes sets the signature rules (private, JPEG or PNG, re-encoded, 2 MB) on the
+// shared registry. Call once at startup.
+func RegisterLegalMediaTypes() {
+	objectstore.Register(objectstore.MediaType{Name: objectstore.TypeSignatures, MaxBytes: maxSignatureBytes,
+		Allowed: []string{"image/jpeg", "image/png"}, Image: true})
 }
 
 // GetCurrentDocument returns the current version of a legal document (public).
@@ -260,11 +271,17 @@ func (h *LegalHandler) AcceptDocument(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// parseSignatureUpload extracts and validates a multipart signature_image upload (jpg/png,
-// ≤2MB) shared by SignDocument and SignDocumentAsEquityHolder. On failure it writes the
-// response itself and returns ok=false — callers should just return.
-func parseSignatureUpload(w http.ResponseWriter, r *http.Request) (docType, docVersion, dataURL string, ok bool) {
-	const maxSize = 2 << 20 // 2 MB
+// parseSignatureUpload extracts and validates a multipart signature_image upload (JPEG or PNG
+// checked from the bytes, up to 2 MB, re-encoded) and stores it privately at
+// auth/<tenant>/signatures/<uuid>.<ext>, returning the key. On failure it writes the response
+// itself and returns ok=false; callers should just return.
+func (h *LegalHandler) parseSignatureUpload(w http.ResponseWriter, r *http.Request, tenantID uuid.UUID) (docType, docVersion, key string, ok bool) {
+	const maxSize = maxSignatureBytes
+	if !h.media.Enabled() {
+		writeError(w, http.StatusServiceUnavailable, "storage_unavailable", "file storage is not configured", nil)
+		return "", "", "", false
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxSize+64<<10)
 	if err := r.ParseMultipartForm(maxSize); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_form", "failed to parse form (max 2MB)", nil)
 		return "", "", "", false
@@ -284,28 +301,35 @@ func parseSignatureUpload(w http.ResponseWriter, r *http.Request) (docType, docV
 	}
 	defer file.Close()
 
-	ct := header.Header.Get("Content-Type")
-	if ct != "image/jpeg" && ct != "image/jpg" && ct != "image/png" {
-		writeError(w, http.StatusBadRequest, "invalid_file_type", "signature_image must be jpg or png", nil)
-		return "", "", "", false
-	}
-
 	data, err := io.ReadAll(io.LimitReader(file, maxSize+1))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "read_error", "failed to read file", nil)
 		return "", "", "", false
 	}
 	if int64(len(data)) > maxSize {
-		writeError(w, http.StatusRequestEntityTooLarge, "file_too_large", "signature_image must be ≤ 2MB", nil)
+		writeError(w, http.StatusRequestEntityTooLarge, "file_too_large", "signature_image must be at most 2 MB", nil)
 		return "", "", "", false
 	}
-
-	dataURL = fmt.Sprintf("data:%s;base64,%s", ct, base64.StdEncoding.EncodeToString(data))
-	return docType, docVersion, dataURL, true
+	// The type comes from the bytes (the client's Content-Type is not trusted).
+	up, err := objectstore.Prepare(data, objectstore.TypeSignatures)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_file_type", "signature_image must be a JPEG or PNG image", nil)
+		return "", "", "", false
+	}
+	key, err = h.media.NewKey(objectstore.Owner{TenantID: tenantID.String()}, objectstore.TypeSignatures, up.Ext)
+	if err == nil {
+		err = h.media.Put(r.Context(), key, up.Data, up.ContentType)
+	}
+	if err != nil {
+		h.logger.Error("store signature failed", zap.Error(err), zap.String("file", header.Filename))
+		writeError(w, http.StatusBadGateway, "storage_error", "failed to store the signature", nil)
+		return "", "", "", false
+	}
+	return docType, docVersion, key, true
 }
 
 // SignDocument accepts a multipart upload of a signature image (jpg/png ≤ 2MB)
-// and stores the base64 data URL in the legal_acceptance record.
+// and keeps its private object storage key in the legal_acceptance record.
 // POST /api/v1/auth/legal/sign
 // Form fields: doc_type, doc_version, signature_image (file)
 func (h *LegalHandler) SignDocument(w http.ResponseWriter, r *http.Request) {
@@ -315,14 +339,14 @@ func (h *LegalHandler) SignDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	docType, docVersion, dataURL, ok := parseSignatureUpload(w, r)
-	if !ok {
-		return
-	}
-
 	tenantID, err := uuid.Parse(claims.TenantID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_tenant", "invalid tenant ID in token", nil)
+		return
+	}
+
+	docType, docVersion, key, ok := h.parseSignatureUpload(w, r, tenantID)
+	if !ok {
 		return
 	}
 
@@ -334,9 +358,10 @@ func (h *LegalHandler) SignDocument(w http.ResponseWriter, r *http.Request) {
 		SetAcceptedAt(time.Now()).
 		SetIPAddress(clientIP(r)).
 		SetUserAgent(userAgent(r)).
-		SetSignatureImageURL(dataURL).
+		SetSignatureImageURL(key).
 		Save(r.Context())
 	if err != nil {
+		_ = h.media.Delete(r.Context(), key)
 		h.logger.Error("failed to persist signed document", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to save signature", nil)
 		return
@@ -348,11 +373,12 @@ func (h *LegalHandler) SignDocument(w http.ResponseWriter, r *http.Request) {
 		zap.String("acceptance_id", acceptance.ID.String()),
 	)
 
+	// The signature is private: a short-lived presigned link (the row keeps the key).
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"acceptance_id":       acceptance.ID.String(),
 		"doc_type":            acceptance.DocType,
 		"signed_at":           acceptance.AcceptedAt.Format(time.RFC3339),
-		"signature_image_url": acceptance.SignatureImageURL,
+		"signature_image_url": h.media.URL(acceptance.SignatureImageURL),
 	})
 }
 

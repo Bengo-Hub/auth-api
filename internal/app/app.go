@@ -243,7 +243,9 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			logger.Info("inline profile pictures moved to object storage", zap.Int("users", n))
 		}
 	}()
-	legalHandler := handlers.NewLegalHandler(entClient, logger)
+	// Legal signatures go to the private bucket (auth/<tenant>/signatures/), the row keeps the key.
+	handlers.RegisterLegalMediaTypes()
+	legalHandler := handlers.NewLegalHandler(entClient, mediaStore, logger)
 	resellerHandler := handlers.NewResellerHandler(entClient, logger)
 	resellerPortalHandler := handlers.NewResellerPortalHandler(entClient, logger)
 	referralLinkHandler := handlers.NewReferralLinkHandler(entClient, logger)
