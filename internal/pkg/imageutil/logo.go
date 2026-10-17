@@ -1,10 +1,8 @@
-// Package imageutil validates and compresses tenant branding images (logos)
-// submitted as data: URIs from auth-ui's BrandingTab. There is no object
-// storage integration for tenant assets yet — logos are stored inline as a
-// base64 data URI on the tenant row — so this is the only backstop against a
-// user uploading a multi-megabyte image straight into that column, which
-// bloats every /tenants/by-slug response and can crash consumers (pos-ui,
-// inventory-ui, ...) that embed or cache it.
+// Package imageutil validates and compresses tenant branding images (logos and service icons)
+// submitted as data: URIs from auth-ui's BrandingTab. The validated image is then stored on the
+// shared object storage (handlers/tenant_media.go) and the tenant row keeps its public link; only
+// without object storage (local development) does it stay inline, where these limits keep the
+// row small.
 package imageutil
 
 import (

@@ -1,11 +1,13 @@
 package app
 
 import (
-	sharedcache "github.com/Bengo-Hub/cache"
 	"context"
 	"database/sql"
 	"fmt"
+	sharedcache "github.com/Bengo-Hub/cache"
+	"github.com/Bengo-Hub/httpware/objectstore"
 	"net/http"
+	"time"
 
 	eventslib "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/audit"
@@ -200,6 +202,22 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger)
 	adminHandler.SetTenantCache(redisClient)
+	// Tenant logos and service icons on the shared object storage (httpware/objectstore). Logos
+	// still inline as data: URIs are moved once in the background (a no-op once none remain).
+	mediaStore, err := objectstore.New("auth", objectstore.FromEnv())
+	if err != nil {
+		return nil, fmt.Errorf("object storage: %w", err)
+	}
+	handlers.SetLogoStore(mediaStore)
+	go func() {
+		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if n, err := adminHandler.RelinkInlineImages(rctx); err != nil {
+			logger.Warn("inline tenant images not relinked", zap.Error(err))
+		} else if n > 0 {
+			logger.Info("inline tenant images moved to object storage", zap.Int("tenants", n))
+		}
+	}()
 	// Platform-wide auto-backup activation (single-row, opt-in, default OFF).
 	platformBackupSvc := platformbackup.NewService(entClient)
 	backupHandler := handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled, platformBackupSvc)

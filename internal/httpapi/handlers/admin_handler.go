@@ -750,6 +750,12 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid_logo", err.Error(), nil)
 			return
 		}
+		// The validated image goes to object storage; the row keeps its public link.
+		if logoURL, err = persistImageRef(r.Context(), id, logoURL, logoGroupBrand); err != nil {
+			h.logger.Error("tenant logo not stored", zap.Error(err))
+			writeError(w, http.StatusBadGateway, "storage_unavailable", "could not store the logo, try again", nil)
+			return
+		}
 		update.SetLogoURL(logoURL)
 	}
 	if req.Website != "" {
@@ -795,6 +801,8 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	// same-value resend (the frontend PUTs the whole tenant object back, not a partial
 	// patch) never needs to compare against a second, redundant fetch.
 	existing, _ := h.ent.Tenant.Get(r.Context(), id)
+	// Taken now: the metadata merge below edits existing.Metadata in place.
+	imagesBefore := tenantImages(existing)
 	if req.IsDemo != nil {
 		// Platform-admin only (excludes a tenant from platform revenue, see
 		// tenantRequest's own field comment) -- now that this handler accepts
@@ -839,6 +847,11 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 						writeError(w, http.StatusBadRequest, "invalid_service_branding", err.Error(), nil)
 						return
 					}
+					if err := persistBrandingIcons(r.Context(), id, branding); err != nil {
+						h.logger.Error("service icons not stored", zap.Error(err))
+						writeError(w, http.StatusBadGateway, "storage_unavailable", "could not store the service icon, try again", nil)
+						return
+					}
 					metadata[k] = branding
 					continue
 				}
@@ -873,6 +886,7 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 		oldSlug = existing.Slug
 	}
 	h.invalidateTenantCache(r.Context(), t.Slug, oldSlug)
+	h.releaseTenantImages(r.Context(), imagesBefore, tenantImages(t))
 
 	writeJSON(w, http.StatusOK, t)
 }

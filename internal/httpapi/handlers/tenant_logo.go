@@ -13,7 +13,8 @@ import (
 	"github.com/bengobox/auth-api/internal/pkg/imageutil"
 )
 
-// Tenant logos are stored inline as base64 data: URIs (see imageutil). Embedding them in session
+// Tenant logos are stored on the shared object storage and the row keeps the public link
+// (tenant_media.go); only without object storage are they kept inline as data: URIs. Embedding those in session
 // payloads made /auth/me and the login response megabytes large for users who belong to several
 // tenants (a platform owner's /me was 1.5 MB, 2 to 15 s to download on every sign-in), since image
 // data barely compresses. Session payloads now carry a short, versioned URL to the logo instead,
