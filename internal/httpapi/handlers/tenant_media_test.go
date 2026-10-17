@@ -105,6 +105,21 @@ func TestRelinkInlineImages(t *testing.T) {
 		t.Errorf("rerun must find nothing, moved %d", n)
 	}
 
+	// An inline profile picture moves under the user, compressed, and the profile keeps the link.
+	usr := client.User.Create().SetEmail("pic@example.com").
+		SetProfile(map[string]any{"name": "Pic", "profile_picture_url": icon}).SaveX(ctx)
+	uh := &UserHandler{ent: client, logger: zap.NewNop()}
+	if n, err := uh.RelinkInlineAvatars(ctx); err != nil || n != 1 {
+		t.Fatalf("avatar relink: %d %v", n, err)
+	}
+	pic, _ := client.User.GetX(ctx, usr.ID).Profile["profile_picture_url"].(string)
+	if !strings.HasPrefix(pic, "https://media.example.com/auth/users/"+usr.ID.String()+"/avatars/profile/") {
+		t.Errorf("avatar not relinked: %q", pic)
+	}
+	if n, _ := uh.RelinkInlineAvatars(ctx); n != 0 {
+		t.Error("avatar rerun must find nothing")
+	}
+
 	// A JPEG labelled as PNG is stored as what it is.
 	var jp bytes.Buffer
 	_ = jpeg.Encode(&jp, image.NewRGBA(image.Rect(0, 0, 4, 4)), nil)

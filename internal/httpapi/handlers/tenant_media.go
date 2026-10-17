@@ -17,6 +17,8 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/pkg/imageutil"
 )
 
 // Tenant branding images (the organisation logo and the per-service icons in
@@ -42,6 +44,11 @@ const (
 // URI when no object storage is configured. The name is a content hash, so saving the same image
 // again reuses the stored file.
 func persistImageRef(ctx context.Context, tenantID uuid.UUID, raw, group string) (string, error) {
+	return persistImage(ctx, objectstore.Owner{TenantID: tenantID.String()}, objectstore.TypeLogos, group, raw)
+}
+
+// persistImage is persistImageRef for any owner and media type (user avatars use it too).
+func persistImage(ctx context.Context, owner objectstore.Owner, mediaType, group, raw string) (string, error) {
 	if !strings.HasPrefix(raw, "data:") || !logoStore.Remote() {
 		return raw, nil
 	}
@@ -66,7 +73,7 @@ func persistImageRef(ctx context.Context, tenantID uuid.UUID, raw, group string)
 		return "", fmt.Errorf("unsupported image type %q", mime)
 	}
 	sum := sha256.Sum256(data)
-	key, err := logoStore.Key(objectstore.Owner{TenantID: tenantID.String()}, objectstore.TypeLogos, group, hex.EncodeToString(sum[:16])+ext)
+	key, err := logoStore.Key(owner, mediaType, group, hex.EncodeToString(sum[:16])+ext)
 	if err != nil {
 		return "", err
 	}
@@ -152,6 +159,48 @@ func tenantImages(t *ent.Tenant) []string {
 		out = append(out, brandingIcons(t.Metadata[MetadataKeyServiceBranding])...)
 	}
 	return out
+}
+
+// RelinkInlineAvatars moves profile pictures still stored inline as data: URIs to object storage
+// (validated and compressed like a new upload), updates the profile and drops the user's cached
+// /me. Like RelinkInlineImages it only touches rows still inline and is safe to run again.
+func (h *UserHandler) RelinkInlineAvatars(ctx context.Context) (int, error) {
+	if !logoStore.Remote() {
+		return 0, nil
+	}
+	inline := predicate.User(func(s *sql.Selector) {
+		s.Where(sql.P(func(b *sql.Builder) {
+			b.WriteString(s.C(user.FieldProfile)).WriteString("->>'profile_picture_url' LIKE ").Arg("data:%")
+		}))
+	})
+	rows, err := h.ent.User.Query().Where(inline).All(ctx)
+	if err != nil {
+		return 0, err
+	}
+	moved := 0
+	for _, u := range rows {
+		raw, _ := u.Profile["profile_picture_url"].(string)
+		picture, err := imageutil.ValidateAndCompressLogoURL(raw)
+		if err == nil {
+			picture, err = persistImage(ctx, objectstore.Owner{UserID: u.ID.String()}, objectstore.TypeAvatars, "profile", picture)
+		}
+		if err != nil {
+			h.logger.Warn("inline profile picture not moved", zap.String("user", u.ID.String()), zap.Error(err))
+			continue
+		}
+		profile := map[string]any{}
+		for k, v := range u.Profile {
+			profile[k] = v
+		}
+		profile["profile_picture_url"] = picture
+		if err := h.ent.User.UpdateOneID(u.ID).SetProfile(profile).Exec(ctx); err != nil {
+			h.logger.Warn("profile picture not relinked", zap.String("user", u.ID.String()), zap.Error(err))
+			continue
+		}
+		h.invalidateMeCache(ctx, u.ID)
+		moved++
+	}
+	return moved, nil
 }
 
 // RelinkInlineImages moves every tenant logo and service icon still stored inline as a data: URI

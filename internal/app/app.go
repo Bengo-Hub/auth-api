@@ -233,6 +233,16 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	etimsNotifier := handlers.NewEtimsSupportNotifier(integrationSvc, cfg.Notifications.BaseURL, cfg.Subscription.APIKey, logger)
 	integrationRequestHandler := handlers.NewIntegrationRequestHandler(entClient, etimsNotifier, hasher, authService, logger)
 	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger)
+	// Profile pictures still inline as data: URIs move to object storage once (no-op after).
+	go func() {
+		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if n, err := userHandler.RelinkInlineAvatars(rctx); err != nil {
+			logger.Warn("inline profile pictures not relinked", zap.Error(err))
+		} else if n > 0 {
+			logger.Info("inline profile pictures moved to object storage", zap.Int("users", n))
+		}
+	}()
 	legalHandler := handlers.NewLegalHandler(entClient, logger)
 	resellerHandler := handlers.NewResellerHandler(entClient, logger)
 	resellerPortalHandler := handlers.NewResellerPortalHandler(entClient, logger)

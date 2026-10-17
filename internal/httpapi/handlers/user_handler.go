@@ -8,6 +8,7 @@ import (
 
 	entsql "entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
+	"github.com/Bengo-Hub/httpware/objectstore"
 	"github.com/Bengo-Hub/pagination"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
 	"github.com/bengobox/auth-api/internal/ent/consentsession"
@@ -25,6 +26,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/password"
+	"github.com/bengobox/auth-api/internal/pkg/imageutil"
 	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -898,8 +900,21 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	if req.Name != "" {
 		profile["name"] = req.Name
 	}
-	if req.ProfilePictureURL != "" {
-		profile["profile_picture_url"] = req.ProfilePictureURL
+	oldPicture, _ := u.Profile["profile_picture_url"].(string)
+	if req.ProfilePictureURL != "" && req.ProfilePictureURL != oldPicture {
+		// Same limits as tenant logos (512 px, compressed), then stored on the shared object
+		// storage under the user; the profile keeps the public link.
+		picture, err := imageutil.ValidateAndCompressLogoURL(req.ProfilePictureURL)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_picture", err.Error(), nil)
+			return
+		}
+		if picture, err = persistImage(r.Context(), objectstore.Owner{UserID: userID.String()}, objectstore.TypeAvatars, "profile", picture); err != nil {
+			h.logger.Error("profile picture not stored", zap.Error(err))
+			writeError(w, http.StatusBadGateway, "storage_unavailable", "could not store the picture, try again", nil)
+			return
+		}
+		profile["profile_picture_url"] = picture
 	}
 	if normalizedPhone != "" {
 		profile["phone"] = normalizedPhone
@@ -948,5 +963,11 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	// Bust the cached /me response so a reload reflects the change immediately.
 	h.invalidateMeCache(r.Context(), userID)
+	// A replaced picture frees its file (each user's pictures live under their own key prefix).
+	if newPicture, _ := updated.Profile["profile_picture_url"].(string); oldPicture != newPicture && logoStore.Owned(oldPicture) {
+		if err := logoStore.Delete(r.Context(), oldPicture); err != nil {
+			h.logger.Warn("replaced profile picture not deleted from storage", zap.Error(err))
+		}
+	}
 	writeJSON(w, http.StatusOK, mapUser(updated))
 }
