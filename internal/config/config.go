@@ -54,11 +54,6 @@ type BackupConfig struct {
 	ServiceURL string `env:"SERVICE_URL" envDefault:"http://backup-server.infra.svc.cluster.local"`
 	// Whether the backup download feature is enabled.
 	Enabled bool `env:"ENABLED" envDefault:"true"`
-	// ScheduleEnabled is the MASTER switch for the platform pg_dumpall DR scheduler.
-	// The actual run is still gated by the DB-stored auto_enabled flag (opt-in, default OFF).
-	ScheduleEnabled bool `env:"SCHEDULE_ENABLED" envDefault:"true"`
-	// Dir is where the scheduler writes platform_dumpall_*.sql.gz backup files.
-	Dir string `env:"DIR" envDefault:"/data/backups"`
 	// TenantServices lists the services a tenant backup collects, as name=base URL pairs
 	// separated by commas (BACKUP_TENANT_SERVICES, set per environment in the deployment
 	// values). Each service serves GET /api/v1/s2s/tenant-export (httpware/tenantexport).

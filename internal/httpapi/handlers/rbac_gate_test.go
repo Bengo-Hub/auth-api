@@ -183,8 +183,6 @@ func TestBackupHandler_RejectsNonPlatformOwner(t *testing.T) {
 		name string
 		fn   func(http.ResponseWriter, *http.Request)
 	}{
-		{"GetSettings", h.GetSettings},
-		{"UpdateSettings", h.UpdateSettings},
 		{"ListBackups", h.ListBackups},
 		{"DownloadBackup", h.DownloadBackup},
 	} {
@@ -281,27 +279,5 @@ func TestAppHandler_ListApps_RejectsTenantMemberWithoutDeveloperRole(t *testing.
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("ListApps with bare 'cashier' role: status = %d, want %d", rec.Code, http.StatusForbidden)
-	}
-}
-
-func TestBackupDestinationHandler_RejectsNonPlatformOwner(t *testing.T) {
-	h := &BackupDestinationHandler{}
-	nonOwner := &token.Claims{Roles: []string{"admin"}, TenantID: "99999999-9999-9999-9999-999999999999"}
-
-	for _, tc := range []struct {
-		name string
-		fn   func(http.ResponseWriter, *http.Request)
-	}{
-		{"Get", h.Get},
-		{"Update", h.Update},
-		{"Test", h.Test},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
-			tc.fn(rec, reqWithClaims(nonOwner))
-			if rec.Code != http.StatusForbidden {
-				t.Errorf("%s: status = %d, want %d (non-platform-owner must be rejected)", tc.name, rec.Code, http.StatusForbidden)
-			}
-		})
 	}
 }
