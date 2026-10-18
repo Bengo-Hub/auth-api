@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Bengo-Hub/httpware/objectstore"
+	"github.com/Bengo-Hub/httpware/tenantexport"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -272,6 +273,9 @@ func (s *Service) collect(ctx context.Context, zw *zip.Writer, tenantID uuid.UUI
 	}
 	req.Header.Set("X-API-Key", s.apiKey)
 	req.Header.Set("X-Tenant-ID", tenantID.String())
+	// Marks the request as a stream, so the service's timeout and compression middleware stand
+	// aside (httpware.IsStreaming).
+	req.Header.Set("Accept", tenantexport.ContentType)
 	resp, err := s.http.Do(req)
 	if err != nil {
 		res.Status, res.Error = "failed", "service unreachable"
