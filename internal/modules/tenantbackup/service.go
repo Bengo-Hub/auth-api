@@ -217,7 +217,7 @@ func (s *Service) run(tenantID uuid.UUID, st *State, prev *State) {
 		"services": st.Services,
 		"format":   "one <service>.jsonl.gz per service: gzipped JSON Lines (export, row..., summary)",
 	}, "", "  ")
-	if w, err := zw.Create("manifest.json"); err == nil {
+	if w, err := zw.CreateHeader(&zip.FileHeader{Name: "manifest.json", Method: zip.Deflate, Modified: time.Now()}); err == nil {
 		_, _ = w.Write(manifest)
 	}
 	if err := zw.Close(); err != nil {
