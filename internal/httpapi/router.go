@@ -1,8 +1,8 @@
 package httpapi
 
 import (
-	ratelimit "github.com/Bengo-Hub/shared-ratelimit"
 	"context"
+	ratelimit "github.com/Bengo-Hub/shared-ratelimit"
 	"net/http"
 	"time"
 
@@ -47,7 +47,7 @@ type RouterDeps struct {
 	// RateLimitSensitive guards unauthenticated code/account flows (email codes, password
 	// reset, registration, OTP) per client IP.
 	RateLimitSensitive func(http.Handler) http.Handler
-	MetricsHandler        http.Handler
+	MetricsHandler     http.Handler
 	// InternalServiceKey gates internal S2S endpoints (X-API-Key header).
 	InternalServiceKey string
 	// ValidateInternalAppKey is the dual-mode companion to InternalServiceKey: a
@@ -111,27 +111,30 @@ type AuthHandlers struct {
 	AdminApproveTenant                 http.HandlerFunc
 	AdminRejectTenant                  http.HandlerFunc
 	AdminProvisionTenantOAuthRedirects http.HandlerFunc
-	AdminCreateClient                  http.HandlerFunc
-	AdminListClients                   http.HandlerFunc
-	AdminGetClient                     http.HandlerFunc
-	AdminUpdateClient                  http.HandlerFunc
-	AdminDeleteClient                  http.HandlerFunc
-	AdminUpsertEntitlement             http.HandlerFunc
-	AdminListEntitlements              http.HandlerFunc
-	AdminIncrementUsage                http.HandlerFunc
-	AdminRotateKeys                    http.HandlerFunc
-	PublicCreateTenant                 http.HandlerFunc
-	PublicGetTenantBySlug              http.HandlerFunc
-	PublicGetTenantLogo                http.HandlerFunc
-	PublicGetTenantByID                http.HandlerFunc
-	PublicListMarketplaceTenants       http.HandlerFunc
-	AdminCreateIntegrationConfig       http.HandlerFunc
-	AdminGetIntegrationConfig          http.HandlerFunc
-	AdminListIntegrationConfigs        http.HandlerFunc
-	S2SPlatformAlertSettings           http.HandlerFunc
-	AdminDeleteIntegrationConfig       http.HandlerFunc
-	AdminUpdateIntegrationStatus       http.HandlerFunc
-	AdminRotateClientSecret            http.HandlerFunc
+	// Tenant backups (SSO client area): newest backup + download link, and start a new one.
+	AdminGetTenantBackup         http.HandlerFunc
+	AdminStartTenantBackup       http.HandlerFunc
+	AdminCreateClient            http.HandlerFunc
+	AdminListClients             http.HandlerFunc
+	AdminGetClient               http.HandlerFunc
+	AdminUpdateClient            http.HandlerFunc
+	AdminDeleteClient            http.HandlerFunc
+	AdminUpsertEntitlement       http.HandlerFunc
+	AdminListEntitlements        http.HandlerFunc
+	AdminIncrementUsage          http.HandlerFunc
+	AdminRotateKeys              http.HandlerFunc
+	PublicCreateTenant           http.HandlerFunc
+	PublicGetTenantBySlug        http.HandlerFunc
+	PublicGetTenantLogo          http.HandlerFunc
+	PublicGetTenantByID          http.HandlerFunc
+	PublicListMarketplaceTenants http.HandlerFunc
+	AdminCreateIntegrationConfig http.HandlerFunc
+	AdminGetIntegrationConfig    http.HandlerFunc
+	AdminListIntegrationConfigs  http.HandlerFunc
+	S2SPlatformAlertSettings     http.HandlerFunc
+	AdminDeleteIntegrationConfig http.HandlerFunc
+	AdminUpdateIntegrationStatus http.HandlerFunc
+	AdminRotateClientSecret      http.HandlerFunc
 	// Integration requests (eTIMS + future integrations)
 	CreateIntegrationRequest      http.HandlerFunc
 	ListMyIntegrationRequests     http.HandlerFunc
@@ -509,6 +512,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Post("/approve", deps.AuthHandlers.AdminApproveTenant)
 					r.Post("/reject", deps.AuthHandlers.AdminRejectTenant)
 					r.Post("/provision-oauth-redirects", deps.AuthHandlers.AdminProvisionTenantOAuthRedirects)
+					if deps.AuthHandlers.AdminGetTenantBackup != nil {
+						r.Get("/backup", deps.AuthHandlers.AdminGetTenantBackup)
+						r.Post("/backup", deps.AuthHandlers.AdminStartTenantBackup)
+					}
 					r.Route("/members", func(r chi.Router) {
 						r.Post("/", deps.AuthHandlers.AddTenantMember)
 						r.Get("/", deps.AuthHandlers.ListTenantMembers)

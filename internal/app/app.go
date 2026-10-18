@@ -21,6 +21,7 @@ import (
 	httpmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/modules/platformbackup"
 	"github.com/bengobox/auth-api/internal/modules/platformbackup/destination"
+	"github.com/bengobox/auth-api/internal/modules/tenantbackup"
 	"github.com/bengobox/auth-api/internal/password"
 	platformevents "github.com/bengobox/auth-api/internal/platform/events"
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
@@ -209,6 +210,10 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		return nil, fmt.Errorf("object storage: %w", err)
 	}
 	handlers.SetLogoStore(mediaStore)
+	// Tenant backups on demand from the SSO client area: each listed service's tenant export,
+	// one zip per tenant on the private bucket, only the newest kept.
+	adminHandler.SetTenantBackups(tenantbackup.New(sqlDB, mediaStore,
+		tenantbackup.ParseServices(cfg.Backup.TenantServices), cfg.Subscription.APIKey, logger))
 	go func() {
 		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
@@ -357,6 +362,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminApproveTenant:                 adminHandler.ApproveTenant,
 			AdminRejectTenant:                  adminHandler.RejectTenant,
 			AdminProvisionTenantOAuthRedirects: adminHandler.ProvisionTenantOAuthRedirects,
+			AdminGetTenantBackup:               adminHandler.GetTenantBackup,
+			AdminStartTenantBackup:             adminHandler.StartTenantBackup,
 			AdminCreateClient:                  adminHandler.CreateClient,
 			AdminListClients:                   adminHandler.ListClients,
 			AdminGetClient:                     adminHandler.GetClient,

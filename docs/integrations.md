@@ -585,6 +585,30 @@ func (h *WebhookHandler) HandleAuthUserCreated(ctx context.Context, event AuthUs
 
 ---
 
+## Tenant Backups (SSO client area)
+
+Tenant admins back up their data from the SSO client area (2026-10-18). Decisions: on demand only
+(the platform `pg_dumpall` CronJob covers disaster recovery), only the newest backup is kept per
+tenant, download only (restore stays a platform-admin task).
+
+- `POST /api/v1/admin/tenants/{tenant_id}/backup` starts a backup (202; 409 while one runs). A run
+  that stopped reporting for 15 minutes (its pod restarted) no longer blocks a new one.
+- `GET /api/v1/admin/tenants/{tenant_id}/backup` returns `status` (`none`, `running`,
+  `completed`, `failed`), per-service results, size, and a 15-minute `download_url` when an
+  archive is ready. Both need a tenant admin of that tenant (or a platform owner).
+- auth-api calls `GET /api/v1/s2s/tenant-export` on every service in `BACKUP_TENANT_SERVICES`
+  (`name=base URL` pairs, set in the deployment values) with `INTERNAL_SERVICE_KEY` and
+  `X-Tenant-ID`. Each service serves it with `httpware/tenantexport` (gzipped JSON Lines of every
+  table with a `tenant_id`, secret-looking columns removed). A 404 marks the service
+  `unavailable`, an error marks it `failed`; the backup fails only when no service answered.
+- The archive (`<service>.jsonl.gz` per service plus `manifest.json`) is uploaded with
+  `PutStream` to the private bucket at `auth/<tenant>/backups/<yyyy>/<mm>/<uuid>.zip`; the previous
+  archive is deleted once the new one is saved. A failed run keeps the previous archive.
+- State lives in `tenants.metadata.backup`, written with `jsonb_set` so other metadata is never
+  overwritten.
+
+---
+
 ## Event-Driven Architecture
 
 ### Event Catalog

@@ -59,6 +59,10 @@ type BackupConfig struct {
 	ScheduleEnabled bool `env:"SCHEDULE_ENABLED" envDefault:"true"`
 	// Dir is where the scheduler writes platform_dumpall_*.sql.gz backup files.
 	Dir string `env:"DIR" envDefault:"/data/backups"`
+	// TenantServices lists the services a tenant backup collects, as name=base URL pairs
+	// separated by commas (BACKUP_TENANT_SERVICES, set per environment in the deployment
+	// values). Each service serves GET /api/v1/s2s/tenant-export (httpware/tenantexport).
+	TenantServices string `env:"TENANT_SERVICES"`
 }
 
 // EventsConfig holds NATS and outbox publisher settings.

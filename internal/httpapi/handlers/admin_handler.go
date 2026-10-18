@@ -21,6 +21,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/ent/userphone"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/modules/tenantbackup"
 	"github.com/bengobox/auth-api/internal/password"
 	"github.com/bengobox/auth-api/internal/pkg/imageutil"
 	"github.com/bengobox/auth-api/internal/services/auth"
@@ -48,6 +49,8 @@ type AdminHandler struct {
 	hasher       *password.Hasher
 	authUIURL    string
 	tenantCache  *redis.Client
+	// tenantBackups builds tenant backups from every service's export (tenant_backup.go).
+	tenantBackups *tenantbackup.Service
 }
 
 // SetTenantCache lets tenant updates drop the shared "tenant:<slug>" entry that
