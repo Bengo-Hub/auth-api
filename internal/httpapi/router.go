@@ -792,6 +792,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 			if deps.AuthHandlers.AddTenantMember != nil {
 				r.Post("/api/v1/s2s/tenants/{tenant_id}/members", s2sPlatformClaims(deps.AuthHandlers.AddTenantMember))
 			}
+			// S2S tenant backups (platform operations from inside the cluster): same handlers as the
+			// tenant-admin routes, with injected platform claims.
+			if deps.AuthHandlers.AdminGetTenantBackup != nil {
+				r.Get("/api/v1/s2s/tenants/{tenant_id}/backup", s2sPlatformClaims(deps.AuthHandlers.AdminGetTenantBackup))
+				r.Post("/api/v1/s2s/tenants/{tenant_id}/backup", s2sPlatformClaims(deps.AuthHandlers.AdminStartTenantBackup))
+			}
 			// S2S service-role registry: owning services push their role catalogue
 			// here; idempotent upsert by role_code (no duplicate roles).
 			if deps.RBACHandler != nil {
