@@ -37,7 +37,6 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/passwordpolicy"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
-	"github.com/bengobox/auth-api/internal/ent/platformbackupsetting"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
 	"github.com/bengobox/auth-api/internal/ent/resellerapplication"
@@ -101,8 +100,6 @@ type Client struct {
 	PasswordResetToken *PasswordResetTokenClient
 	// Permission is the client for interacting with the Permission builders.
 	Permission *PermissionClient
-	// PlatformBackupSetting is the client for interacting with the PlatformBackupSetting builders.
-	PlatformBackupSetting *PlatformBackupSettingClient
 	// PortalShortLink is the client for interacting with the PortalShortLink builders.
 	PortalShortLink *PortalShortLinkClient
 	// ReferralLink is the client for interacting with the ReferralLink builders.
@@ -163,7 +160,6 @@ func (c *Client) init() {
 	c.PasswordPolicy = NewPasswordPolicyClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
 	c.Permission = NewPermissionClient(c.config)
-	c.PlatformBackupSetting = NewPlatformBackupSettingClient(c.config)
 	c.PortalShortLink = NewPortalShortLinkClient(c.config)
 	c.ReferralLink = NewReferralLinkClient(c.config)
 	c.ResellerApplication = NewResellerApplicationClient(c.config)
@@ -291,7 +287,6 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PasswordPolicy:          NewPasswordPolicyClient(cfg),
 		PasswordResetToken:      NewPasswordResetTokenClient(cfg),
 		Permission:              NewPermissionClient(cfg),
-		PlatformBackupSetting:   NewPlatformBackupSettingClient(cfg),
 		PortalShortLink:         NewPortalShortLinkClient(cfg),
 		ReferralLink:            NewReferralLinkClient(cfg),
 		ResellerApplication:     NewResellerApplicationClient(cfg),
@@ -346,7 +341,6 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PasswordPolicy:          NewPasswordPolicyClient(cfg),
 		PasswordResetToken:      NewPasswordResetTokenClient(cfg),
 		Permission:              NewPermissionClient(cfg),
-		PlatformBackupSetting:   NewPlatformBackupSettingClient(cfg),
 		PortalShortLink:         NewPortalShortLinkClient(cfg),
 		ReferralLink:            NewReferralLinkClient(cfg),
 		ResellerApplication:     NewResellerApplicationClient(cfg),
@@ -395,10 +389,9 @@ func (c *Client) Use(hooks ...Hook) {
 		c.IntegrationRequest, c.LegalAcceptance, c.LegalDocument, c.LoginAttempt,
 		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
 		c.Outlet, c.PasswordPolicy, c.PasswordResetToken, c.Permission,
-		c.PlatformBackupSetting, c.PortalShortLink, c.ReferralLink,
-		c.ResellerApplication, c.Role, c.RolePermission, c.Session, c.Tenant,
-		c.TenantMembership, c.UsageMetric, c.User, c.UserEmail, c.UserIdentity,
-		c.UserPhone, c.WebAuthnCredential,
+		c.PortalShortLink, c.ReferralLink, c.ResellerApplication, c.Role,
+		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserEmail, c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -413,10 +406,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.IntegrationRequest, c.LegalAcceptance, c.LegalDocument, c.LoginAttempt,
 		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
 		c.Outlet, c.PasswordPolicy, c.PasswordResetToken, c.Permission,
-		c.PlatformBackupSetting, c.PortalShortLink, c.ReferralLink,
-		c.ResellerApplication, c.Role, c.RolePermission, c.Session, c.Tenant,
-		c.TenantMembership, c.UsageMetric, c.User, c.UserEmail, c.UserIdentity,
-		c.UserPhone, c.WebAuthnCredential,
+		c.PortalShortLink, c.ReferralLink, c.ResellerApplication, c.Role,
+		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
+		c.User, c.UserEmail, c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -467,8 +459,6 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PasswordResetToken.mutate(ctx, m)
 	case *PermissionMutation:
 		return c.Permission.mutate(ctx, m)
-	case *PlatformBackupSettingMutation:
-		return c.PlatformBackupSetting.mutate(ctx, m)
 	case *PortalShortLinkMutation:
 		return c.PortalShortLink.mutate(ctx, m)
 	case *ReferralLinkMutation:
@@ -3375,139 +3365,6 @@ func (c *PermissionClient) mutate(ctx context.Context, m *PermissionMutation) (V
 	}
 }
 
-// PlatformBackupSettingClient is a client for the PlatformBackupSetting schema.
-type PlatformBackupSettingClient struct {
-	config
-}
-
-// NewPlatformBackupSettingClient returns a client for the PlatformBackupSetting from the given config.
-func NewPlatformBackupSettingClient(c config) *PlatformBackupSettingClient {
-	return &PlatformBackupSettingClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `platformbackupsetting.Hooks(f(g(h())))`.
-func (c *PlatformBackupSettingClient) Use(hooks ...Hook) {
-	c.hooks.PlatformBackupSetting = append(c.hooks.PlatformBackupSetting, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `platformbackupsetting.Intercept(f(g(h())))`.
-func (c *PlatformBackupSettingClient) Intercept(interceptors ...Interceptor) {
-	c.inters.PlatformBackupSetting = append(c.inters.PlatformBackupSetting, interceptors...)
-}
-
-// Create returns a builder for creating a PlatformBackupSetting entity.
-func (c *PlatformBackupSettingClient) Create() *PlatformBackupSettingCreate {
-	mutation := newPlatformBackupSettingMutation(c.config, OpCreate)
-	return &PlatformBackupSettingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of PlatformBackupSetting entities.
-func (c *PlatformBackupSettingClient) CreateBulk(builders ...*PlatformBackupSettingCreate) *PlatformBackupSettingCreateBulk {
-	return &PlatformBackupSettingCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *PlatformBackupSettingClient) MapCreateBulk(slice any, setFunc func(*PlatformBackupSettingCreate, int)) *PlatformBackupSettingCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &PlatformBackupSettingCreateBulk{err: fmt.Errorf("calling to PlatformBackupSettingClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*PlatformBackupSettingCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &PlatformBackupSettingCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for PlatformBackupSetting.
-func (c *PlatformBackupSettingClient) Update() *PlatformBackupSettingUpdate {
-	mutation := newPlatformBackupSettingMutation(c.config, OpUpdate)
-	return &PlatformBackupSettingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *PlatformBackupSettingClient) UpdateOne(_m *PlatformBackupSetting) *PlatformBackupSettingUpdateOne {
-	mutation := newPlatformBackupSettingMutation(c.config, OpUpdateOne, withPlatformBackupSetting(_m))
-	return &PlatformBackupSettingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *PlatformBackupSettingClient) UpdateOneID(id uuid.UUID) *PlatformBackupSettingUpdateOne {
-	mutation := newPlatformBackupSettingMutation(c.config, OpUpdateOne, withPlatformBackupSettingID(id))
-	return &PlatformBackupSettingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for PlatformBackupSetting.
-func (c *PlatformBackupSettingClient) Delete() *PlatformBackupSettingDelete {
-	mutation := newPlatformBackupSettingMutation(c.config, OpDelete)
-	return &PlatformBackupSettingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *PlatformBackupSettingClient) DeleteOne(_m *PlatformBackupSetting) *PlatformBackupSettingDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *PlatformBackupSettingClient) DeleteOneID(id uuid.UUID) *PlatformBackupSettingDeleteOne {
-	builder := c.Delete().Where(platformbackupsetting.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &PlatformBackupSettingDeleteOne{builder}
-}
-
-// Query returns a query builder for PlatformBackupSetting.
-func (c *PlatformBackupSettingClient) Query() *PlatformBackupSettingQuery {
-	return &PlatformBackupSettingQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypePlatformBackupSetting},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a PlatformBackupSetting entity by its id.
-func (c *PlatformBackupSettingClient) Get(ctx context.Context, id uuid.UUID) (*PlatformBackupSetting, error) {
-	return c.Query().Where(platformbackupsetting.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *PlatformBackupSettingClient) GetX(ctx context.Context, id uuid.UUID) *PlatformBackupSetting {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// Hooks returns the client hooks.
-func (c *PlatformBackupSettingClient) Hooks() []Hook {
-	return c.hooks.PlatformBackupSetting
-}
-
-// Interceptors returns the client interceptors.
-func (c *PlatformBackupSettingClient) Interceptors() []Interceptor {
-	return c.inters.PlatformBackupSetting
-}
-
-func (c *PlatformBackupSettingClient) mutate(ctx context.Context, m *PlatformBackupSettingMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&PlatformBackupSettingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&PlatformBackupSettingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&PlatformBackupSettingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&PlatformBackupSettingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown PlatformBackupSetting mutation op: %q", m.Op())
-	}
-}
-
 // PortalShortLinkClient is a client for the PortalShortLink schema.
 type PortalShortLinkClient struct {
 	config
@@ -5697,19 +5554,19 @@ type (
 		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
 		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
 		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
-		PasswordPolicy, PasswordResetToken, Permission, PlatformBackupSetting,
-		PortalShortLink, ReferralLink, ResellerApplication, Role, RolePermission,
-		Session, Tenant, TenantMembership, UsageMetric, User, UserEmail, UserIdentity,
-		UserPhone, WebAuthnCredential []ent.Hook
+		PasswordPolicy, PasswordResetToken, Permission, PortalShortLink, ReferralLink,
+		ResellerApplication, Role, RolePermission, Session, Tenant, TenantMembership,
+		UsageMetric, User, UserEmail, UserIdentity, UserPhone,
+		WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
 		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
 		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
 		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
-		PasswordPolicy, PasswordResetToken, Permission, PlatformBackupSetting,
-		PortalShortLink, ReferralLink, ResellerApplication, Role, RolePermission,
-		Session, Tenant, TenantMembership, UsageMetric, User, UserEmail, UserIdentity,
-		UserPhone, WebAuthnCredential []ent.Interceptor
+		PasswordPolicy, PasswordResetToken, Permission, PortalShortLink, ReferralLink,
+		ResellerApplication, Role, RolePermission, Session, Tenant, TenantMembership,
+		UsageMetric, User, UserEmail, UserIdentity, UserPhone,
+		WebAuthnCredential []ent.Interceptor
 	}
 )

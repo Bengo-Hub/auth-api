@@ -33,7 +33,6 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/passwordpolicy"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/permission"
-	"github.com/bengobox/auth-api/internal/ent/platformbackupsetting"
 	"github.com/bengobox/auth-api/internal/ent/portalshortlink"
 	"github.com/bengobox/auth-api/internal/ent/referrallink"
 	"github.com/bengobox/auth-api/internal/ent/resellerapplication"
@@ -129,7 +128,6 @@ func checkColumn(t, c string) error {
 			passwordpolicy.Table:          passwordpolicy.ValidColumn,
 			passwordresettoken.Table:      passwordresettoken.ValidColumn,
 			permission.Table:              permission.ValidColumn,
-			platformbackupsetting.Table:   platformbackupsetting.ValidColumn,
 			portalshortlink.Table:         portalshortlink.ValidColumn,
 			referrallink.Table:            referrallink.ValidColumn,
 			resellerapplication.Table:     resellerapplication.ValidColumn,

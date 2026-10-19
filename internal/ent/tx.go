@@ -54,8 +54,6 @@ type Tx struct {
 	PasswordResetToken *PasswordResetTokenClient
 	// Permission is the client for interacting with the Permission builders.
 	Permission *PermissionClient
-	// PlatformBackupSetting is the client for interacting with the PlatformBackupSetting builders.
-	PlatformBackupSetting *PlatformBackupSettingClient
 	// PortalShortLink is the client for interacting with the PortalShortLink builders.
 	PortalShortLink *PortalShortLinkClient
 	// ReferralLink is the client for interacting with the ReferralLink builders.
@@ -236,7 +234,6 @@ func (tx *Tx) init() {
 	tx.PasswordPolicy = NewPasswordPolicyClient(tx.config)
 	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
 	tx.Permission = NewPermissionClient(tx.config)
-	tx.PlatformBackupSetting = NewPlatformBackupSettingClient(tx.config)
 	tx.PortalShortLink = NewPortalShortLinkClient(tx.config)
 	tx.ReferralLink = NewReferralLinkClient(tx.config)
 	tx.ResellerApplication = NewResellerApplicationClient(tx.config)
