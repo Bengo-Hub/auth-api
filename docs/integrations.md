@@ -80,6 +80,14 @@ customer-facing app's `self_signup_role` applies.
 their own onboarding email (Digitika student and parent accounts); notifications-api then skips
 `auth/welcome`.
 
+`POST /api/v1/s2s/tenants/{tenant_id}/members/{user_id}/portal-password` reissues the temporary
+password of a student or parent account, so an owning service can resend credentials that never
+reached the person. It returns `{user_id, temp_password}` once. It only works while the person is
+still on the temporary password (`must_change_password`) and every role on the membership is
+`student` or `parent`. Staff or mixed-role accounts answer `403`, an account the person already
+took over answers `409 already_claimed` (use the password reset email then), and a user outside
+the tenant answers `404`. Digitika's "Resend access" action is the caller.
+
 Password reset (`POST /auth/password-reset/request`) no longer needs a membership in the
 requested tenant. The reset goes out under that tenant when the person belongs to it, else
 under their own tenant, and the accounts reset link carries `tenant` for branding.

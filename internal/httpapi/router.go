@@ -778,6 +778,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 			if deps.AuthHandlers.AddTenantMember != nil {
 				r.Post("/api/v1/s2s/tenants/{tenant_id}/members", s2sPlatformClaims(deps.AuthHandlers.AddTenantMember))
 			}
+			// S2S portal password reissue: lets an owning service resend the credentials of a
+			// student or parent account the person has not yet taken over. The handler refuses
+			// staff and claimed accounts, so a service key cannot reach anyone else.
+			if deps.UserHandler != nil {
+				r.Post("/api/v1/s2s/tenants/{tenant_id}/members/{user_id}/portal-password", deps.UserHandler.S2SPortalPasswordReset)
+			}
 			// S2S tenant backups (platform operations from inside the cluster): same handlers as the
 			// tenant-admin routes, with injected platform claims.
 			if deps.AuthHandlers.AdminGetTenantBackup != nil {
