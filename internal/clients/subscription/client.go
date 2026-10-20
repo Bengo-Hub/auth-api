@@ -204,6 +204,44 @@ func (c *Client) GetTenantSubscription(ctx context.Context, tenantID uuid.UUID) 
 	return &sub, nil
 }
 
+// EntitledService is one billable service and whether the tenant's plan covers it.
+type EntitledService struct {
+	ServiceTag string `json:"service_tag"`
+	Name       string `json:"name"`
+	Entitled   bool   `json:"entitled"`
+}
+
+// EntitledServices is the catalog of billable services with the tenant's entitlement per service.
+// Exempt tenants (platform, demo, explicitly exempt) are entitled to every service.
+type EntitledServices struct {
+	TenantID string            `json:"tenant_id"`
+	Exempt   bool              `json:"exempt"`
+	Services []EntitledService `json:"services"`
+}
+
+// GetEntitledServices fetches which billable services the tenant's plan covers. Unlike
+// GetTenantSubscription it never answers nil: callers that must not guess (the tenant data
+// backup) treat any error as "plan could not be verified".
+func (c *Client) GetEntitledServices(ctx context.Context, tenantID uuid.UUID) (*EntitledServices, error) {
+	path := fmt.Sprintf("/api/v1/tenants/%s/entitled-services", tenantID.String())
+	headers := make(map[string]string)
+	if key := c.resolveKey(ctx); key != "" {
+		headers["X-API-Key"] = key
+	}
+	resp, err := c.serviceClient.Get(ctx, path, headers)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+	var out EntitledServices
+	if err := resp.DecodeJSON(&out); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &out, nil
+}
+
 // CreateTrialSubscription provisions a new trial subscription for a tenant.
 // slug and name seed the subscription service's local tenant projection on demand,
 // so provisioning at signup does not race the async auth.tenant.created sync.

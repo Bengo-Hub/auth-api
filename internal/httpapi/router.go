@@ -114,6 +114,8 @@ type AuthHandlers struct {
 	// Tenant backups (SSO client area): newest backup + download link, and start a new one.
 	AdminGetTenantBackup         http.HandlerFunc
 	AdminStartTenantBackup       http.HandlerFunc
+	AdminDownloadTenantBackup    http.HandlerFunc
+	AdminBackupServices          http.HandlerFunc
 	AdminCreateClient            http.HandlerFunc
 	AdminListClients             http.HandlerFunc
 	AdminGetClient               http.HandlerFunc
@@ -510,6 +512,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 					if deps.AuthHandlers.AdminGetTenantBackup != nil {
 						r.Get("/backup", deps.AuthHandlers.AdminGetTenantBackup)
 						r.Post("/backup", deps.AuthHandlers.AdminStartTenantBackup)
+						r.Get("/backup/download", deps.AuthHandlers.AdminDownloadTenantBackup)
+						r.Get("/backup/services", deps.AuthHandlers.AdminBackupServices)
 					}
 					r.Route("/members", func(r chi.Router) {
 						r.Post("/", deps.AuthHandlers.AddTenantMember)
@@ -789,6 +793,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 			if deps.AuthHandlers.AdminGetTenantBackup != nil {
 				r.Get("/api/v1/s2s/tenants/{tenant_id}/backup", s2sPlatformClaims(deps.AuthHandlers.AdminGetTenantBackup))
 				r.Post("/api/v1/s2s/tenants/{tenant_id}/backup", s2sPlatformClaims(deps.AuthHandlers.AdminStartTenantBackup))
+				r.Get("/api/v1/s2s/tenants/{tenant_id}/backup/download", s2sPlatformClaims(deps.AuthHandlers.AdminDownloadTenantBackup))
+				r.Get("/api/v1/s2s/tenants/{tenant_id}/backup/services", s2sPlatformClaims(deps.AuthHandlers.AdminBackupServices))
 			}
 			// S2S service-role registry: owning services push their role catalogue
 			// here; idempotent upsert by role_code (no duplicate roles).

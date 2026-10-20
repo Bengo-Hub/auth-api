@@ -211,7 +211,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	// Tenant backups on demand from the SSO client area: each listed service's tenant export,
 	// one zip per tenant on the private bucket, only the newest kept.
 	adminHandler.SetTenantBackups(tenantbackup.New(sqlDB, mediaStore,
-		tenantbackup.ParseServices(cfg.Backup.TenantServices), cfg.Subscription.APIKey, logger))
+		tenantbackup.ParseServices(cfg.Backup.TenantServices), subClient, cfg.Subscription.APIKey, logger))
 	go func() {
 		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
@@ -355,6 +355,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminProvisionTenantOAuthRedirects: adminHandler.ProvisionTenantOAuthRedirects,
 			AdminGetTenantBackup:               adminHandler.GetTenantBackup,
 			AdminStartTenantBackup:             adminHandler.StartTenantBackup,
+			AdminDownloadTenantBackup:          adminHandler.DownloadTenantBackup,
+			AdminBackupServices:                adminHandler.BackupServices,
 			AdminCreateClient:                  adminHandler.CreateClient,
 			AdminListClients:                   adminHandler.ListClients,
 			AdminGetClient:                     adminHandler.GetClient,
