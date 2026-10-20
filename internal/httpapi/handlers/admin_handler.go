@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -707,6 +708,9 @@ func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, pagination.NewResponse(items, total, p))
 }
 
+// tenantSlugPattern is the shape of a tenant slug: lowercase words joined by single hyphens.
+var tenantSlugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
 func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "tenant_id")
 	id, err := uuid.Parse(idStr)
@@ -736,9 +740,6 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	update := h.ent.Tenant.UpdateOneID(id)
 	if req.Name != "" {
 		update.SetName(req.Name)
-	}
-	if req.Slug != "" {
-		update.SetSlug(req.Slug)
 	}
 	if req.LogoURL != "" && !isOwnLogoRef(req.LogoURL) {
 		// A form re-saving the logo link it was given (isOwnLogoRef) leaves the stored logo as is.
@@ -804,6 +805,15 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	// same-value resend (the frontend PUTs the whole tenant object back, not a partial
 	// patch) never needs to compare against a second, redundant fetch.
 	existing, _ := h.ent.Tenant.Get(r.Context(), id)
+	// A real slug change is validated (the form re-sends the unchanged slug on every save, so a
+	// legacy slug that is already stored is never re-checked) and its redirect URIs follow below.
+	if slug := strings.ToLower(strings.TrimSpace(req.Slug)); slug != "" && (existing == nil || slug != existing.Slug) {
+		if !tenantSlugPattern.MatchString(slug) {
+			writeError(w, http.StatusBadRequest, "invalid_slug", "slug may use lowercase letters, numbers and single hyphens (2 to 63 characters)", nil)
+			return
+		}
+		update.SetSlug(slug)
+	}
 	// Taken now: the metadata merge below edits existing.Metadata in place.
 	imagesBefore := tenantImages(existing)
 	if req.IsDemo != nil {
@@ -872,8 +882,22 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 
 	t, err := update.Save(r.Context())
 	if err != nil {
+		if ent.IsConstraintError(err) {
+			writeError(w, http.StatusConflict, "slug_taken", "that slug is already used by another organization", nil)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to update tenant", nil)
 		return
+	}
+
+	// A renamed tenant signs in through /{new-slug}/auth/callback, which every OAuth client must
+	// list; move the URIs now so login works at once. A failure is logged and the Reprovision
+	// redirect URIs action repairs it.
+	if existing != nil && existing.Slug != t.Slug {
+		if err := auth.RenameTenantRedirectURIs(r.Context(), h.ent, existing.Slug, t.Slug); err != nil {
+			h.logger.Error("tenant slug changed but redirect URIs were not moved",
+				zap.String("old_slug", existing.Slug), zap.String("new_slug", t.Slug), zap.Error(err))
+		}
 	}
 
 	// Re-publish business identity + tax details so treasury-api can re-sync the
@@ -1065,13 +1089,14 @@ func (h *AdminHandler) notifyFounder(ctx context.Context, t *ent.Tenant, eventTy
 // retroactively for tenants that were created before OAuth clients existed.
 // POST /api/v1/admin/tenants/{tenant_id}/provision-oauth-redirects
 func (h *AdminHandler) ProvisionTenantOAuthRedirects(w http.ResponseWriter, r *http.Request) {
-	if !h.requireAdmin(r) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
 	tenantID, err := uuid.Parse(chi.URLParam(r, "tenant_id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+	// The organization's own admin may repair its sign-in URLs (a platform admin may for any).
+	if !h.requireTenantAdmin(r, tenantID) {
+		writeError(w, http.StatusForbidden, "forbidden", "tenant admin required", nil)
 		return
 	}
 	t, err := h.ent.Tenant.Get(r.Context(), tenantID)
