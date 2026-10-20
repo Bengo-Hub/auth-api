@@ -599,21 +599,44 @@ Tenant admins back up their data from the SSO client area (2026-10-18). Decision
 (the platform `pg_dumpall` CronJob covers disaster recovery), only the newest backup is kept per
 tenant, download only (restore stays a platform-admin task).
 
-- `POST /api/v1/admin/tenants/{tenant_id}/backup` starts a backup (202; 409 while one runs). A run
-  that stopped reporting for 15 minutes (its pod restarted) no longer blocks a new one.
+- `POST /api/v1/admin/tenants/{tenant_id}/backup` starts a backup (202; 409 while one runs). The
+  optional body `{"services": ["pos", "inventory"]}` picks services; without it every service in
+  the tenant's plan is collected. A pick that is unknown or outside the plan is a 400, and a plan
+  that cannot be read is a 503 (nothing starts). A run that stopped reporting for 15 minutes (its
+  pod restarted) no longer blocks a new one; two pods cannot both claim a run.
 - `GET /api/v1/admin/tenants/{tenant_id}/backup` returns `status` (`none`, `running`,
-  `completed`, `failed`), per-service results, size, and a 15-minute `download_url` when an
-  archive is ready. Both need a tenant admin of that tenant (or a platform owner).
-- auth-api calls `GET /api/v1/s2s/tenant-export` on every service in `BACKUP_TENANT_SERVICES`
-  (`name=base URL` pairs, set in the deployment values) with `INTERNAL_SERVICE_KEY` and
-  `X-Tenant-ID`. Each service serves it with `httpware/tenantexport` (gzipped JSON Lines of every
-  table with a `tenant_id`, secret-looking columns removed). A 404 marks the service
-  `unavailable`, an error marks it `failed`; the backup fails only when no service answered.
+  `completed`, `failed`), per-service results, size, `can_download` and `partial`. Both need a
+  tenant admin of that tenant (or a platform owner).
+- `GET .../backup/services` lists the services a backup can collect with `entitled` per service
+  (the picker); `GET .../backup/download` returns a 15-minute `download_url` and logs who asked.
+  Neither status polling nor the picker mints a link.
+- auth-api calls `GET /api/v1/s2s/tenant-export` on the services in `BACKUP_TENANT_SERVICES`
+  (`name=base URL` or `name=base URL|tag`; the tag is the subscriptions service tag and defaults to
+  the name) with `INTERNAL_SERVICE_KEY` and `X-Tenant-ID`. Only services the tenant's plan covers
+  (subscriptions-api `GET /tenants/{id}/entitled-services`) are collected; the rest are reported
+  `not_in_plan`. Each covered service is probed (`?probe=1`) and reported `empty` when the tenant has
+  no rows; its export is checked for the summary line (`failed` when cut short). A 404 marks the
+  service `unavailable`, an error marks it `failed`; the backup fails only when no service
+  returned data. Up to 3 services export in parallel with a 20 minute limit each; the archive is
+  capped at 2 GB.
 - The archive (`<service>.jsonl.gz` per service plus `manifest.json`) is uploaded with
   `PutStream` to the private bucket at `auth/<tenant>/backups/<yyyy>/<mm>/<uuid>.zip`; the previous
   archive is deleted once the new one is saved. A failed run keeps the previous archive.
 - State lives in `tenants.metadata.backup`, written with `jsonb_set` so other metadata is never
   overwritten.
+
+## Tenant slug changes and OAuth redirect URIs
+
+Sign-in to each app returns to `https://<app host>/<slug>/auth/callback`, so every OAuth client lists
+that URI (plus the localhost one) for each tenant slug. When a tenant's slug changes
+(`PUT /api/v1/admin/tenants/{tenant_id}`), auth-api moves the URIs in the same request:
+`auth.RenameTenantRedirectURIs` adds the new slug's URIs to every client that has a production
+callback host and removes the old slug's. Slugs are validated (lowercase letters, numbers, single
+hyphens, 2 to 63 characters) and a slug another organization uses answers 409. If moving the URIs
+fails the error is logged and the change still saves; the "Reprovision sign-in URLs" action on My
+Organization (and the platform Tenants list) repairs it by calling
+`POST /api/v1/admin/tenants/{tenant_id}/provision-oauth-redirects`, which the organization's own
+admin may now call. Provisioning only adds, so it is safe to repeat.
 
 ---
 
