@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	httpware "github.com/Bengo-Hub/httpware"
 	"context"
 	ratelimit "github.com/Bengo-Hub/shared-ratelimit"
 	"net/http"
@@ -11,7 +12,6 @@ import (
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 )
 
 // s2sPlatformClaims wraps an admin handler for internal-key S2S use: it injects
@@ -228,65 +228,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 	r.Use(ratelimit.TrustedRealIP)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
-	r.Use(cors.Handler(cors.Options{
-		// AllowOriginFunc allows dynamic origin checking for credentials mode
-		// This returns true for allowed origins, enabling credentials with specific origins
-		AllowOriginFunc: func(r *http.Request, origin string) bool {
-			// Allow empty origin (same-origin requests)
-			if origin == "" {
-				return true
-			}
-			// Allow all localhost origins for development
-			if origin == "http://localhost:3000" ||
-				origin == "http://localhost:3001" ||
-				origin == "http://localhost:3010" || // hospital-ui pins this port (avoids clashing with sibling UIs that default to 3000)
-				origin == "http://localhost:4101" ||
-				origin == "http://127.0.0.1:3000" ||
-				origin == "http://127.0.0.1:3001" ||
-				origin == "http://127.0.0.1:3010" ||
-				origin == "https://localhost:3000" ||
-				origin == "https://auth.codevertex.local:4101" {
-				return true
-			}
-			// Allow production origins (explicit list; from shared-docs/sso-integration-guide.md and cmd/seed)
-			if origin == "https://accounts.codevertexafrica.com" ||
-				origin == "https://sso.codevertexafrica.com" ||
-				origin == "https://codevertexafrica.com" ||
-				origin == "https://ordering.codevertexafrica.com" ||
-				origin == "https://theurbanloftcafe.com" ||
-				origin == "https://notifications.codevertexafrica.com" ||
-				origin == "https://books.codevertexafrica.com" ||
-				origin == "https://pricing.codevertexafrica.com" ||
-				origin == "https://pos.codevertexafrica.com" ||
-				origin == "https://inventory.codevertexafrica.com" ||
-				origin == "https://logistics.codevertexafrica.com" ||
-				origin == "https://riderapp.codevertexafrica.com" ||
-				origin == "https://erp.codevertexafrica.com" {
-				return true
-			}
-			// Allow any subdomain of codevertexafrica.com OR masterspace.co.ke
-			// (https only). masterspace.co.ke is the primary tenant's custom domain:
-			// the ERP UI is served at https://erp.masterspace.co.ke and must be able
-			// to POST the OIDC token exchange to this auth-service cross-origin
-			// (otherwise the browser blocks it with "Failed to fetch" / no CORS
-			// header). erp.codevertexafrica.com is already covered by the first
-			// suffix. Keep this in sync with cmd/seed buildRedirects() hosts.
-			const httpsPrefix = "https://"
-			for _, suffix := range []string{".codevertexafrica.com", ".masterspace.co.ke"} {
-				if len(origin) > len(httpsPrefix)+len(suffix) &&
-					origin[:len(httpsPrefix)] == httpsPrefix &&
-					origin[len(origin)-len(suffix):] == suffix {
-					return true
-				}
-			}
-			return false
-		},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Requested-With", "X-API-Key", "X-Tenant-Slug", "X-Tenant-ID", "X-WebAuthn-Session"},
-		ExposedHeaders:   []string{"Set-Cookie", "X-WebAuthn-Session"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
+	r.Use(httpware.CORS(corsPolicy()))
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/v1/docs/", http.StatusMovedPermanently)
@@ -827,18 +769,37 @@ func NewRouter(deps RouterDeps) http.Handler {
 	return r
 }
 
+// corsOrigins are the browser origins allowed to call the auth API. The two wildcard entries cover
+// every https subdomain of the platform domain and of masterspace.co.ke (the primary tenant's
+// custom domain, where the ERP UI exchanges its OIDC token cross-origin). Keep the hosts in sync
+// with cmd/seed buildRedirects().
+var corsOrigins = []string{
+	"http://localhost:3000", "http://localhost:3001", "http://localhost:3010", "http://localhost:4101",
+	"http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3010",
+	"https://localhost:3000", "https://auth.codevertex.local:4101",
+	"https://codevertexafrica.com", "https://theurbanloftcafe.com",
+	"https://*.codevertexafrica.com", "https://*.masterspace.co.ke",
+}
+
+// corsPolicy is the fleet's standard CORS policy plus the WebAuthn session header the passkey
+// ceremony sends and reads back.
+func corsPolicy() httpware.CORSConfig {
+	cfg := httpware.StandardCORS(corsOrigins, "X-WebAuthn-Session")
+	cfg.ExposedHeaders = append(cfg.ExposedHeaders, "X-WebAuthn-Session")
+	return cfg
+}
+
 // requireInternalKey returns middleware that validates the X-API-Key header
 // against the static env-configured key OR, when provided, a live rotatable
 // platform App carrying handlers.InternalServiceKeyScope (see ValidateInternalAppKey).
 func requireInternalKey(key string, validateApp func(context.Context, string) bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			provided := r.Header.Get("X-API-Key")
-			if provided != "" && key != "" && provided == key {
+			if httpware.ValidServiceKey(r, key) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			if validateApp != nil && validateApp(r.Context(), provided) {
+			if validateApp != nil && validateApp(r.Context(), r.Header.Get(httpware.HeaderAPIKey)) {
 				next.ServeHTTP(w, r)
 				return
 			}
