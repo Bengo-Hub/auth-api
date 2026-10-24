@@ -39,6 +39,17 @@ func (s *Service) socialMFARequired(ctx context.Context, userID uuid.UUID) bool 
 	return err != nil || on
 }
 
+// PhoneMFAChallenge is the second-factor step of a phone-code sign-in for an account with an
+// authenticator app: the phone code replaced the password, and the person now confirms the
+// authenticator code on the same page social sign-ins use (/auth/mfa, POST /auth/oauth/mfa/verify).
+func (s *Service) PhoneMFAChallenge(target *PhoneLoginTarget, clientID string) (string, error) {
+	res, err := s.socialMFAResult(target.User, target.Tenant, &state.Payload{TenantSlug: target.Tenant.Slug, ClientID: clientID})
+	if err != nil {
+		return "", err
+	}
+	return res.MFAChallenge, nil
+}
+
 // socialMFAResult is what a provider callback returns instead of a session when the account has
 // MFA: no tokens, only a short-lived signed challenge the browser exchanges with the code.
 func (s *Service) socialMFAResult(userEntity *ent.User, tenantEntity *ent.Tenant, payload *state.Payload) (*AuthResult, error) {
@@ -99,10 +110,7 @@ func (s *Service) CompleteSocialMFA(ctx context.Context, in SocialMFAInput) (*Au
 	if err != nil {
 		return nil, err
 	}
-	// The same rules as the provider step, re-checked now: roles may have changed in the meantime.
-	if s.isPlatformStaffUser(ctx, userEntity.ID) {
-		return nil, ErrSocialSignInNotAllowed
-	}
+	// Membership is re-checked now: it may have changed since the provider step.
 	member, err := s.entClient.TenantMembership.Query().
 		Where(tenantmembership.UserID(userEntity.ID), tenantmembership.TenantID(tenantEntity.ID)).
 		Exist(ctx)

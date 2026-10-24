@@ -97,9 +97,16 @@ func (h *AuthHandler) VerifyPhoneOTP(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, r, err)
 		return
 	}
-	// A phone code replaces the password, so it must never bypass an account's own second factor.
-	if mfaOn, _ := h.service.IsMFAEnabled(r.Context(), target.User.ID); mfaOn {
-		writeError(w, http.StatusForbidden, "mfa_required", "This account uses an authenticator app. Sign in with your password.", nil)
+	// A phone code replaces the password, so it never bypasses the account's own second factor: an
+	// account with an authenticator app gets no session. The 403 mfa_required (what portals already
+	// handle) now carries a challenge, so a client can ask for the authenticator code and finish with
+	// POST /auth/oauth/mfa/verify, as social sign-ins do. A lookup error fails closed the same way.
+	if mfaOn, err := h.service.IsMFAEnabled(r.Context(), target.User.ID); mfaOn || err != nil {
+		details := map[string]any{}
+		if challenge, cerr := h.service.PhoneMFAChallenge(target, req.ClientID); cerr == nil {
+			details["mfa_challenge"] = challenge
+		}
+		writeError(w, http.StatusForbidden, "mfa_required", "This account uses an authenticator app. Enter its code to finish signing in, or sign in with your password.", details)
 		return
 	}
 	result, err := h.service.LoginWithPhoneOTP(r.Context(), target, req.ClientID, clientIP(r), userAgent(r))

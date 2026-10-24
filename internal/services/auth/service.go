@@ -50,9 +50,6 @@ var (
 	ErrEmailAlreadyExists = errors.New("user with email already exists")
 	// ErrProviderNotEnabled indicates the requested OAuth provider is disabled.
 	ErrProviderNotEnabled = errors.New("oauth provider not enabled")
-	// ErrSocialSignInNotAllowed is returned when an account must use a stronger sign-in than a
-	// third-party identity: it is a platform tenant staff or administrator account.
-	ErrSocialSignInNotAllowed = errors.New("this account must sign in with a password and authenticator code, or a passkey")
 	// ErrOAuthStateInvalid indicates malformed state payload.
 	ErrOAuthStateInvalid = errors.New("oauth state invalid")
 	// ErrEmailNotVerified indicates provider did not verify the email address.
@@ -1208,9 +1205,6 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 		return nil, err
 	}
 
-	if err := s.ensureSocialSignInAllowed(ctx, userEntity, tenantEntity, "google", in); err != nil {
-		return nil, err
-	}
 	if s.socialMFARequired(ctx, userEntity.ID) {
 		// No session yet: the person confirms the authenticator code first.
 		return s.socialMFAResult(userEntity, tenantEntity, payload)
@@ -1324,9 +1318,6 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 		"ip_address":  in.IPAddress,
 	})
 
-	if err := s.ensureSocialSignInAllowed(ctx, userEntity, tenantEntity, "github", in); err != nil {
-		return nil, err
-	}
 	if s.socialMFARequired(ctx, userEntity.ID) {
 		return s.socialMFAResult(userEntity, tenantEntity, payload)
 	}
@@ -1431,9 +1422,6 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 		"ip_address":  in.IPAddress,
 	})
 
-	if err := s.ensureSocialSignInAllowed(ctx, userEntity, tenantEntity, "microsoft", in); err != nil {
-		return nil, err
-	}
 	if s.socialMFARequired(ctx, userEntity.ID) {
 		return s.socialMFAResult(userEntity, tenantEntity, payload)
 	}
@@ -2811,34 +2799,7 @@ func (s *Service) AcceptTerms(ctx context.Context, userID uuid.UUID) error {
 	return nil
 }
 
-// ensureSocialSignInAllowed stops a third-party identity (Google, GitHub, Microsoft) from being the only
-// factor for platform-tenant staff and administrators, who must use a password plus authenticator code
-// or a passkey. Customers, riders, students and ordinary tenant staff are unaffected here; an account
-// with an authenticator app is handled by the MFA step (see socialMFARequired), never by a bare session.
-func (s *Service) ensureSocialSignInAllowed(ctx context.Context, userEntity *ent.User, tenantEntity *ent.Tenant, provider string, in OAuthCallbackInput) error {
-	if !s.isPlatformStaffUser(ctx, userEntity.ID) {
-		return nil
-	}
-	s.auditSecurityEvent(ctx, userEntity, tenantEntity, "auth.oauth."+provider+".refused", map[string]any{"reason": "platform_admin"}, in.IPAddress, in.UserAgent)
-	return ErrSocialSignInNotAllowed
-}
-
-// isPlatformStaffUser reports whether the user holds any role other than the plain self-registered
-// "member" in the platform tenant, i.e. is Codevertex staff or an administrator.
-func (s *Service) isPlatformStaffUser(ctx context.Context, userID uuid.UUID) bool {
-	m, err := s.entClient.TenantMembership.Query().
-		Where(
-			tenantmembership.UserID(userID),
-			tenantmembership.HasTenantWith(tenant.SlugEQ(platformTenantSlug)),
-		).
-		Only(ctx)
-	if err != nil {
-		return !ent.IsNotFound(err) // fail closed on a lookup error
-	}
-	for _, r := range m.Roles {
-		if r != "member" {
-			return true
-		}
-	}
-	return false
-}
+// Social sign-in (Google, GitHub, Microsoft) is open to every account, platform staff included
+// (owner's decision, 2026-10-24). The second factor is never skipped: an account with an
+// authenticator app gets a challenge instead of a session (socialMFARequired, socialMFAResult),
+// exactly as a password sign-in asks for the code.
