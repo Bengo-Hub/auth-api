@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -187,11 +188,19 @@ func (h *UserHandler) AdminListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	if search != "" {
 		// Match email OR the display name stored in profile->>'name' (case-insensitive).
+		// Built with Builder.Arg rather than ExprP: ExprP leaves a literal "?" in the SQL,
+		// which Postgres parses as the jsonb "?" operator (syntax error at "OR"), so every
+		// platform-admin search failed and existing users could not be found.
 		like := "%" + search + "%"
+		ilike := func(expr string) *entsql.Predicate {
+			return entsql.P(func(b *entsql.Builder) {
+				b.WriteString(expr).WriteString(" ILIKE ").Arg(like)
+			})
+		}
 		query = query.Where(func(s *entsql.Selector) {
 			s.Where(entsql.Or(
-				entsql.ExprP(s.C(user.FieldEmail)+" ILIKE ?", like),
-				entsql.ExprP("("+s.C(user.FieldProfile)+"->>'name') ILIKE ?", like),
+				ilike(s.C(user.FieldEmail)),
+				ilike("("+s.C(user.FieldProfile)+"->>'name')"),
 			))
 		})
 	}
@@ -294,8 +303,16 @@ func (h *UserHandler) AdminUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	upd := h.ent.User.UpdateOneID(userID)
-	if req.Email != "" {
-		upd = upd.SetEmail(req.Email)
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if email != "" {
+		// Name the account already holding the address so the admin can act on it (merge,
+		// purge the stray duplicate) instead of a bare "already in use".
+		if holder, hErr := h.ent.User.Query().Where(user.EmailEQ(email), user.IDNEQ(userID)).Only(r.Context()); hErr == nil {
+			writeError(w, http.StatusConflict, "conflict",
+				fmt.Sprintf("email already in use by another account (%s, user id %s)", holder.Email, holder.ID), nil)
+			return
+		}
+		upd = upd.SetEmail(email)
 	}
 	if req.Profile != nil {
 		upd = upd.SetProfile(req.Profile)
@@ -328,6 +345,31 @@ func (h *UserHandler) AdminUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	invalidateMeCacheKeys(r.Context(), h.redis, h.redisNamespace, userID)
+
+	// Downstream services keep their own copy of the email; without this an admin email
+	// change never reached them. One auth.user.updated per membership, same shape as
+	// UpdateTenantMember (roles included so no consumer reads a missing field as "none").
+	memberships, _ := h.ent.TenantMembership.Query().Where(tenantmembership.UserID(userID)).All(r.Context())
+	for _, m := range memberships {
+		payload := map[string]any{
+			"user_id":   userID.String(),
+			"tenant_id": m.TenantID.String(),
+			"roles":     m.Roles,
+			"email":     u.Email,
+			"full_name": profileStr(u.Profile, "name"),
+		}
+		if t, tErr := h.ent.Tenant.Get(r.Context(), m.TenantID); tErr == nil {
+			payload["tenant_slug"] = t.Slug
+		}
+		writeOutboxEvent(r.Context(), h.ent, h.logger, m.TenantID, "auth.user", userID, "updated", payload)
+	}
+
+	u, err = h.ent.User.Query().Where(user.ID(userID)).WithMemberships().Only(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
+		return
+	}
 	writeJSON(w, http.StatusOK, mapUser(u))
 }
 
