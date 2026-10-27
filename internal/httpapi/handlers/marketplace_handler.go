@@ -9,6 +9,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqljson"
 	"github.com/Bengo-Hub/pagination"
 	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"go.uber.org/zap"
 )
@@ -80,6 +81,38 @@ type MarketplaceTenant struct {
 	Country          *string        `json:"country,omitempty"`
 }
 
+// maxUseCaseFilter bounds the ?use_cases= list (each value adds two OR terms).
+const maxUseCaseFilter = 50
+
+// useCaseMatches matches the legacy single use_case (any case) or the value inside use_cases[].
+func useCaseMatches(uc string) predicate.Tenant {
+	return tenant.Or(
+		tenant.UseCaseEqualFold(uc),
+		func(s *entsql.Selector) {
+			s.Where(sqljson.ValueContains(tenant.FieldUseCases, uc))
+		},
+	)
+}
+
+// parseUseCaseList splits a comma list into trimmed, lowercased, distinct values (at most
+// maxUseCaseFilter).
+func parseUseCaseList(raw string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, v := range strings.Split(raw, ",") {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if v == "" || seen[v] {
+			continue
+		}
+		seen[v] = true
+		out = append(out, v)
+		if len(out) == maxUseCaseFilter {
+			break
+		}
+	}
+	return out
+}
+
 // ListMarketplaceTenants handles GET /api/v1/tenants/marketplace.
 //
 // Public, no authentication required — same trust tier as GetTenantBySlugPublic/
@@ -106,6 +139,7 @@ type MarketplaceTenant struct {
 // @Tags tenants/public
 // @Produce json
 // @Param use_case query string false "Filter by use_case (matches legacy use_case field or containment in use_cases[])"
+// @Param use_cases query string false "Comma list; keeps tenants with any of these use cases (max 50)"
 // @Param page query int false "Page number (1-based)"
 // @Param limit query int false "Page size (default 20, max 100)"
 // @Success 200 {object} pagination.Response[MarketplaceTenant]
@@ -121,12 +155,17 @@ func (h *AdminHandler) ListMarketplaceTenants(w http.ResponseWriter, r *http.Req
 	)
 
 	if useCase != "" {
-		query = query.Where(tenant.Or(
-			tenant.UseCaseEqualFold(useCase),
-			func(s *entsql.Selector) {
-				s.Where(sqljson.ValueContains(tenant.FieldUseCases, useCase))
-			},
-		))
+		query = query.Where(useCaseMatches(useCase))
+	}
+	// ?use_cases=a,b,c keeps tenants with ANY of these use cases. The ordering storefront passes
+	// the verticals it can show, so filtering, the total and pagination all happen here in SQL
+	// instead of the caller pulling a pool and filtering it.
+	if list := parseUseCaseList(r.URL.Query().Get("use_cases")); len(list) > 0 {
+		preds := make([]predicate.Tenant, 0, len(list))
+		for _, uc := range list {
+			preds = append(preds, useCaseMatches(uc))
+		}
+		query = query.Where(tenant.Or(preds...))
 	}
 
 	// Load the full (already filtered-down-to-real-customers) matching set, ranked
