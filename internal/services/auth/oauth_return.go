@@ -14,7 +14,8 @@ import (
 // SafeOAuthReturnTo keeps a return_to only when it is somewhere the platform owns: a relative path, or
 // an https URL on the issuer's host or the platform's own domain family. Anything else is dropped, so a
 // crafted link can never turn the social callback into an open redirect.
-func SafeOAuthReturnTo(raw, issuer string) string {
+// trustedHosts are tenant storefront domains (config TenantAppHosts), matched exactly.
+func SafeOAuthReturnTo(raw, issuer string, trustedHosts ...string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || len(raw) > 2048 || strings.ContainsAny(raw, "\\\r\n") {
 		return ""
@@ -35,6 +36,11 @@ func SafeOAuthReturnTo(raw, issuer string) string {
 	}
 	if host == "codevertexafrica.com" || strings.HasSuffix(host, ".codevertexafrica.com") {
 		return raw
+	}
+	for _, h := range trustedHosts {
+		if h = strings.ToLower(strings.TrimSpace(h)); h != "" && host == h {
+			return raw
+		}
 	}
 	return ""
 }

@@ -1,10 +1,11 @@
 package httpapi
 
 import (
-	httpware "github.com/Bengo-Hub/httpware"
 	"context"
+	httpware "github.com/Bengo-Hub/httpware"
 	ratelimit "github.com/Bengo-Hub/shared-ratelimit"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bengobox/auth-api/internal/httpapi/handlers"
@@ -27,6 +28,9 @@ func s2sPlatformClaims(next http.HandlerFunc) http.HandlerFunc {
 
 // RouterDeps defines router construction dependencies.
 type RouterDeps struct {
+	// TenantAppHosts are tenants' own storefront domains (config Security.TenantAppHosts); their
+	// https origins are allowed by CORS so the storefront can exchange its sign-in token.
+	TenantAppHosts        []string
 	HealthHandler         http.HandlerFunc
 	AuthHandlers          AuthHandlers
 	UserHandler           *handlers.UserHandler
@@ -228,7 +232,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 	r.Use(ratelimit.TrustedRealIP)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
-	r.Use(httpware.CORS(corsPolicy()))
+	r.Use(httpware.CORS(corsPolicy(deps.TenantAppHosts...)))
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/v1/docs/", http.StatusMovedPermanently)
@@ -782,9 +786,15 @@ var corsOrigins = []string{
 }
 
 // corsPolicy is the fleet's standard CORS policy plus the WebAuthn session header the passkey
-// ceremony sends and reads back.
-func corsPolicy() httpware.CORSConfig {
-	cfg := httpware.StandardCORS(corsOrigins, "X-WebAuthn-Session")
+// ceremony sends and reads back. tenantHosts adds each tenant storefront domain as an https origin.
+func corsPolicy(tenantHosts ...string) httpware.CORSConfig {
+	origins := append([]string{}, corsOrigins...)
+	for _, h := range tenantHosts {
+		if h = strings.ToLower(strings.TrimSpace(h)); h != "" {
+			origins = append(origins, "https://"+h)
+		}
+	}
+	cfg := httpware.StandardCORS(origins, "X-WebAuthn-Session")
 	cfg.ExposedHeaders = append(cfg.ExposedHeaders, "X-WebAuthn-Session")
 	return cfg
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
@@ -639,7 +640,9 @@ func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *passwo
 }
 
 // seedOAuthClients seeds OAuth client records for all known frontend applications.
-func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []*tenantRef) error {
+// tenantAppHosts are tenants' own storefront domains (config Security.TenantAppHosts) that
+// ordering-frontend also serves; ordering-ui gets their callbacks too.
+func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []*tenantRef, tenantAppHosts []string) error {
 	log.Println("Seeding OAuth Clients...")
 
 	type oauthClientSpec struct {
@@ -744,6 +747,14 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		// tenant host — add the masterspace base + per-tenant callbacks too.
 		if c.ID == "erp-ui" {
 			uris = append(uris, buildRedirects("erp.masterspace.co.ke")...)
+		}
+		// ordering-frontend also serves tenants' own domains (alphachinamarket.co.ke, ...).
+		if c.ID == "ordering-ui" {
+			for _, h := range tenantAppHosts {
+				if h = strings.TrimSpace(h); h != "" {
+					uris = append(uris, buildRedirects(h)...)
+				}
+			}
 		}
 		oauthClients = append(oauthClients, oauthClientSpec{
 			ID:           c.ID,

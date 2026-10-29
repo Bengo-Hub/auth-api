@@ -174,7 +174,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	usecaseSvc := usecase.NewService()
 	// Session payloads link tenant logos by URL on this public origin instead of inlining them.
 	handlers.SetLogoPublicBase(cfg.Token.Issuer)
-	authHandler := handlers.NewAuthHandler(authService, integrationSvc, usecaseSvc, logger, redisClient, cfg.Redis.Namespace, cfg.Security.CookieDomain, cfg.Security.LogoutRedirectHosts)
+	authHandler := handlers.NewAuthHandler(authService, integrationSvc, usecaseSvc, logger, redisClient, cfg.Redis.Namespace, cfg.Security.CookieDomain, append(append([]string{}, cfg.Security.LogoutRedirectHosts...), cfg.Security.TenantAppHosts...))
 	revocationStore := revocation.New(redisClient, cfg.Redis.Namespace)
 	authMiddleware := httpmiddleware.NewAuth(authService, revocationStore)
 	// Enable session cookie resolution: bb_session cookies now contain a session
@@ -276,6 +276,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	}
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
+		TenantAppHosts:         cfg.Security.TenantAppHosts,
 		OutletHandler:          outletHandler,
 		InternalServiceKey:     cfg.Subscription.APIKey,
 		ValidateInternalAppKey: appHandler.IsValidInternalServiceToken,

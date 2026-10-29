@@ -27,3 +27,29 @@ func TestSafeOAuthReturnTo(t *testing.T) {
 		}
 	}
 }
+
+func TestSafeOAuthReturnToTenantHosts(t *testing.T) {
+	const issuer = "https://sso.codevertexafrica.com"
+	hosts := []string{"alphachinamarket.co.ke", " UrbanEats.theurbanloftcafe.com "}
+	for _, u := range []string{
+		"https://alphachinamarket.co.ke/alpha-china-market",
+		"https://urbaneats.theurbanloftcafe.com/urban-loft/checkout",
+	} {
+		if got := SafeOAuthReturnTo(u, issuer, hosts...); got != u {
+			t.Errorf("tenant host %q should be kept, got %q", u, got)
+		}
+	}
+	for _, u := range []string{
+		"https://alphachinamarket.co.ke.evil.example/x",
+		"https://evilalphachinamarket.co.ke/x",
+		"http://alphachinamarket.co.ke/x",
+		"https://theurbanloftcafe.com/x", // only the listed subdomain, not the whole site
+	} {
+		if got := SafeOAuthReturnTo(u, issuer, hosts...); got != "" {
+			t.Errorf("%q must be dropped, got %q", u, got)
+		}
+	}
+	if got := SafeOAuthReturnTo("https://alphachinamarket.co.ke/x", issuer); got != "" {
+		t.Errorf("without the configured hosts a tenant domain is not trusted, got %q", got)
+	}
+}

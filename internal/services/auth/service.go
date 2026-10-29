@@ -1141,7 +1141,7 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
-		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer),
+		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.cfg.Security.TenantAppHosts...),
 		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
 	}
 
@@ -1252,7 +1252,7 @@ func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (str
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
-		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer),
+		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.cfg.Security.TenantAppHosts...),
 		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
 	}
 	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
@@ -1352,7 +1352,7 @@ func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
-		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer),
+		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.cfg.Security.TenantAppHosts...),
 		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
 	}
 	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)

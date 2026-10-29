@@ -143,6 +143,11 @@ type SecurityConfig struct {
 	EncryptionKey       string   `env:"ENCRYPTION_KEY"`                                   // 32-byte hex string or raw key
 	CookieDomain        string   `env:"COOKIE_DOMAIN" envDefault:".codevertexafrica.com"` // Domain for session cookies
 	LogoutRedirectHosts []string `env:"LOGOUT_REDIRECT_HOSTS" envSeparator:"," envDefault:"theurbanloftcafe.com,ordering.codevertexafrica.com,accounts.codevertexafrica.com,sso.codevertexafrica.com,notifications.codevertexafrica.com,books.codevertexafrica.com,pricing.codevertexafrica.com,pos.codevertexafrica.com,inventory.codevertexafrica.com,logistics.codevertexafrica.com,riderapp.codevertexafrica.com,localhost"`
+	// TenantAppHosts are tenants' own storefront domains served by ordering-frontend (outside
+	// codevertexafrica.com). One list drives the ordering-ui OAuth redirect URIs (seed), the
+	// sign-in return-to check and the logout redirect allowlist. Keep it in step with the
+	// ordering-frontend ingress hosts and its TENANT_DOMAINS map.
+	TenantAppHosts []string `env:"TENANT_APP_HOSTS" envSeparator:"," envDefault:"alphachinamarket.co.ke,www.alphachinamarket.co.ke,urbaneats.theurbanloftcafe.com"`
 }
 
 type ProvidersConfig struct {

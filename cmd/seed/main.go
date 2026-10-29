@@ -66,7 +66,7 @@ func main() {
 	// like erp.masterspace.co.ke) — otherwise the token exchange fails with 400 (redirect mismatch).
 	// Used in-cluster: `SEED_ONLY=oauth-clients /app/seed`.
 	if os.Getenv("SEED_ONLY") == "oauth-clients" {
-		if err := seedOAuthClients(ctx, client, tenantEntities); err != nil {
+		if err := seedOAuthClients(ctx, client, tenantEntities, cfg.Security.TenantAppHosts); err != nil {
 			log.Fatalf("seed oauth clients: %v", err)
 		}
 		log.Println("✅ OAuth clients re-registered.")
@@ -142,7 +142,7 @@ func main() {
 	}
 
 	// 13. Seed OAuth clients
-	if err := seedOAuthClients(ctx, client, tenantEntities); err != nil {
+	if err := seedOAuthClients(ctx, client, tenantEntities, cfg.Security.TenantAppHosts); err != nil {
 		log.Printf("⚠️  seed oauth clients: %v", err)
 	}
 
