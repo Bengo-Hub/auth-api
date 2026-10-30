@@ -3,6 +3,10 @@ package domains
 import (
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/bengobox/auth-api/internal/ent"
 )
 
 func TestNormaliseHostname(t *testing.T) {
@@ -68,5 +72,30 @@ func TestCatalogue(t *testing.T) {
 		if ns[i-1] >= ns[i] {
 			t.Fatalf("namespaces not unique and sorted: %v", ns)
 		}
+	}
+}
+
+// A pending domain that falls through to the certificate check sets its outcome twice; the update
+// must end with last_error either set or cleared, never both.
+func TestSetOutcomeTwiceKeepsOneLastErrorAssignment(t *testing.T) {
+	upd := ent.NewClient().TenantDomain.UpdateOneID(uuid.New())
+
+	upd = setOutcome(upd, StatusIssuing, "")
+	upd = setOutcome(upd, StatusIssuing, "certificate pending")
+	m := upd.Mutation()
+	if m.LastErrorCleared() {
+		t.Fatal("last_error is still marked cleared after being set")
+	}
+	if v, ok := m.LastError(); !ok || v != "certificate pending" {
+		t.Fatalf("last_error = %q, %v", v, ok)
+	}
+
+	upd = setOutcome(upd, StatusActive, "")
+	m = upd.Mutation()
+	if _, ok := m.LastError(); ok || !m.LastErrorCleared() {
+		t.Fatal("last_error should only be cleared")
+	}
+	if s, _ := m.Status(); s != StatusActive {
+		t.Fatalf("status = %q", s)
 	}
 }

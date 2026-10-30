@@ -311,14 +311,7 @@ func (s *Service) step(ctx context.Context, row *ent.TenantDomain) *ent.TenantDo
 	}
 	now := time.Now()
 	upd := row.Update().SetLastCheckedAt(now)
-	set := func(status, msg string) {
-		upd = upd.SetStatus(status)
-		if msg == "" {
-			upd = upd.ClearLastError()
-		} else {
-			upd = upd.SetLastError(msg)
-		}
-	}
+	set := func(status, msg string) { upd = setOutcome(upd, status, msg) }
 
 	switch row.Status {
 	case StatusRemoving:
@@ -395,6 +388,18 @@ func (s *Service) step(ctx context.Context, row *ent.TenantDomain) *ent.TenantDo
 		return row
 	}
 	return saved
+}
+
+// setOutcome records a step's status and error. It can run twice in one step (pending DNS falls
+// through to the certificate check), so last_error is reset first: an update that both clears and
+// sets the column fails in Postgres ("multiple assignments to same column").
+func setOutcome(upd *ent.TenantDomainUpdateOne, status, msg string) *ent.TenantDomainUpdateOne {
+	upd = upd.SetStatus(status)
+	upd.Mutation().ResetLastError()
+	if msg == "" {
+		return upd.ClearLastError()
+	}
+	return upd.SetLastError(msg)
 }
 
 // pointsHere reports whether public DNS already resolves host to the platform origin.
