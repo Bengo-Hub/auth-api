@@ -34,6 +34,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/schema"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/tenantdomain"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/usagemetric"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -832,6 +833,38 @@ func init() {
 	tenantDescID := tenantFields[0].Descriptor()
 	// tenant.DefaultID holds the default value on creation for the id field.
 	tenant.DefaultID = tenantDescID.Default.(func() uuid.UUID)
+	tenantdomainFields := schema.TenantDomain{}.Fields()
+	_ = tenantdomainFields
+	// tenantdomainDescService is the schema descriptor for service field.
+	tenantdomainDescService := tenantdomainFields[2].Descriptor()
+	// tenantdomain.ServiceValidator is a validator for the "service" field. It is called by the builders before save.
+	tenantdomain.ServiceValidator = tenantdomainDescService.Validators[0].(func(string) error)
+	// tenantdomainDescHostname is the schema descriptor for hostname field.
+	tenantdomainDescHostname := tenantdomainFields[3].Descriptor()
+	// tenantdomain.HostnameValidator is a validator for the "hostname" field. It is called by the builders before save.
+	tenantdomain.HostnameValidator = tenantdomainDescHostname.Validators[0].(func(string) error)
+	// tenantdomainDescStatus is the schema descriptor for status field.
+	tenantdomainDescStatus := tenantdomainFields[4].Descriptor()
+	// tenantdomain.DefaultStatus holds the default value on creation for the status field.
+	tenantdomain.DefaultStatus = tenantdomainDescStatus.Default.(string)
+	// tenantdomainDescDNSMode is the schema descriptor for dns_mode field.
+	tenantdomainDescDNSMode := tenantdomainFields[5].Descriptor()
+	// tenantdomain.DefaultDNSMode holds the default value on creation for the dns_mode field.
+	tenantdomain.DefaultDNSMode = tenantdomainDescDNSMode.Default.(string)
+	// tenantdomainDescCreatedAt is the schema descriptor for created_at field.
+	tenantdomainDescCreatedAt := tenantdomainFields[12].Descriptor()
+	// tenantdomain.DefaultCreatedAt holds the default value on creation for the created_at field.
+	tenantdomain.DefaultCreatedAt = tenantdomainDescCreatedAt.Default.(func() time.Time)
+	// tenantdomainDescUpdatedAt is the schema descriptor for updated_at field.
+	tenantdomainDescUpdatedAt := tenantdomainFields[13].Descriptor()
+	// tenantdomain.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	tenantdomain.DefaultUpdatedAt = tenantdomainDescUpdatedAt.Default.(func() time.Time)
+	// tenantdomain.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	tenantdomain.UpdateDefaultUpdatedAt = tenantdomainDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// tenantdomainDescID is the schema descriptor for id field.
+	tenantdomainDescID := tenantdomainFields[0].Descriptor()
+	// tenantdomain.DefaultID holds the default value on creation for the id field.
+	tenantdomain.DefaultID = tenantdomainDescID.Default.(func() uuid.UUID)
 	tenantmembershipFields := schema.TenantMembership{}.Fields()
 	_ = tenantmembershipFields
 	// tenantmembershipDescStatus is the schema descriptor for status field.

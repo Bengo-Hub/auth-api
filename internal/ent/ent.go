@@ -40,6 +40,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/tenantdomain"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/usagemetric"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -135,6 +136,7 @@ func checkColumn(t, c string) error {
 			rolepermission.Table:          rolepermission.ValidColumn,
 			session.Table:                 session.ValidColumn,
 			tenant.Table:                  tenant.ValidColumn,
+			tenantdomain.Table:            tenantdomain.ValidColumn,
 			tenantmembership.Table:        tenantmembership.ValidColumn,
 			usagemetric.Table:             usagemetric.ValidColumn,
 			user.Table:                    user.ValidColumn,

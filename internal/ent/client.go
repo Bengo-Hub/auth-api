@@ -44,6 +44,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/tenantdomain"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/usagemetric"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -114,6 +115,8 @@ type Client struct {
 	Session *SessionClient
 	// Tenant is the client for interacting with the Tenant builders.
 	Tenant *TenantClient
+	// TenantDomain is the client for interacting with the TenantDomain builders.
+	TenantDomain *TenantDomainClient
 	// TenantMembership is the client for interacting with the TenantMembership builders.
 	TenantMembership *TenantMembershipClient
 	// UsageMetric is the client for interacting with the UsageMetric builders.
@@ -167,6 +170,7 @@ func (c *Client) init() {
 	c.RolePermission = NewRolePermissionClient(c.config)
 	c.Session = NewSessionClient(c.config)
 	c.Tenant = NewTenantClient(c.config)
+	c.TenantDomain = NewTenantDomainClient(c.config)
 	c.TenantMembership = NewTenantMembershipClient(c.config)
 	c.UsageMetric = NewUsageMetricClient(c.config)
 	c.User = NewUserClient(c.config)
@@ -294,6 +298,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		RolePermission:          NewRolePermissionClient(cfg),
 		Session:                 NewSessionClient(cfg),
 		Tenant:                  NewTenantClient(cfg),
+		TenantDomain:            NewTenantDomainClient(cfg),
 		TenantMembership:        NewTenantMembershipClient(cfg),
 		UsageMetric:             NewUsageMetricClient(cfg),
 		User:                    NewUserClient(cfg),
@@ -348,6 +353,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		RolePermission:          NewRolePermissionClient(cfg),
 		Session:                 NewSessionClient(cfg),
 		Tenant:                  NewTenantClient(cfg),
+		TenantDomain:            NewTenantDomainClient(cfg),
 		TenantMembership:        NewTenantMembershipClient(cfg),
 		UsageMetric:             NewUsageMetricClient(cfg),
 		User:                    NewUserClient(cfg),
@@ -390,8 +396,9 @@ func (c *Client) Use(hooks ...Hook) {
 		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
 		c.Outlet, c.PasswordPolicy, c.PasswordResetToken, c.Permission,
 		c.PortalShortLink, c.ReferralLink, c.ResellerApplication, c.Role,
-		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserEmail, c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
+		c.RolePermission, c.Session, c.Tenant, c.TenantDomain, c.TenantMembership,
+		c.UsageMetric, c.User, c.UserEmail, c.UserIdentity, c.UserPhone,
+		c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -407,8 +414,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
 		c.Outlet, c.PasswordPolicy, c.PasswordResetToken, c.Permission,
 		c.PortalShortLink, c.ReferralLink, c.ResellerApplication, c.Role,
-		c.RolePermission, c.Session, c.Tenant, c.TenantMembership, c.UsageMetric,
-		c.User, c.UserEmail, c.UserIdentity, c.UserPhone, c.WebAuthnCredential,
+		c.RolePermission, c.Session, c.Tenant, c.TenantDomain, c.TenantMembership,
+		c.UsageMetric, c.User, c.UserEmail, c.UserIdentity, c.UserPhone,
+		c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -473,6 +481,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Session.mutate(ctx, m)
 	case *TenantMutation:
 		return c.Tenant.mutate(ctx, m)
+	case *TenantDomainMutation:
+		return c.TenantDomain.mutate(ctx, m)
 	case *TenantMembershipMutation:
 		return c.TenantMembership.mutate(ctx, m)
 	case *UsageMetricMutation:
@@ -4360,6 +4370,139 @@ func (c *TenantClient) mutate(ctx context.Context, m *TenantMutation) (Value, er
 	}
 }
 
+// TenantDomainClient is a client for the TenantDomain schema.
+type TenantDomainClient struct {
+	config
+}
+
+// NewTenantDomainClient returns a client for the TenantDomain from the given config.
+func NewTenantDomainClient(c config) *TenantDomainClient {
+	return &TenantDomainClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `tenantdomain.Hooks(f(g(h())))`.
+func (c *TenantDomainClient) Use(hooks ...Hook) {
+	c.hooks.TenantDomain = append(c.hooks.TenantDomain, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `tenantdomain.Intercept(f(g(h())))`.
+func (c *TenantDomainClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TenantDomain = append(c.inters.TenantDomain, interceptors...)
+}
+
+// Create returns a builder for creating a TenantDomain entity.
+func (c *TenantDomainClient) Create() *TenantDomainCreate {
+	mutation := newTenantDomainMutation(c.config, OpCreate)
+	return &TenantDomainCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TenantDomain entities.
+func (c *TenantDomainClient) CreateBulk(builders ...*TenantDomainCreate) *TenantDomainCreateBulk {
+	return &TenantDomainCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TenantDomainClient) MapCreateBulk(slice any, setFunc func(*TenantDomainCreate, int)) *TenantDomainCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TenantDomainCreateBulk{err: fmt.Errorf("calling to TenantDomainClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TenantDomainCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TenantDomainCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TenantDomain.
+func (c *TenantDomainClient) Update() *TenantDomainUpdate {
+	mutation := newTenantDomainMutation(c.config, OpUpdate)
+	return &TenantDomainUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TenantDomainClient) UpdateOne(_m *TenantDomain) *TenantDomainUpdateOne {
+	mutation := newTenantDomainMutation(c.config, OpUpdateOne, withTenantDomain(_m))
+	return &TenantDomainUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TenantDomainClient) UpdateOneID(id uuid.UUID) *TenantDomainUpdateOne {
+	mutation := newTenantDomainMutation(c.config, OpUpdateOne, withTenantDomainID(id))
+	return &TenantDomainUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TenantDomain.
+func (c *TenantDomainClient) Delete() *TenantDomainDelete {
+	mutation := newTenantDomainMutation(c.config, OpDelete)
+	return &TenantDomainDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TenantDomainClient) DeleteOne(_m *TenantDomain) *TenantDomainDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TenantDomainClient) DeleteOneID(id uuid.UUID) *TenantDomainDeleteOne {
+	builder := c.Delete().Where(tenantdomain.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TenantDomainDeleteOne{builder}
+}
+
+// Query returns a query builder for TenantDomain.
+func (c *TenantDomainClient) Query() *TenantDomainQuery {
+	return &TenantDomainQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTenantDomain},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TenantDomain entity by its id.
+func (c *TenantDomainClient) Get(ctx context.Context, id uuid.UUID) (*TenantDomain, error) {
+	return c.Query().Where(tenantdomain.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TenantDomainClient) GetX(ctx context.Context, id uuid.UUID) *TenantDomain {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *TenantDomainClient) Hooks() []Hook {
+	return c.hooks.TenantDomain
+}
+
+// Interceptors returns the client interceptors.
+func (c *TenantDomainClient) Interceptors() []Interceptor {
+	return c.inters.TenantDomain
+}
+
+func (c *TenantDomainClient) mutate(ctx context.Context, m *TenantDomainMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TenantDomainCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TenantDomainUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TenantDomainUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TenantDomainDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TenantDomain mutation op: %q", m.Op())
+	}
+}
+
 // TenantMembershipClient is a client for the TenantMembership schema.
 type TenantMembershipClient struct {
 	config
@@ -5555,8 +5698,8 @@ type (
 		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
 		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
 		PasswordPolicy, PasswordResetToken, Permission, PortalShortLink, ReferralLink,
-		ResellerApplication, Role, RolePermission, Session, Tenant, TenantMembership,
-		UsageMetric, User, UserEmail, UserIdentity, UserPhone,
+		ResellerApplication, Role, RolePermission, Session, Tenant, TenantDomain,
+		TenantMembership, UsageMetric, User, UserEmail, UserIdentity, UserPhone,
 		WebAuthnCredential []ent.Hook
 	}
 	inters struct {
@@ -5565,8 +5708,8 @@ type (
 		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
 		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
 		PasswordPolicy, PasswordResetToken, Permission, PortalShortLink, ReferralLink,
-		ResellerApplication, Role, RolePermission, Session, Tenant, TenantMembership,
-		UsageMetric, User, UserEmail, UserIdentity, UserPhone,
+		ResellerApplication, Role, RolePermission, Session, Tenant, TenantDomain,
+		TenantMembership, UsageMetric, User, UserEmail, UserIdentity, UserPhone,
 		WebAuthnCredential []ent.Interceptor
 	}
 )

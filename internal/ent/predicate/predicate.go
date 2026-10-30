@@ -90,6 +90,9 @@ type Session func(*sql.Selector)
 // Tenant is the predicate function for tenant builders.
 type Tenant func(*sql.Selector)
 
+// TenantDomain is the predicate function for tenantdomain builders.
+type TenantDomain func(*sql.Selector)
+
 // TenantMembership is the predicate function for tenantmembership builders.
 type TenantMembership func(*sql.Selector)
 

@@ -900,6 +900,41 @@ var (
 			},
 		},
 	}
+	// TenantDomainsColumns holds the columns for the "tenant_domains" table.
+	TenantDomainsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "tenant_id", Type: field.TypeUUID},
+		{Name: "service", Type: field.TypeString},
+		{Name: "hostname", Type: field.TypeString, Unique: true},
+		{Name: "status", Type: field.TypeString, Default: "pending_dns"},
+		{Name: "dns_mode", Type: field.TypeString, Default: "external"},
+		{Name: "cf_zone_id", Type: field.TypeString, Nullable: true},
+		{Name: "cf_record_id", Type: field.TypeString, Nullable: true},
+		{Name: "last_error", Type: field.TypeString, Nullable: true},
+		{Name: "last_checked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "activated_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_by", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// TenantDomainsTable holds the schema information for the "tenant_domains" table.
+	TenantDomainsTable = &schema.Table{
+		Name:       "tenant_domains",
+		Columns:    TenantDomainsColumns,
+		PrimaryKey: []*schema.Column{TenantDomainsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "tenantdomain_tenant_id",
+				Unique:  false,
+				Columns: []*schema.Column{TenantDomainsColumns[1]},
+			},
+			{
+				Name:    "tenantdomain_status",
+				Unique:  false,
+				Columns: []*schema.Column{TenantDomainsColumns[4]},
+			},
+		},
+	}
 	// TenantMembershipsColumns holds the columns for the "tenant_memberships" table.
 	TenantMembershipsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1158,6 +1193,7 @@ var (
 		RolePermissionsTable,
 		SessionsTable,
 		TenantsTable,
+		TenantDomainsTable,
 		TenantMembershipsTable,
 		UsageMetricsTable,
 		UsersTable,

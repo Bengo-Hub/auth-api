@@ -68,6 +68,8 @@ type Tx struct {
 	Session *SessionClient
 	// Tenant is the client for interacting with the Tenant builders.
 	Tenant *TenantClient
+	// TenantDomain is the client for interacting with the TenantDomain builders.
+	TenantDomain *TenantDomainClient
 	// TenantMembership is the client for interacting with the TenantMembership builders.
 	TenantMembership *TenantMembershipClient
 	// UsageMetric is the client for interacting with the UsageMetric builders.
@@ -241,6 +243,7 @@ func (tx *Tx) init() {
 	tx.RolePermission = NewRolePermissionClient(tx.config)
 	tx.Session = NewSessionClient(tx.config)
 	tx.Tenant = NewTenantClient(tx.config)
+	tx.TenantDomain = NewTenantDomainClient(tx.config)
 	tx.TenantMembership = NewTenantMembershipClient(tx.config)
 	tx.UsageMetric = NewUsageMetricClient(tx.config)
 	tx.User = NewUserClient(tx.config)
