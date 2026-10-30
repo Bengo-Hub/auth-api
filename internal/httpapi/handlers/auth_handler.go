@@ -153,6 +153,9 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 // allowedLogoutRedirectHosts returns hosts allowed for post_logout_redirect_uri.
 // Configured via AUTH_SECURITY_LOGOUT_REDIRECT_HOSTS env var; falls back to handler's config.
 func (h *AuthHandler) allowedLogoutRedirectHosts() []string {
+	if h.extraLogoutHosts != nil {
+		return append(append([]string{}, h.logoutRedirectHosts...), h.extraLogoutHosts(context.Background())...)
+	}
 	if len(h.logoutRedirectHosts) > 0 {
 		return h.logoutRedirectHosts
 	}
@@ -266,6 +269,8 @@ type AuthHandler struct {
 	redisNamespace      string
 	cookieDomain        string
 	logoutRedirectHosts []string
+	// extraLogoutHosts adds active tenant domains to the logout redirect allowlist.
+	extraLogoutHosts func(context.Context) []string
 }
 
 // NewAuthHandler constructs a handler. redis and redisNamespace are optional; when set, GET /auth/me responses are cached with TTL = token expiry.
@@ -2025,3 +2030,6 @@ func (h *AuthHandler) VerifyEmailCode(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{"verified": true})
 }
+
+// SetExtraLogoutHosts adds a source of allowed logout redirect hosts (active tenant domains).
+func (h *AuthHandler) SetExtraLogoutHosts(f func(context.Context) []string) { h.extraLogoutHosts = f }

@@ -23,6 +23,23 @@ type Config struct {
 	WebAuthn      WebAuthnConfig      `envPrefix:"AUTH_WEBAUTHN_"`
 	Notifications NotificationsConfig `envPrefix:""`
 	DevOps        DevOpsConfig        `envPrefix:"DEVOPS_"`
+	Domains       DomainsConfig       `envPrefix:""`
+}
+
+// DomainsConfig drives self-service tenant domains (internal/services/domains). All values come
+// from the cluster: the token and origin IP from the `cloudflare-api-token` secret in the auth
+// namespace, never from a tracked file. With no origin IP the reconciler stays off and the
+// screens say domains are unavailable.
+type DomainsConfig struct {
+	// CloudflareAPIToken edits DNS in zones that live in our Cloudflare account (same token as
+	// the devops-k8s GitHub secret CF_API_TOKEN). Empty: every domain uses external DNS.
+	CloudflareAPIToken string `env:"CF_API_TOKEN"`
+	// OriginIP is the public address of the cluster ingress that tenant hostnames point at.
+	OriginIP string `env:"DOMAINS_ORIGIN_IP"`
+	// ClusterIssuer is the cert-manager issuer for tenant domain certificates (HTTP-01).
+	ClusterIssuer string `env:"DOMAINS_CLUSTER_ISSUER" envDefault:"letsencrypt-prod"`
+	// ReconcileSeconds is how often pending domains are checked.
+	ReconcileSeconds int `env:"DOMAINS_RECONCILE_SECONDS" envDefault:"30"`
 }
 
 // DevOpsConfig holds credentials for auth-api's platform-admin "Infrastructure Monitor" panel to

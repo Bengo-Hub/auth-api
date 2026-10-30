@@ -103,18 +103,20 @@ const (
 
 // Service encapsulates core authentication flows.
 type Service struct {
-	entClient      *ent.Client
-	tokenSvc       *token.Service
-	hasher         *password.Hasher
-	cfg            *config.Config
-	auditor        *audit.Logger
-	logger         *zap.Logger
-	google         *googleprovider.Provider
-	revoker        JTIRevoker
-	github         *githubprovider.Provider
-	microsoft      *microsoftprovider.Provider
-	subscriptionCl *subscription.Client
-	integrations   *integrations.Service
+	// extraTrustedHosts adds tenants' active custom domains to the sign-in return-to check.
+	extraTrustedHosts func(context.Context) []string
+	entClient         *ent.Client
+	tokenSvc          *token.Service
+	hasher            *password.Hasher
+	cfg               *config.Config
+	auditor           *audit.Logger
+	logger            *zap.Logger
+	google            *googleprovider.Provider
+	revoker           JTIRevoker
+	github            *githubprovider.Provider
+	microsoft         *microsoftprovider.Provider
+	subscriptionCl    *subscription.Client
+	integrations      *integrations.Service
 }
 
 // Dependencies aggregates constructor inputs.
@@ -1141,7 +1143,7 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
-		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.cfg.Security.TenantAppHosts...),
+		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.trustedHosts(ctx)...),
 		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
 	}
 
@@ -1252,7 +1254,7 @@ func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (str
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
-		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.cfg.Security.TenantAppHosts...),
+		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.trustedHosts(ctx)...),
 		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
 	}
 	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
@@ -1352,7 +1354,7 @@ func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
-		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.cfg.Security.TenantAppHosts...),
+		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.trustedHosts(ctx)...),
 		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
 	}
 	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
@@ -2803,3 +2805,15 @@ func (s *Service) AcceptTerms(ctx context.Context, userID uuid.UUID) error {
 // (owner's decision, 2026-10-24). The second factor is never skipped: an account with an
 // authenticator app gets a challenge instead of a session (socialMFARequired, socialMFAResult),
 // exactly as a password sign-in asks for the code.
+
+// SetExtraTrustedHosts adds a source of trusted hosts (active tenant domains) for sign-in return.
+func (s *Service) SetExtraTrustedHosts(f func(context.Context) []string) { s.extraTrustedHosts = f }
+
+// trustedHosts is the configured tenant hosts plus the active tenant domains.
+func (s *Service) trustedHosts(ctx context.Context) []string {
+	hosts := append([]string{}, s.cfg.Security.TenantAppHosts...)
+	if s.extraTrustedHosts != nil {
+		hosts = append(hosts, s.extraTrustedHosts(ctx)...)
+	}
+	return hosts
+}

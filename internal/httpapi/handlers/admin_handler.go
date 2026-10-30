@@ -121,6 +121,12 @@ func (h *AdminHandler) requireAdmin(r *http.Request) bool {
 // Platform owners and S2S admin-scoped tokens bypass the tenant check. A tenant
 // admin/superuser is only allowed when their token's tenant matches the target
 // tenant — this prevents cross-tenant writes (a tenant A admin acting on tenant B).
+// CanManageTenant exposes the tenant-admin gate to other handlers (tenant domains) so every
+// tenant-scoped admin screen authorises the same way.
+func (h *AdminHandler) CanManageTenant(r *http.Request, tenantID uuid.UUID) bool {
+	return h.requireTenantAdmin(r, tenantID)
+}
+
 func (h *AdminHandler) requireTenantAdmin(r *http.Request, tenantID uuid.UUID) bool {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok || claims == nil {

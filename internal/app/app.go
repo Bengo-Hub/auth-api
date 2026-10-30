@@ -27,6 +27,7 @@ import (
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
 	"github.com/bengobox/auth-api/internal/revocation"
 	"github.com/bengobox/auth-api/internal/services/auth"
+	"github.com/bengobox/auth-api/internal/services/domains"
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/mfa"
 	"github.com/bengobox/auth-api/internal/services/oidc"
@@ -221,6 +222,26 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			logger.Info("inline tenant images moved to object storage", zap.Int("tenants", n))
 		}
 	}()
+	// Self-service tenant domains: DNS (our Cloudflare zones), Ingress + certificate, OAuth
+	// redirects. One replica reconciles at a time (shared Redis lock).
+	domainSvc := domains.New(entClient, logger, cfg.Domains.CloudflareAPIToken, cfg.Domains.OriginIP, cfg.Domains.ClusterIssuer)
+	domainHandler := handlers.NewDomainHandler(domainSvc, adminHandler.CanManageTenant, logger)
+	authService.SetExtraTrustedHosts(domainSvc.ActiveHosts)
+	authHandler.SetExtraLogoutHosts(domainSvc.ActiveHosts)
+	if domainSvc.Enabled() {
+		go func() {
+			every := time.Duration(max(cfg.Domains.ReconcileSeconds, 10)) * time.Second
+			ticker := time.NewTicker(every)
+			defer ticker.Stop()
+			for range ticker.C {
+				rctx, cancel := context.WithTimeout(context.Background(), every)
+				if _, err := sharedcache.RunOnce(rctx, redisClient, logger, cfg.Redis.Namespace+":domains:reconcile", every, domainSvc.Reconcile); err != nil {
+					logger.Warn("tenant domains reconcile", zap.Error(err))
+				}
+				cancel()
+			}
+		}()
+	}
 	// Platform backups (list and download the CronJob's pg_dumpall files via backup-server).
 	backupHandler := handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled)
 	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, subClient, authService, logger)
@@ -277,6 +298,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
 		TenantAppHosts:         cfg.Security.TenantAppHosts,
+		DomainHandler:          domainHandler,
 		OutletHandler:          outletHandler,
 		InternalServiceKey:     cfg.Subscription.APIKey,
 		ValidateInternalAppKey: appHandler.IsValidInternalServiceToken,

@@ -30,7 +30,9 @@ func s2sPlatformClaims(next http.HandlerFunc) http.HandlerFunc {
 type RouterDeps struct {
 	// TenantAppHosts are tenants' own storefront domains (config Security.TenantAppHosts); their
 	// https origins are allowed by CORS so the storefront can exchange its sign-in token.
-	TenantAppHosts        []string
+	TenantAppHosts []string
+	// DomainHandler serves self-service tenant domains (nil disables the routes).
+	DomainHandler         *handlers.DomainHandler
 	HealthHandler         http.HandlerFunc
 	AuthHandlers          AuthHandlers
 	UserHandler           *handlers.UserHandler
@@ -383,6 +385,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 			})
 		})
 		// Public tenant endpoints for auto-discovery (no authentication required)
+		// Tenant domains: the public host lookup frontends route by, and the service list.
+		if deps.DomainHandler != nil {
+			r.Get("/domains/resolve", deps.DomainHandler.Resolve)
+			r.Get("/domains/services", deps.DomainHandler.ListServices)
+		}
 		r.Route("/tenants", func(r chi.Router) {
 			// Creation is NOT public like the lookups below: the caller can choose
 			// the tenant's own ID (for cross-service ID sync) and it creates an
@@ -455,6 +462,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Post("/approve", deps.AuthHandlers.AdminApproveTenant)
 					r.Post("/reject", deps.AuthHandlers.AdminRejectTenant)
 					r.Post("/provision-oauth-redirects", deps.AuthHandlers.AdminProvisionTenantOAuthRedirects)
+					if deps.DomainHandler != nil {
+						r.Get("/domains", deps.DomainHandler.ListDomains)
+						r.Post("/domains", deps.DomainHandler.CreateDomain)
+						r.Post("/domains/{domain_id}/recheck", deps.DomainHandler.RecheckDomain)
+						r.Delete("/domains/{domain_id}", deps.DomainHandler.DeleteDomain)
+					}
 					if deps.AuthHandlers.AdminGetTenantBackup != nil {
 						r.Get("/backup", deps.AuthHandlers.AdminGetTenantBackup)
 						r.Post("/backup", deps.AuthHandlers.AdminStartTenantBackup)
