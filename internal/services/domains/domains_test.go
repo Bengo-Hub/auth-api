@@ -21,7 +21,7 @@ func TestNormaliseHostname(t *testing.T) {
 	bad := map[string]error{
 		"":                                       ErrInvalidHostname,
 		"localhost":                              ErrInvalidHostname,
-		"77.237.0.1":                             ErrInvalidHostname,
+		"203.0.113.10":                           ErrInvalidHostname,
 		"bad_host.com":                           ErrInvalidHostname,
 		"-x.example.com":                         ErrInvalidHostname,
 		"shop.codevertexafrica.com":              ErrReservedHost,
