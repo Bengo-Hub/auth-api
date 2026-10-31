@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -21,16 +22,39 @@ func TestOpenAPIPathsExist(t *testing.T) {
 		t.Fatal(err)
 	}
 	pass := func(next http.Handler) http.Handler { return next }
+	// Some routes are mounted only when their handler is set; set them all.
+	var ah AuthHandlers
+	fields := reflect.ValueOf(&ah).Elem()
+	noop := reflect.ValueOf(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	for i := 0; i < fields.NumField(); i++ {
+		if fields.Field(i).Type() == noop.Type() {
+			fields.Field(i).Set(noop)
+		}
+	}
+	// Every optional handler and the internal key are set, as in production, so every route the
+	// spec can document is mounted.
 	r := NewRouter(RouterDeps{
-		HealthHandler:      func(http.ResponseWriter, *http.Request) {},
-		DomainHandler:      &handlers.DomainHandler{},
-		SwaggerHandler:     swagger,
-		RequireAuthHandler: pass,
-		TryAuthHandler:     pass,
-		RateLimitLogin:     pass,
-		RateLimitToken:     pass,
-		RateLimitSensitive: pass,
-		EquityPortalAuth:   pass,
+		HealthHandler:         func(http.ResponseWriter, *http.Request) {},
+		DomainHandler:         &handlers.DomainHandler{},
+		SwaggerHandler:        swagger,
+		AuthHandlers:          ah,
+		UserHandler:           &handlers.UserHandler{},
+		LegalHandler:          &handlers.LegalHandler{},
+		ResellerHandler:       &handlers.ResellerHandler{},
+		ResellerPortalHandler: &handlers.ResellerPortalHandler{},
+		ReferralLinkHandler:   &handlers.ReferralLinkHandler{},
+		EquityPortalHandler:   &handlers.EquityPortalHandler{},
+		OutletHandler:         &handlers.OutletHandler{},
+		RBACHandler:           &handlers.RBACHandler{},
+		K8sMonitorHandler:     &handlers.K8sMonitorHandler{},
+		SealedSecretsHandler:  &handlers.SealedSecretsHandler{},
+		InternalServiceKey:    "test-key",
+		RequireAuthHandler:    pass,
+		TryAuthHandler:        pass,
+		RateLimitLogin:        pass,
+		RateLimitToken:        pass,
+		RateLimitSensitive:    pass,
+		EquityPortalAuth:      pass,
 	})
 
 	routes := map[string]bool{}

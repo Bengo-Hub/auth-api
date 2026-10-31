@@ -14,10 +14,22 @@
     { "name": "OAuth", "description": "OAuth/OIDC authorization code flow and social login." },
     { "name": "Discovery", "description": "OIDC discovery and JWKS endpoints." },
     { "name": "Health", "description": "Service health check." },
-    { "name": "Admin", "description": "Platform-admin-only tenant, client, and entitlement management." }
+    { "name": "Admin", "description": "Platform-admin-only tenant, client, and entitlement management." },
+    {"name": "Tenants", "description": "Tenant self-service: outlets, members and settings for the signed-in organisation."},
+    {"name": "Admin tenants", "description": "Platform and tenant admin: tenants, members, backups and custom domains."},
+    {"name": "Admin users", "description": "Platform admin: user accounts."},
+    {"name": "Admin apps and keys", "description": "OAuth clients, apps, API keys and signing keys."},
+    {"name": "Admin roles", "description": "Roles and permissions."},
+    {"name": "Admin integrations", "description": "Integration settings and integration requests."},
+    {"name": "Admin platform", "description": "Platform settings, audit logs, monitoring and backups."},
+    {"name": "Partners", "description": "Resellers, referral links and the equity portal."},
+    {"name": "Integrations", "description": "Integration requests made by tenants."},
+    {"name": "Legal", "description": "Legal documents and acceptance."},
+    {"name": "Service to service", "description": "Internal calls between platform services (X-API-Key)."}
   ],
   "components": {
     "securitySchemes": {
+      "internalKey": { "type": "apiKey", "in": "header", "name": "X-API-Key", "description": "Platform internal service key (service-to-service calls only)." },
       "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
     },
     "schemas": {
@@ -188,6 +200,3494 @@
   },
   "security": [ { "bearerAuth": [] } ],
   "paths": {
+    "/.well-known/jwks.json": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "JWKS",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/.well-known/openid-configuration": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "Well known config",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/api-keys": {
+      "post": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Create API key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "List API keys",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/api-keys/validate": {
+      "get": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Validate API key",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/api-keys/{id}": {
+      "delete": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Revoke API key",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/apps": {
+      "post": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Create app",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "List apps",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/apps/{id}": {
+      "get": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Get app",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Update app",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Delete app",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/apps/{id}/promote": {
+      "post": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Promote app",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/apps/{id}/resume": {
+      "post": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Resume app",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/apps/{id}/revoke": {
+      "post": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Revoke app",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/apps/{id}/rotate": {
+      "post": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Rotate app token",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/apps/{id}/suspend": {
+      "post": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Suspend app",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/audit-logs": {
+      "get": {
+        "tags": [
+          "Admin platform"
+        ],
+        "summary": "List audit logs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/backups": {
+      "get": {
+        "tags": [
+          "Admin platform"
+        ],
+        "summary": "List backups",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/backups/{filename}": {
+      "get": {
+        "tags": [
+          "Admin platform"
+        ],
+        "summary": "Download backup",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/clients/{client_id}": {
+      "get": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Get client",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Update client",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Delete client",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/clients/{client_id}/rotate-secret": {
+      "post": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Rotate client secret",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/equity-holders/{treasury_holder_id}/portal-link": {
+      "post": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "Generate portal link",
+        "parameters": [
+          {
+            "name": "treasury_holder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/equity/applications": {
+      "get": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "List applications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/equity/applications/{id}": {
+      "put": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "Update application",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/infra/sealed-secrets/rotate": {
+      "post": {
+        "tags": [
+          "Admin platform"
+        ],
+        "summary": "Rotate the sealed-secrets key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/infra/sealed-secrets/status": {
+      "get": {
+        "tags": [
+          "Admin platform"
+        ],
+        "summary": "Sealed-secrets controller status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/integration-requests": {
+      "get": {
+        "tags": [
+          "Admin integrations"
+        ],
+        "summary": "List integration requests",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/integration-requests/{id}": {
+      "patch": {
+        "tags": [
+          "Admin integrations"
+        ],
+        "summary": "Update integration request",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/integrations": {
+      "get": {
+        "tags": [
+          "Admin integrations"
+        ],
+        "summary": "List integration configs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin integrations"
+        ],
+        "summary": "Create integration config",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/integrations/{id}": {
+      "get": {
+        "tags": [
+          "Admin integrations"
+        ],
+        "summary": "Get integration config",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin integrations"
+        ],
+        "summary": "Delete integration config",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/integrations/{id}/status": {
+      "put": {
+        "tags": [
+          "Admin integrations"
+        ],
+        "summary": "Update integration status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/legal/documents": {
+      "post": {
+        "tags": [
+          "Admin platform"
+        ],
+        "summary": "Upsert document",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/password-policy": {
+      "put": {
+        "tags": [
+          "Admin platform"
+        ],
+        "summary": "Update password policy",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Admin platform"
+        ],
+        "summary": "Get password policy",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/permissions": {
+      "get": {
+        "tags": [
+          "Admin roles"
+        ],
+        "summary": "List permissions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/platform-monitor/overview": {
+      "get": {
+        "tags": [
+          "Admin platform"
+        ],
+        "summary": "Platform monitoring overview",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/referral-links": {
+      "get": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "List referral links",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "Create referral link",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reseller/applications": {
+      "get": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "List applications",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reseller/applications/{id}": {
+      "put": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "Update application",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "Get application",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/roles": {
+      "get": {
+        "tags": [
+          "Admin roles"
+        ],
+        "summary": "List roles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin roles"
+        ],
+        "summary": "Create role",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/roles/{role_code}": {
+      "get": {
+        "tags": [
+          "Admin roles"
+        ],
+        "summary": "Get role",
+        "parameters": [
+          {
+            "name": "role_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin roles"
+        ],
+        "summary": "Update role",
+        "parameters": [
+          {
+            "name": "role_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin roles"
+        ],
+        "summary": "Delete role",
+        "parameters": [
+          {
+            "name": "role_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/roles/{role_code}/permissions": {
+      "put": {
+        "tags": [
+          "Admin roles"
+        ],
+        "summary": "Set role permissions",
+        "parameters": [
+          {
+            "name": "role_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}": {
+      "put": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Update tenant",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Delete tenant",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/approve": {
+      "post": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Approve tenant",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/backup": {
+      "get": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Get tenant backup",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Start tenant backup",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/backup/download": {
+      "get": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Download tenant backup",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/backup/services": {
+      "get": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Backup services",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/members": {
+      "post": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Add tenant member",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "List tenant members",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/members/{user_id}": {
+      "put": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Update tenant member",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Remove tenant member",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/members/{user_id}/service-pin": {
+      "post": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Set user service PIN",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/provision-oauth-redirects": {
+      "post": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Provision tenant o auth redirects",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/reject": {
+      "post": {
+        "tags": [
+          "Admin tenants"
+        ],
+        "summary": "Reject tenant",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "List users",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Create user",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "get": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Get user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Update user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Delete user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/activate": {
+      "post": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Activate user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/deactivate": {
+      "post": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Deactivate user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/mfa-enforcement": {
+      "post": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Set MFA enforcement",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/purge": {
+      "post": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Purge user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/reset-password": {
+      "post": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Reset password",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/send-password-reset": {
+      "post": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Send password reset email",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/suspend": {
+      "post": {
+        "tags": [
+          "Admin users"
+        ],
+        "summary": "Suspend user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/email/send-code": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send email code",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/email/verify-code": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify email code",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/equity/apply": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Create application",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/legal/accept": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Accept document",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/legal/sign": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Sign document",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/accept-terms": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Accept terms",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/change-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Change password",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/email/send-code": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send my email code",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/email/verify-code": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify my email code",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/emails": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "List my emails",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/emails/send-code": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send add email code",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/emails/verify-code": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify add email code",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/emails/{id}": {
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Delete my email",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/emails/{id}/primary": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Set primary my email",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/memberships": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "My memberships",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/phones": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "List my phones",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Add my phone",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/phones/{id}": {
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Delete my phone",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me/phones/{id}/primary": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Set primary my phone",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/oauth/mfa/verify": {
+      "post": {
+        "tags": [
+          "OAuth"
+        ],
+        "summary": "Social MFA verify",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/otp/send": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send OTP",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/otp/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify OTP",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/outlets/current": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current outlet",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/phone/otp/request": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Request phone OTP",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/phone/otp/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify phone OTP",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register/oauth": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register o auth",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/reseller/apply": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Create application",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/select-outlet": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Select outlet",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "List sessions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions/revoke": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Revoke session",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions/revoke-all": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Revoke all sessions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/use-case/config": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get use case config",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/webauthn/authenticate/begin": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Web authn begin authentication",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/webauthn/authenticate/finish": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Web authn finish authentication",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/webauthn/credentials": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Web authn list credentials",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/webauthn/credentials/{id}": {
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Web authn delete credential",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/webauthn/register/begin": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Web authn begin registration",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/webauthn/register/finish": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Web authn finish registration",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/equity-portal/me": {
+      "get": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "Equity holder profile and holdings",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/integration-requests": {
+      "post": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Create integration request",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/integration-requests/mine": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "List my integration requests",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/legal/documents/{type}": {
+      "get": {
+        "tags": [
+          "Legal"
+        ],
+        "summary": "Get current document",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "Open apijson",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/referrals/link/{code}": {
+      "get": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "Get link by code",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/reseller/clients": {
+      "get": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "Get own clients",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/reseller/me": {
+      "get": {
+        "tags": [
+          "Partners"
+        ],
+        "summary": "Get own status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/mfa/status": {
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "MFA status",
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/mfa/verify": {
+      "post": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "MFA verify",
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/notifications/etims-integration-request": {
+      "post": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Notify integration request",
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/platform-alert-settings": {
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Platform alert settings",
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/roles/sync": {
+      "post": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Sync service roles",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/tenants/reach": {
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Tenants reach",
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/tenants/{tenant_id}/backup": {
+      "post": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Start tenant backup",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Get tenant backup",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/tenants/{tenant_id}/backup/download": {
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Download tenant backup",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/tenants/{tenant_id}/backup/services": {
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Backup services",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/tenants/{tenant_id}/members": {
+      "post": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Add tenant member",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/tenants/{tenant_id}/members/{user_id}/portal-password": {
+      "post": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Portal password reset",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/users/{user_id}/email-verification": {
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "User email verification",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/users/{user_id}/email/send-code": {
+      "post": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Send user email code",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/users/{user_id}/email/verify-code": {
+      "post": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Verify user email code",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/users/{user_id}/platform-owner": {
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "User platform owner",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/{tenant}/billing-contact": {
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "Tenant billing contact",
+        "parameters": [
+          {
+            "name": "tenant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/s2s/{tenant}/users": {
+      "get": {
+        "tags": [
+          "Service to service"
+        ],
+        "summary": "List tenant users",
+        "parameters": [
+          {
+            "name": "tenant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/tenants": {
+      "post": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Create tenant",
+        "security": [
+          {
+            "internalKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid X-API-Key"
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/by-id/{tenant_id}": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "Get tenant by ID",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/marketplace": {
+      "get": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "List marketplace tenants",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{slug}/logo": {
+      "get": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Get tenant logo",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{slug}/outlets": {
+      "get": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "List outlets",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Create outlet",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{slug}/outlets/{outlet_id}": {
+      "put": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Update outlet",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "outlet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Archive outlet",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "outlet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
     "/api/v1/tenants/by-slug/{slug}": {
       "get": {
         "tags": [
@@ -497,9 +3997,26 @@
     "/api/v1/auth/password-reset/request": { "post": { "tags": ["Auth"], "summary": "Request password reset", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PasswordResetRequest" } } } }, "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/password-reset/confirm": { "post": { "tags": ["Auth"], "summary": "Confirm password reset", "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PasswordResetConfirm" } } } }, "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/me": {
+      "patch": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Update my profile",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          }
+        }
+      },
       "get": { "tags": ["Auth"], "summary": "Current user", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } }
     },
-    "/api/v1/auth/logout": { "post": { "tags": ["Auth"], "summary": "Logout", "security": [ { "bearerAuth": [] } ], "responses": { "204": { "description": "No Content" } } } },
+    "/api/v1/auth/logout": { "get": {"tags": ["Auth"], "summary": "Logout get", "security": [], "responses": {"200": {"description": "OK"}}}, "post": { "tags": ["Auth"], "summary": "Logout", "security": [ { "bearerAuth": [] } ], "responses": { "204": { "description": "No Content" } } } },
     "/api/v1/auth/mfa/totp/start": { "post": { "tags": ["Auth"], "summary": "MFA TOTP start", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/mfa/totp/confirm": { "post": { "tags": ["Auth"], "summary": "MFA TOTP confirm", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/mfa/backup-codes/regenerate": { "post": { "tags": ["Auth"], "summary": "MFA backup codes regenerate", "security": [ { "bearerAuth": [] } ], "responses": { "200": { "description": "OK" } } } },
