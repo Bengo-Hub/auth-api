@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Auth Service API",
-    "version": "1.0.0",
-    "description": "SSO/OIDC provider for Codevertex platform. Demo: admin@demo.codevertexafrica.com / DemoAdmin2024!"
+    "version": "1.1.0",
+    "description": "SSO/OIDC provider for the Codevertex platform."
   },
   "servers": [
     { "url": "https://sso.codevertexafrica.com", "description": "Production (default)" },
@@ -21,6 +21,135 @@
       "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
     },
     "schemas": {
+      "TenantDomain": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "service": {
+            "type": "string",
+            "example": "ordering"
+          },
+          "service_name": {
+            "type": "string",
+            "example": "Online store and ordering"
+          },
+          "hostname": {
+            "type": "string",
+            "example": "shop.example.co.ke"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_dns",
+              "issuing",
+              "active",
+              "failed",
+              "removing"
+            ]
+          },
+          "dns_mode": {
+            "type": "string",
+            "enum": [
+              "cloudflare",
+              "external"
+            ]
+          },
+          "dns_record": {
+            "type": "object",
+            "description": "The record to add at the domain provider (external DNS only).",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          },
+          "last_error": {
+            "type": "string"
+          },
+          "last_checked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "activated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://shop.example.co.ke"
+          }
+        }
+      },
+      "DomainResolution": {
+        "type": "object",
+        "properties": {
+          "hostname": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenant_slug": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "PublicTenant": {
+        "type": "object",
+        "description": "Safe public fields of a tenant (no secrets, no member data).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "use_case": {
+            "type": "string"
+          },
+          "contact_phone": {
+            "type": "string"
+          },
+          "contact_email": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Branding and app names (logo_url, primary_color, service_branding)."
+          }
+        }
+      },
       "RegisterRequest": {
         "type": "object",
         "properties": {
@@ -34,7 +163,7 @@
         "type": "object",
         "properties": {
           "email": { "type": "string", "example": "admin@demo.codevertexafrica.com" },
-          "password": { "type": "string", "example": "DemoAdmin2024!" },
+          "password": { "type": "string", "format": "password" },
           "tenant_slug": { "type": "string", "example": "codevertex-demo" }
         },
         "required": ["email","password","tenant_slug"]
@@ -59,6 +188,264 @@
   },
   "security": [ { "bearerAuth": [] } ],
   "paths": {
+    "/api/v1/tenants/by-slug/{slug}": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "Public tenant record by slug",
+        "description": "Used by storefronts and websites for branding, contact details and the tenant id public POS routes need.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicTenant"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No tenant with this slug"
+          }
+        }
+      }
+    },
+    "/api/v1/domains/resolve": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "Which tenant and service an active custom domain belongs to",
+        "description": "Frontend proxies call this for hosts they do not know, then serve that tenant's app.",
+        "parameters": [
+          {
+            "name": "host",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "shop.example.co.ke"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active domain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainResolution"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No active tenant domain for this host"
+          }
+        }
+      }
+    },
+    "/api/v1/domains/services": {
+      "get": {
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "Services a custom domain can be connected to",
+        "responses": {
+          "200": {
+            "description": "Service list and whether custom domains are enabled"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/domains": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List a tenant's custom domains",
+        "description": "Tenant admins for their own tenant; platform owners for any tenant.",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TenantDomain"
+                      }
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Connect a custom domain",
+        "description": "In a zone the platform manages, DNS is set up automatically; otherwise the response carries the record to add and the domain finishes on its own once it resolves.",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "hostname",
+                  "service"
+                ],
+                "properties": {
+                  "hostname": {
+                    "type": "string"
+                  },
+                  "service": {
+                    "type": "string",
+                    "example": "ordering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDomain"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid hostname or service"
+          },
+          "409": {
+            "description": "Hostname already connected"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/domains/{domain_id}/recheck": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Check a pending domain again now",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated domain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDomain"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tenants/{tenant_id}/domains/{domain_id}": {
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Disconnect a custom domain",
+        "description": "Removes its routing, certificate and any DNS record the platform created.",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "domain_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removal started; routing, certificate and the platform's DNS record are removed in the background"
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "tags": ["Health"],
