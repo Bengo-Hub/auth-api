@@ -209,11 +209,26 @@ type outletDef struct {
 	isHQ    bool
 	address string
 	pinMsg  string
+	// lat/lng is the outlet's map pin (metadata latitude/longitude, the keys auth-api's outlet
+	// API writes). Merged into the stored metadata so other keys are kept.
+	lat, lng float64
 	// metadata carries additive, outlet-specific hints downstream services already sync via the
 	// existing generic Outlet.metadata JSON field (no schema change here) — e.g. hospital-api
 	// reads metadata["facility_type"] to resolve which Afya tier's nav to show for this outlet,
 	// same mechanism as the existing address/contact_* keys it already reads from here.
 	metadata map[string]any
+}
+
+// withOutletPin returns a copy of md with the seed's map pin set, leaving every other key as is.
+func withOutletPin(md map[string]any, d outletDef) map[string]any {
+	out := make(map[string]any, len(md)+2)
+	for k, v := range md {
+		out[k] = v
+	}
+	if d.lat != 0 || d.lng != 0 {
+		out["latitude"], out["longitude"] = d.lat, d.lng
+	}
+	return out
 }
 
 // outletsByTenant defines the outlets to seed per tenant slug.
@@ -225,29 +240,32 @@ var outletsByTenant = map[string][]outletDef{
 		{
 			slug: "demo-hospitality", code: "HOSP",
 			name: "Demo Grand Hotel & Restaurant", useCase: "hospitality", isHQ: true,
-			address: "Demo Plaza, Nairobi, Kenya",
-			pinMsg:  "Welcome to Demo Grand Hotel — please check your shift schedule",
+			address: "Oginga Odinga Street, Kisumu CBD, Kisumu",
+			lat:     -0.1033885, lng: 34.7525542,
+			pinMsg: "Welcome to Demo Grand Hotel. Please check your shift schedule",
 		},
 		// Retail outlet — shop, supermarket, hardware
 		{
 			slug: "demo-retail", code: "RETAIL",
 			name: "Demo City Supermarket", useCase: "retail", isHQ: false,
-			address: "Demo Mall, Westlands, Nairobi",
-			pinMsg:  "Welcome to Demo City Supermarket — barcode scanner is active",
+			address: "Mega Plaza, Oginga Odinga Street, Kisumu CBD, Kisumu",
+			lat:     -0.1042583, lng: 34.7523637,
+			pinMsg: "Welcome to Demo City Supermarket. Barcode scanner is active",
 		},
 		// Quick service outlet — fast food, coffee kiosk
 		{
 			slug: "demo-quick", code: "QSR",
 			name: "Demo Express Kiosk", useCase: "quick_service", isHQ: false,
-			address: "Demo Food Court, CBD Nairobi",
-			pinMsg:  "Welcome to Demo Express — fast service starts here!",
+			address: "Uhuru Business Park, Nyerere Road, Kisumu CBD, Kisumu",
+			lat:     -0.0951611, lng: 34.7576062,
+			pinMsg: "Welcome to Demo Express. Fast service starts here!",
 		},
 		// Pharmacy outlet
 		{
 			slug: "demo-pharmacy", code: "PHARMA",
 			name: "Demo Health Pharmacy", useCase: "pharmacy", isHQ: false,
 			address: "Demo Health Centre, Upper Hill, Nairobi",
-			pinMsg:  "Welcome to Demo Health Pharmacy — verify prescriptions at counter",
+			pinMsg:  "Welcome to Demo Health Pharmacy. Verify prescriptions at counter",
 		},
 		// Hospital/clinic outlet — Codevertex Afya (consultation, lab, pharmacy, billing).
 		// No facility_type metadata set: this is the full-tier showcase outlet (hospital-ui's
@@ -257,7 +275,7 @@ var outletsByTenant = map[string][]outletDef{
 			slug: "demo-hospital", code: "AFYA",
 			name: "Demo Afya Clinic", useCase: "hospital", isHQ: false,
 			address: "Demo Health Centre, Upper Hill, Nairobi",
-			pinMsg:  "Welcome to Demo Afya Clinic — verify patient identity before opening a chart",
+			pinMsg:  "Welcome to Demo Afya Clinic. Verify patient identity before opening a chart",
 		},
 		// Chemist outlet — Codevertex Afya's standalone Chemist tier (walk-in OTC sale +
 		// dispense-against-external-prescription only, typically a 1-2-person shop; see
@@ -268,8 +286,8 @@ var outletsByTenant = map[string][]outletDef{
 		{
 			slug: "demo-chemist", code: "AFYAC",
 			name: "Demo Chemist Shop", useCase: "hospital", isHQ: false,
-			address: "Demo Estate Road, Kasarani, Nairobi",
-			pinMsg:  "Welcome to Demo Chemist Shop — ring up a walk-in sale from Pharmacy",
+			address:  "Demo Estate Road, Kasarani, Nairobi",
+			pinMsg:   "Welcome to Demo Chemist Shop. Ring up a walk-in sale from Pharmacy",
 			metadata: map[string]any{"facility_type": "chemist"},
 		},
 		// Services outlet — salon, spa, appointments
@@ -277,7 +295,7 @@ var outletsByTenant = map[string][]outletDef{
 			slug: "demo-services", code: "SVC",
 			name: "Demo Beauty & Wellness", useCase: "services", isHQ: false,
 			address: "Demo Towers, Kilimani, Nairobi",
-			pinMsg:  "Welcome to Demo Beauty & Wellness — check appointments board",
+			pinMsg:  "Welcome to Demo Beauty & Wellness. Check appointments board",
 		},
 		// Services outlet on the printing_branding profile (job orders, production board).
 		{
@@ -291,21 +309,21 @@ var outletsByTenant = map[string][]outletDef{
 			slug: "demo-logistics", code: "LOGIS",
 			name: "Demo Logistics Hub", useCase: "logistics", isHQ: false,
 			address: "Demo Industrial Area, Nairobi",
-			pinMsg:  "Welcome to Demo Logistics Hub — report to dispatch supervisor",
+			pinMsg:  "Welcome to Demo Logistics Hub. Report to dispatch supervisor",
 		},
 		// Inventory-only warehouse — stock storage with no POS/ordering
 		{
 			slug: "demo-warehouse", code: "WH",
 			name: "Demo Central Warehouse", useCase: "warehouse", isHQ: false,
 			address: "Demo Warehouse Park, Mombasa Road, Nairobi",
-			pinMsg:  "Welcome to Demo Central Warehouse — check inbound manifest",
+			pinMsg:  "Welcome to Demo Central Warehouse. Check inbound manifest",
 		},
 		// Manufacturing facility — BOM-driven production, syncs to inventory-api only
 		{
 			slug: "demo-manufacturing", code: "MFG",
 			name: "Demo Production Facility", useCase: "manufacturing", isHQ: false,
 			address: "Demo Industrial Park, Athi River, Kenya",
-			pinMsg:  "Welcome to Demo Manufacturing — check the production schedule",
+			pinMsg:  "Welcome to Demo Manufacturing. Check the production schedule",
 		},
 		// TruLoad: commercial weighbridge station — the original generic outlet, kept
 		// deliberately unclassified (no metadata.vertical) so it stays the full-feature showcase
@@ -316,7 +334,7 @@ var outletsByTenant = map[string][]outletDef{
 			slug: "demo-commercial", code: "COMM",
 			name: "Demo Commercial Weighbridge", useCase: "commercial_weighing", isHQ: false,
 			address: "Demo Industrial Zone, Athi River, Kenya",
-			pinMsg:  "Welcome to Demo Commercial Weighbridge — log in to begin weighing session",
+			pinMsg:  "Welcome to Demo Commercial Weighbridge. Log in to begin weighing session",
 		},
 		// TruLoad: Quarry / Mining vertical weighbridge — one of the two verticals this platform's
 		// quarry/waste-treatment prospect actually needs demoed (real per-tonnage tariff billing,
@@ -326,8 +344,8 @@ var outletsByTenant = map[string][]outletDef{
 		{
 			slug: "demo-quarry", code: "QUARRY",
 			name: "Demo Quarry & Mining Weighbridge", useCase: "commercial_weighing", isHQ: false,
-			address: "Demo Quarry Site, Machakos, Kenya",
-			pinMsg:  "Welcome to Demo Quarry Weighbridge — log in to begin weighing session",
+			address:  "Demo Quarry Site, Machakos, Kenya",
+			pinMsg:   "Welcome to Demo Quarry Weighbridge. Log in to begin weighing session",
 			metadata: map[string]any{"vertical": "quarry"},
 		},
 		// TruLoad: Waste Management vertical weighbridge — the other core vertical this prospect
@@ -335,8 +353,8 @@ var outletsByTenant = map[string][]outletDef{
 		{
 			slug: "demo-waste", code: "WASTE",
 			name: "Demo Waste Management Weighbridge", useCase: "commercial_weighing", isHQ: false,
-			address: "Demo Waste Transfer Station, Ruai, Nairobi",
-			pinMsg:  "Welcome to Demo Waste Weighbridge — log in to begin weighing session",
+			address:  "Demo Waste Transfer Station, Ruai, Nairobi",
+			pinMsg:   "Welcome to Demo Waste Weighbridge. Log in to begin weighing session",
 			metadata: map[string]any{"vertical": "waste_management"},
 		},
 		// TruLoad: axle load enforcement checkpoint
@@ -344,7 +362,7 @@ var outletsByTenant = map[string][]outletDef{
 			slug: "demo-enforcement", code: "ENF",
 			name: "Demo Axle Load Enforcement Hub", useCase: "axle_load_enforcement", isHQ: false,
 			address: "Demo Weigh Station, Nakuru Highway, Kenya",
-			pinMsg:  "Welcome to Demo Enforcement — report to station commander",
+			pinMsg:  "Welcome to Demo Enforcement. Report to station commander",
 		},
 		// Maskani (property-service): the demo estate. Code SHABA matches maskani-api's
 		// cmd/seed-tenant property code, so the seeded Shaba Village property links to this outlet.
@@ -420,7 +438,9 @@ func seedOutletsForTenant(ctx context.Context, client *ent.Client, tenantID uuid
 					upd = upd.SetNillablePinLoginMessage(&d.pinMsg)
 				}
 				if len(d.metadata) > 0 {
-					upd = upd.SetMetadata(d.metadata)
+					upd = upd.SetMetadata(withOutletPin(d.metadata, d))
+				} else if d.lat != 0 || d.lng != 0 {
+					upd = upd.SetMetadata(withOutletPin(existing.Metadata, d))
 				}
 			} else {
 				// Backfill only when unset.
@@ -462,8 +482,8 @@ func seedOutletsForTenant(ctx context.Context, client *ent.Client, tenantID uuid
 		if d.pinMsg != "" {
 			create = create.SetNillablePinLoginMessage(&d.pinMsg)
 		}
-		if len(d.metadata) > 0 {
-			create = create.SetMetadata(d.metadata)
+		if len(d.metadata) > 0 || d.lat != 0 || d.lng != 0 {
+			create = create.SetMetadata(withOutletPin(d.metadata, d))
 		}
 		if _, err2 := create.Save(ctx); err2 != nil {
 			return fmt.Errorf("create outlet %s/%s: %w", tenantSlug, d.slug, err2)
