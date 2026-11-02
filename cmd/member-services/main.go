@@ -12,7 +12,11 @@
 //
 // Apply, after reviewing the dry run:
 //
-//	auth-member-services -apply [-tenant shop]
+//	auth-member-services -apply [-tenant shop] [-only shop:<user_id>,...]
+//	auth-member-services -revoke shop:<user_id>,...   # people no longer members of shop
+//
+// -only limits -apply to the listed members, so services that do not read `services` yet are not
+// sent updates for everyone.
 //
 // Each republished event goes through the outbox like any member edit, carrying the member's
 // services (outbox.SetUserServices), so the services apply the same rules as for live events.
@@ -27,6 +31,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
@@ -46,7 +51,11 @@ import (
 func main() {
 	apply := flag.Bool("apply", false, "republish auth.user.updated for every member whose services are known")
 	tenantSlug := flag.String("tenant", "", "only this tenant (slug)")
+	only := flag.String("only", "", "with -apply: only these members, as slug:user_id pairs separated by commas")
+	revoke := flag.String("revoke", "", "slug:user_id pairs (commas) of people who are no longer members: "+
+		"publish auth.user.updated with an empty services list so every service removes its copy in that tenant")
 	flag.Parse()
+	onlySet := parsePairs(*only)
 	_ = godotenv.Load()
 
 	cfg, err := config.Load()
@@ -96,6 +105,9 @@ func main() {
 		if !*apply || !ok {
 			continue
 		}
+		if onlySet != nil && !onlySet[slugOf(m)+":"+m.UserID.String()] {
+			continue
+		}
 		payload := map[string]any{
 			"user_id": m.UserID.String(), "tenant_id": m.TenantID.String(), "tenant_slug": slugOf(m),
 			"email": emailOf(m), "roles": m.Roles, "services": services,
@@ -111,13 +123,55 @@ func main() {
 		published++
 	}
 	_ = out.Flush()
+
+	// People no longer members of a tenant still have copies there: an explicit empty list makes
+	// each service remove its copy in that tenant (a caller-set list is kept by outbox.Write).
+	revoked := 0
+	for pair := range parsePairs(*revoke) {
+		slug, rawID, _ := strings.Cut(pair, ":")
+		userID, err := uuid.Parse(rawID)
+		if err != nil {
+			log.Fatalf("revoke %q: bad user id", pair)
+		}
+		t, err := client.Tenant.Query().Where(tenant.SlugEQ(slug)).Only(ctx)
+		if err != nil {
+			log.Fatalf("revoke %q: tenant: %v", pair, err)
+		}
+		if exists, _ := client.TenantMembership.Query().Where(tenantmembership.TenantID(t.ID),
+			tenantmembership.UserID(userID), tenantmembership.StatusEQ("active")).Exist(ctx); exists {
+			log.Fatalf("revoke %q: still an active member; use -apply instead", pair)
+		}
+		payload := map[string]any{"user_id": userID.String(), "tenant_id": t.ID.String(), "tenant_slug": slug,
+			"services": []string{}}
+		if err := outbox.Write(ctx, client, t.ID, "auth.user", userID, "updated", slug, payload); err != nil {
+			log.Fatalf("revoke %q: %v", pair, err)
+		}
+		revoked++
+	}
 	fmt.Printf("\n%d members, %d with unknown services", len(members), unknown)
+	if revoked > 0 {
+		fmt.Printf(", %d former members revoked", revoked)
+	}
 	if *apply {
 		fmt.Printf(", %d auth.user.updated events queued", published)
 	} else {
 		fmt.Print(" (dry run: nothing published; rerun with -apply)")
 	}
 	fmt.Println()
+}
+
+// parsePairs reads "slug:user_id,slug:user_id"; nil when empty.
+func parsePairs(s string) map[string]bool {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	out := map[string]bool{}
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out[p] = true
+		}
+	}
+	return out
 }
 
 func slugOf(m *ent.TenantMembership) string {
