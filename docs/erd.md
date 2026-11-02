@@ -22,6 +22,7 @@ Schema definitions are managed with Ent, and all tables are multi-tenant and aud
 | `user_devices` | `id`, `user_id`, `tenant_id`, `device_fingerprint`, `user_agent`, `ip_address`, `first_seen_at`, `last_seen_at`, `platform`, `status` | Device trust state; used for session policing and MFA prompts. |
 | `user_external_identities` | `id`, `user_id`, `provider`, `provider_subject`, `provider_email`, `access_token_hash`, `refresh_token_hash`, `scope`, `linked_at`, `metadata` | Social/enterprise identity link table. |
 | `user_tenants` | `(user_id, tenant_id) PK`, `role`, `status`, `invited_by`, `invited_at`, `accepted_at` | Tenant membership with default global role (service-specific RBAC is owned downstream). |
+| `tenant_memberships.services` | `jsonb NULL` | Services a tenant admin assigned to the member (pos, inventory, ...); NULL = the services follow the roles. See architecture.md, Member services. |
 
 ## Session & Token Management
 

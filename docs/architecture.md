@@ -105,6 +105,36 @@ Auth-api owns the canonical outlet/branch registry. All downstream services mirr
 - Social login (Google, GitHub, Microsoft)
 - User-tenant memberships with global roles
 - Permission-based RBAC enforcement
+- Which services keep each member (see Member services below)
+
+### Member services
+
+auth-api decides which services keep a local copy of each tenant member (their user, roles,
+outlets and PIN in that service), in `internal/services/access`. Decided by the user on 2026-11-03:
+
+- A platform admin, and every member of an exempt tenant (platform owner, demo, subscription
+  exempt, pay-per-transaction), gets every service (`*`).
+- A tenant admin (`superuser`, `admin`) gets every service the tenant's plan entitles it to.
+- Any other member gets the services assigned to them (`tenant_memberships.services`), within the
+  plan. A tenant admin assigns them on the Team tab (Service Access); each service needs one of the
+  member's roles (scoped to it, granting its permissions, or a cross-service job role such as
+  manager), otherwise the update answers 422 `role_required_for_service` with the roles that would
+  qualify. A service adding a member for itself (its own team page through the S2S member
+  endpoint, or a terminal PIN) grants itself.
+- A member nobody assigned yet follows their roles: role scope plus the services of their auth
+  permissions. A cross-service job role, or a role auth does not know, keeps every planned service
+  until an admin assigns, so nobody loses access by default.
+
+The answer travels as `services` on every `auth.user` created/updated/pin_set event (one hook in
+`outbox.Write`) and as the `user_services` token claim. Any lookup failure leaves it out, never
+empty. Services read it through shared-events `UserRelevance` (v0.9.0, `Service` set) and
+auth-client `Claims.AllowsUserService` (v0.17.1): a decided "not here" removes their copy; an
+absent list keeps their previous behaviour. Wired in inventory, pos, treasury, logistics and
+ordering. The S2S users list takes `?service=`.
+
+`auth-member-services` (in the image) prints every active member's services (dry run); with
+`-apply` it republishes `auth.user.updated` for them, so each service removes copies it should not
+hold by the same rules as live events.
 
 ### API Key Management
 
@@ -152,8 +182,8 @@ Auth-api publishes domain events to NATS JetStream:
 | `auth.tenant.created` | New tenant registered | All downstream services |
 | `auth.tenant.updated` | Tenant metadata changed | All downstream services |
 | `auth.tenant.synced` | Periodic/manual sync | All downstream services |
-| `auth.user.created` | New user registered | All downstream services |
-| `auth.user.updated` | User profile changed | All downstream services |
+| `auth.user.created` | New user registered | Services in the payload's `services` |
+| `auth.user.updated` | User profile, roles or services changed | Services in `services`; others remove their copy |
 | `auth.role.assigned` | Role assigned to user | All downstream services |
 | `auth.outlet.created` | New outlet created | pos-api, ordering-backend, inventory-api |
 | `auth.outlet.updated` | Outlet name/use_case/status changed | pos-api, ordering-backend, inventory-api |
