@@ -30,6 +30,7 @@ import (
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
 	googleprovider "github.com/bengobox/auth-api/internal/providers/google"
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
+	"github.com/bengobox/auth-api/internal/services/access"
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
@@ -116,7 +117,9 @@ type Service struct {
 	github            *githubprovider.Provider
 	microsoft         *microsoftprovider.Provider
 	subscriptionCl    *subscription.Client
-	integrations      *integrations.Service
+	// access decides each member's services (user_services claim); nil leaves the claim out.
+	access       *access.Resolver
+	integrations *integrations.Service
 }
 
 // Dependencies aggregates constructor inputs.
@@ -1883,6 +1886,13 @@ func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*Auth
 // AuthResult reflects the current plan. Shared by the REST login/refresh flow and the
 // OIDC token endpoint so every issued access token carries consistent entitlements.
 func (s *Service) EnrichTokenWithSubscription(ctx context.Context, tenantID uuid.UUID, in *token.AccessTokenInput, tenantEntity *ent.Tenant) {
+	// The member's services (user_services claim), ahead of the subscription early returns: demo
+	// and platform-owner tokens carry it too (as "*").
+	if in != nil && s.access != nil && in.UserID != uuid.Nil {
+		if services, ok := s.access.MemberServices(ctx, tenantID, in.UserID); ok {
+			in.UserServices = services
+		}
+	}
 	if in == nil || s.subscriptionCl == nil || !s.cfg.Subscription.Enabled {
 		return
 	}
@@ -2830,6 +2840,9 @@ func (s *Service) AcceptTerms(ctx context.Context, userID uuid.UUID) error {
 
 // SetExtraTrustedHosts adds a source of trusted hosts (active tenant domains) for sign-in return.
 func (s *Service) SetExtraTrustedHosts(f func(context.Context) []string) { s.extraTrustedHosts = f }
+
+// SetAccessResolver wires the member services resolver for the user_services claim.
+func (s *Service) SetAccessResolver(r *access.Resolver) { s.access = r }
 
 // trustedHosts is the configured tenant hosts plus the active tenant domains.
 func (s *Service) trustedHosts(ctx context.Context) []string {

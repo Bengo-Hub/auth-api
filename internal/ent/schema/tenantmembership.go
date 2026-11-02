@@ -29,6 +29,9 @@ func (TenantMembership) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			Comment("Home outlet for this user in this tenant; nil = unassigned / tenant-wide"),
+		field.JSON("services", []string{}).
+			Optional().
+			Comment("Service tags a tenant admin gave this member (pos, inventory, ...), bounded by the plan and backed by a role for each. Null = never assigned: the services follow the roles (access.Resolver)."),
 		field.String("status").
 			Default("active"),
 		field.Time("created_at").

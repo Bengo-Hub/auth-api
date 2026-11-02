@@ -29,6 +29,8 @@ type TenantMembership struct {
 	Roles []string `json:"roles,omitempty"`
 	// Home outlet for this user in this tenant; nil = unassigned / tenant-wide
 	OutletID *uuid.UUID `json:"outlet_id,omitempty"`
+	// Service tags a tenant admin gave this member (pos, inventory, ...), bounded by the plan and backed by a role for each. Null = never assigned: the services follow the roles (access.Resolver).
+	Services []string `json:"services,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -81,7 +83,7 @@ func (*TenantMembership) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case tenantmembership.FieldOutletID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case tenantmembership.FieldRoles:
+		case tenantmembership.FieldRoles, tenantmembership.FieldServices:
 			values[i] = new([]byte)
 		case tenantmembership.FieldStatus:
 			values[i] = new(sql.NullString)
@@ -136,6 +138,14 @@ func (_m *TenantMembership) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.OutletID = new(uuid.UUID)
 				*_m.OutletID = *value.S.(*uuid.UUID)
+			}
+		case tenantmembership.FieldServices:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field services", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Services); err != nil {
+					return fmt.Errorf("unmarshal field services: %w", err)
+				}
 			}
 		case tenantmembership.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -214,6 +224,9 @@ func (_m *TenantMembership) String() string {
 		builder.WriteString("outlet_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("services=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Services))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)

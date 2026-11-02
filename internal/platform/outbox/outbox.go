@@ -17,6 +17,46 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/outboxevent"
 )
 
+// UserServicesFunc answers the services a tenant member gets (access.Resolver.MemberServices);
+// ok=false means unknown.
+type UserServicesFunc func(ctx context.Context, tenantID, userID uuid.UUID) (services []string, ok bool)
+
+var userServices UserServicesFunc
+
+// SetUserServices wires the member services lookup, once at startup. Every auth.user created,
+// updated and pin_set event then carries `services`, the services that should keep a local copy of
+// the user (shared auth-client EventUserServices), whichever handler wrote it.
+func SetUserServices(f UserServicesFunc) { userServices = f }
+
+// userServicesEvents are the auth.user events a service provisions a local user from.
+var userServicesEvents = map[string]bool{"created": true, "updated": true, "pin_set": true}
+
+// withUserServices adds `services` to a member event unless the caller set it. An unknown answer
+// adds nothing, so consumers keep their previous behaviour.
+func withUserServices(ctx context.Context, tenantID uuid.UUID, aggregateType string, userID uuid.UUID, eventType string, data map[string]any) map[string]any {
+	if userServices == nil || aggregateType != "auth.user" || !userServicesEvents[eventType] {
+		return data
+	}
+	if _, set := data["services"]; set {
+		return data
+	}
+	if tenantID == uuid.Nil {
+		if v, ok := data["tenant_id"].(string); ok {
+			tenantID, _ = uuid.Parse(v)
+		}
+	}
+	services, ok := userServices(ctx, tenantID, userID)
+	if !ok {
+		return data
+	}
+	out := make(map[string]any, len(data)+1)
+	for k, v := range data {
+		out[k] = v
+	}
+	out["services"] = services
+	return out
+}
+
 // Write queues one domain event (subject {aggregateType}.{eventType}) on the outbox.
 // tenantSlug is optional; pass "" when unknown. Best-effort semantics are the
 // caller's choice — the error is returned, never fatal here.
@@ -24,6 +64,7 @@ func Write(ctx context.Context, client *ent.Client, tenantID uuid.UUID, aggregat
 	if client == nil {
 		return fmt.Errorf("outbox: nil ent client")
 	}
+	data = withUserServices(ctx, tenantID, aggregateType, aggregateID, eventType, data)
 	event := sharedevents.NewEvent(eventType, aggregateType, aggregateID, tenantID, data)
 	if tenantSlug != "" {
 		event.WithTenantSlug(tenantSlug)

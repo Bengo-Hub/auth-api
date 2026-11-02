@@ -186,6 +186,16 @@ func OutletIDNotNil() predicate.TenantMembership {
 	return predicate.TenantMembership(sql.FieldNotNull(FieldOutletID))
 }
 
+// ServicesIsNil applies the IsNil predicate on the "services" field.
+func ServicesIsNil() predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldIsNull(FieldServices))
+}
+
+// ServicesNotNil applies the NotNil predicate on the "services" field.
+func ServicesNotNil() predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldNotNull(FieldServices))
+}
+
 // StatusEQ applies the EQ predicate on the "status" field.
 func StatusEQ(v string) predicate.TenantMembership {
 	return predicate.TenantMembership(sql.FieldEQ(FieldStatus, v))

@@ -2,10 +2,12 @@ package app
 
 import (
 	"context"
+
 	"database/sql"
 	"fmt"
 	sharedcache "github.com/Bengo-Hub/cache"
 	"github.com/Bengo-Hub/httpware/objectstore"
+	"github.com/google/uuid"
 	"net/http"
 	"time"
 
@@ -22,10 +24,12 @@ import (
 	"github.com/bengobox/auth-api/internal/modules/tenantbackup"
 	"github.com/bengobox/auth-api/internal/password"
 	platformevents "github.com/bengobox/auth-api/internal/platform/events"
+	"github.com/bengobox/auth-api/internal/platform/outbox"
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
 	googleprovider "github.com/bengobox/auth-api/internal/providers/google"
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
 	"github.com/bengobox/auth-api/internal/revocation"
+	"github.com/bengobox/auth-api/internal/services/access"
 	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/domains"
 	"github.com/bengobox/auth-api/internal/services/integrations"
@@ -172,6 +176,12 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		Integrations:       integrationSvc,
 	})
 
+	// Which services keep a local copy of each member (access package): stamped on every
+	// auth.user created/updated/pin_set event and on the user_services token claim.
+	accessResolver := access.New(entClient, memberPlanLookup(subClient))
+	outbox.SetUserServices(accessResolver.MemberServices)
+	authService.SetAccessResolver(accessResolver)
+
 	usecaseSvc := usecase.NewService()
 	// Session payloads link tenant logos by URL on this public origin instead of inlining them.
 	handlers.SetLogoPublicBase(cfg.Token.Issuer)
@@ -202,6 +212,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger)
 	adminHandler.SetTenantCache(redisClient)
+	adminHandler.SetAccessResolver(accessResolver)
 	// Tenant logos and service icons on the shared object storage (httpware/objectstore). Logos
 	// still inline as data: URIs are moved once in the background (a no-op once none remain).
 	mediaStore, err := objectstore.New("auth", objectstore.FromEnv())
@@ -562,4 +573,23 @@ func webAuthnHandlerFunc(h *handlers.WebAuthnHandler, f func(*handlers.WebAuthnH
 		return nil
 	}
 	return f(h)
+}
+
+// memberPlanLookup adapts subscription-service to access.EntitlementFunc: nil when subscriptions
+// are off (every tenant ungated); tags nil when the tenant has no subscription.
+func memberPlanLookup(subClient *subscriptionclient.Client) access.EntitlementFunc {
+	if subClient == nil {
+		return nil
+	}
+	return func(ctx context.Context, tenantID uuid.UUID) ([]string, string, error) {
+		sub, err := subClient.GetTenantSubscription(ctx, tenantID)
+		if err != nil || sub == nil {
+			return nil, "", err
+		}
+		tags := sub.ActiveServiceTags
+		if tags == nil {
+			tags = []string{}
+		}
+		return tags, sub.BillingMode, nil
+	}
 }

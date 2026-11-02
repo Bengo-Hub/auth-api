@@ -68,6 +68,10 @@ type Claims struct {
 	// Claims field) — lets RequireServiceAccess block a whole module the tenant's plan never
 	// included at all, distinct from a specific feature lock within a module they do have.
 	ActiveServiceTags []string `json:"active_service_tags,omitempty"`
+	// UserServices is the services this member gets in this tenant (auth-api access package; must
+	// match authclient Claims field): ["*"] for every service. Absent when it could not be decided,
+	// which services treat as "not restricted".
+	UserServices []string `json:"user_services,omitempty"`
 
 	// Billing model and demo flags
 	BillingMode  string `json:"billing_mode,omitempty"`      // "service_charge" bypasses subscription gating
@@ -138,6 +142,7 @@ type AccessTokenInput struct {
 	SubscriptionTier     int
 	ActiveProducts       []string
 	ActiveServiceTags    []string
+	UserServices         []string // the member's services (see Claims.UserServices); nil = unknown
 
 	// Billing model and demo flags
 	BillingMode        string // "service_charge" bypasses subscription gating
@@ -237,6 +242,9 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	}
 
 	// Add subscription claims if available
+	if input.UserServices != nil {
+		claims.UserServices = input.UserServices
+	}
 	if input.SubscriptionPlan != "" {
 		claims.SubscriptionPlan = input.SubscriptionPlan
 		claims.SubscriptionStatus = input.SubscriptionStatus

@@ -25,6 +25,7 @@ import (
 	"github.com/bengobox/auth-api/internal/modules/tenantbackup"
 	"github.com/bengobox/auth-api/internal/password"
 	"github.com/bengobox/auth-api/internal/pkg/imageutil"
+	"github.com/bengobox/auth-api/internal/services/access"
 	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/entitlements"
 	"github.com/bengobox/auth-api/internal/services/integrations"
@@ -52,6 +53,8 @@ type AdminHandler struct {
 	tenantCache  *redis.Client
 	// tenantBackups builds tenant backups from every service's export (tenant_backup.go).
 	tenantBackups *tenantbackup.Service
+	// access decides members' services (member service assignment, S2S ?service= filter).
+	access *access.Resolver
 }
 
 // SetTenantCache lets tenant updates drop the shared "tenant:<slug>" entry that
@@ -169,6 +172,9 @@ func (h *AdminHandler) requireTenantAdmin(r *http.Request, tenantID uuid.UUID) b
 }
 
 // publishEvent writes a domain event to the outbox for async NATS publishing.
+// SetAccessResolver wires the member services resolver.
+func (h *AdminHandler) SetAccessResolver(r *access.Resolver) { h.access = r }
+
 func (h *AdminHandler) publishEvent(ctx context.Context, tenantID uuid.UUID, aggregateType string, aggregateID uuid.UUID, eventType string, data map[string]any) {
 	writeOutboxEvent(ctx, h.ent, h.logger, tenantID, aggregateType, aggregateID, eventType, data)
 }
@@ -1711,6 +1717,9 @@ type addTenantMemberRequest struct {
 	// SkipWelcome stops the generic welcome email for this add. Set by callers that send their
 	// own onboarding email with the credentials (Digitika student and parent accounts).
 	SkipWelcome bool `json:"skip_welcome,omitempty"`
+	// Services assigns the member's services (pos, inventory, ...); omitted, the services follow
+	// the roles. Each must be in the tenant's plan and backed by one of the roles.
+	Services []string `json:"services,omitempty"`
 }
 
 // mergeRoleLists returns current plus any of extra not already present, in order.
@@ -1805,17 +1814,26 @@ type updateMemberRequest struct {
 	Roles    []string `json:"roles"`
 	OutletID *string  `json:"outlet_id"` // pointer: nil = omitted (no change), "" = clear
 	Status   string   `json:"status,omitempty"`
+	// Services assigns the member's services; nil = no change. Each must be in the tenant's plan
+	// and backed by one of the member's (new) roles.
+	Services *[]string `json:"services,omitempty"`
+	// ServicesFollowRoles clears the assignment so the services follow the roles again.
+	ServicesFollowRoles bool `json:"services_follow_roles,omitempty"`
 }
 
 type tenantMemberResponse struct {
-	ID        string   `json:"id"`
-	UserID    string   `json:"user_id"`
-	TenantID  string   `json:"tenant_id"`
-	Roles     []string `json:"roles"`
-	Status    string   `json:"status"`
-	OutletID  *string  `json:"outlet_id,omitempty"`
-	CreatedAt string   `json:"created_at"`
-	UpdatedAt string   `json:"updated_at"`
+	ID       string   `json:"id"`
+	UserID   string   `json:"user_id"`
+	TenantID string   `json:"tenant_id"`
+	Roles    []string `json:"roles"`
+	Status   string   `json:"status"`
+	OutletID *string  `json:"outlet_id,omitempty"`
+	// Services is what a tenant admin assigned (absent: the services follow the roles);
+	// EffectiveServices is what the member gets ("*" = every service).
+	Services          []string `json:"services,omitempty"`
+	EffectiveServices []string `json:"effective_services,omitempty"`
+	CreatedAt         string   `json:"created_at"`
+	UpdatedAt         string   `json:"updated_at"`
 	// TempPassword is returned ONCE when a direct-add created a brand-new account,
 	// so the admin can relay it. Never persisted in plaintext, never emailed.
 	TempPassword string `json:"temp_password,omitempty"`
@@ -1907,6 +1925,16 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
 		return
 	}
+	// Assigned services (optional), checked before any account is created: in the plan and backed
+	// by the requested roles (merging roles only adds roles, so the check still holds after it).
+	var services []string
+	if req.Services != nil {
+		var serr *memberServicesError
+		if services, serr = h.checkMemberServices(r.Context(), tenantID, req.Roles, req.Services); serr != nil {
+			writeMemberServicesError(w, serr)
+			return
+		}
+	}
 
 	// Resolve user: accept either user_id (UUID) or email. For invite/direct-add
 	// by email, create the account on the fly when it does not yet exist (#3).
@@ -1984,18 +2012,22 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	memberRoles := req.Roles
+	if existingMember != nil && req.MergeRoles {
+		memberRoles = mergeRoleLists(existingMember.Roles, req.Roles)
+	}
+
 	var membership *ent.TenantMembership
 	if existingMember != nil {
 		// Update existing. A portal invite adds its role; an admin add sets the roles as given.
-		roles := req.Roles
-		if req.MergeRoles {
-			roles = mergeRoleLists(existingMember.Roles, req.Roles)
-		}
 		upd := existingMember.Update().
-			SetRoles(roles).
+			SetRoles(memberRoles).
 			SetStatus("active")
 		if outletID != nil {
 			upd = upd.SetOutletID(*outletID)
+		}
+		if services != nil {
+			upd = upd.SetServices(services)
 		}
 		membership, err = upd.Save(r.Context())
 	} else {
@@ -2007,6 +2039,9 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			SetStatus("active")
 		if outletID != nil {
 			crt = crt.SetOutletID(*outletID)
+		}
+		if services != nil {
+			crt = crt.SetServices(services)
 		}
 		membership, err = crt.Save(r.Context())
 	}
@@ -2072,15 +2107,17 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		outletIDStr = &s
 	}
 	writeJSON(w, http.StatusCreated, tenantMemberResponse{
-		ID:           membership.ID.String(),
-		UserID:       membership.UserID.String(),
-		TenantID:     membership.TenantID.String(),
-		Roles:        membership.Roles,
-		Status:       membership.Status,
-		OutletID:     outletIDStr,
-		CreatedAt:    membership.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    membership.UpdatedAt.Format(time.RFC3339),
-		TempPassword: tempPassword,
+		ID:                membership.ID.String(),
+		UserID:            membership.UserID.String(),
+		TenantID:          membership.TenantID.String(),
+		Roles:             membership.Roles,
+		Status:            membership.Status,
+		OutletID:          outletIDStr,
+		Services:          membership.Services,
+		EffectiveServices: h.effectiveMemberServices(r.Context(), membership),
+		CreatedAt:         membership.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         membership.UpdatedAt.Format(time.RFC3339),
+		TempPassword:      tempPassword,
 	})
 }
 
@@ -2229,17 +2266,21 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 
 	// Build enriched entries and apply in-memory filters
 	type memberEntry struct {
-		ID        string   `json:"id"`
-		UserID    string   `json:"user_id"`
-		TenantID  string   `json:"tenant_id"`
-		Roles     []string `json:"roles"`
-		Status    string   `json:"status"`
-		OutletID  *string  `json:"outlet_id,omitempty"`
-		Email     string   `json:"email,omitempty"`
-		Name      string   `json:"name,omitempty"`
-		AvatarURL string   `json:"avatar_url,omitempty"`
-		CreatedAt string   `json:"created_at"`
-		UpdatedAt string   `json:"updated_at"`
+		ID       string   `json:"id"`
+		UserID   string   `json:"user_id"`
+		TenantID string   `json:"tenant_id"`
+		Roles    []string `json:"roles"`
+		Status   string   `json:"status"`
+		OutletID *string  `json:"outlet_id,omitempty"`
+		// Services: assigned by a tenant admin (absent: follow the roles); EffectiveServices:
+		// what the member gets ("*" = every service).
+		Services          []string `json:"services,omitempty"`
+		EffectiveServices []string `json:"effective_services,omitempty"`
+		Email             string   `json:"email,omitempty"`
+		Name              string   `json:"name,omitempty"`
+		AvatarURL         string   `json:"avatar_url,omitempty"`
+		CreatedAt         string   `json:"created_at"`
+		UpdatedAt         string   `json:"updated_at"`
 	}
 
 	all := make([]memberEntry, 0, len(members))
@@ -2262,14 +2303,16 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 			outletIDStr = &s
 		}
 		entry := memberEntry{
-			ID:        m.ID.String(),
-			UserID:    m.UserID.String(),
-			TenantID:  m.TenantID.String(),
-			Roles:     roles,
-			Status:    m.Status,
-			OutletID:  outletIDStr,
-			CreatedAt: m.CreatedAt.Format(time.RFC3339),
-			UpdatedAt: m.UpdatedAt.Format(time.RFC3339),
+			ID:                m.ID.String(),
+			UserID:            m.UserID.String(),
+			TenantID:          m.TenantID.String(),
+			Roles:             roles,
+			Status:            m.Status,
+			OutletID:          outletIDStr,
+			Services:          m.Services,
+			EffectiveServices: h.effectiveMemberServices(r.Context(), m),
+			CreatedAt:         m.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:         m.UpdatedAt.Format(time.RFC3339),
 		}
 		if u, ok := userMap[m.UserID]; ok {
 			entry.Email = u.Email
@@ -2493,9 +2536,18 @@ func (h *AdminHandler) S2SListTenantUsers(w http.ResponseWriter, r *http.Request
 		Name     string   `json:"name"`
 		Roles    []string `json:"roles"`
 		OutletID *string  `json:"outlet_id,omitempty"`
+		// Services the member gets (absent when unknown, "*" = every service).
+		Services []string `json:"services,omitempty"`
 	}
+	// ?service=pos lists only the members that service should keep (access rules); a member
+	// whose services are unknown is kept, so a lookup failure never hides anyone.
+	serviceFilter := strings.TrimSpace(r.URL.Query().Get("service"))
 	out := make([]s2sUser, 0, len(members))
 	for _, m := range members {
+		services := h.effectiveMemberServices(r.Context(), m)
+		if serviceFilter != "" && services != nil && !access.Allows(services, serviceFilter) {
+			continue
+		}
 		roles := m.Roles
 		if roles == nil {
 			roles = []string{"member"}
@@ -2505,7 +2557,7 @@ func (h *AdminHandler) S2SListTenantUsers(w http.ResponseWriter, r *http.Request
 			s := m.OutletID.String()
 			outletIDStr = &s
 		}
-		entry := s2sUser{ID: m.UserID.String(), Roles: roles, OutletID: outletIDStr}
+		entry := s2sUser{ID: m.UserID.String(), Roles: roles, OutletID: outletIDStr, Services: services}
 		if u, ok := userMap[m.UserID]; ok {
 			entry.Email = u.Email
 			if u.Profile != nil {
@@ -2568,8 +2620,23 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 
 	upd := membership.Update()
 	// Only overwrite roles when the caller explicitly supplies them.
+	memberRoles := membership.Roles
 	if len(req.Roles) > 0 {
 		upd = upd.SetRoles(req.Roles)
+		memberRoles = req.Roles
+	}
+	// Service assignment: a new list is checked against the plan and the member's roles (a role
+	// change alone needs no check: services no longer backed by a role simply drop out).
+	switch {
+	case req.ServicesFollowRoles:
+		upd = upd.ClearServices()
+	case req.Services != nil:
+		services, serr := h.checkMemberServices(r.Context(), tenantID, memberRoles, *req.Services)
+		if serr != nil {
+			writeMemberServicesError(w, serr)
+			return
+		}
+		upd = upd.SetServices(services)
 	}
 	// Tenant-scoped lifecycle: suspend/activate/deactivate a member (#3). This is
 	// distinct from the platform-wide user.status managed by platform admins.
@@ -2630,14 +2697,16 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 		outletIDStr = &s
 	}
 	writeJSON(w, http.StatusOK, tenantMemberResponse{
-		ID:        updated.ID.String(),
-		UserID:    updated.UserID.String(),
-		TenantID:  updated.TenantID.String(),
-		Roles:     updated.Roles,
-		Status:    updated.Status,
-		OutletID:  outletIDStr,
-		CreatedAt: updated.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: updated.UpdatedAt.Format(time.RFC3339),
+		ID:                updated.ID.String(),
+		UserID:            updated.UserID.String(),
+		TenantID:          updated.TenantID.String(),
+		Roles:             updated.Roles,
+		Status:            updated.Status,
+		OutletID:          outletIDStr,
+		Services:          updated.Services,
+		EffectiveServices: h.effectiveMemberServices(r.Context(), updated),
+		CreatedAt:         updated.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         updated.UpdatedAt.Format(time.RFC3339),
 	})
 }
 

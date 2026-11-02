@@ -98,6 +98,24 @@ func (_u *TenantMembershipUpdate) ClearOutletID() *TenantMembershipUpdate {
 	return _u
 }
 
+// SetServices sets the "services" field.
+func (_u *TenantMembershipUpdate) SetServices(v []string) *TenantMembershipUpdate {
+	_u.mutation.SetServices(v)
+	return _u
+}
+
+// AppendServices appends value to the "services" field.
+func (_u *TenantMembershipUpdate) AppendServices(v []string) *TenantMembershipUpdate {
+	_u.mutation.AppendServices(v)
+	return _u
+}
+
+// ClearServices clears the value of the "services" field.
+func (_u *TenantMembershipUpdate) ClearServices() *TenantMembershipUpdate {
+	_u.mutation.ClearServices()
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *TenantMembershipUpdate) SetStatus(v string) *TenantMembershipUpdate {
 	_u.mutation.SetStatus(v)
@@ -220,6 +238,17 @@ func (_u *TenantMembershipUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if _u.mutation.OutletIDCleared() {
 		_spec.ClearField(tenantmembership.FieldOutletID, field.TypeUUID)
+	}
+	if value, ok := _u.mutation.Services(); ok {
+		_spec.SetField(tenantmembership.FieldServices, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedServices(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, tenantmembership.FieldServices, value)
+		})
+	}
+	if _u.mutation.ServicesCleared() {
+		_spec.ClearField(tenantmembership.FieldServices, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(tenantmembership.FieldStatus, field.TypeString, value)
@@ -368,6 +397,24 @@ func (_u *TenantMembershipUpdateOne) SetNillableOutletID(v *uuid.UUID) *TenantMe
 // ClearOutletID clears the value of the "outlet_id" field.
 func (_u *TenantMembershipUpdateOne) ClearOutletID() *TenantMembershipUpdateOne {
 	_u.mutation.ClearOutletID()
+	return _u
+}
+
+// SetServices sets the "services" field.
+func (_u *TenantMembershipUpdateOne) SetServices(v []string) *TenantMembershipUpdateOne {
+	_u.mutation.SetServices(v)
+	return _u
+}
+
+// AppendServices appends value to the "services" field.
+func (_u *TenantMembershipUpdateOne) AppendServices(v []string) *TenantMembershipUpdateOne {
+	_u.mutation.AppendServices(v)
+	return _u
+}
+
+// ClearServices clears the value of the "services" field.
+func (_u *TenantMembershipUpdateOne) ClearServices() *TenantMembershipUpdateOne {
+	_u.mutation.ClearServices()
 	return _u
 }
 
@@ -523,6 +570,17 @@ func (_u *TenantMembershipUpdateOne) sqlSave(ctx context.Context) (_node *Tenant
 	}
 	if _u.mutation.OutletIDCleared() {
 		_spec.ClearField(tenantmembership.FieldOutletID, field.TypeUUID)
+	}
+	if value, ok := _u.mutation.Services(); ok {
+		_spec.SetField(tenantmembership.FieldServices, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedServices(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, tenantmembership.FieldServices, value)
+		})
+	}
+	if _u.mutation.ServicesCleared() {
+		_spec.ClearField(tenantmembership.FieldServices, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(tenantmembership.FieldStatus, field.TypeString, value)

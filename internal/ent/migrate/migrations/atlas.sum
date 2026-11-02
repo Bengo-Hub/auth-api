@@ -1,4 +1,4 @@
-h1:HHEBBRY+yvnBDlUCrflLDNp4SbUQnYPZXWllvTVhyT8=
+h1:3IQ8oJ822qHbs2nfIAVBRsjNjubwj46UCSEuz+PTgPE=
 20260418145526_initial_with_fix.sql h1:PPhZsHSwYMGYB1hN9CRT/hZUuo/n5QZI+9ZXUlHmXOE=
 20260427115501_add_terms_accepted_to_users.sql h1:HM8zaomTVrJDWTZiGSFknYAAYqUV5Wc/qmh4j3oUcng=
 20260429072541_equity_legal.sql h1:EZ/2ZvuTU11gKbWXXJJTb9KdTKGONFbAiP6jRqFaddA=
@@ -22,3 +22,4 @@ h1:HHEBBRY+yvnBDlUCrflLDNp4SbUQnYPZXWllvTVhyT8=
 20260823140835_add_reseller_application_and_tenant_fields.sql h1:3PrsYeA3Mmlqmo0fp9uDCfmZmARwDMFfSx/FxnAnQaM=
 20261019120000_drop_platform_backup_settings.sql h1:SyWbNnIpsdC+PE5pXvo18E9/0zHfLfx/8Ybv8pdz+PY=
 20261030073446_add_tenant_domains.sql h1:dkm/MsYU+1d/OyXKU/tsnxm7tABX1gZNkbo6kJbG7pw=
+20261102215822_member_services.sql h1:UEhx0QsoWr7kcL0nEudM6qqMU4wvexmM4cXiUaBIczk=

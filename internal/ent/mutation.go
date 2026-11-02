@@ -27442,23 +27442,25 @@ func (m *TenantDomainMutation) ResetEdge(name string) error {
 // TenantMembershipMutation represents an operation that mutates the TenantMembership nodes in the graph.
 type TenantMembershipMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *uuid.UUID
-	roles         *[]string
-	appendroles   []string
-	outlet_id     *uuid.UUID
-	status        *string
-	created_at    *time.Time
-	updated_at    *time.Time
-	clearedFields map[string]struct{}
-	user          *uuid.UUID
-	cleareduser   bool
-	tenant        *uuid.UUID
-	clearedtenant bool
-	done          bool
-	oldValue      func(context.Context) (*TenantMembership, error)
-	predicates    []predicate.TenantMembership
+	op             Op
+	typ            string
+	id             *uuid.UUID
+	roles          *[]string
+	appendroles    []string
+	outlet_id      *uuid.UUID
+	services       *[]string
+	appendservices []string
+	status         *string
+	created_at     *time.Time
+	updated_at     *time.Time
+	clearedFields  map[string]struct{}
+	user           *uuid.UUID
+	cleareduser    bool
+	tenant         *uuid.UUID
+	clearedtenant  bool
+	done           bool
+	oldValue       func(context.Context) (*TenantMembership, error)
+	predicates     []predicate.TenantMembership
 }
 
 var _ ent.Mutation = (*TenantMembershipMutation)(nil)
@@ -27751,6 +27753,71 @@ func (m *TenantMembershipMutation) ResetOutletID() {
 	delete(m.clearedFields, tenantmembership.FieldOutletID)
 }
 
+// SetServices sets the "services" field.
+func (m *TenantMembershipMutation) SetServices(s []string) {
+	m.services = &s
+	m.appendservices = nil
+}
+
+// Services returns the value of the "services" field in the mutation.
+func (m *TenantMembershipMutation) Services() (r []string, exists bool) {
+	v := m.services
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldServices returns the old "services" field's value of the TenantMembership entity.
+// If the TenantMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMembershipMutation) OldServices(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldServices is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldServices requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldServices: %w", err)
+	}
+	return oldValue.Services, nil
+}
+
+// AppendServices adds s to the "services" field.
+func (m *TenantMembershipMutation) AppendServices(s []string) {
+	m.appendservices = append(m.appendservices, s...)
+}
+
+// AppendedServices returns the list of values that were appended to the "services" field in this mutation.
+func (m *TenantMembershipMutation) AppendedServices() ([]string, bool) {
+	if len(m.appendservices) == 0 {
+		return nil, false
+	}
+	return m.appendservices, true
+}
+
+// ClearServices clears the value of the "services" field.
+func (m *TenantMembershipMutation) ClearServices() {
+	m.services = nil
+	m.appendservices = nil
+	m.clearedFields[tenantmembership.FieldServices] = struct{}{}
+}
+
+// ServicesCleared returns if the "services" field was cleared in this mutation.
+func (m *TenantMembershipMutation) ServicesCleared() bool {
+	_, ok := m.clearedFields[tenantmembership.FieldServices]
+	return ok
+}
+
+// ResetServices resets all changes to the "services" field.
+func (m *TenantMembershipMutation) ResetServices() {
+	m.services = nil
+	m.appendservices = nil
+	delete(m.clearedFields, tenantmembership.FieldServices)
+}
+
 // SetStatus sets the "status" field.
 func (m *TenantMembershipMutation) SetStatus(s string) {
 	m.status = &s
@@ -27947,7 +28014,7 @@ func (m *TenantMembershipMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TenantMembershipMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 8)
 	if m.user != nil {
 		fields = append(fields, tenantmembership.FieldUserID)
 	}
@@ -27959,6 +28026,9 @@ func (m *TenantMembershipMutation) Fields() []string {
 	}
 	if m.outlet_id != nil {
 		fields = append(fields, tenantmembership.FieldOutletID)
+	}
+	if m.services != nil {
+		fields = append(fields, tenantmembership.FieldServices)
 	}
 	if m.status != nil {
 		fields = append(fields, tenantmembership.FieldStatus)
@@ -27985,6 +28055,8 @@ func (m *TenantMembershipMutation) Field(name string) (ent.Value, bool) {
 		return m.Roles()
 	case tenantmembership.FieldOutletID:
 		return m.OutletID()
+	case tenantmembership.FieldServices:
+		return m.Services()
 	case tenantmembership.FieldStatus:
 		return m.Status()
 	case tenantmembership.FieldCreatedAt:
@@ -28008,6 +28080,8 @@ func (m *TenantMembershipMutation) OldField(ctx context.Context, name string) (e
 		return m.OldRoles(ctx)
 	case tenantmembership.FieldOutletID:
 		return m.OldOutletID(ctx)
+	case tenantmembership.FieldServices:
+		return m.OldServices(ctx)
 	case tenantmembership.FieldStatus:
 		return m.OldStatus(ctx)
 	case tenantmembership.FieldCreatedAt:
@@ -28050,6 +28124,13 @@ func (m *TenantMembershipMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetOutletID(v)
+		return nil
+	case tenantmembership.FieldServices:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetServices(v)
 		return nil
 	case tenantmembership.FieldStatus:
 		v, ok := value.(string)
@@ -28108,6 +28189,9 @@ func (m *TenantMembershipMutation) ClearedFields() []string {
 	if m.FieldCleared(tenantmembership.FieldOutletID) {
 		fields = append(fields, tenantmembership.FieldOutletID)
 	}
+	if m.FieldCleared(tenantmembership.FieldServices) {
+		fields = append(fields, tenantmembership.FieldServices)
+	}
 	return fields
 }
 
@@ -28128,6 +28212,9 @@ func (m *TenantMembershipMutation) ClearField(name string) error {
 	case tenantmembership.FieldOutletID:
 		m.ClearOutletID()
 		return nil
+	case tenantmembership.FieldServices:
+		m.ClearServices()
+		return nil
 	}
 	return fmt.Errorf("unknown TenantMembership nullable field %s", name)
 }
@@ -28147,6 +28234,9 @@ func (m *TenantMembershipMutation) ResetField(name string) error {
 		return nil
 	case tenantmembership.FieldOutletID:
 		m.ResetOutletID()
+		return nil
+	case tenantmembership.FieldServices:
+		m.ResetServices()
 		return nil
 	case tenantmembership.FieldStatus:
 		m.ResetStatus()

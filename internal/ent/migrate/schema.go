@@ -940,6 +940,7 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "roles", Type: field.TypeJSON, Nullable: true},
 		{Name: "outlet_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "services", Type: field.TypeJSON, Nullable: true},
 		{Name: "status", Type: field.TypeString, Default: "active"},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
@@ -954,13 +955,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "tenant_memberships_tenants_memberships",
-				Columns:    []*schema.Column{TenantMembershipsColumns[6]},
+				Columns:    []*schema.Column{TenantMembershipsColumns[7]},
 				RefColumns: []*schema.Column{TenantsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tenant_memberships_users_memberships",
-				Columns:    []*schema.Column{TenantMembershipsColumns[7]},
+				Columns:    []*schema.Column{TenantMembershipsColumns[8]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -969,12 +970,12 @@ var (
 			{
 				Name:    "tenantmembership_user_id_tenant_id",
 				Unique:  true,
-				Columns: []*schema.Column{TenantMembershipsColumns[7], TenantMembershipsColumns[6]},
+				Columns: []*schema.Column{TenantMembershipsColumns[8], TenantMembershipsColumns[7]},
 			},
 			{
 				Name:    "tenantmembership_tenant_id",
 				Unique:  false,
-				Columns: []*schema.Column{TenantMembershipsColumns[6]},
+				Columns: []*schema.Column{TenantMembershipsColumns[7]},
 			},
 		},
 	}
