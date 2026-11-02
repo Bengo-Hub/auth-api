@@ -6,8 +6,9 @@
 //   - A platform admin, and every member of an exempt tenant (platform owner, demo, subscription
 //     exempt, pay-per-transaction), gets every service ("*").
 //   - A tenant admin (superuser, admin) gets every service the tenant's plan entitles it to.
-//   - Any other member gets the services a tenant admin assigned (TenantMembership.services), each
-//     backed by one of the member's roles, within the plan.
+//   - Any other member gets the services assigned to them (TenantMembership.services), within the
+//     plan. A tenant admin's assignment is checked for a role per service when made
+//     (UnbackedServices); a service adding a member for itself grants itself.
 //   - A member nobody assigned yet follows their roles: a role scoped to a service, and the
 //     services its permissions cover in auth. A member holding a cross-service job role
 //     (manager, staff, viewer, accountant, ...) or a role auth does not know keeps every entitled
@@ -156,15 +157,13 @@ func effective(memberRoles, assigned []string, plan Entitlement, roles map[strin
 		}
 		return normalize(plan.Tags)
 	}
-	backed, everything := roleServices(memberRoles, roles, assigned == nil)
 	var want []string
+	if assigned != nil {
+		want = assigned
+	}
+	backed, everything := roleServices(memberRoles, roles, assigned == nil)
 	switch {
 	case assigned != nil:
-		for _, s := range assigned {
-			if everything || backed[s] || roleBacks(memberRoles, roles, s) {
-				want = append(want, s)
-			}
-		}
 	case everything:
 		if plan.All {
 			return []string{All}

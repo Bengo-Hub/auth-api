@@ -2051,6 +2051,11 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "could not add member", nil)
 		return
 	}
+	// A service adding a member for itself (its own team page, or a PIN for its terminal) grants
+	// that service: before the created event below, which carries the member's services.
+	if req.Service != "" && services == nil {
+		membership = h.grantMemberService(r.Context(), membership, strings.ToLower(strings.TrimSpace(req.Service)))
+	}
 
 	// Publish auth.user.created so downstream services (pos-api, etc.) can provision the user.
 	u, userErr := h.ent.User.Get(r.Context(), userID)
@@ -2850,6 +2855,10 @@ func (h *AdminHandler) SetUserServicePIN(w http.ResponseWriter, r *http.Request)
 			fullName = u.Email
 		}
 	}
+
+	// A terminal PIN for a service means the member works there: grant it before the event,
+	// which carries the member's services.
+	membership = h.grantMemberService(r.Context(), membership, strings.ToLower(strings.TrimSpace(req.Service)))
 
 	// Resolve tenant slug so downstream services (pos-api) can sync tenant + outlets
 	// on demand without a separate lookup.

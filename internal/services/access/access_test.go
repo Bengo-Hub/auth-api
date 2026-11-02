@@ -44,7 +44,7 @@ func TestEffectiveServices(t *testing.T) {
 		{"role outside the plan is dropped", []string{"driver"}, nil, plan, []string{}},
 		{"unassigned manager keeps the plan until assigned", []string{"manager"}, nil, plan, []string{"inventory", "ordering", "pos", "treasury"}},
 		{"unknown role keeps the plan until assigned", []string{"maskani_owner"}, nil, plan, []string{"inventory", "ordering", "pos", "treasury"}},
-		{"assigned services within the plan and the roles", []string{"cashier"}, []string{"pos", "inventory", "logistics"}, plan, []string{"pos"}},
+		{"assigned services within the plan", []string{"cashier"}, []string{"pos", "inventory", "logistics"}, plan, []string{"inventory", "pos"}},
 		{"assigned manager may work in any planned service", []string{"manager"}, []string{"pos", "treasury"}, plan, []string{"pos", "treasury"}},
 		{"assigned nothing means nothing", []string{"cashier"}, []string{}, plan, []string{}},
 		{"customer is not a job role", []string{"customer"}, nil, plan, []string{"ordering"}},

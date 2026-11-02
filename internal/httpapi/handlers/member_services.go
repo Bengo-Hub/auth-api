@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/services/access"
@@ -94,4 +95,43 @@ func (h *AdminHandler) effectiveMemberServices(ctx context.Context, m *ent.Tenan
 		return nil
 	}
 	return services
+}
+
+// grantMemberService makes sure a member keeps service: when a service adds a member for itself,
+// the member works there. The calling service is the authority on its own roles (many are not in
+// auth's catalogue), so no role check, but the plan still bounds it. A member whose services
+// already include it is left as is (an unassigned member keeps following their roles); otherwise
+// the member's current services plus this one become their assignment. Failures keep m unchanged.
+func (h *AdminHandler) grantMemberService(ctx context.Context, m *ent.TenantMembership, service string) *ent.TenantMembership {
+	if h.access == nil || service == "" {
+		return m
+	}
+	current, ok := h.access.ForMembership(ctx, m)
+	if !ok || access.Allows(current, service) {
+		return m
+	}
+	plan, err := h.access.Plan(ctx, m.TenantID)
+	if err != nil || (!plan.All && !access.Allows(plan.Tags, service)) {
+		return m
+	}
+	updated, err := m.Update().SetServices(normalizeServices(append(append([]string{}, current...), service))).Save(ctx)
+	if err != nil {
+		h.logger.Warn("grant member service failed", zap.String("service", service), zap.Error(err))
+		return m
+	}
+	return updated
+}
+
+func normalizeServices(in []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s == "" || s == access.All || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	sort.Strings(out)
+	return out
 }
