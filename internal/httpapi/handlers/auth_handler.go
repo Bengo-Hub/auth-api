@@ -1013,8 +1013,10 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Surface the force-password-change flag so the UI can gate the dashboard
-	// until an admin-provisioned/reset account picks a new password.
-	if v, ok := userEntity.Profile["must_change_password"].(bool); ok && v {
+	// until an admin-provisioned/reset account picks a new password. Never on the shared demo
+	// tenant: password changes are refused there (demoSelfServiceBlocked), so asking for one
+	// would lock every visitor out of the account for good.
+	if v, ok := userEntity.Profile["must_change_password"].(bool); ok && v && !demoSelfServiceBlocked(claims) {
 		out["must_change_password"] = true
 	}
 
