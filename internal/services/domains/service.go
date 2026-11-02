@@ -39,7 +39,7 @@ var (
 )
 
 // reservedSuffixes are platform zones a tenant can never claim.
-var reservedSuffixes = []string{"codevertexafrica.com", "codevertexitsolutions.com", "masterspace.co.ke", "kura.go.ke"}
+var reservedSuffixes = []string{"codevertexafrica.com", "masterspace.co.ke", "kura.go.ke"}
 
 var hostnameRE = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
 

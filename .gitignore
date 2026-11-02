@@ -39,3 +39,5 @@ KubeSecrets/
 # PEM files
 *.pem
 
+
+/auth-api
