@@ -3,9 +3,10 @@
 // `user_services` token claim.
 //
 // Rules (user decision, 2026-11-03):
-//   - A platform admin, and every member of an exempt tenant (platform owner, demo, subscription
-//     exempt, pay-per-transaction), gets every service ("*").
-//   - A tenant admin (superuser, admin) gets every service the tenant's plan entitles it to.
+//   - A platform admin gets every service ("*").
+//   - A tenant admin (superuser, admin) gets every service the tenant's plan entitles it to; in a
+//     tenant no plan gates (platform owner, demo, subscription exempt, pay-per-transaction) that is
+//     every service. Other members of such a tenant still follow the rules below.
 //   - Any other member gets the services assigned to them (TenantMembership.services), within the
 //     plan. A tenant admin's assignment is checked for a role per service when made
 //     (UnbackedServices); a service adding a member for itself grants itself.

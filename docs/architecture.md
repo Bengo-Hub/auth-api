@@ -112,9 +112,11 @@ Auth-api owns the canonical outlet/branch registry. All downstream services mirr
 auth-api decides which services keep a local copy of each tenant member (their user, roles,
 outlets and PIN in that service), in `internal/services/access`. Decided by the user on 2026-11-03:
 
-- A platform admin, and every member of an exempt tenant (platform owner, demo, subscription
-  exempt, pay-per-transaction), gets every service (`*`).
-- A tenant admin (`superuser`, `admin`) gets every service the tenant's plan entitles it to.
+- A platform admin gets every service (`*`).
+- A tenant admin (`superuser`, `admin`) gets every service the tenant's plan entitles it to; in a
+  tenant no plan gates (platform owner, demo, subscription exempt, pay-per-transaction) that is
+  every service. Other members of such a tenant still follow the rules below, so a demo tenant's
+  ERP persona is not copied into POS.
 - Any other member gets the services assigned to them (`tenant_memberships.services`), within the
   plan. A tenant admin assigns them on the Team tab (Service Access); each service needs one of the
   member's roles (scoped to it, granting its permissions, or a cross-service job role such as
