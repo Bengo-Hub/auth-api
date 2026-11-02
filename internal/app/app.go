@@ -106,35 +106,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	hasher := password.NewHasher(cfg.Security)
 	auditor := audit.New(entClient, logger)
 
-	// Initialize subscription client for JWT enrichment (optional).
-	// The API key is resolved dynamically from integration_configs (DB, cached 5 min)
-	// so superusers can rotate it via auth-ui without restarting the pod.
-	// Falls back to AUTH_SUBSCRIPTION_API_KEY env var if not found in DB.
-	var subClient *subscriptionclient.Client
-	if cfg.Subscription.Enabled && cfg.Subscription.BaseURL != "" {
-		keyProvider := subscriptionclient.KeyProviderFunc(func(ctx context.Context) string {
-			creds, err := integrationSvc.GetDecryptedConfig(ctx, nil, "subscription_api_key")
-			if err != nil {
-				// Not yet in DB, decryption failed (seeder stores plain JSON until
-				// superuser saves via auth-ui which re-encrypts), or other error.
-				// Fall through to env var fallback.
-				return ""
-			}
-			return creds["key"]
-		})
-		// Warm the cache on startup: if the key isn't in DB yet (seeder not run),
-		// we'll fall back to env var — logged below at first use, not here.
-		subClient = subscriptionclient.NewClient(subscriptionclient.Config{
-			BaseURL:     cfg.Subscription.BaseURL,
-			APIKey:      cfg.Subscription.APIKey, // static fallback from env
-			KeyProvider: keyProvider,
-			Timeout:     cfg.Subscription.Timeout,
-		}, logger)
-		logger.Info("subscription client initialized",
-			zap.String("base_url", cfg.Subscription.BaseURL),
-			zap.Bool("dynamic_key", true),
-		)
-	}
+	subClient := NewSubscriptionClient(cfg, integrationSvc, logger)
 
 	// Initialize NATS event publishing (optional)
 	var natsConn *nats.Conn
@@ -178,7 +150,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 
 	// Which services keep a local copy of each member (access package): stamped on every
 	// auth.user created/updated/pin_set event and on the user_services token claim.
-	accessResolver := access.New(entClient, memberPlanLookup(subClient))
+	accessResolver := access.New(entClient, MemberPlanLookup(subClient))
 	outbox.SetUserServices(accessResolver.MemberServices)
 	authService.SetAccessResolver(accessResolver)
 
@@ -575,9 +547,9 @@ func webAuthnHandlerFunc(h *handlers.WebAuthnHandler, f func(*handlers.WebAuthnH
 	return f(h)
 }
 
-// memberPlanLookup adapts subscription-service to access.EntitlementFunc: nil when subscriptions
+// MemberPlanLookup adapts subscription-service to access.EntitlementFunc: nil when subscriptions
 // are off (every tenant ungated); tags nil when the tenant has no subscription.
-func memberPlanLookup(subClient *subscriptionclient.Client) access.EntitlementFunc {
+func MemberPlanLookup(subClient *subscriptionclient.Client) access.EntitlementFunc {
 	if subClient == nil {
 		return nil
 	}
@@ -592,4 +564,39 @@ func memberPlanLookup(subClient *subscriptionclient.Client) access.EntitlementFu
 		}
 		return tags, sub.BillingMode, nil
 	}
+}
+
+// NewSubscriptionClient builds the subscription-service client for JWT enrichment and member
+// services, or nil when subscriptions are off. Shared by the server and cmd/member-services.
+func NewSubscriptionClient(cfg *config.Config, integrationSvc *integrations.Service, logger *zap.Logger) *subscriptionclient.Client {
+	var subClient *subscriptionclient.Client
+	// Initialize subscription client for JWT enrichment (optional).
+	// The API key is resolved dynamically from integration_configs (DB, cached 5 min)
+	// so superusers can rotate it via auth-ui without restarting the pod.
+	// Falls back to AUTH_SUBSCRIPTION_API_KEY env var if not found in DB.
+	if cfg.Subscription.Enabled && cfg.Subscription.BaseURL != "" {
+		keyProvider := subscriptionclient.KeyProviderFunc(func(ctx context.Context) string {
+			creds, err := integrationSvc.GetDecryptedConfig(ctx, nil, "subscription_api_key")
+			if err != nil {
+				// Not yet in DB, decryption failed (seeder stores plain JSON until
+				// superuser saves via auth-ui which re-encrypts), or other error.
+				// Fall through to env var fallback.
+				return ""
+			}
+			return creds["key"]
+		})
+		// Warm the cache on startup: if the key isn't in DB yet (seeder not run),
+		// we'll fall back to env var — logged below at first use, not here.
+		subClient = subscriptionclient.NewClient(subscriptionclient.Config{
+			BaseURL:     cfg.Subscription.BaseURL,
+			APIKey:      cfg.Subscription.APIKey, // static fallback from env
+			KeyProvider: keyProvider,
+			Timeout:     cfg.Subscription.Timeout,
+		}, logger)
+		logger.Info("subscription client initialized",
+			zap.String("base_url", cfg.Subscription.BaseURL),
+			zap.Bool("dynamic_key", true),
+		)
+	}
+	return subClient
 }

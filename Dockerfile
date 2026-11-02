@@ -7,12 +7,13 @@ COPY go.mod go.sum ./
 
 RUN GOTOOLCHAIN=auto go mod download
 COPY . .
-# Build all binaries: server, migrate, seed, setup-db, and session-cleanup
+# Build all binaries: server, migrate, seed, setup-db, session-cleanup and member-services
 RUN GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth ./cmd/server && \
     GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-migrate ./cmd/migrate && \
     GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-seed ./cmd/seed && \
     GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-setup-db ./cmd/setup-db && \
-    GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-session-cleanup ./cmd/session-cleanup
+    GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-session-cleanup ./cmd/session-cleanup && \
+    GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/auth-member-services ./cmd/member-services
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata && addgroup -S app && adduser -S app -G app
@@ -23,6 +24,7 @@ COPY --from=builder /bin/auth-migrate /usr/local/bin/auth-migrate
 COPY --from=builder /bin/auth-seed /usr/local/bin/auth-seed
 COPY --from=builder /bin/auth-setup-db /usr/local/bin/auth-setup-db
 COPY --from=builder /bin/auth-session-cleanup /usr/local/bin/auth-session-cleanup
+COPY --from=builder /bin/auth-member-services /usr/local/bin/auth-member-services
 COPY config/keys ./config/keys
 COPY internal/ent/migrate/migrations ./internal/ent/migrate/migrations
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
