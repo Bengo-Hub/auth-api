@@ -987,6 +987,21 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	if out == nil {
 		out = make(map[string]any)
 	}
+	// Same rule as the sign-in response (auth.withoutDemoPasswordChange): a demo session never
+	// sees a password-change request it is not allowed to complete.
+	if demoSelfServiceBlocked(claims) {
+		if profile, ok := out["profile"].(map[string]any); ok {
+			if _, pending := profile["must_change_password"]; pending {
+				clean := make(map[string]any, len(profile))
+				for k, v := range profile {
+					if k != "must_change_password" {
+						clean[k] = v
+					}
+				}
+				out["profile"] = clean
+			}
+		}
+	}
 	out["roles"] = roles
 	out["permissions"] = permissions
 	// Server-computed enforcement stage so every frontend renders the same banner/dialog

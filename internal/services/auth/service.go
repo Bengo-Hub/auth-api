@@ -2098,7 +2098,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 	}
 
 	return &AuthResult{
-		User:                  userEntity,
+		User:                  withoutDemoPasswordChange(userEntity, tokenInput),
 		Tenant:                tenantEntity,
 		AccessToken:           accessToken,
 		AccessTokenExpiresAt:  exp,
@@ -2108,6 +2108,28 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		Roles:                 roles,
 		Permissions:           permissions,
 	}, nil
+}
+
+// withoutDemoPasswordChange hides profile.must_change_password from a session on the shared demo
+// tenant. Password changes are refused there (handlers.demoSelfServiceBlocked: demo and not a
+// platform owner), so asking for one would stop every visitor at the change form; an admin reset
+// or invite sets the flag on any account, demo or not. Only the returned copy changes: the stored
+// profile, and every non-demo or platform-owner session, are untouched.
+func withoutDemoPasswordChange(u *ent.User, claims token.AccessTokenInput) *ent.User {
+	if u == nil || !claims.IsDemo || claims.IsPlatformOwner {
+		return u
+	}
+	if pending, _ := u.Profile["must_change_password"].(bool); !pending {
+		return u
+	}
+	clean := *u
+	clean.Profile = make(map[string]any, len(u.Profile))
+	for k, v := range u.Profile {
+		if k != "must_change_password" {
+			clean.Profile[k] = v
+		}
+	}
+	return &clean
 }
 
 func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity *ent.Tenant, joinRole string, profile *googleprovider.Profile, token *oauth2.Token) (*ent.User, error) {
