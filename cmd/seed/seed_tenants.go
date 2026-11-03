@@ -25,6 +25,8 @@ type tenantSpec struct {
 	contactEmail    string
 	contactPhone    string
 	brandColors     map[string]any
+	// metadata holds extra keys the seed enforces on every run (merged over the stored metadata).
+	metadata map[string]any
 }
 
 // tenantRef is a lightweight reference returned after seeding tenants.
@@ -93,6 +95,19 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			contactEmail: "demo@codevertexafrica.com",
 			brandColors:  map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
 		},
+		{
+			// Hadia gift registry (hadia-api, hadia-ui). Registry owners sign up with a phone code
+			// (platform task A1): a verified new phone becomes a "customer" member granted the
+			// hadia service. Staff roles come from hadia-api's role push (seedRolesCatalogue
+			// seeds the same codes). Its plan with the hadia service tag is subscriptions-api P1.
+			name: "Hadia", slug: "hadia", baseDomain: "hadiafrica.com",
+			website: "https://hadiafrica.com", contactEmail: "info@hadiafrica.com",
+			metadata: map[string]any{
+				"phone_self_signup":    true,
+				"self_signup_role":     "customer",
+				"self_signup_services": []string{"hadia"},
+			},
+		},
 	}
 
 	var refs []*tenantRef
@@ -111,6 +126,9 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 		if t.billingMode != "" {
 			meta["billing_mode"] = t.billingMode
 		}
+		for k, v := range t.metadata {
+			meta[k] = v
+		}
 
 		tenantEntity, err := client.Tenant.Query().Where(tenant.SlugEQ(t.slug)).Only(ctx)
 		if err != nil {
@@ -119,9 +137,13 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 				SetSlug(t.slug).
 				SetStatus("active").
 				SetIsDemo(t.isDemo).
-				SetMetadata(meta).
-				SetNillableLogoURL(&t.logoURL).
-				SetBrandColors(t.brandColors)
+				SetMetadata(meta)
+			if len(t.brandColors) > 0 {
+				create = create.SetBrandColors(t.brandColors)
+			}
+			if t.logoURL != "" {
+				create = create.SetNillableLogoURL(&t.logoURL)
+			}
 			if t.website != "" {
 				create = create.SetNillableWebsite(&t.website)
 			}

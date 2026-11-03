@@ -91,6 +91,13 @@ var servicePerms = map[string][]string{
 	},
 }
 
+// hadiaStaffSelfService is the auth.* self-service set of the Hadia staff roles.
+var hadiaStaffSelfService = []string{
+	"auth.profile.view", "auth.profile.change",
+	"auth.preferences.view", "auth.preferences.change",
+	"auth.notifications.view",
+}
+
 // rolePerms maps each role name to its allowed permission codes.
 // superuser and admin receive all permissions (empty slice = all).
 var rolePerms = map[string][]string{
@@ -302,6 +309,13 @@ var rolePerms = map[string][]string{
 		"auth.profile.view",
 		"auth.notifications.view",
 	},
+	// Hadia gift registry staff roles (platform task A4). hadia-api owns their hadia.*.*
+	// permissions and pushes the catalogue (POST /api/v1/s2s/roles/sync, scope hadia); auth-api
+	// seeds the same codes so they can be assigned before the first push, with auth.* self-service
+	// only. Registry owners are "customer" members, never these roles.
+	"hadia_admin":   hadiaStaffSelfService,
+	"hadia_finance": hadiaStaffSelfService,
+	"hadia_support": hadiaStaffSelfService,
 	// viewer — read-only cross-service role for auditors, observers, and reporting users.
 	// Can view data across services but cannot create, modify, or delete anything.
 	"viewer": {

@@ -28,9 +28,9 @@ func (h *AuthHandler) phoneOTPKey(tenantSlug, phone string) string {
 	return h.redisNamespace + ":phone_login:otp:" + strings.ToLower(strings.TrimSpace(tenantSlug)) + ":" + phone
 }
 
-// RequestPhoneOTP sends a sign-in code to a phone on file for an active member of the tenant.
-// The response is the same whether or not the phone belongs to a member, so it cannot be used to
-// discover accounts.
+// RequestPhoneOTP sends a sign-in code to a phone on file for an active member of the tenant, or,
+// when the tenant opts in to phone self-signup, to a phone that may sign up. The response is the
+// same whether or not the phone belongs to a member, so it cannot be used to discover accounts.
 // POST /api/v1/auth/phone/otp/request  body: {tenant_slug, phone}
 func (h *AuthHandler) RequestPhoneOTP(w http.ResponseWriter, r *http.Request) {
 	if h.redis == nil || h.redisNamespace == "" {
@@ -101,13 +101,16 @@ func (h *AuthHandler) VerifyPhoneOTP(w http.ResponseWriter, r *http.Request) {
 	// account with an authenticator app gets no session. The 403 mfa_required (what portals already
 	// handle) now carries a challenge, so a client can ask for the authenticator code and finish with
 	// POST /auth/oauth/mfa/verify, as social sign-ins do. A lookup error fails closed the same way.
-	if mfaOn, err := h.service.IsMFAEnabled(r.Context(), target.User.ID); mfaOn || err != nil {
-		details := map[string]any{}
-		if challenge, cerr := h.service.PhoneMFAChallenge(target, req.ClientID); cerr == nil {
-			details["mfa_challenge"] = challenge
+	// A phone that signs up has no account yet (User nil), so there is no second factor to ask for.
+	if target.User != nil {
+		if mfaOn, err := h.service.IsMFAEnabled(r.Context(), target.User.ID); mfaOn || err != nil {
+			details := map[string]any{}
+			if challenge, cerr := h.service.PhoneMFAChallenge(target, req.ClientID); cerr == nil {
+				details["mfa_challenge"] = challenge
+			}
+			writeError(w, http.StatusForbidden, "mfa_required", "This account uses an authenticator app. Enter its code to finish signing in, or sign in with your password.", details)
+			return
 		}
-		writeError(w, http.StatusForbidden, "mfa_required", "This account uses an authenticator app. Enter its code to finish signing in, or sign in with your password.", details)
-		return
 	}
 	result, err := h.service.LoginWithPhoneOTP(r.Context(), target, req.ClientID, clientIP(r), userAgent(r))
 	if err != nil {

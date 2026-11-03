@@ -443,6 +443,36 @@ r.Use(authMiddleware.RequireAuth)
 
 ---
 
+### Hadia API (gift registry, added 2026-11-03)
+
+**Integration Type**: OAuth2/OIDC (PKCE) + phone code sign-in with self-signup + S2S role push
+
+- Tenant `hadia` (`hadiafrica.com`), public client `hadia-ui` with redirect URIs
+  `https://hadiafrica.com/auth/callback`, `https://staging.hadiafrica.com/auth/callback` and
+  `http://localhost:3030/auth/callback` (seed, `cmd/seed/seed_users.go`).
+- Phone self-signup (platform task A1): the same `/api/v1/auth/phone/otp/request` and `/verify`
+  routes, code engine, rate limits and channels as the Maskani phone sign-in. A tenant opts in
+  through its metadata:
+  - `phone_self_signup: true` turns it on. Without it the routes keep the members-only rule.
+  - `self_signup_role` is the new member's role; only self-service roles are honoured and
+    `customer` is the default.
+  - `self_signup_services` is the list set on the new membership's `services`, so the token's
+    `user_services` claim carries `hadia` (within the plan; see `internal/services/access`).
+- With the opt-in, a phone on no account receives a code on WhatsApp (`purpose: phone_login`,
+  `signup: true`, a fresh aggregate id per send). Nothing is created until the code is verified;
+  `/verify` then creates the phone-only account (placeholder email, verified primary phone, no
+  password), the membership with the role and services, publishes `auth.user.created` and returns
+  the standard token pair. A verified phone on an account from another tenant joins the tenant the
+  same way; an unverified phone, and a membership in any other status (suspended, removed), still
+  get the neutral answer. `/request` answers `{sent: true}` in every case.
+- Owner routes in hadia-api also need the tenant's plan to carry the `hadia` service tag
+  (`RequireServiceAccess("hadia")` reads the plan tags); that plan is subscriptions-api task P1.
+- Staff roles `hadia_admin`, `hadia_finance`, `hadia_support` (scope `hadia`) are seeded with
+  auth.* self-service permissions; hadia-api owns their `hadia.*` codes and pushes the catalogue
+  through `POST /api/v1/s2s/roles/sync` on every start.
+
+---
+
 ## External Third-Party Integrations
 
 > **For step-by-step setup of each OAuth provider console (Google Cloud, Azure AD, GitHub), see [oauth-setup.md](./oauth-setup.md).**

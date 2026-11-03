@@ -1880,10 +1880,10 @@ type directAddFailure struct {
 	message string
 }
 
-// phonePlaceholderEmail mints the synthetic address for a phone-only account. It ends in
-// ".local", so isPlaceholderEmail treats it as replaceable by a real address later.
+// phonePlaceholderEmail mints the synthetic address for a phone-only account (shared with the
+// phone self-signup in the auth service).
 func phonePlaceholderEmail(e164 string) string {
-	return "p" + strings.TrimPrefix(e164, "+") + "@placeholder.local"
+	return auth.PhonePlaceholderEmail(e164)
 }
 
 // createDirectAddUser creates an active account for a direct-add member. With withPassword the

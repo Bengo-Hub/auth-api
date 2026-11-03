@@ -669,6 +669,9 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		ProductionHost string // e.g. "books.codevertexafrica.com"
 		Public         bool
 		SelfSignupRole string
+		// RedirectURIs, when set, replace the generated list: for an app on its own domain with
+		// no per-tenant paths (hadia-ui).
+		RedirectURIs []string
 	}
 	clients := []clientDef{
 		{ID: "notifications-ui", Name: "Codevertex Notifications UI", ProductionHost: "notifications.codevertexafrica.com", Public: true},
@@ -689,6 +692,15 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "hospital-ui", Name: "Codevertex Hospital UI (Afya)", ProductionHost: "afya.codevertexafrica.com", Public: true},
 		{ID: "projects-ui", Name: "Codevertex Projects UI", ProductionHost: "projects.codevertexafrica.com", Public: true},
 		{ID: "maskani-ui", Name: "Maskani Property Platform", ProductionHost: "maskaniapp.codevertexafrica.com", Public: true},
+		// Hadia gift registry (platform task A3): public PKCE client for owners and staff. Owners
+		// sign up by phone code into the hadia tenant (tenant metadata phone_self_signup), so the
+		// client is customer-facing; staff roles still come only from hadia-api and an admin.
+		{ID: "hadia-ui", Name: "Hadia", ProductionHost: "hadiafrica.com", Public: true, SelfSignupRole: "customer",
+			RedirectURIs: []string{
+				"https://hadiafrica.com/auth/callback",
+				"https://staging.hadiafrica.com/auth/callback",
+				"http://localhost:3030/auth/callback",
+			}},
 	}
 
 	// Collect all tenant slugs for OAuth redirect URI generation.
@@ -734,6 +746,9 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 	oauthClients := make([]oauthClientSpec, 0, len(clients))
 	for _, c := range clients {
 		uris := buildRedirects(c.ProductionHost)
+		if len(c.RedirectURIs) > 0 {
+			uris = append([]string(nil), c.RedirectURIs...)
+		}
 		if c.ID == "auth-ui" {
 			uris = append(uris, authUIExtra...)
 		}
@@ -757,8 +772,8 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 			}
 		}
 		oauthClients = append(oauthClients, oauthClientSpec{
-			ID:           c.ID,
-			Name:         c.Name,
+			ID:             c.ID,
+			Name:           c.Name,
 			RedirectURIs:   uris,
 			Public:         c.Public,
 			SelfSignupRole: c.SelfSignupRole,

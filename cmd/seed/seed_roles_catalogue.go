@@ -73,6 +73,14 @@ var ispRoles = map[string]bool{
 	"isp_viewer":     true,
 }
 
+// hadiaRoles are Hadia's staff roles (scope = hadia), named as hadia-api's role push names them so
+// a reseed and the push agree (hadia-api internal/modules/rbac/catalog.go).
+var hadiaRoles = map[string]string{
+	"hadia_admin":   "Hadia administrator",
+	"hadia_finance": "Hadia finance",
+	"hadia_support": "Hadia support",
+}
+
 // roleScope infers a coarse scope grouping for a role code.
 func roleScope(code string) string {
 	switch {
@@ -84,6 +92,8 @@ func roleScope(code string) string {
 		return "logistics"
 	case ispRoles[code]:
 		return "isp"
+	case hadiaRoles[code] != "":
+		return "hadia"
 	case platformSystemRoles[code]:
 		return "platform"
 	default:
@@ -93,6 +103,9 @@ func roleScope(code string) string {
 
 // roleDisplayName turns a snake_case role code into a Title Case display name.
 func roleDisplayName(code string) string {
+	if name := hadiaRoles[code]; name != "" {
+		return name
+	}
 	parts := strings.Split(code, "_")
 	for i, p := range parts {
 		if p == "" {

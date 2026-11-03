@@ -86,6 +86,13 @@ func (s *Service) JoinAsSelfServiceMember(ctx context.Context, userID uuid.UUID,
 // publishes auth.user.created so the tenant's services provision the person, exactly like a
 // registration into an existing tenant does.
 func (s *Service) joinTenantAs(ctx context.Context, userEntity *ent.User, tenantEntity *ent.Tenant, role, method string) (bool, error) {
+	return s.joinTenantWith(ctx, userEntity, tenantEntity, role, nil, method)
+}
+
+// joinTenantWith is joinTenantAs with the member's services set at creation (nil leaves them
+// unassigned, so the member follows their roles). A service that lets people sign up for itself
+// grants itself, as an S2S member add does.
+func (s *Service) joinTenantWith(ctx context.Context, userEntity *ent.User, tenantEntity *ent.Tenant, role string, services []string, method string) (bool, error) {
 	exists, err := s.entClient.TenantMembership.Query().
 		Where(tenantmembership.UserID(userEntity.ID), tenantmembership.TenantID(tenantEntity.ID)).
 		Exist(ctx)
@@ -95,12 +102,15 @@ func (s *Service) joinTenantAs(ctx context.Context, userEntity *ent.User, tenant
 	if exists {
 		return true, nil
 	}
-	if _, err := s.entClient.TenantMembership.Create().
+	create := s.entClient.TenantMembership.Create().
 		SetUserID(userEntity.ID).
 		SetTenantID(tenantEntity.ID).
 		SetRoles([]string{role}).
-		SetStatus("active").
-		Save(ctx); err != nil {
+		SetStatus("active")
+	if services != nil {
+		create = create.SetServices(services)
+	}
+	if _, err := create.Save(ctx); err != nil {
 		if ent.IsConstraintError(err) {
 			return true, nil
 		}
