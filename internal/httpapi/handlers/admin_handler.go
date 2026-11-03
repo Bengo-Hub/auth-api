@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -11,12 +12,13 @@ import (
 	"time"
 	"unicode"
 
+	sharedevents "github.com/Bengo-Hub/shared-events"
+
 	"github.com/Bengo-Hub/pagination"
 	subscriptionclient "github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
-	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -55,6 +57,8 @@ type AdminHandler struct {
 	tenantBackups *tenantbackup.Service
 	// access decides members' services (member service assignment, S2S ?service= filter).
 	access *access.Resolver
+	// db is the raw handle for the schema-driven tenant purge (tenant_purge.go).
+	db *sql.DB
 }
 
 // SetTenantCache lets tenant updates drop the shared "tenant:<slug>" entry that
@@ -172,6 +176,9 @@ func (h *AdminHandler) requireTenantAdmin(r *http.Request, tenantID uuid.UUID) b
 }
 
 // publishEvent writes a domain event to the outbox for async NATS publishing.
+// SetDB wires the raw database handle used by the tenant purge.
+func (h *AdminHandler) SetDB(db *sql.DB) { h.db = db }
+
 // SetAccessResolver wires the member services resolver.
 func (h *AdminHandler) SetAccessResolver(r *access.Resolver) { h.access = r }
 
@@ -943,22 +950,16 @@ func (h *AdminHandler) DeleteTenant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-
-	// Delete FK-constrained child records before deleting the tenant.
-	if _, err = h.ent.TenantMembership.Delete().
-		Where(tenantmembership.TenantID(id)).Exec(ctx); err != nil {
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to remove tenant memberships", nil)
-		return
-	}
-	if _, err = h.ent.Outlet.Delete().
-		Where(entoutlet.TenantID(id)).Exec(ctx); err != nil {
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to remove tenant outlets", nil)
-		return
-	}
-
-	err = h.ent.Tenant.DeleteOneID(id).Exec(ctx)
+	t, err := h.ent.Tenant.Get(ctx, id)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete tenant", nil)
+		writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
+		return
+	}
+	// A deleted tenant goes from the whole platform, not just auth: purgeTenant removes its
+	// accounts with no other tenant and its auth rows, then tells every service (tenant.purge).
+	if err := h.purgeTenant(ctx, t, sharedevents.PurgeReasonTenantDeleted); err != nil {
+		h.logger.Error("delete tenant: purge failed", zap.String("tenant_id", id.String()), zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete tenant: "+err.Error(), nil)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
@@ -1054,6 +1055,13 @@ func (h *AdminHandler) RejectTenant(w http.ResponseWriter, r *http.Request) {
 	}
 	h.publishTenantLifecycleEvent(r.Context(), t, "rejected", actor)
 	h.notifyFounder(r.Context(), t, "rejected", strings.TrimSpace(req.Reason))
+	// A declined registration is hard deleted from the whole platform (user rule, 2026-11-03),
+	// after the founder has been told: its data and accounts go, every service is told.
+	if err := h.purgeTenant(r.Context(), t, sharedevents.PurgeReasonRegistrationRejected); err != nil {
+		h.logger.Error("reject tenant: purge failed", zap.String("tenant_id", id.String()), zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "tenant rejected but not deleted: "+err.Error(), nil)
+		return
+	}
 	writeJSON(w, http.StatusOK, t)
 }
 

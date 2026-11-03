@@ -185,6 +185,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger)
 	adminHandler.SetTenantCache(redisClient)
 	adminHandler.SetAccessResolver(accessResolver)
+	adminHandler.SetDB(sqlDB)
 	// Tenant logos and service icons on the shared object storage (httpware/objectstore). Logos
 	// still inline as data: URIs are moved once in the background (a no-op once none remain).
 	mediaStore, err := objectstore.New("auth", objectstore.FromEnv())

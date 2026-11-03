@@ -11,20 +11,10 @@ import (
 	"entgo.io/ent/dialect/sql/sqljson"
 	"github.com/Bengo-Hub/httpware/objectstore"
 	"github.com/Bengo-Hub/pagination"
-	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
-	"github.com/bengobox/auth-api/internal/ent/consentsession"
-	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
-	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
-	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
-	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
-	"github.com/bengobox/auth-api/internal/ent/useremail"
-	"github.com/bengobox/auth-api/internal/ent/useridentity"
-	"github.com/bengobox/auth-api/internal/ent/userphone"
-	"github.com/bengobox/auth-api/internal/ent/webauthncredential"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/password"
 	"github.com/bengobox/auth-api/internal/pkg/imageutil"
@@ -523,54 +513,10 @@ func (h *UserHandler) AdminPurgeUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cascades := []func() error{
-		func() error { _, e := tx.Session.Delete().Where(session.UserID(userID)).Exec(ctx); return e },
-		func() error {
-			_, e := tx.PasswordResetToken.Delete().Where(passwordresettoken.UserID(userID)).Exec(ctx)
-			return e
-		},
-		func() error { _, e := tx.UserIdentity.Delete().Where(useridentity.UserID(userID)).Exec(ctx); return e },
-		func() error {
-			_, e := tx.AuthorizationCode.Delete().Where(authorizationcode.UserID(userID)).Exec(ctx)
-			return e
-		},
-		func() error {
-			_, e := tx.MFATOTPSecret.Delete().Where(mfatotpsecret.UserID(userID)).Exec(ctx)
-			return e
-		},
-		func() error {
-			_, e := tx.MFABackupCode.Delete().Where(mfabackupcode.UserID(userID)).Exec(ctx)
-			return e
-		},
-		func() error {
-			_, e := tx.WebAuthnCredential.Delete().Where(webauthncredential.UserID(userID)).Exec(ctx)
-			return e
-		},
-		func() error { _, e := tx.UserEmail.Delete().Where(useremail.UserID(userID)).Exec(ctx); return e },
-		func() error { _, e := tx.UserPhone.Delete().Where(userphone.UserID(userID)).Exec(ctx); return e },
-		func() error { _, e := tx.MFASettings.Delete().Where(mfasettings.UserID(userID)).Exec(ctx); return e },
-		func() error {
-			_, e := tx.ConsentSession.Delete().Where(consentsession.UserID(userID)).Exec(ctx)
-			return e
-		},
-		func() error {
-			_, e := tx.TenantMembership.Delete().Where(tenantmembership.UserID(userID)).Exec(ctx)
-			return e
-		},
-	}
-	for _, cascade := range cascades {
-		if cErr := cascade(); cErr != nil {
-			_ = tx.Rollback()
-			h.logger.Error("purge user: cascade delete failed", zap.String("user_id", userID.String()), zap.Error(cErr))
-			writeError(w, http.StatusInternalServerError, "server_error", "failed to purge related data", nil)
-			return
-		}
-	}
-
-	if err := tx.User.DeleteOneID(userID).Exec(ctx); err != nil {
+	if err := deleteUserTx(ctx, tx, userID); err != nil {
 		_ = tx.Rollback()
-		h.logger.Error("purge user: delete user row failed", zap.String("user_id", userID.String()), zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete user", nil)
+		h.logger.Error("purge user: delete failed", zap.String("user_id", userID.String()), zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to purge user", nil)
 		return
 	}
 

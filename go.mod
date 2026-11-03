@@ -8,7 +8,7 @@ require (
 	github.com/Bengo-Hub/cache v0.5.2
 	github.com/Bengo-Hub/httpware v0.16.0
 	github.com/Bengo-Hub/pagination v0.3.0
-	github.com/Bengo-Hub/shared-events v0.7.0
+	github.com/Bengo-Hub/shared-events v0.10.0
 	github.com/Bengo-Hub/shared-password-hasher v0.1.1
 	github.com/Bengo-Hub/shared-ratelimit v0.2.1
 	github.com/Bengo-Hub/shared-service-client v0.3.1
