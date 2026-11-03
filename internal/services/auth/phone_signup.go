@@ -12,6 +12,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
+	"github.com/bengobox/auth-api/internal/ent/userphone"
 )
 
 // Phone self-signup (platform task A1, Hadia SRDD FR-01). A tenant opts in through its metadata;
@@ -24,17 +25,41 @@ import (
 //     honoured and "customer" is the default.
 //   - self_signup_services ([]string): the services granted to the new member
 //     (TenantMembership.services, the user_services claim within the plan), e.g. ["hadia"].
+//   - signup_otp_per_minute (number): codes per minute the tenant sends to phones that may sign
+//     up, across all numbers (default 30). Member sign-in codes are not counted.
+//   - signup_phone_prefixes ([]string): when set, only numbers starting with one of them may sign
+//     up, e.g. ["+254"].
 const (
 	tenantPhoneSelfSignupKey    = "phone_self_signup"
 	tenantSelfSignupRoleKey     = "self_signup_role"
 	tenantSelfSignupServicesKey = "self_signup_services"
+	tenantSignupPerMinuteKey    = "signup_otp_per_minute"
+	tenantSignupPrefixesKey     = "signup_phone_prefixes"
 	defaultPhoneSignupRole      = "customer"
+	defaultSignupPerMinute      = 30
 )
 
 // PhoneSignupPolicy is a tenant's phone self-signup setting.
 type PhoneSignupPolicy struct {
 	Role     string
 	Services []string
+	// PerMinute is the tenant's budget of signup codes per minute.
+	PerMinute int
+	// Prefixes limit which numbers may sign up; empty allows every number.
+	Prefixes []string
+}
+
+// AllowsPhone reports whether the policy's country allow-list admits phone.
+func (p PhoneSignupPolicy) AllowsPhone(phone string) bool {
+	if len(p.Prefixes) == 0 {
+		return true
+	}
+	for _, pre := range p.Prefixes {
+		if strings.HasPrefix(phone, pre) {
+			return true
+		}
+	}
+	return false
 }
 
 // TenantPhoneSignupPolicy reads the tenant's opt-in. ok=false means phone self-signup is off.
@@ -51,7 +76,20 @@ func TenantPhoneSignupPolicy(t *ent.Tenant) (PhoneSignupPolicy, bool) {
 	if role == "" || role == "member" || !IsSelfServiceRole(role) {
 		role = defaultPhoneSignupRole
 	}
-	return PhoneSignupPolicy{Role: role, Services: metadataStrings(t.Metadata[tenantSelfSignupServicesKey])}, true
+	perMinute := defaultSignupPerMinute
+	if n, ok := t.Metadata[tenantSignupPerMinuteKey].(float64); ok && n >= 1 {
+		perMinute = int(n)
+	} else if n, ok := t.Metadata[tenantSignupPerMinuteKey].(int); ok && n >= 1 {
+		perMinute = n
+	}
+	var prefixes []string
+	for _, p := range metadataStrings(t.Metadata[tenantSignupPrefixesKey]) {
+		if strings.HasPrefix(p, "+") {
+			prefixes = append(prefixes, p)
+		}
+	}
+	return PhoneSignupPolicy{Role: role, Services: metadataStrings(t.Metadata[tenantSelfSignupServicesKey]),
+		PerMinute: perMinute, Prefixes: prefixes}, true
 }
 
 // metadataStrings reads a JSON string list ([]any after decoding, or []string when set in code).
@@ -89,6 +127,13 @@ func signupTarget(t *ent.Tenant, phone string, policy PhoneSignupPolicy, existin
 	return &PhoneLoginTarget{User: existing, Tenant: t, Phone: phone, Signup: &policy}
 }
 
+// claimablePhone reports whether a phone row may be taken over by the person who proves the
+// number: added to some account but never verified and never made primary. Anyone can attach any
+// number to their account without proof, so such a row must not lock the real holder out.
+func claimablePhone(up *ent.UserPhone) bool {
+	return up != nil && !up.IsVerified && !up.IsPrimary && up.VerifiedAt == nil
+}
+
 // completePhoneSignup turns a verified signup target into a member: a new phone-only account when
 // the phone is on none, then the membership with the tenant's role and services. It runs only
 // after the code check, so an unverified number never creates anything.
@@ -98,7 +143,7 @@ func (s *Service) completePhoneSignup(ctx context.Context, target *PhoneLoginTar
 		return ErrInvalidCredentials
 	}
 	if target.User == nil {
-		u, err := s.createPhoneOnlyUser(ctx, target.Tenant, target.Phone)
+		u, err := s.createPhoneOnlyUser(ctx, target.Tenant, target.Phone, target.ClaimPhoneID)
 		if err != nil {
 			return err
 		}
@@ -114,7 +159,7 @@ func (s *Service) completePhoneSignup(ctx context.Context, target *PhoneLoginTar
 // createPhoneOnlyUser creates the account and its verified primary phone in one transaction, so a
 // failure never leaves an account without the phone that signs it in. The password stays empty:
 // the account signs in by phone code (or a password set later through reset).
-func (s *Service) createPhoneOnlyUser(ctx context.Context, t *ent.Tenant, phone string) (*ent.User, error) {
+func (s *Service) createPhoneOnlyUser(ctx context.Context, t *ent.Tenant, phone string, claim *uuid.UUID) (*ent.User, error) {
 	email := PhonePlaceholderEmail(phone)
 	if taken, err := s.entClient.User.Query().Where(user.EmailEQ(email)).Exist(ctx); err != nil {
 		return nil, err
@@ -126,6 +171,17 @@ func (s *Service) createPhoneOnlyUser(ctx context.Context, t *ent.Tenant, phone 
 	tx, err := s.entClient.Tx(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if claim != nil {
+		// The unproven row goes in the same transaction, and only if it is still unproven.
+		n, err := tx.UserPhone.Delete().Where(userphone.ID(*claim), userphone.PhoneEQ(phone),
+			userphone.IsVerifiedEQ(false), userphone.IsPrimaryEQ(false)).Exec(ctx)
+		if err != nil || n != 1 {
+			_ = tx.Rollback()
+			return nil, ErrInvalidCredentials
+		}
+		s.logger.Info("phone self-signup: unverified phone row claimed by the proven holder",
+			zap.String("tenant", t.Slug), zap.String("phone", maskPhone(phone)))
 	}
 	now := time.Now()
 	u, err := tx.User.Create().

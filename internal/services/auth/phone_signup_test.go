@@ -16,8 +16,10 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
+	"github.com/pquerna/otp/totp"
 	"go.uber.org/zap"
 
+	"github.com/bengobox/auth-api/internal/audit"
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/enttest"
@@ -105,7 +107,9 @@ func newPhoneSignupTestService(t *testing.T) (*Service, *ent.Client, *token.Serv
 		t.Fatalf("token service: %v", err)
 	}
 	cfg := &config.Config{Token: tcfg}
-	s := New(Dependencies{EntClient: client, TokenSvc: tokens, Config: cfg, Logger: zap.NewNop()})
+	cfg.Security.OAuthStateSecret = "test-state-secret-0123456789abcdef"
+	s := New(Dependencies{EntClient: client, TokenSvc: tokens, Config: cfg, Logger: zap.NewNop(),
+		Auditor: audit.New(client, zap.NewNop())})
 	// No subscription client: every tenant counts as not gated by a plan, so the member's
 	// assigned services pass through to the claim unchanged.
 	s.SetAccessResolver(access.New(client, nil))
@@ -234,4 +238,125 @@ func TestPhoneSelfSignup(t *testing.T) {
 			t.Fatalf("got %v", err)
 		}
 	})
+}
+
+// Review M1: anyone can attach any number to their account without proof. Such a row (never
+// verified, never primary) must not lock the real holder out: the holder who proves the number
+// signs up and the unproven row goes in the same transaction. A primary row stays.
+func TestPhoneSelfSignupClaimsUnprovenPhone(t *testing.T) {
+	s, client, _ := newPhoneSignupTestService(t)
+	ctx := context.Background()
+	suffix := uuid.NewString()[:8]
+	tn, err := client.Tenant.Create().SetName("hadia").SetSlug("hadia-" + suffix).SetStatus("active").
+		SetMetadata(map[string]any{"phone_self_signup": true, "self_signup_services": []any{"hadia"}}).Save(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	squatter, _ := client.User.Create().SetEmail("squat-" + suffix + "@mail.test").SetStatus("active").Save(ctx)
+	const phone = "+254722000001"
+	if _, err := s.AddUserPhone(ctx, squatter.ID, phone); err != nil {
+		t.Fatal(err)
+	}
+	target, err := s.FindPhoneLoginTarget(ctx, tn.Slug, phone)
+	if err != nil || target.Signup == nil || target.User != nil || target.ClaimPhoneID == nil {
+		t.Fatalf("claim target: %+v %v", target, err)
+	}
+	res, err := s.LoginWithPhoneOTP(ctx, target, "hadia-ui", "", "")
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	up, err := client.UserPhone.Query().Where(userphone.PhoneEQ(phone)).Only(ctx)
+	if err != nil || up.UserID != res.User.ID || up.UserID == squatter.ID || !up.IsVerified {
+		t.Fatalf("phone row after claim: %+v %v", up, err)
+	}
+
+	// A primary row is the account's own sign-in number: never claimed.
+	owner, _ := client.User.Create().SetEmail("primary-" + suffix + "@mail.test").SetStatus("active").Save(ctx)
+	if _, err := client.UserPhone.Create().SetUserID(owner.ID).SetPhone("+254722000002").SetIsPrimary(true).Save(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.FindPhoneLoginTarget(ctx, tn.Slug, "+254722000002"); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("primary unverified row: %v", err)
+	}
+}
+
+// Review M2: the country allow-list keeps signup codes to the listed prefixes; members anywhere
+// still sign in.
+func TestPhoneSelfSignupPrefixAllowList(t *testing.T) {
+	s, client, _ := newPhoneSignupTestService(t)
+	ctx := context.Background()
+	suffix := uuid.NewString()[:8]
+	tn, _ := client.Tenant.Create().SetName("hadia").SetSlug("hadia-" + suffix).SetStatus("active").
+		SetMetadata(map[string]any{"phone_self_signup": true, "signup_phone_prefixes": []any{"+254"}}).Save(ctx)
+	if target, err := s.FindPhoneLoginTarget(ctx, tn.Slug, "+254733000001"); err != nil || target.Signup == nil {
+		t.Fatalf("listed prefix: %+v %v", target, err)
+	}
+	if _, err := s.FindPhoneLoginTarget(ctx, tn.Slug, "+447700900001"); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("unlisted prefix: %v", err)
+	}
+	u, _ := client.User.Create().SetEmail("uk-" + suffix + "@mail.test").SetStatus("active").Save(ctx)
+	_, _ = client.UserPhone.Create().SetUserID(u.ID).SetPhone("+447700900002").SetIsPrimary(true).Save(ctx)
+	_, _ = client.TenantMembership.Create().SetUserID(u.ID).SetTenantID(tn.ID).SetRoles([]string{"hadia_support"}).SetStatus("active").Save(ctx)
+	if target, err := s.FindPhoneLoginTarget(ctx, tn.Slug, "+447700900002"); err != nil || target.Signup != nil {
+		t.Fatalf("member outside the list: %+v %v", target, err)
+	}
+}
+
+// Review L7: an account with an authenticator app that joins by phone code gets the membership
+// once the authenticator code passes, end to end through the MFA challenge.
+func TestPhoneSelfSignupJoinWithMFA(t *testing.T) {
+	s, client, tokens := newPhoneSignupTestService(t)
+	ctx := context.Background()
+	suffix := uuid.NewString()[:8]
+	tn, _ := client.Tenant.Create().SetName("hadia").SetSlug("hadia-" + suffix).SetStatus("active").
+		SetMetadata(map[string]any{"phone_self_signup": true, "self_signup_services": []any{"hadia"}}).Save(ctx)
+	u, _ := client.User.Create().SetEmail("mfa-" + suffix + "@mail.test").SetStatus("active").Save(ctx)
+	const phone = "+254744000001"
+	_, _ = client.UserPhone.Create().SetUserID(u.ID).SetPhone(phone).SetIsPrimary(true).SetIsVerified(true).Save(ctx)
+	key, err := totp.Generate(totp.GenerateOpts{Issuer: "test", AccountName: "mfa"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.MFATOTPSecret.Create().SetUserID(u.ID).SetSecret(key.Secret()).SetEnabledAt(time.Now()).Save(ctx); err != nil {
+		t.Fatal(err)
+	}
+	target, err := s.FindPhoneLoginTarget(ctx, tn.Slug, phone)
+	if err != nil || target.Signup == nil || target.User == nil {
+		t.Fatalf("join target: %+v %v", target, err)
+	}
+	challenge, err := s.PhoneMFAChallenge(target, "hadia-ui")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CompleteSocialMFA(ctx, SocialMFAInput{Challenge: challenge, Code: "000000"}); !errors.Is(err, ErrMFACodeInvalid) {
+		t.Fatalf("wrong code: %v", err)
+	}
+	if ok, _ := client.TenantMembership.Query().Where(tenantmembership.UserID(u.ID), tenantmembership.TenantID(tn.ID)).Exist(ctx); ok {
+		t.Fatal("a wrong authenticator code created the membership")
+	}
+	code, _ := totp.GenerateCode(key.Secret(), time.Now())
+	res, err := s.CompleteSocialMFA(ctx, SocialMFAInput{Challenge: challenge, Code: code})
+	if err != nil {
+		t.Fatalf("mfa: %v", err)
+	}
+	m, err := client.TenantMembership.Query().Where(tenantmembership.UserID(u.ID), tenantmembership.TenantID(tn.ID)).Only(ctx)
+	if err != nil || strings.Join(m.Services, ",") != "hadia" {
+		t.Fatalf("membership after mfa: %+v %v", m, err)
+	}
+	claims, err := tokens.Parse(res.AccessToken)
+	if err != nil || strings.Join(claims.UserServices, ",") != "hadia" {
+		t.Fatalf("token: %v %v", claims, err)
+	}
+}
+
+func TestPhoneSignupPolicyBudgetAndPrefixes(t *testing.T) {
+	p, _ := TenantPhoneSignupPolicy(&ent.Tenant{Metadata: map[string]any{"phone_self_signup": true}})
+	if p.PerMinute != 30 || len(p.Prefixes) != 0 || !p.AllowsPhone("+447700900000") {
+		t.Fatalf("defaults: %+v", p)
+	}
+	p, _ = TenantPhoneSignupPolicy(&ent.Tenant{Metadata: map[string]any{"phone_self_signup": true,
+		"signup_otp_per_minute": float64(5), "signup_phone_prefixes": []any{"+254", "255"}}})
+	if p.PerMinute != 5 || strings.Join(p.Prefixes, ",") != "+254" || p.AllowsPhone("+255700000000") || !p.AllowsPhone("+254700000000") {
+		t.Fatalf("set: %+v", p)
+	}
 }

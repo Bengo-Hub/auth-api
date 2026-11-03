@@ -47,13 +47,22 @@ func (h *AuthHandler) RequestPhoneOTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_phone", "Enter the phone number with its country code.", nil)
 		return
 	}
-	if !h.allowCodeSend(r.Context(), h.phoneOTPKey(req.TenantSlug, phone)+":rate") {
+	allowed, rateErr := h.codeSendAllowed(r.Context(), h.phoneOTPKey(req.TenantSlug, phone)+":rate")
+	if !allowed {
 		writeError(w, http.StatusTooManyRequests, "rate_limited", "Too many codes requested. Please try again later.", nil)
 		return
 	}
 	accepted := map[string]any{"sent": true, "expires_in": int(phoneOTPTTL.Seconds())}
 	target, err := h.service.FindPhoneLoginTarget(r.Context(), req.TenantSlug, phone)
 	if err != nil {
+		writeJSON(w, http.StatusOK, accepted)
+		return
+	}
+	// A phone that may sign up costs a message to a number no account holds, so it fails closed
+	// when Redis cannot count, and the tenant has a budget per minute. The answer stays the same.
+	if target.Signup != nil && (rateErr != nil || !h.signupSendAllowed(r.Context(), target.Tenant.ID.String(), target.Signup.PerMinute)) {
+		h.logger.Warn("phone signup: code not sent (budget or rate store)", zap.String("tenant", target.Tenant.Slug),
+			zap.Bool("rate_store_error", rateErr != nil))
 		writeJSON(w, http.StatusOK, accepted)
 		return
 	}

@@ -43,7 +43,8 @@ func (s *Service) socialMFARequired(ctx context.Context, userID uuid.UUID) bool 
 // authenticator app: the phone code replaced the password, and the person now confirms the
 // authenticator code on the same page social sign-ins use (/auth/mfa, POST /auth/oauth/mfa/verify).
 func (s *Service) PhoneMFAChallenge(target *PhoneLoginTarget, clientID string) (string, error) {
-	res, err := s.socialMFAResult(target.User, target.Tenant, &state.Payload{TenantSlug: target.Tenant.Slug, ClientID: clientID})
+	res, err := s.socialMFAResult(target.User, target.Tenant, &state.Payload{TenantSlug: target.Tenant.Slug, ClientID: clientID,
+		PhoneSignup: target.Signup != nil})
 	if err != nil {
 		return "", err
 	}
@@ -54,13 +55,14 @@ func (s *Service) PhoneMFAChallenge(target *PhoneLoginTarget, clientID string) (
 // MFA: no tokens, only a short-lived signed challenge the browser exchanges with the code.
 func (s *Service) socialMFAResult(userEntity *ent.User, tenantEntity *ent.Tenant, payload *state.Payload) (*AuthResult, error) {
 	challenge, err := state.Encode(s.cfg.Security.OAuthStateSecret, state.Payload{
-		TenantSlug: tenantEntity.Slug,
-		ClientID:   payload.ClientID,
-		Flow:       defaultFlow(payload.Flow),
-		Nonce:      randomNonce(),
-		ReturnTo:   payload.ReturnTo,
-		Purpose:    state.PurposeSocialMFA,
-		UserID:     userEntity.ID.String(),
+		TenantSlug:  tenantEntity.Slug,
+		ClientID:    payload.ClientID,
+		Flow:        defaultFlow(payload.Flow),
+		Nonce:       randomNonce(),
+		ReturnTo:    payload.ReturnTo,
+		Purpose:     state.PurposeSocialMFA,
+		UserID:      userEntity.ID.String(),
+		PhoneSignup: payload.PhoneSignup,
 	}, socialMFAChallengeTTL)
 	if err != nil {
 		return nil, fmt.Errorf("encode social mfa challenge: %w", err)
@@ -117,8 +119,15 @@ func (s *Service) CompleteSocialMFA(ctx context.Context, in SocialMFAInput) (*Au
 	if err != nil {
 		return nil, fmt.Errorf("check tenant membership: %w", err)
 	}
+	// A phone self-signup join has no membership yet: it is created after the code passes, and
+	// only while the tenant still allows phone self-signup.
+	var joinPolicy *PhoneSignupPolicy
 	if !member {
-		return nil, ErrTenantMembershipRequired
+		policy, on := TenantPhoneSignupPolicy(tenantEntity)
+		if !payload.PhoneSignup || !on {
+			return nil, ErrTenantMembershipRequired
+		}
+		joinPolicy = &policy
 	}
 
 	rec, err := s.entClient.MFATOTPSecret.Query().
@@ -132,6 +141,11 @@ func (s *Service) CompleteSocialMFA(ctx context.Context, in SocialMFAInput) (*Au
 	if code == "" || !totp.Validate(code, rec.Secret) {
 		s.auditSecurityEvent(ctx, userEntity, tenantEntity, "auth.oauth.mfa.failed", map[string]any{"reason": "bad_code"}, in.IPAddress, in.UserAgent)
 		return nil, ErrMFACodeInvalid
+	}
+	if joinPolicy != nil {
+		if err := s.completePhoneSignup(ctx, &PhoneLoginTarget{User: userEntity, Tenant: tenantEntity, Signup: joinPolicy}); err != nil {
+			return nil, err
+		}
 	}
 
 	result, err := s.issueSession(ctx, issueSessionInput{

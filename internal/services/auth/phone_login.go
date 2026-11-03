@@ -29,6 +29,9 @@ type PhoneLoginTarget struct {
 	// Signup is set when the tenant's phone self-signup admits the phone: the membership (and,
 	// with User nil, the account) is created once the code is verified.
 	Signup *PhoneSignupPolicy
+	// ClaimPhoneID is an unverified phone row on another account that the proven holder takes
+	// over when the code is verified (see claimablePhone).
+	ClaimPhoneID *uuid.UUID
 }
 
 // FindPhoneLoginTarget resolves an E.164 phone to an active member of the tenant. Returns
@@ -48,6 +51,9 @@ func (s *Service) FindPhoneLoginTarget(ctx context.Context, tenantSlug, phone st
 		return miss("tenant not found or inactive")
 	}
 	policy, signupOn := TenantPhoneSignupPolicy(t)
+	if signupOn && !policy.AllowsPhone(phone) {
+		signupOn = false
+	}
 	up, err := s.entClient.UserPhone.Query().Where(userphone.PhoneEQ(phone)).WithUser().Only(ctx)
 	if ent.IsNotFound(err) && signupOn {
 		return signupTarget(t, phone, policy, nil), nil
@@ -65,6 +71,13 @@ func (s *Service) FindPhoneLoginTarget(ctx context.Context, tenantSlug, phone st
 		if any, aErr := s.hasAnyMembership(ctx, up.UserID, t.ID); aErr == nil && !any {
 			return signupTarget(t, phone, policy, up.Edges.User), nil
 		}
+	}
+	if err == nil && !member && signupOn && claimablePhone(up) {
+		// Never proven on the account that holds it: the person who proves it gets a new account.
+		target := signupTarget(t, phone, policy, nil)
+		id := up.ID
+		target.ClaimPhoneID = &id
+		return target, nil
 	}
 	if err != nil || !member {
 		return miss("account holding the phone is not an active member of the tenant")

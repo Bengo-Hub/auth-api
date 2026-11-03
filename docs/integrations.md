@@ -468,6 +468,16 @@ r.Use(authMiddleware.RequireAuth)
   the standard token pair. A verified phone on an account from another tenant joins the tenant the
   same way; an unverified phone, and a membership in any other status (suspended, removed), still
   get the neutral answer. `/request` answers `{sent: true}` in every case.
+- Abuse controls (review 2026-11-04): `signup_otp_per_minute` (default 30) caps codes per
+  minute the tenant sends to phones that may sign up, across all numbers, and that count and the
+  per-number count fail closed when Redis errors (the answer stays `{sent: true}`, nothing is
+  sent); member sign-in codes are unchanged. `signup_phone_prefixes` (Hadia: `["+254"]`) limits
+  which numbers may sign up. A phone row that was attached to some account without proof (never
+  verified, never primary) does not lock the real holder out: once the holder proves the number,
+  a new account takes it and the unproven row is deleted in the same transaction.
+- An existing account with an authenticator app that joins by phone code gets the 403
+  `mfa_required` challenge, marked `phone_signup`; `POST /auth/oauth/mfa/verify` creates the
+  membership after the authenticator code passes, while the tenant still allows self-signup.
 - Owner routes in hadia-api also need the tenant's plan to carry the `hadia` service tag
   (`RequireServiceAccess("hadia")` reads the plan tags); that plan is subscriptions-api task P1.
 - Staff roles `hadia_admin`, `hadia_finance`, `hadia_support` (scope `hadia`) are seeded with

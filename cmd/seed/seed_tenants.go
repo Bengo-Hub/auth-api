@@ -42,6 +42,9 @@ var hadiaTenantSpec = tenantSpec{
 		"phone_self_signup":    true,
 		"self_signup_role":     "customer",
 		"self_signup_services": []string{"hadia"},
+		// Kenyan numbers only, and at most 30 signup codes a minute across all numbers.
+		"signup_phone_prefixes": []string{"+254"},
+		"signup_otp_per_minute": 30,
 	},
 }
 

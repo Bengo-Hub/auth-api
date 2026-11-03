@@ -82,9 +82,30 @@ return n`)
 // allowCodeSend reports whether another code may be sent for rateKey. It allows the send when
 // Redis errors, matching the previous behavior (the send path itself needs Redis anyway).
 func (h *AuthHandler) allowCodeSend(ctx context.Context, rateKey string) bool {
+	ok, _ := h.codeSendAllowed(ctx, rateKey)
+	return ok
+}
+
+// codeSendAllowed is allowCodeSend with the Redis error, for callers that must fail closed
+// (phone self-signup sends to numbers no account holds yet).
+func (h *AuthHandler) codeSendAllowed(ctx context.Context, rateKey string) (bool, error) {
 	n, err := sendCounterScript.Run(ctx, h.redis, []string{rateKey}, codeSendWindowSeconds).Int()
 	if err != nil {
-		return true
+		return true, err
 	}
-	return n <= maxCodeSends
+	return n <= maxCodeSends, nil
+}
+
+// signupBudgetScript counts sends in a fixed one-minute window per tenant.
+var signupBudgetScript = redis.NewScript(`
+local n = redis.call("INCR", KEYS[1])
+if n == 1 then redis.call("EXPIRE", KEYS[1], 60) end
+return n`)
+
+// signupSendAllowed is the per-tenant budget for codes to phones that may sign up (tenant
+// metadata signup_otp_per_minute). It fails closed: a Redis error sends nothing.
+func (h *AuthHandler) signupSendAllowed(ctx context.Context, tenantID string, perMinute int) bool {
+	key := h.redisNamespace + ":phone_signup:budget:" + tenantID
+	n, err := signupBudgetScript.Run(ctx, h.redis, []string{key}).Int()
+	return err == nil && n <= perMinute
 }

@@ -27,6 +27,9 @@ type Payload struct {
 	Purpose string `json:"purpose,omitempty"`
 	// UserID is set only on a social MFA challenge: who has passed the provider step.
 	UserID string `json:"user_id,omitempty"`
+	// PhoneSignup marks a phone-code MFA challenge whose person is joining the tenant through
+	// phone self-signup: the membership is created once the authenticator code passes.
+	PhoneSignup bool `json:"phone_signup,omitempty"`
 }
 
 // PurposeSocialMFA marks a challenge token issued while a social sign-in awaits the MFA code.
@@ -48,6 +51,7 @@ func Encode(secret string, payload Payload, ttl time.Duration) (string, error) {
 		"defaulted":    payload.Defaulted,
 		"purpose":      payload.Purpose,
 		"user_id":      payload.UserID,
+		"phone_signup": payload.PhoneSignup,
 		"iat":          now.Unix(),
 		"exp":          now.Add(ttl).Unix(),
 	}
@@ -85,6 +89,7 @@ func Decode(secret string, token string) (*Payload, error) {
 		ReturnTo:    claimString(claims, "return_to"),
 		Purpose:     claimString(claims, "purpose"),
 		UserID:      claimString(claims, "user_id"),
+		PhoneSignup: claims["phone_signup"] == true,
 	}
 	if d, ok := claims["defaulted"].(bool); ok {
 		payload.Defaulted = d

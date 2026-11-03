@@ -21,16 +21,22 @@ import (
 // (phone self-signup on), tenant "closed" refuses them like any miss.
 type phoneSignupFakeService struct {
 	AuthService
-	sent   []*auth.PhoneLoginTarget
-	logins []*auth.PhoneLoginTarget
+	sent      []*auth.PhoneLoginTarget
+	logins    []*auth.PhoneLoginTarget
+	perMinute int
 }
 
+var openTenant = uuid.New()
+
 func (f *phoneSignupFakeService) FindPhoneLoginTarget(_ context.Context, slug, phone string) (*auth.PhoneLoginTarget, error) {
+	if slug == "member" {
+		return &auth.PhoneLoginTarget{User: &ent.User{ID: uuid.New()}, Tenant: &ent.Tenant{ID: uuid.New(), Slug: slug}, Phone: phone}, nil
+	}
 	if slug != "open" {
 		return nil, auth.ErrInvalidCredentials
 	}
-	return &auth.PhoneLoginTarget{Tenant: &ent.Tenant{ID: uuid.New(), Slug: slug}, Phone: phone,
-		Signup: &auth.PhoneSignupPolicy{Role: "customer", Services: []string{"hadia"}}}, nil
+	return &auth.PhoneLoginTarget{Tenant: &ent.Tenant{ID: openTenant, Slug: slug}, Phone: phone,
+		Signup: &auth.PhoneSignupPolicy{Role: "customer", Services: []string{"hadia"}, PerMinute: f.perMinute}}, nil
 }
 
 func (f *phoneSignupFakeService) SendPhoneOTP(_ context.Context, t *auth.PhoneLoginTarget, _ string, _ time.Duration, _ string) {
@@ -55,7 +61,7 @@ func phoneOTPPost(h http.HandlerFunc, body string) *httptest.ResponseRecorder {
 
 func TestPhoneSelfSignupHandlers(t *testing.T) {
 	mr := miniredis.RunT(t)
-	svc := &phoneSignupFakeService{}
+	svc := &phoneSignupFakeService{perMinute: 100}
 	h := &AuthHandler{service: svc, logger: zap.NewNop(), redis: redis.NewClient(&redis.Options{Addr: mr.Addr()}), redisNamespace: "test"}
 
 	open := phoneOTPPost(h.RequestPhoneOTP, `{"tenant_slug":"open","phone":"+254711000001"}`)
@@ -98,4 +104,34 @@ func TestPhoneSelfSignupHandlers(t *testing.T) {
 			t.Fatalf("over the cap: %d, want 429", rec.Code)
 		}
 	})
+}
+
+// Review M2: signup codes have a per-tenant budget per minute and fail closed when Redis cannot
+// count; member sign-in codes are unchanged. Every answer stays the same.
+func TestPhoneSignupBudgetAndFailClosed(t *testing.T) {
+	mr := miniredis.RunT(t)
+	svc := &phoneSignupFakeService{perMinute: 2}
+	h := &AuthHandler{service: svc, logger: zap.NewNop(), redis: redis.NewClient(&redis.Options{Addr: mr.Addr()}), redisNamespace: "test"}
+	for i, p := range []string{"+254711000021", "+254711000022", "+254711000023"} {
+		rec := phoneOTPPost(h.RequestPhoneOTP, `{"tenant_slug":"open","phone":"`+p+`"}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("request %d: %d", i+1, rec.Code)
+		}
+	}
+	if len(svc.sent) != 2 {
+		t.Fatalf("sent %d signup codes, want the budget of 2", len(svc.sent))
+	}
+
+	mr.Close() // Redis away
+	before := len(svc.sent)
+	if rec := phoneOTPPost(h.RequestPhoneOTP, `{"tenant_slug":"open","phone":"+254711000024"}`); rec.Code != http.StatusOK {
+		t.Fatalf("signup with redis down: %d", rec.Code)
+	}
+	if len(svc.sent) != before {
+		t.Fatal("a signup code was sent without the rate store")
+	}
+	// A member sign-in goes on to the send step as before (the code store then answers 503).
+	if rec := phoneOTPPost(h.RequestPhoneOTP, `{"tenant_slug":"member","phone":"+254711000025"}`); rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("member with redis down: %d", rec.Code)
+	}
 }
