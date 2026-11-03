@@ -447,7 +447,10 @@ r.Use(authMiddleware.RequireAuth)
 
 **Integration Type**: OAuth2/OIDC (PKCE) + phone code sign-in with self-signup + S2S role push
 
-- Tenant `hadia` (`hadiafrica.com`), public client `hadia-ui` with redirect URIs
+- Tenant `hadia` (`hadiafrica.com`) is seeded only when `SEED_HADIA_TENANT=true`
+  (`cmd/seed/seed_tenants.go`). The seed runs on every deploy and this tenant turns on phone
+  self-signup, so production leaves the flag off until Hadia goes live; local and staging set it.
+- Public client `hadia-ui` with redirect URIs
   `https://hadiafrica.com/auth/callback`, `https://staging.hadiafrica.com/auth/callback` and
   `http://localhost:3030/auth/callback` (seed, `cmd/seed/seed_users.go`).
 - Phone self-signup (platform task A1): the same `/api/v1/auth/phone/otp/request` and `/verify`

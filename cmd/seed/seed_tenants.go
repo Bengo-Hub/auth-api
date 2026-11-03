@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/bengobox/auth-api/internal/ent"
 	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
@@ -27,6 +29,28 @@ type tenantSpec struct {
 	brandColors     map[string]any
 	// metadata holds extra keys the seed enforces on every run (merged over the stored metadata).
 	metadata map[string]any
+}
+
+// hadiaTenantSpec is the Hadia gift registry tenant (hadia-api, hadia-ui). Registry owners sign
+// up with a phone code (platform task A1): a verified new phone becomes a "customer" member
+// granted the hadia service. Staff roles come from hadia-api's role push (seedRolesCatalogue seeds
+// the same codes). Its plan with the hadia service tag is subscriptions-api P1.
+var hadiaTenantSpec = tenantSpec{
+	name: "Hadia", slug: "hadia", baseDomain: "hadiafrica.com",
+	website: "https://hadiafrica.com", contactEmail: "info@hadiafrica.com",
+	metadata: map[string]any{
+		"phone_self_signup":    true,
+		"self_signup_role":     "customer",
+		"self_signup_services": []string{"hadia"},
+	},
+}
+
+// seedHadiaTenant reports whether the Hadia tenant is seeded. The seed runs on every auth-api
+// deploy, and this tenant turns on phone self-signup, so it stays out of production until Hadia
+// goes live (go-live step 8): set SEED_HADIA_TENANT=true then. Local and staging seeds set it too.
+func seedHadiaTenant() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("SEED_HADIA_TENANT")))
+	return v == "true" || v == "1"
 }
 
 // tenantRef is a lightweight reference returned after seeding tenants.
@@ -95,19 +119,9 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			contactEmail: "demo@codevertexafrica.com",
 			brandColors:  map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
 		},
-		{
-			// Hadia gift registry (hadia-api, hadia-ui). Registry owners sign up with a phone code
-			// (platform task A1): a verified new phone becomes a "customer" member granted the
-			// hadia service. Staff roles come from hadia-api's role push (seedRolesCatalogue
-			// seeds the same codes). Its plan with the hadia service tag is subscriptions-api P1.
-			name: "Hadia", slug: "hadia", baseDomain: "hadiafrica.com",
-			website: "https://hadiafrica.com", contactEmail: "info@hadiafrica.com",
-			metadata: map[string]any{
-				"phone_self_signup":    true,
-				"self_signup_role":     "customer",
-				"self_signup_services": []string{"hadia"},
-			},
-		},
+	}
+	if seedHadiaTenant() {
+		tenants = append(tenants, hadiaTenantSpec)
 	}
 
 	var refs []*tenantRef
