@@ -85,6 +85,26 @@ Auth-api is the **central identity provider** for all Codevertex services. It im
 - Tenant policies (password, session, MFA enforcement)
 - Feature entitlements synced from treasury-api
 
+### Tenant hard delete (2026-11-03)
+
+Deleting a tenant (`DELETE /admin/tenants/{id}`) and declining a registration
+(`POST /admin/tenants/{id}/reject`, after the founder is emailed) both run `purgeTenant`
+(`internal/httpapi/handlers/tenant_purge.go`), user rule: a declined tenant leaves nothing behind.
+
+1. Accounts whose only membership is this tenant are deleted (`deleteUserTx`, shared with
+   `AdminPurgeUser`); accounts in other tenants keep those memberships.
+2. Reseller and referral links to the tenant are cleared.
+3. Every auth row with the tenant's `tenant_id`, then the tenant row, by shared-events
+   `TenantPurger` (schema-driven, FK order by retry, outbox tables skipped).
+4. `tenant.purge` (reason `tenant_deleted` or `registration_rejected`, `confirmed: true`) goes on
+   the outbox, and `auth.user.deleted` for each removed account.
+
+The platform tenant is refused. Every service with tenant data consumes `tenant.purge`: pos,
+inventory, treasury, logistics, ordering and marketflow (own table plans, reason check now
+shared-events `IsTenantPurgeReason`), and subscriptions, notifications, ticketing, hospital,
+library, projects, maskani and erp through the shared `TenantPurger`. subscriptions-api still sends
+`tenant.purge` with reason `dormancy` for a dormant account a platform owner confirms.
+
 ### Outlet Management (source of truth)
 
 Auth-api owns the canonical outlet/branch registry. All downstream services mirror outlet data — they never manage outlets independently.
