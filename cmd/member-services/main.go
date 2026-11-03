@@ -126,7 +126,16 @@ func main() {
 
 	// People no longer members of a tenant still have copies there: an explicit empty list makes
 	// each service remove its copy in that tenant (a caller-set list is kept by outbox.Write).
-	revoked := 0
+	// Every pair is checked before anything is written, so a bad entry never leaves a run half
+	// done. A tenant auth no longer has is reported and skipped (its leftovers are a tenant
+	// purge, not a member revoke); an active member stops the run.
+	type revokeTarget struct {
+		slug     string
+		tenantID uuid.UUID
+		userID   uuid.UUID
+	}
+	var targets []revokeTarget
+	var skipped []string
 	for pair := range parsePairs(*revoke) {
 		slug, rawID, _ := strings.Cut(pair, ":")
 		userID, err := uuid.Parse(rawID)
@@ -134,27 +143,38 @@ func main() {
 			log.Fatalf("revoke %q: bad user id", pair)
 		}
 		t, err := client.Tenant.Query().Where(tenant.SlugEQ(slug)).Only(ctx)
+		if ent.IsNotFound(err) {
+			skipped = append(skipped, pair)
+			continue
+		}
 		if err != nil {
 			log.Fatalf("revoke %q: tenant: %v", pair, err)
 		}
 		if exists, _ := client.TenantMembership.Query().Where(tenantmembership.TenantID(t.ID),
 			tenantmembership.UserID(userID), tenantmembership.StatusEQ("active")).Exist(ctx); exists {
-			log.Fatalf("revoke %q: still an active member; use -apply instead", pair)
+			log.Fatalf("revoke %q: still an active member; use -apply instead (nothing was revoked)", pair)
 		}
-		payload := map[string]any{"user_id": userID.String(), "tenant_id": t.ID.String(), "tenant_slug": slug,
-			"services": []string{}}
-		if err := outbox.Write(ctx, client, t.ID, "auth.user", userID, "updated", slug, payload); err != nil {
-			log.Fatalf("revoke %q: %v", pair, err)
-		}
-		revoked++
+		targets = append(targets, revokeTarget{slug: slug, tenantID: t.ID, userID: userID})
 	}
+	for _, rt := range targets {
+		payload := map[string]any{"user_id": rt.userID.String(), "tenant_id": rt.tenantID.String(),
+			"tenant_slug": rt.slug, "services": []string{}}
+		if err := outbox.Write(ctx, client, rt.tenantID, "auth.user", rt.userID, "updated", rt.slug, payload); err != nil {
+			log.Fatalf("revoke %s:%s: %v", rt.slug, rt.userID, err)
+		}
+	}
+	for _, pair := range skipped {
+		fmt.Printf("skipped %s: no such tenant in auth\n", pair)
+	}
+
 	fmt.Printf("\n%d members, %d with unknown services", len(members), unknown)
-	if revoked > 0 {
-		fmt.Printf(", %d former members revoked", revoked)
+	if len(targets) > 0 {
+		fmt.Printf(", %d former members revoked", len(targets))
 	}
-	if *apply {
+	switch {
+	case *apply:
 		fmt.Printf(", %d auth.user.updated events queued", published)
-	} else {
+	case len(targets) == 0:
 		fmt.Print(" (dry run: nothing published; rerun with -apply)")
 	}
 	fmt.Println()
