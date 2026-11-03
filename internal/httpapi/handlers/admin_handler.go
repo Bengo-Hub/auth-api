@@ -20,6 +20,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/tenantdomain"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/ent/userphone"
@@ -577,6 +578,10 @@ type PublicTenantResponse struct {
 	SubscriptionExpiresAt *time.Time     `json:"subscription_expires_at,omitempty"`
 	TierLimits            map[string]any `json:"tier_limits,omitempty"`
 	Metadata              map[string]any `json:"metadata,omitempty"`
+	// StorefrontDomain is the tenant's active custom domain for the ordering storefront, when it
+	// has one (for example alphachinamarket.co.ke). Frontends link to it in place of
+	// ordering.codevertexafrica.com/{slug}; a website still takes precedence where one is set.
+	StorefrontDomain *string `json:"storefront_domain,omitempty"`
 	// Tax / KRA compliance — consumed by treasury-ui to pre-fill payment-details.
 	TaxPin          *string    `json:"tax_pin,omitempty"`
 	VatRegistered   bool       `json:"vat_registered"`
@@ -603,7 +608,27 @@ func (h *AdminHandler) GetTenantBySlugPublic(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get tenant", nil)
 		return
 	}
-	writeJSON(w, http.StatusOK, publicTenantResponseFrom(t))
+	resp := publicTenantResponseFrom(t)
+	resp.StorefrontDomain = h.storefrontDomain(r.Context(), t.ID)
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// storefrontDomain returns the hostname of the tenant's oldest active ordering domain, or nil.
+// It reads the tenant's few domain rows through the tenant_id index; an error means no domain.
+func (h *AdminHandler) storefrontDomain(ctx context.Context, tenantID uuid.UUID) *string {
+	d, err := h.ent.TenantDomain.Query().
+		Where(
+			tenantdomain.TenantIDEQ(tenantID),
+			tenantdomain.ServiceEQ("ordering"),
+			tenantdomain.StatusEQ("active"),
+		).
+		Order(ent.Asc(tenantdomain.FieldCreatedAt)).
+		First(ctx)
+	if err != nil {
+		return nil
+	}
+	host := d.Hostname
+	return &host
 }
 
 // GetTenantByIDPublic retrieves a tenant by UUID via public endpoint. Mirrors
@@ -630,7 +655,9 @@ func (h *AdminHandler) GetTenantByIDPublic(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to get tenant", nil)
 		return
 	}
-	writeJSON(w, http.StatusOK, publicTenantResponseFrom(t))
+	resp := publicTenantResponseFrom(t)
+	resp.StorefrontDomain = h.storefrontDomain(r.Context(), t.ID)
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // publicTenantResponseFrom builds the shared public tenant response shape from an ent
