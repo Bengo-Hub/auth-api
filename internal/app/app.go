@@ -419,6 +419,10 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			// OTP (email verification for Vera AI ticket flow)
 			SendOTP:   authHandler.SendOTP,
 			VerifyOTP: authHandler.VerifyOTP,
+			// Public widget codes and the S2S token trade for ticketing-api.
+			SendPublicOTP:       authHandler.SendPublicOTP,
+			VerifyPublicOTP:     authHandler.VerifyPublicOTP,
+			S2SValidateOTPToken: authHandler.S2SValidateOTPToken,
 			// Platform backup management (single shared handler instance)
 			ListBackups:    backupHandler.ListBackups,
 			DownloadBackup: backupHandler.DownloadBackup,

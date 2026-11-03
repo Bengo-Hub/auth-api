@@ -209,6 +209,11 @@ type AuthHandlers struct {
 	// OTP (email verification for Vera AI ticket flow)
 	SendOTP   http.HandlerFunc
 	VerifyOTP http.HandlerFunc
+	// The same codes for widget visitors who are not signed in, and the S2S route that
+	// trades a verified otp_token for its address (ticketing-api's public tickets).
+	SendPublicOTP       http.HandlerFunc
+	VerifyPublicOTP     http.HandlerFunc
+	S2SValidateOTPToken http.HandlerFunc
 	// Platform backup management
 	ListBackups    http.HandlerFunc
 	DownloadBackup http.HandlerFunc
@@ -277,6 +282,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.With(sensitive).Post("/register", deps.AuthHandlers.Register)
 			r.With(sensitive).Post("/register/oauth", deps.AuthHandlers.RegisterOAuth)
 			// Pre-signup email verification (unauthenticated).
+			// Vera widget email codes for visitors who are not signed in (support tickets).
+			if deps.AuthHandlers.SendPublicOTP != nil {
+				r.With(sensitive).Post("/public-otp/send", deps.AuthHandlers.SendPublicOTP)
+				r.With(sensitive).Post("/public-otp/verify", deps.AuthHandlers.VerifyPublicOTP)
+			}
 			r.With(sensitive).Post("/email/send-code", deps.AuthHandlers.SendEmailCode)
 			r.With(sensitive).Post("/email/verify-code", deps.AuthHandlers.VerifyEmailCode)
 			// Phone code sign-in for customer portals (member-only, see phone_otp_handler.go).
@@ -583,10 +593,15 @@ func NewRouter(deps RouterDeps) http.Handler {
 		})
 		// Submit an integration request (eTIMS + future integrations) — JWT optional: with a
 		// tenant JWT this is the onboarded-tenant "request eTIMS integration" path; without one
-		// it's an anonymous submission (the primary external-lead path is codevertex-website's
-		// own Lead capture calling the S2S notify-only endpoint above instead).
+		// it's an anonymous submission, such as the Vera widget's "Request an Integration" form on
+		// codevertex-website. Anonymous posts save a row and alert support, so the route is held to
+		// the per-IP limit of the other unauthenticated account flows.
 		if deps.AuthHandlers.CreateIntegrationRequest != nil {
-			r.With(deps.TryAuthHandler).Post("/integration-requests", deps.AuthHandlers.CreateIntegrationRequest)
+			sensitive := passThrough
+			if deps.RateLimitSensitive != nil {
+				sensitive = deps.RateLimitSensitive
+			}
+			r.With(sensitive, deps.TryAuthHandler).Post("/integration-requests", deps.AuthHandlers.CreateIntegrationRequest)
 		}
 		// The caller's own integration/access requests (e.g. developer docs-access gating) —
 		// requires a real session, unlike the create route above, since "mine" needs a known caller.
@@ -773,6 +788,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// IntegrationRequest row itself — the caller keeps owning its own lead record.
 			if deps.AuthHandlers.S2SNotifyIntegrationRequest != nil {
 				r.Post("/api/v1/s2s/notifications/etims-integration-request", deps.AuthHandlers.S2SNotifyIntegrationRequest)
+			}
+			// ticketing-api trades a widget otp_token for the verified email, once.
+			if deps.AuthHandlers.S2SValidateOTPToken != nil {
+				r.Get("/api/v1/s2s/otp/validate", deps.AuthHandlers.S2SValidateOTPToken)
 			}
 		})
 	}

@@ -3,8 +3,10 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"net/mail"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bengobox/auth-api/internal/ent"
 	entapp "github.com/bengobox/auth-api/internal/ent/app"
@@ -50,6 +52,51 @@ type createIntegrationRequestBody struct {
 	Notes           string `json:"notes"`
 }
 
+// maxIntegrationRequestBody caps the create body: the route is open to anonymous callers
+// and every row also goes out as a support alert.
+const maxIntegrationRequestBody = 16 << 10
+
+// integrationRequestFieldLimits are the longest values accepted per field, in runes.
+var integrationRequestFieldLimits = []struct {
+	name  string
+	value func(*createIntegrationRequestBody) string
+	max   int
+}{
+	{"request_type", func(b *createIntegrationRequestBody) string { return b.RequestType }, 64},
+	{"requester_name", func(b *createIntegrationRequestBody) string { return b.RequesterName }, 120},
+	{"requester_email", func(b *createIntegrationRequestBody) string { return b.RequesterEmail }, 254},
+	{"requester_phone", func(b *createIntegrationRequestBody) string { return b.RequesterPhone }, 32},
+	{"company_name", func(b *createIntegrationRequestBody) string { return b.CompanyName }, 160},
+	{"kra_pin", func(b *createIntegrationRequestBody) string { return b.KraPin }, 20},
+	{"notes", func(b *createIntegrationRequestBody) string { return b.Notes }, 2000},
+}
+
+// validateIntegrationRequestBody trims every field, then checks the required fields, the email
+// shape, the length limits and the request_type charset. It returns the first problem found.
+func validateIntegrationRequestBody(b *createIntegrationRequestBody) string {
+	for _, p := range []*string{&b.RequestType, &b.Service, &b.RequesterName, &b.RequesterEmail,
+		&b.RequesterPhone, &b.CompanyName, &b.KraPin, &b.IntegrationMode, &b.Notes} {
+		*p = strings.TrimSpace(*p)
+	}
+	if b.RequesterName == "" || b.RequesterEmail == "" {
+		return "requester_name and requester_email are required"
+	}
+	if addr, err := mail.ParseAddress(b.RequesterEmail); err != nil || addr.Address != b.RequesterEmail {
+		return "requester_email is not a valid email address"
+	}
+	for _, f := range integrationRequestFieldLimits {
+		if utf8.RuneCountInString(f.value(b)) > f.max {
+			return f.name + " is too long"
+		}
+	}
+	for _, c := range b.RequestType {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_' {
+			return "request_type may only contain lowercase letters, digits and underscores"
+		}
+	}
+	return ""
+}
+
 // serviceMeta maps one requestable service (the generic developer-portal "apply for API access"
 // form) to the two other, independently-named identifiers that already exist for it elsewhere in
 // the codebase: the docs-access resourceKey (auth-ui's DocsAccessGate/useDocsAccess, which uses
@@ -84,13 +131,17 @@ var requestableServices = map[string]serviceMeta{
 
 // CreateIntegrationRequest handles POST /api/v1/integration-requests. JWT is optional: when
 // present, the request is tied to the caller's own tenant (the onboarded-tenant path); when
-// absent, it's an anonymous/public submission (rate-limited at the router level) — though the
-// primary external-lead intake is codevertex-website's own Lead capture calling the sibling S2S
-// notify-only endpoint below, not this one.
+// absent, it's an anonymous/public submission, rate-limited per IP at the router. The Vera
+// widget's "Request an Integration" form posts here from the browser.
 func (h *IntegrationRequestHandler) CreateIntegrationRequest(w http.ResponseWriter, r *http.Request) {
 	var body createIntegrationRequestBody
-	if err := decodeJSON(r, &body); err != nil || body.RequesterName == "" || body.RequesterEmail == "" {
+	r.Body = http.MaxBytesReader(w, r.Body, maxIntegrationRequestBody)
+	if err := decodeJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "requester_name and requester_email are required", nil)
+		return
+	}
+	if msg := validateIntegrationRequestBody(&body); msg != "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", msg, nil)
 		return
 	}
 	if body.Service != "" {
