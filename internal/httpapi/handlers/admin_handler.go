@@ -1738,6 +1738,8 @@ type addTenantMemberRequest struct {
 	Email    string   `json:"email,omitempty"` // alternative to user_id; resolved server-side
 	Roles    []string `json:"roles"`
 	OutletID string   `json:"outlet_id,omitempty"`
+	// OutletIDs limits a manager to these outlets (resolveMemberOutlets); absent = no limit set.
+	OutletIDs []string `json:"outlet_ids,omitempty"`
 	// Direct-add fields: when email is not an existing user, the account is
 	// created on the fly (#3). Name/Phone seed the profile; PIN (4 digits) is
 	// optionally provisioned for the given Service (default "pos") so terminal
@@ -2066,6 +2068,44 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		memberRoles = mergeRoleLists(existingMember.Roles, req.Roles)
 	}
 
+	var outletLimit []string
+	outletLimitChanged := false
+	if len(req.OutletIDs) > 0 {
+		var current []string
+		if existingMember != nil {
+			current = existingMember.OutletIds
+		}
+		limit, home, changed, oerr := resolveMemberOutlets(memberRoles, current, &req.OutletIDs)
+		if oerr != nil {
+			writeError(w, http.StatusBadRequest, "invalid_outlets", oerr.Error(), nil)
+			return
+		}
+		check := limit
+		if home != "" {
+			check = []string{home}
+		}
+		ok, cerr := h.outletsActiveInTenant(r.Context(), tenantID, check)
+		if cerr != nil {
+			h.logger.Error("Failed to check member outlets", zap.Error(cerr))
+			writeError(w, http.StatusInternalServerError, "server_error", "could not check outlets", nil)
+			return
+		}
+		if !ok {
+			writeError(w, http.StatusBadRequest, "invalid_outlets", "every outlet must be an active outlet of this organisation", nil)
+			return
+		}
+		outletLimit, outletLimitChanged = limit, changed
+		// The home outlet is the floor role's one outlet, or stays inside a manager's list.
+		if home == "" && len(limit) > 0 && (outletID == nil || !containsFold(limit, outletID.String())) {
+			home = limit[0]
+		}
+		if home != "" {
+			if oid, oErr := uuid.Parse(home); oErr == nil {
+				outletID = &oid
+			}
+		}
+	}
+
 	var membership *ent.TenantMembership
 	if existingMember != nil {
 		// Update existing. A portal invite adds its role; an admin add sets the roles as given.
@@ -2074,6 +2114,13 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			SetStatus("active")
 		if outletID != nil {
 			upd = upd.SetOutletID(*outletID)
+		}
+		if outletLimitChanged {
+			if len(outletLimit) > 0 {
+				upd = upd.SetOutletIds(outletLimit)
+			} else {
+				upd = upd.ClearOutletIds()
+			}
 		}
 		if services != nil {
 			upd = upd.SetServices(services)
@@ -2088,6 +2135,9 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			SetStatus("active")
 		if outletID != nil {
 			crt = crt.SetOutletID(*outletID)
+		}
+		if len(outletLimit) > 0 {
+			crt = crt.SetOutletIds(outletLimit)
 		}
 		if services != nil {
 			crt = crt.SetServices(services)
@@ -2135,6 +2185,9 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			if o, oErr := h.ent.Outlet.Get(r.Context(), *outletID); oErr == nil {
 				payload["outlet_code"] = o.Code
 			}
+		}
+		if len(outletLimit) > 0 {
+			payload["outlet_ids"] = outletLimit
 		}
 		// For brand-new accounts, flag a welcome email with the SSO login link.
 		// The plaintext temp password is never emitted — only the login URL is.
