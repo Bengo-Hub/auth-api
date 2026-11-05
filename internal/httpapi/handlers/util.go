@@ -5,9 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"math/big"
-	"net"
 	"net/http"
-	"strings"
+
+	ratelimit "github.com/Bengo-Hub/shared-ratelimit"
 
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/platform/outbox"
@@ -38,19 +38,11 @@ func decodeJSON(r *http.Request, v any) error {
 	return decoder.Decode(v)
 }
 
+// clientIP is the caller's address as the ingress established it (shared-ratelimit ClientIP). It never
+// reads X-Forwarded-For: its first entry is whatever the client sent, so trusting it let a caller pick
+// the IP recorded on sessions, consents and audit rows.
 func clientIP(r *http.Request) string {
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		return strings.TrimSpace(parts[0])
-	}
-	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		return realIP
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+	return ratelimit.ClientIP(r)
 }
 
 func userAgent(r *http.Request) string {

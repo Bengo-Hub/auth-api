@@ -551,24 +551,9 @@ func getKeyPrefix(key string) string {
 	return key
 }
 
-// getClientIP extracts the client IP from the request.
+// getClientIP is the caller's address as the ingress established it. The API key IP allowlist is
+// checked against it, so it must never come from X-Forwarded-For: a caller holding a leaked key could
+// otherwise name an allowed address in that header and pass the allowlist.
 func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header first (for proxied requests)
-	xff := r.Header.Get("X-Forwarded-For")
-	if xff != "" {
-		// Take the first IP in the chain
-		parts := strings.Split(xff, ",")
-		if len(parts) > 0 {
-			return strings.TrimSpace(parts[0])
-		}
-	}
-
-	// Check X-Real-IP header
-	xri := r.Header.Get("X-Real-IP")
-	if xri != "" {
-		return xri
-	}
-
-	// Fall back to RemoteAddr
-	return strings.Split(r.RemoteAddr, ":")[0]
+	return clientIP(r)
 }

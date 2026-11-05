@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"encoding/json"
-	"net"
 	"net/http"
-	"strings"
+
+	ratelimit "github.com/Bengo-Hub/shared-ratelimit"
 )
 
 // DecodeJSON reads the request body into v.
@@ -15,20 +15,10 @@ func DecodeJSON(r *http.Request, v any) error {
 	return decoder.Decode(v)
 }
 
-// ClientIP attempts to extract caller IP considering proxy headers.
+// ClientIP is the caller's address as the ingress established it, never a client-sent forwarding
+// header (shared-ratelimit ClientIP).
 func ClientIP(r *http.Request) string {
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		return strings.TrimSpace(parts[0])
-	}
-	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		return realIP
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+	return ratelimit.ClientIP(r)
 }
 
 // UserAgent returns the request user agent string.
