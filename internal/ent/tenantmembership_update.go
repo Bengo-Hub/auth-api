@@ -98,6 +98,24 @@ func (_u *TenantMembershipUpdate) ClearOutletID() *TenantMembershipUpdate {
 	return _u
 }
 
+// SetOutletIds sets the "outlet_ids" field.
+func (_u *TenantMembershipUpdate) SetOutletIds(v []string) *TenantMembershipUpdate {
+	_u.mutation.SetOutletIds(v)
+	return _u
+}
+
+// AppendOutletIds appends value to the "outlet_ids" field.
+func (_u *TenantMembershipUpdate) AppendOutletIds(v []string) *TenantMembershipUpdate {
+	_u.mutation.AppendOutletIds(v)
+	return _u
+}
+
+// ClearOutletIds clears the value of the "outlet_ids" field.
+func (_u *TenantMembershipUpdate) ClearOutletIds() *TenantMembershipUpdate {
+	_u.mutation.ClearOutletIds()
+	return _u
+}
+
 // SetServices sets the "services" field.
 func (_u *TenantMembershipUpdate) SetServices(v []string) *TenantMembershipUpdate {
 	_u.mutation.SetServices(v)
@@ -238,6 +256,17 @@ func (_u *TenantMembershipUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if _u.mutation.OutletIDCleared() {
 		_spec.ClearField(tenantmembership.FieldOutletID, field.TypeUUID)
+	}
+	if value, ok := _u.mutation.OutletIds(); ok {
+		_spec.SetField(tenantmembership.FieldOutletIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedOutletIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, tenantmembership.FieldOutletIds, value)
+		})
+	}
+	if _u.mutation.OutletIdsCleared() {
+		_spec.ClearField(tenantmembership.FieldOutletIds, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Services(); ok {
 		_spec.SetField(tenantmembership.FieldServices, field.TypeJSON, value)
@@ -397,6 +426,24 @@ func (_u *TenantMembershipUpdateOne) SetNillableOutletID(v *uuid.UUID) *TenantMe
 // ClearOutletID clears the value of the "outlet_id" field.
 func (_u *TenantMembershipUpdateOne) ClearOutletID() *TenantMembershipUpdateOne {
 	_u.mutation.ClearOutletID()
+	return _u
+}
+
+// SetOutletIds sets the "outlet_ids" field.
+func (_u *TenantMembershipUpdateOne) SetOutletIds(v []string) *TenantMembershipUpdateOne {
+	_u.mutation.SetOutletIds(v)
+	return _u
+}
+
+// AppendOutletIds appends value to the "outlet_ids" field.
+func (_u *TenantMembershipUpdateOne) AppendOutletIds(v []string) *TenantMembershipUpdateOne {
+	_u.mutation.AppendOutletIds(v)
+	return _u
+}
+
+// ClearOutletIds clears the value of the "outlet_ids" field.
+func (_u *TenantMembershipUpdateOne) ClearOutletIds() *TenantMembershipUpdateOne {
+	_u.mutation.ClearOutletIds()
 	return _u
 }
 
@@ -570,6 +617,17 @@ func (_u *TenantMembershipUpdateOne) sqlSave(ctx context.Context) (_node *Tenant
 	}
 	if _u.mutation.OutletIDCleared() {
 		_spec.ClearField(tenantmembership.FieldOutletID, field.TypeUUID)
+	}
+	if value, ok := _u.mutation.OutletIds(); ok {
+		_spec.SetField(tenantmembership.FieldOutletIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedOutletIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, tenantmembership.FieldOutletIds, value)
+		})
+	}
+	if _u.mutation.OutletIdsCleared() {
+		_spec.ClearField(tenantmembership.FieldOutletIds, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Services(); ok {
 		_spec.SetField(tenantmembership.FieldServices, field.TypeJSON, value)

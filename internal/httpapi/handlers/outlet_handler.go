@@ -12,6 +12,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/platform/outbox"
 	"github.com/bengobox/auth-api/internal/services/usecase"
@@ -671,6 +672,14 @@ func (h *OutletHandler) SelectOutlet(w http.ResponseWriter, r *http.Request) {
 	sessionID, err := uuid.Parse(claims.SessionID)
 	if err != nil {
 		sessionID = uuid.New()
+	}
+
+	// A manager limited to certain outlets can only open one of them.
+	if m, mErr := h.ent.TenantMembership.Query().
+		Where(tenantmembership.UserID(userID), tenantmembership.TenantID(tenantID)).
+		Only(r.Context()); mErr == nil && len(m.OutletIds) > 0 && !hasTenantAdminRole(m.Roles) && !containsFold(m.OutletIds, o.ID.String()) {
+		http.Error(w, "outlet not assigned to this user", http.StatusForbidden)
+		return
 	}
 
 	// Carry forward tenant-level flags that gate/seed EnrichAccessTokenInput below (it does

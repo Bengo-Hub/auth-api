@@ -27442,25 +27442,27 @@ func (m *TenantDomainMutation) ResetEdge(name string) error {
 // TenantMembershipMutation represents an operation that mutates the TenantMembership nodes in the graph.
 type TenantMembershipMutation struct {
 	config
-	op             Op
-	typ            string
-	id             *uuid.UUID
-	roles          *[]string
-	appendroles    []string
-	outlet_id      *uuid.UUID
-	services       *[]string
-	appendservices []string
-	status         *string
-	created_at     *time.Time
-	updated_at     *time.Time
-	clearedFields  map[string]struct{}
-	user           *uuid.UUID
-	cleareduser    bool
-	tenant         *uuid.UUID
-	clearedtenant  bool
-	done           bool
-	oldValue       func(context.Context) (*TenantMembership, error)
-	predicates     []predicate.TenantMembership
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	roles            *[]string
+	appendroles      []string
+	outlet_id        *uuid.UUID
+	outlet_ids       *[]string
+	appendoutlet_ids []string
+	services         *[]string
+	appendservices   []string
+	status           *string
+	created_at       *time.Time
+	updated_at       *time.Time
+	clearedFields    map[string]struct{}
+	user             *uuid.UUID
+	cleareduser      bool
+	tenant           *uuid.UUID
+	clearedtenant    bool
+	done             bool
+	oldValue         func(context.Context) (*TenantMembership, error)
+	predicates       []predicate.TenantMembership
 }
 
 var _ ent.Mutation = (*TenantMembershipMutation)(nil)
@@ -27753,6 +27755,71 @@ func (m *TenantMembershipMutation) ResetOutletID() {
 	delete(m.clearedFields, tenantmembership.FieldOutletID)
 }
 
+// SetOutletIds sets the "outlet_ids" field.
+func (m *TenantMembershipMutation) SetOutletIds(s []string) {
+	m.outlet_ids = &s
+	m.appendoutlet_ids = nil
+}
+
+// OutletIds returns the value of the "outlet_ids" field in the mutation.
+func (m *TenantMembershipMutation) OutletIds() (r []string, exists bool) {
+	v := m.outlet_ids
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutletIds returns the old "outlet_ids" field's value of the TenantMembership entity.
+// If the TenantMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantMembershipMutation) OldOutletIds(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutletIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutletIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutletIds: %w", err)
+	}
+	return oldValue.OutletIds, nil
+}
+
+// AppendOutletIds adds s to the "outlet_ids" field.
+func (m *TenantMembershipMutation) AppendOutletIds(s []string) {
+	m.appendoutlet_ids = append(m.appendoutlet_ids, s...)
+}
+
+// AppendedOutletIds returns the list of values that were appended to the "outlet_ids" field in this mutation.
+func (m *TenantMembershipMutation) AppendedOutletIds() ([]string, bool) {
+	if len(m.appendoutlet_ids) == 0 {
+		return nil, false
+	}
+	return m.appendoutlet_ids, true
+}
+
+// ClearOutletIds clears the value of the "outlet_ids" field.
+func (m *TenantMembershipMutation) ClearOutletIds() {
+	m.outlet_ids = nil
+	m.appendoutlet_ids = nil
+	m.clearedFields[tenantmembership.FieldOutletIds] = struct{}{}
+}
+
+// OutletIdsCleared returns if the "outlet_ids" field was cleared in this mutation.
+func (m *TenantMembershipMutation) OutletIdsCleared() bool {
+	_, ok := m.clearedFields[tenantmembership.FieldOutletIds]
+	return ok
+}
+
+// ResetOutletIds resets all changes to the "outlet_ids" field.
+func (m *TenantMembershipMutation) ResetOutletIds() {
+	m.outlet_ids = nil
+	m.appendoutlet_ids = nil
+	delete(m.clearedFields, tenantmembership.FieldOutletIds)
+}
+
 // SetServices sets the "services" field.
 func (m *TenantMembershipMutation) SetServices(s []string) {
 	m.services = &s
@@ -28014,7 +28081,7 @@ func (m *TenantMembershipMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TenantMembershipMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.user != nil {
 		fields = append(fields, tenantmembership.FieldUserID)
 	}
@@ -28026,6 +28093,9 @@ func (m *TenantMembershipMutation) Fields() []string {
 	}
 	if m.outlet_id != nil {
 		fields = append(fields, tenantmembership.FieldOutletID)
+	}
+	if m.outlet_ids != nil {
+		fields = append(fields, tenantmembership.FieldOutletIds)
 	}
 	if m.services != nil {
 		fields = append(fields, tenantmembership.FieldServices)
@@ -28055,6 +28125,8 @@ func (m *TenantMembershipMutation) Field(name string) (ent.Value, bool) {
 		return m.Roles()
 	case tenantmembership.FieldOutletID:
 		return m.OutletID()
+	case tenantmembership.FieldOutletIds:
+		return m.OutletIds()
 	case tenantmembership.FieldServices:
 		return m.Services()
 	case tenantmembership.FieldStatus:
@@ -28080,6 +28152,8 @@ func (m *TenantMembershipMutation) OldField(ctx context.Context, name string) (e
 		return m.OldRoles(ctx)
 	case tenantmembership.FieldOutletID:
 		return m.OldOutletID(ctx)
+	case tenantmembership.FieldOutletIds:
+		return m.OldOutletIds(ctx)
 	case tenantmembership.FieldServices:
 		return m.OldServices(ctx)
 	case tenantmembership.FieldStatus:
@@ -28124,6 +28198,13 @@ func (m *TenantMembershipMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetOutletID(v)
+		return nil
+	case tenantmembership.FieldOutletIds:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutletIds(v)
 		return nil
 	case tenantmembership.FieldServices:
 		v, ok := value.([]string)
@@ -28189,6 +28270,9 @@ func (m *TenantMembershipMutation) ClearedFields() []string {
 	if m.FieldCleared(tenantmembership.FieldOutletID) {
 		fields = append(fields, tenantmembership.FieldOutletID)
 	}
+	if m.FieldCleared(tenantmembership.FieldOutletIds) {
+		fields = append(fields, tenantmembership.FieldOutletIds)
+	}
 	if m.FieldCleared(tenantmembership.FieldServices) {
 		fields = append(fields, tenantmembership.FieldServices)
 	}
@@ -28212,6 +28296,9 @@ func (m *TenantMembershipMutation) ClearField(name string) error {
 	case tenantmembership.FieldOutletID:
 		m.ClearOutletID()
 		return nil
+	case tenantmembership.FieldOutletIds:
+		m.ClearOutletIds()
+		return nil
 	case tenantmembership.FieldServices:
 		m.ClearServices()
 		return nil
@@ -28234,6 +28321,9 @@ func (m *TenantMembershipMutation) ResetField(name string) error {
 		return nil
 	case tenantmembership.FieldOutletID:
 		m.ResetOutletID()
+		return nil
+	case tenantmembership.FieldOutletIds:
+		m.ResetOutletIds()
 		return nil
 	case tenantmembership.FieldServices:
 		m.ResetServices()

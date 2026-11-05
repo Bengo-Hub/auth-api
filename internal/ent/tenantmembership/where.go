@@ -186,6 +186,16 @@ func OutletIDNotNil() predicate.TenantMembership {
 	return predicate.TenantMembership(sql.FieldNotNull(FieldOutletID))
 }
 
+// OutletIdsIsNil applies the IsNil predicate on the "outlet_ids" field.
+func OutletIdsIsNil() predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldIsNull(FieldOutletIds))
+}
+
+// OutletIdsNotNil applies the NotNil predicate on the "outlet_ids" field.
+func OutletIdsNotNil() predicate.TenantMembership {
+	return predicate.TenantMembership(sql.FieldNotNull(FieldOutletIds))
+}
+
 // ServicesIsNil applies the IsNil predicate on the "services" field.
 func ServicesIsNil() predicate.TenantMembership {
 	return predicate.TenantMembership(sql.FieldIsNull(FieldServices))

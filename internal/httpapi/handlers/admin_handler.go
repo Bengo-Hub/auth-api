@@ -1849,6 +1849,9 @@ type updateMemberRequest struct {
 	Roles    []string `json:"roles"`
 	OutletID *string  `json:"outlet_id"` // pointer: nil = omitted (no change), "" = clear
 	Status   string   `json:"status,omitempty"`
+	// OutletIDs limits a manager to these outlets; nil = no change, empty = tenant-wide. See
+	// resolveMemberOutlets for which roles may hold more than one.
+	OutletIDs *[]string `json:"outlet_ids,omitempty"`
 	// Services assigns the member's services; nil = no change. Each must be in the tenant's plan
 	// and backed by one of the member's (new) roles.
 	Services *[]string `json:"services,omitempty"`
@@ -1863,6 +1866,8 @@ type tenantMemberResponse struct {
 	Roles    []string `json:"roles"`
 	Status   string   `json:"status"`
 	OutletID *string  `json:"outlet_id,omitempty"`
+	// OutletIDs is the outlets a manager is limited to (absent: tenant-wide or one home outlet).
+	OutletIDs []string `json:"outlet_ids,omitempty"`
 	// Services is what a tenant admin assigned (absent: the services follow the roles);
 	// EffectiveServices is what the member gets ("*" = every service).
 	Services          []string `json:"services,omitempty"`
@@ -2321,6 +2326,8 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 		Roles    []string `json:"roles"`
 		Status   string   `json:"status"`
 		OutletID *string  `json:"outlet_id,omitempty"`
+		// OutletIDs: the outlets a manager is limited to.
+		OutletIDs []string `json:"outlet_ids,omitempty"`
 		// Services: assigned by a tenant admin (absent: follow the roles); EffectiveServices:
 		// what the member gets ("*" = every service).
 		Services          []string `json:"services,omitempty"`
@@ -2358,6 +2365,7 @@ func (h *AdminHandler) ListTenantMembers(w http.ResponseWriter, r *http.Request)
 			Roles:             roles,
 			Status:            m.Status,
 			OutletID:          outletIDStr,
+			OutletIDs:         m.OutletIds,
 			Services:          m.Services,
 			EffectiveServices: h.effectiveMemberServices(r.Context(), m),
 			CreatedAt:         m.CreatedAt.Format(time.RFC3339),
@@ -2710,6 +2718,37 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 			return
 		}
 	}
+	limit, home, limitChanged, oerr := resolveMemberOutlets(memberRoles, membership.OutletIds, req.OutletIDs)
+	if oerr != nil {
+		writeError(w, http.StatusBadRequest, "invalid_outlets", oerr.Error(), nil)
+		return
+	}
+	// Services mirror the whole list; an empty one clears their assignments (tenant-wide). A floor
+	// role's one outlet travels as outlet_id instead.
+	publishLimit := limitChanged && home == ""
+	check := limit
+	if home != "" {
+		check = []string{home}
+	}
+	if req.OutletID != nil && *req.OutletID != "" {
+		if len(limit) > 0 && !containsFold(limit, *req.OutletID) {
+			writeError(w, http.StatusBadRequest, "invalid_outlets", "the home outlet must be one of the member's outlets", nil)
+			return
+		}
+		check = append(append([]string{}, check...), *req.OutletID)
+	}
+	if len(check) > 0 && (req.OutletIDs != nil || req.OutletID != nil) {
+		ok, cerr := h.outletsActiveInTenant(r.Context(), tenantID, check)
+		if cerr != nil {
+			h.logger.Error("Failed to check member outlets", zap.Error(cerr))
+			writeError(w, http.StatusInternalServerError, "server_error", "could not check outlets", nil)
+			return
+		}
+		if !ok {
+			writeError(w, http.StatusBadRequest, "invalid_outlets", "every outlet must be an active outlet of this organisation", nil)
+			return
+		}
+	}
 	var outletIDPtr *uuid.UUID
 	if req.OutletID != nil {
 		if *req.OutletID == "" {
@@ -2718,6 +2757,25 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 		} else if oid, oErr := uuid.Parse(*req.OutletID); oErr == nil {
 			upd = upd.SetOutletID(oid)
 			outletIDPtr = &oid
+		}
+	}
+	if limitChanged {
+		if len(limit) > 0 {
+			upd = upd.SetOutletIds(limit)
+		} else {
+			upd = upd.ClearOutletIds()
+		}
+		// The home outlet follows: a floor role's one outlet, or the first of a list that no longer
+		// holds the current home.
+		if home == "" && len(limit) > 0 && outletIDPtr == nil &&
+			(membership.OutletID == nil || !containsFold(limit, membership.OutletID.String())) {
+			home = limit[0]
+		}
+		if outletIDPtr == nil && home != "" {
+			if oid, oErr := uuid.Parse(home); oErr == nil {
+				upd = upd.SetOutletID(oid)
+				outletIDPtr = &oid
+			}
 		}
 	}
 	updated, err := upd.Save(r.Context())
@@ -2750,6 +2808,9 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 			eventPayload["outlet_code"] = o.Code
 		}
 	}
+	if publishLimit {
+		eventPayload["outlet_ids"] = append([]string{}, limit...)
+	}
 	h.publishEvent(r.Context(), tenantID, "auth.user", userID, "updated", eventPayload)
 
 	var outletIDStr *string
@@ -2764,6 +2825,7 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 		Roles:             updated.Roles,
 		Status:            updated.Status,
 		OutletID:          outletIDStr,
+		OutletIDs:         updated.OutletIds,
 		Services:          updated.Services,
 		EffectiveServices: h.effectiveMemberServices(r.Context(), updated),
 		CreatedAt:         updated.CreatedAt.Format(time.RFC3339),

@@ -72,6 +72,9 @@ type Claims struct {
 	// match authclient Claims field): ["*"] for every service. Absent when it could not be decided,
 	// which services treat as "not restricted".
 	UserServices []string `json:"user_services,omitempty"`
+	// OutletIDs is the outlets a manager is limited to (must match authclient Claims field). Absent
+	// means the existing rules decide.
+	OutletIDs []string `json:"outlet_ids,omitempty"`
 
 	// Billing model and demo flags
 	BillingMode  string `json:"billing_mode,omitempty"`      // "service_charge" bypasses subscription gating
@@ -143,6 +146,7 @@ type AccessTokenInput struct {
 	ActiveProducts       []string
 	ActiveServiceTags    []string
 	UserServices         []string // the member's services (see Claims.UserServices); nil = unknown
+	OutletIDs            []string // the outlets a manager is limited to (see Claims.OutletIDs)
 
 	// Billing model and demo flags
 	BillingMode        string // "service_charge" bypasses subscription gating
@@ -245,6 +249,7 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	if input.UserServices != nil {
 		claims.UserServices = input.UserServices
 	}
+	claims.OutletIDs = input.OutletIDs
 	if input.SubscriptionPlan != "" {
 		claims.SubscriptionPlan = input.SubscriptionPlan
 		claims.SubscriptionStatus = input.SubscriptionStatus

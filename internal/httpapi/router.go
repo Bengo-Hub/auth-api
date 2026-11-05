@@ -174,6 +174,8 @@ type AuthHandlers struct {
 	AddTenantMember    http.HandlerFunc
 	ListTenantMembers  http.HandlerFunc
 	UpdateTenantMember http.HandlerFunc
+	// S2SMemberOutletLimit answers which outlets a member is limited to.
+	S2SMemberOutletLimit http.HandlerFunc
 	RemoveTenantMember http.HandlerFunc
 	// S2SListTenantUsers lists a tenant's active members for S2S callers (X-API-Key).
 	S2SListTenantUsers http.HandlerFunc
@@ -762,6 +764,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// injected platform claims; {tenant_id} must be the tenant UUID.
 			if deps.AuthHandlers.AddTenantMember != nil {
 				r.Post("/api/v1/s2s/tenants/{tenant_id}/members", s2sPlatformClaims(deps.AuthHandlers.AddTenantMember))
+			}
+			// The outlets a manager is limited to, for services that sign their own PIN sessions.
+			if deps.AuthHandlers.S2SMemberOutletLimit != nil {
+				r.Get("/api/v1/s2s/tenants/{tenant_id}/members/{user_id}/outlet-limit", deps.AuthHandlers.S2SMemberOutletLimit)
 			}
 			// S2S portal password reissue: lets an owning service resend the credentials of a
 			// student or parent account the person has not yet taken over. The handler refuses

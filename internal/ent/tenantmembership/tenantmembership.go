@@ -23,6 +23,8 @@ const (
 	FieldRoles = "roles"
 	// FieldOutletID holds the string denoting the outlet_id field in the database.
 	FieldOutletID = "outlet_id"
+	// FieldOutletIds holds the string denoting the outlet_ids field in the database.
+	FieldOutletIds = "outlet_ids"
 	// FieldServices holds the string denoting the services field in the database.
 	FieldServices = "services"
 	// FieldStatus holds the string denoting the status field in the database.
@@ -60,6 +62,7 @@ var Columns = []string{
 	FieldTenantID,
 	FieldRoles,
 	FieldOutletID,
+	FieldOutletIds,
 	FieldServices,
 	FieldStatus,
 	FieldCreatedAt,

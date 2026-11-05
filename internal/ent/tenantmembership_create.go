@@ -58,6 +58,12 @@ func (_c *TenantMembershipCreate) SetNillableOutletID(v *uuid.UUID) *TenantMembe
 	return _c
 }
 
+// SetOutletIds sets the "outlet_ids" field.
+func (_c *TenantMembershipCreate) SetOutletIds(v []string) *TenantMembershipCreate {
+	_c.mutation.SetOutletIds(v)
+	return _c
+}
+
 // SetServices sets the "services" field.
 func (_c *TenantMembershipCreate) SetServices(v []string) *TenantMembershipCreate {
 	_c.mutation.SetServices(v)
@@ -250,6 +256,10 @@ func (_c *TenantMembershipCreate) createSpec() (*TenantMembership, *sqlgraph.Cre
 		_spec.SetField(tenantmembership.FieldOutletID, field.TypeUUID, value)
 		_node.OutletID = &value
 	}
+	if value, ok := _c.mutation.OutletIds(); ok {
+		_spec.SetField(tenantmembership.FieldOutletIds, field.TypeJSON, value)
+		_node.OutletIds = value
+	}
 	if value, ok := _c.mutation.Services(); ok {
 		_spec.SetField(tenantmembership.FieldServices, field.TypeJSON, value)
 		_node.Services = value
@@ -409,6 +419,24 @@ func (u *TenantMembershipUpsert) UpdateOutletID() *TenantMembershipUpsert {
 // ClearOutletID clears the value of the "outlet_id" field.
 func (u *TenantMembershipUpsert) ClearOutletID() *TenantMembershipUpsert {
 	u.SetNull(tenantmembership.FieldOutletID)
+	return u
+}
+
+// SetOutletIds sets the "outlet_ids" field.
+func (u *TenantMembershipUpsert) SetOutletIds(v []string) *TenantMembershipUpsert {
+	u.Set(tenantmembership.FieldOutletIds, v)
+	return u
+}
+
+// UpdateOutletIds sets the "outlet_ids" field to the value that was provided on create.
+func (u *TenantMembershipUpsert) UpdateOutletIds() *TenantMembershipUpsert {
+	u.SetExcluded(tenantmembership.FieldOutletIds)
+	return u
+}
+
+// ClearOutletIds clears the value of the "outlet_ids" field.
+func (u *TenantMembershipUpsert) ClearOutletIds() *TenantMembershipUpsert {
+	u.SetNull(tenantmembership.FieldOutletIds)
 	return u
 }
 
@@ -572,6 +600,27 @@ func (u *TenantMembershipUpsertOne) UpdateOutletID() *TenantMembershipUpsertOne 
 func (u *TenantMembershipUpsertOne) ClearOutletID() *TenantMembershipUpsertOne {
 	return u.Update(func(s *TenantMembershipUpsert) {
 		s.ClearOutletID()
+	})
+}
+
+// SetOutletIds sets the "outlet_ids" field.
+func (u *TenantMembershipUpsertOne) SetOutletIds(v []string) *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetOutletIds(v)
+	})
+}
+
+// UpdateOutletIds sets the "outlet_ids" field to the value that was provided on create.
+func (u *TenantMembershipUpsertOne) UpdateOutletIds() *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateOutletIds()
+	})
+}
+
+// ClearOutletIds clears the value of the "outlet_ids" field.
+func (u *TenantMembershipUpsertOne) ClearOutletIds() *TenantMembershipUpsertOne {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.ClearOutletIds()
 	})
 }
 
@@ -909,6 +958,27 @@ func (u *TenantMembershipUpsertBulk) UpdateOutletID() *TenantMembershipUpsertBul
 func (u *TenantMembershipUpsertBulk) ClearOutletID() *TenantMembershipUpsertBulk {
 	return u.Update(func(s *TenantMembershipUpsert) {
 		s.ClearOutletID()
+	})
+}
+
+// SetOutletIds sets the "outlet_ids" field.
+func (u *TenantMembershipUpsertBulk) SetOutletIds(v []string) *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.SetOutletIds(v)
+	})
+}
+
+// UpdateOutletIds sets the "outlet_ids" field to the value that was provided on create.
+func (u *TenantMembershipUpsertBulk) UpdateOutletIds() *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.UpdateOutletIds()
+	})
+}
+
+// ClearOutletIds clears the value of the "outlet_ids" field.
+func (u *TenantMembershipUpsertBulk) ClearOutletIds() *TenantMembershipUpsertBulk {
+	return u.Update(func(s *TenantMembershipUpsert) {
+		s.ClearOutletIds()
 	})
 }
 

@@ -387,6 +387,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AddTenantMember:          adminHandler.AddTenantMember,
 			ListTenantMembers:        adminHandler.ListTenantMembers,
 			UpdateTenantMember:       adminHandler.UpdateTenantMember,
+			S2SMemberOutletLimit:     adminHandler.S2SMemberOutletLimit,
 			RemoveTenantMember:       adminHandler.RemoveTenantMember,
 			S2SListTenantUsers:       adminHandler.S2SListTenantUsers,
 			S2STenantBillingContact:  adminHandler.S2STenantBillingContact,

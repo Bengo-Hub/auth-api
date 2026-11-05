@@ -127,6 +127,26 @@ Auth-api owns the canonical outlet/branch registry. All downstream services mirr
 - Permission-based RBAC enforcement
 - Which services keep each member (see Member services below)
 
+### Member outlets
+
+Decided by the user on 2026-11-05. `tenant_memberships.outlet_id` is the home outlet and
+`outlet_ids` is the list a manager is limited to.
+
+- Manager, Accountant and Warehouse Manager may hold several outlets or the whole tenant. An empty
+  list means tenant-wide, so nobody changes until an admin sets a list.
+- Every other staff role, Floor Supervisor included, holds one outlet. A member with several roles
+  gets the widest, and an admin is always tenant-wide.
+- New staff added by a person with no outlet chosen get the default outlet: HQ, else the oldest active
+  outlet.
+- The list travels in the `outlet_ids` token claim, set wherever tokens are enriched, and in the
+  `auth.user.updated` event. POS, Inventory and Books hold the caller to it through the shared
+  auth-client helpers (`OutletRestricted`, `AllowsOutlet`, `RestrictedHomeOutlet`). An outlet off the
+  list is ignored and the session opens one they hold. A change reaches a person at their next sign-in.
+- POS and Inventory PIN logins mint their own tokens, so they read
+  `GET /api/v1/s2s/tenants/{tenant_id}/members/{user_id}/outlet-limit`. If auth cannot be reached the
+  login carries on with no limit, so an outage never locks staff out of the till.
+- A limited manager works one outlet at a time. There is no combined view across only their outlets.
+
 ### Member services
 
 auth-api decides which services keep a local copy of each tenant member (their user, roles,

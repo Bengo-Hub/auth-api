@@ -1893,6 +1893,13 @@ func (s *Service) EnrichTokenWithSubscription(ctx context.Context, tenantID uuid
 			in.UserServices = services
 		}
 	}
+	if in != nil && s.entClient != nil && in.UserID != uuid.Nil {
+		if m, err := s.entClient.TenantMembership.Query().
+			Where(tenantmembership.UserID(in.UserID), tenantmembership.TenantID(tenantID)).
+			Only(ctx); err == nil {
+			in.OutletIDs = m.OutletIds
+		}
+	}
 	if in == nil || s.subscriptionCl == nil || !s.cfg.Subscription.Enabled {
 		return
 	}
