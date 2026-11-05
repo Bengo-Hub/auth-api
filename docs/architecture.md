@@ -145,6 +145,8 @@ Decided by the user on 2026-11-05. `tenant_memberships.outlet_id` is the home ou
 - POS and Inventory PIN logins mint their own tokens, so they read
   `GET /api/v1/s2s/tenants/{tenant_id}/members/{user_id}/outlet-limit`. If auth cannot be reached the
   login carries on with no limit, so an outage never locks staff out of the till.
+- The tenant outlet list filters to the caller's list when called with their token, and pos-ui and
+  treasury-ui hide All Outlets for a token with a limit.
 - A limited manager works one outlet at a time. There is no combined view across only their outlets.
 
 ### Member services
