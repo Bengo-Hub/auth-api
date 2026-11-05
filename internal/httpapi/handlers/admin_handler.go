@@ -1960,6 +1960,11 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
 		return
 	}
+	// Checked before any account is created. A service adding a member for itself comes in with
+	// platform claims and may use its own roles.
+	if h.checkGrantableRoles(w, r, req.Roles, nil) {
+		return
+	}
 	// Assigned services (optional), checked before any account is created: in the plan and backed
 	// by the requested roles (merging roles only adds roles, so the check still holds after it).
 	var services []string
@@ -2658,6 +2663,18 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if h.checkGrantableRoles(w, r, req.Roles, membership.Roles) {
+		return
+	}
+	if len(req.Roles) > 0 && h.checkAdminLimit(w, r, tenantID, userID, membership.Roles, req.Roles) {
+		return
+	}
+	losesAdminRole := len(req.Roles) > 0 && !hasTenantAdminRole(req.Roles)
+	losesActiveStatus := req.Status != "" && req.Status != "active"
+	if (losesAdminRole || losesActiveStatus) && h.checkKeepsAnAdmin(w, r, tenantID, membership) {
+		return
+	}
+
 	upd := membership.Update()
 	// Only overwrite roles when the caller explicitly supplies them.
 	memberRoles := membership.Roles
@@ -2769,6 +2786,17 @@ func (h *AdminHandler) RemoveTenantMember(w http.ResponseWriter, r *http.Request
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
+		return
+	}
+
+	member, err := h.ent.TenantMembership.Query().
+		Where(tenantmembership.UserID(userID), tenantmembership.TenantID(tenantID)).Only(r.Context())
+	if err != nil && !ent.IsNotFound(err) {
+		h.logger.Error("Failed to find tenant member", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not remove member", nil)
+		return
+	}
+	if member != nil && h.checkKeepsAnAdmin(w, r, tenantID, member) {
 		return
 	}
 

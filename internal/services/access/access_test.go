@@ -20,6 +20,15 @@ var catalogue = map[string]roleInfo{
 	"driver":    {scope: "logistics", services: set("logistics")},
 }
 
+// The roles suggested for a service never include an admin role: taking one to reach a single
+// service would hand over the whole organisation.
+func TestRolesBackingLeavesOutAdminRoles(t *testing.T) {
+	got := rolesBacking(catalogue, "inventory")
+	if want := []string{"manager", "staff"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
 func set(s ...string) map[string]bool {
 	m := map[string]bool{}
 	for _, v := range s {

@@ -258,14 +258,23 @@ func (r *Resolver) RolesForService(ctx context.Context, service string) ([]strin
 	if err != nil {
 		return nil, err
 	}
+	return rolesBacking(roles, service), nil
+}
+
+// rolesBacking lists the roles to suggest for service, sorted. Admin roles are left out: picking one
+// to reach a single service would make the member an admin of everything.
+func rolesBacking(roles map[string]roleInfo, service string) []string {
 	var out []string
 	for code, info := range roles {
+		if adminRoles[code] {
+			continue
+		}
 		if info.scope == service || info.services[service] {
 			out = append(out, code)
 		}
 	}
 	sort.Strings(out)
-	return out, nil
+	return out
 }
 
 // UnbackedServices returns the requested services none of memberRoles belongs to. A tenant admin
