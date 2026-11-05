@@ -352,9 +352,19 @@ func (h *OutletHandler) ListOutlets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := make([]outletResponse, len(outlets))
-	for i, o := range outlets {
-		resp[i] = outletToResponse(o)
+	// This route is public, but the apps' outlet pickers call it with the user's token. A limited
+	// manager's picker offers only what they may open.
+	var limit []string
+	if raw := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "); raw != "" {
+		if c, cErr := h.tokens.Parse(raw); cErr == nil && c.TenantID == t.ID.String() && !c.IsPlatformOwner && !hasTenantAdminRole(c.Roles) {
+			limit = c.OutletIDs
+		}
+	}
+	resp := make([]outletResponse, 0, len(outlets))
+	for _, o := range outlets {
+		if len(limit) == 0 || containsFold(limit, o.ID.String()) {
+			resp = append(resp, outletToResponse(o))
+		}
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
