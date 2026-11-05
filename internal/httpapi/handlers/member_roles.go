@@ -8,8 +8,10 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"github.com/bengobox/auth-api/internal/ent"
+	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
 	entrole "github.com/bengobox/auth-api/internal/ent/role"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
@@ -55,6 +57,40 @@ func refusedRoles(requested, existing []string, known map[string]bool) []string 
 		}
 	}
 	return refused
+}
+
+// isStaffAddFromAccounts reports a person adding a staff member in Accounts. A service adding its own
+// member comes in with no user on its claims, and customers are not tied to a branch.
+func (h *AdminHandler) isStaffAddFromAccounts(r *http.Request, roles []string) bool {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	return ok && claims != nil && claims.Subject != "" && hasStaffRole(roles)
+}
+
+// hasStaffRole reports a role other than the customer ones.
+func hasStaffRole(roles []string) bool {
+	for _, role := range roles {
+		if role != "customer" && role != "member" {
+			return true
+		}
+	}
+	return false
+}
+
+// defaultOutletID is where a new staff member goes when nobody picked an outlet: the tenant's HQ,
+// else its oldest active outlet. Nil when it has none, or the lookup fails: adding the member matters
+// more than placing them, and an admin can still assign the outlet afterwards.
+func (h *AdminHandler) defaultOutletID(ctx context.Context, tenantID uuid.UUID) *uuid.UUID {
+	row, err := h.ent.Outlet.Query().
+		Where(entoutlet.TenantID(tenantID), entoutlet.StatusEQ("active")).
+		Order(ent.Desc(entoutlet.FieldIsHq), ent.Asc(entoutlet.FieldCreatedAt)).
+		First(ctx)
+	if err != nil {
+		if !ent.IsNotFound(err) {
+			h.logger.Warn("default outlet lookup failed", zap.String("tenant_id", tenantID.String()), zap.Error(err))
+		}
+		return nil
+	}
+	return &row.ID
 }
 
 // isPlatformActor reports a platform owner or an admin-scoped service token: they may grant any

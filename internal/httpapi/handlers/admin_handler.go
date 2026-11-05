@@ -2052,6 +2052,10 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if existingMember == nil && outletID == nil && h.isStaffAddFromAccounts(r, req.Roles) {
+		outletID = h.defaultOutletID(r.Context(), tenantID)
+	}
+
 	memberRoles := req.Roles
 	if existingMember != nil && req.MergeRoles {
 		memberRoles = mergeRoleLists(existingMember.Roles, req.Roles)

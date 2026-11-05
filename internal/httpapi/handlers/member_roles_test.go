@@ -32,6 +32,24 @@ func TestRefusedRoles(t *testing.T) {
 	}
 }
 
+// Only staff are placed at the default outlet: a customer is not tied to a branch.
+func TestHasStaffRole(t *testing.T) {
+	for _, c := range []struct {
+		roles []string
+		want  bool
+	}{
+		{[]string{"cashier"}, true},
+		{[]string{"customer", "manager"}, true},
+		{[]string{"customer"}, false},
+		{[]string{"member"}, false},
+		{nil, false},
+	} {
+		if got := hasStaffRole(c.roles); got != c.want {
+			t.Errorf("%v: got %v, want %v", c.roles, got, c.want)
+		}
+	}
+}
+
 // A portal invite for someone who is already staff must add the portal role, never drop staff roles.
 func TestMergeRoleListsKeepsExistingRoles(t *testing.T) {
 	got := mergeRoleLists([]string{"admin", "manager"}, []string{"maskani_owner", "admin", ""})
