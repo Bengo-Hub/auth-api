@@ -406,8 +406,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// MFA enforcement: if TOTP is enabled, require code before issuing tokens.
 	// When totp_code is not provided, return mfa_required so the frontend
-	// can show the TOTP input and re-submit with the code included.
-	if mfaEnabled, _ := h.service.IsMFAEnabled(r.Context(), result.User.ID); mfaEnabled {
+	// can show the TOTP input and re-submit with the code included. A lookup error fails closed
+	// (the code is asked for), as the phone and social sign-in paths already do, so a database
+	// error can never skip the second factor.
+	if mfaEnabled, mfaErr := h.service.IsMFAEnabled(r.Context(), result.User.ID); mfaEnabled || mfaErr != nil {
 		if req.TOTPCode == "" {
 			writeJSON(w, http.StatusOK, map[string]any{
 				"mfa_required": true,
