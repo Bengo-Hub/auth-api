@@ -18,6 +18,8 @@ func TestRefusedRoles(t *testing.T) {
 		{"admin can be granted, the plan limit applies separately", []string{"admin"}, []string{"cashier"}, nil},
 		{"super role refused", []string{"superuser"}, []string{"admin"}, []string{"superuser"}},
 		{"made-up role refused", []string{"platform_owner"}, nil, []string{"platform_owner"}},
+		{"platform-only roles refused", []string{"developer", "customer", "member"}, nil, []string{"developer", "customer", "member"}},
+		{"held platform-only role stays", []string{"member"}, []string{"member"}, nil},
 		{"held super role stays", []string{"superuser", "cashier"}, []string{"superuser"}, nil},
 		{"held service role stays", []string{"maskani_owner"}, []string{"maskani_owner"}, nil},
 	}

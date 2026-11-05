@@ -21,6 +21,11 @@ const maxAdminsLimit = "max_admins"
 // superRoles are never granted by a tenant admin. A member who already holds one keeps it.
 var superRoles = map[string]bool{"superuser": true, "superusers": true}
 
+// platformOnlyRoles are not staff roles a tenant admin hands out: developer opens the developer
+// portal, and member and customer are people the tenant serves, who join through sign-up. The
+// platform team and services adding their own members can still use them.
+var platformOnlyRoles = map[string]bool{"developer": true, "member": true, "customer": true}
+
 func isTenantAdminRole(role string) bool { return role == "admin" || superRoles[role] }
 
 func hasTenantAdminRole(roles []string) bool {
@@ -32,8 +37,8 @@ func hasTenantAdminRole(roles []string) bool {
 	return false
 }
 
-// refusedRoles lists the requested roles a tenant admin may not grant: a super role, or a code auth
-// does not know. Roles the member already holds always pass, because services keep roles of their
+// refusedRoles lists the requested roles a tenant admin may not grant: a super or platform-only role,
+// or a code auth does not know. Roles the member already holds always pass, because services keep roles of their
 // own that auth's catalogue never lists and an edit must not strip them.
 func refusedRoles(requested, existing []string, known map[string]bool) []string {
 	held := make(map[string]bool, len(existing))
@@ -45,7 +50,7 @@ func refusedRoles(requested, existing []string, known map[string]bool) []string 
 		if held[r] {
 			continue
 		}
-		if superRoles[r] || !known[r] {
+		if superRoles[r] || platformOnlyRoles[r] || !known[r] {
 			refused = append(refused, r)
 		}
 	}
