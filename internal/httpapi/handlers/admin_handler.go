@@ -401,8 +401,8 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Auto-register redirect URIs for the new tenant slug on all OAuth clients.
-	if err := auth.AppendTenantRedirectURIs(r.Context(), h.ent, t.Slug); err != nil {
+	// Register the new tenant's redirect URIs on the apps serving its use cases.
+	if err := auth.AppendTenantRedirectURIs(r.Context(), h.ent, t); err != nil {
 		h.logger.Warn("failed to append tenant redirect URIs",
 			zap.String("tenant_slug", t.Slug),
 			zap.Error(err),
@@ -952,12 +952,12 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A renamed tenant signs in through /{new-slug}/auth/callback, which every OAuth client must
-	// list; move the URIs now so login works at once. A failure is logged and the Reprovision
-	// redirect URIs action repairs it.
-	if existing != nil && existing.Slug != t.Slug {
-		if err := auth.RenameTenantRedirectURIs(r.Context(), h.ent, existing.Slug, t.Slug); err != nil {
-			h.logger.Error("tenant slug changed but redirect URIs were not moved",
+	// A renamed tenant signs in through /{new-slug}/auth/callback, and a tenant whose use cases
+	// changed signs in to a different set of apps; move the URIs now so login works at once. A
+	// failure is logged and the Reprovision redirect URIs action repairs it.
+	if existing != nil && (existing.Slug != t.Slug || !sameUseCases(auth.TenantUseCases(existing), auth.TenantUseCases(t))) {
+		if err := auth.RenameTenantRedirectURIs(r.Context(), h.ent, existing.Slug, t); err != nil {
+			h.logger.Error("tenant redirect URIs were not moved",
 				zap.String("old_slug", existing.Slug), zap.String("new_slug", t.Slug), zap.Error(err))
 		}
 	}
@@ -1151,8 +1151,26 @@ func (h *AdminHandler) notifyFounder(ctx context.Context, t *ent.Tenant, eventTy
 	h.publishEvent(ctx, t.ID, "auth.tenant", t.ID, eventType+".notify", payload)
 }
 
+// sameUseCases reports whether two use case lists hold the same values, ignoring order.
+func sameUseCases(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[string]int, len(a))
+	for _, u := range a {
+		seen[u]++
+	}
+	for _, u := range b {
+		if seen[u] == 0 {
+			return false
+		}
+		seen[u]--
+	}
+	return true
+}
+
 // ProvisionTenantOAuthRedirects ensures the tenant's /{slug}/auth/callback URIs are
-// registered on all OAuth clients. Idempotent — safe to call multiple times.
+// registered on the OAuth clients serving its use cases (and removed from the others). Idempotent — safe to call multiple times.
 // Called automatically on tenant creation; this endpoint lets admins re-trigger it
 // retroactively for tenants that were created before OAuth clients existed.
 // POST /api/v1/admin/tenants/{tenant_id}/provision-oauth-redirects
@@ -1176,7 +1194,7 @@ func (h *AdminHandler) ProvisionTenantOAuthRedirects(w http.ResponseWriter, r *h
 		}
 		return
 	}
-	if err := auth.AppendTenantRedirectURIs(r.Context(), h.ent, t.Slug); err != nil {
+	if err := auth.AppendTenantRedirectURIs(r.Context(), h.ent, t); err != nil {
 		h.logger.Error("failed to provision tenant redirect URIs",
 			zap.String("tenant_slug", t.Slug), zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to provision redirect URIs", nil)

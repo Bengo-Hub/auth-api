@@ -69,6 +69,9 @@ func main() {
 		if err := seedOAuthClients(ctx, client, tenantEntities, cfg.Security.TenantAppHosts); err != nil {
 			log.Fatalf("seed oauth clients: %v", err)
 		}
+		// The client lists were just rewritten from the seed tenants; put back every other
+		// tenant's callbacks, or a targeted run would lock them out.
+		backfillPostSeedTenants(ctx, client, tenantEntities)
 		log.Println("✅ OAuth clients re-registered.")
 		return
 	}
@@ -78,8 +81,12 @@ func main() {
 		log.Fatalf("seed admin user: %v", err)
 	}
 
-	// 5. Seed codevertex-demo tenant admin (last in list)
-	demoTenant := tenantEntities[len(tenantEntities)-1]
+	// 5. Seed codevertex-demo tenant admin. Found by slug: optional tenants (hadia) are
+	// appended after it, so "last in the list" is not the demo tenant.
+	demoTenant := tenantBySlug(tenantEntities, "codevertex-demo")
+	if demoTenant == nil {
+		log.Fatalf("seed: codevertex-demo tenant missing from the seed list")
+	}
 	if err := seedDemoTenantAdmin(ctx, client, hasher, demoTenant); err != nil {
 		log.Printf("⚠️  seed demo tenant admin: %v", err)
 	}
@@ -149,14 +156,7 @@ func main() {
 	// 13b. Backfill redirect URIs for tenants created after the seed (e.g. via admin UI).
 	// seedOAuthClients only covers the 5 hard-coded seed tenants; this step ensures
 	// every other active tenant in the DB also gets its /{slug}/auth/callback URIs registered.
-	log.Println("Backfilling redirect URIs for post-seed tenants...")
-	seedSlugSet := make(map[string]bool, len(tenantEntities))
-	for _, te := range tenantEntities {
-		seedSlugSet[te.Slug] = true
-	}
-	if err := backfillTenantRedirectURIs(ctx, client, seedSlugSet); err != nil {
-		log.Printf("⚠️  backfill redirect URIs: %v", err)
-	}
+	backfillPostSeedTenants(ctx, client, tenantEntities)
 
 	// 14. Seed legacy platform API key
 	log.Println("Seeding platform API key (legacy)...")

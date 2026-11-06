@@ -37,6 +37,8 @@ var KnownUseCases = []string{
 	"hotspot",
 	// Maskani property platform: each estate or building is an outlet of the property tenant.
 	"property",
+	// Hadia gift registry: registry owners and their guests on hadiafrica.com.
+	"gift_registry",
 }
 
 // ApplicableServices returns which downstream services receive outlet sync events
@@ -59,6 +61,8 @@ func ApplicableServices(useCase string) []string {
 		return []string{"isp-billing"}
 	case "property", "estate", "real_estate":
 		return []string{"maskani-api"}
+	case "gift_registry", "registry":
+		return []string{"hadia-api"}
 	default:
 		return []string{}
 	}
@@ -240,6 +244,18 @@ func (s *Service) ResolveConfig(ctx context.Context, useCase string) *Config {
 				"catalog_nomenclature":  "Charges",
 				"item_nomenclature":     "Unit",
 				"category_nomenclature": "Block",
+			},
+		}
+	case "gift_registry":
+		return &Config{
+			UseCase:            "gift_registry",
+			DisplayName:        "Gift Registry",
+			ApplicableServices: applicable,
+			Features:           []string{"registries", "guest_contributions", "escrow_wallets", "gift_pages"},
+			Settings: map[string]any{
+				"catalog_nomenclature":  "Registries",
+				"item_nomenclature":     "Gift",
+				"category_nomenclature": "Occasion",
 			},
 		}
 	default:

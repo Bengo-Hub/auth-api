@@ -791,9 +791,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 			})
 		}
 
-		// Auto-register redirect URIs for the new tenant slug on all OAuth clients
-		// so the tenant can immediately log in to all frontend apps.
-		if err := AppendTenantRedirectURIs(ctx, s.entClient, tenantEntity.Slug); err != nil {
+		// Register the new tenant's /{slug}/auth/callback on the apps serving its use cases,
+		// so it can sign in at once to the apps it actually uses.
+		if err := AppendTenantRedirectURIs(ctx, s.entClient, tenantEntity); err != nil {
 			s.logger.Warn("failed to append tenant redirect URIs",
 				zap.String("tenant_slug", tenantEntity.Slug),
 				zap.Error(err),

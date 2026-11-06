@@ -10,6 +10,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 	entoutlet "github.com/bengobox/auth-api/internal/ent/outlet"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
+	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/google/uuid"
 )
 
@@ -63,6 +64,7 @@ func seedTenantMetadata(stored, enforced, defaults map[string]any) map[string]an
 var hadiaTenantSpec = tenantSpec{
 	name: "Hadia", slug: "hadia", baseDomain: "hadiafrica.com",
 	website: "https://hadiafrica.com", contactEmail: "info@hadiafrica.com",
+	useCases: []string{"gift_registry"},
 	metadata: map[string]any{
 		"phone_self_signup":    true,
 		"self_signup_role":     "customer",
@@ -91,6 +93,20 @@ type tenantRef struct {
 	ID   uuid.UUID
 	Name string
 	Slug string
+	// UseCases decide which apps get the tenant's /{slug}/auth/callback (seedOAuthClients).
+	UseCases []string
+	// SignsInEverywhere: platform owner or demo tenant, callbacks on every app.
+	SignsInEverywhere bool
+}
+
+// tenantBySlug returns the seeded tenant with slug, or nil.
+func tenantBySlug(refs []*tenantRef, slug string) *tenantRef {
+	for _, r := range refs {
+		if r.Slug == slug {
+			return r
+		}
+	}
+	return nil
 }
 
 // seedTenants upserts all platform tenants and returns their references in the same order.
@@ -101,7 +117,9 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 	tenants := []tenantSpec{
 		{
 			name: "Codevertex Africa Limited", slug: "codevertex", baseDomain: "codevertexafrica.com",
-			isPlatformOwner: true, useCases: nil,
+			// A service provider offering a mix of services; it signs in to every app anyway
+			// (platform owner, see auth.ServesTenant).
+			isPlatformOwner: true, useCases: []string{"services"},
 			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://codevertexafrica.com",
 			contactEmail: "info@codevertexafrica.com", contactPhone: "+254 743 793 901",
 			brandColors: map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
@@ -145,7 +163,7 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			useCases: []string{
 				"hospitality", "retail", "quick_service", "pharmacy", "services",
 				"logistics", "warehouse", "manufacturing", "commercial_weighing",
-				"axle_load_enforcement", "hospital",
+				"axle_load_enforcement", "hospital", "property",
 			},
 			logoURL:      mediaBase + "/images/logo/codevertex.png",
 			website:      "https://demo.codevertexafrica.com",
@@ -253,10 +271,18 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			}
 		}
 
+		useCases := t.useCases
+		everywhere := t.isPlatformOwner || t.isDemo
+		if stored, err := client.Tenant.Get(ctx, tenantEntity.ID); err == nil {
+			useCases = auth.TenantUseCases(stored)
+			everywhere = everywhere || auth.SignsInEverywhere(stored)
+		}
 		refs = append(refs, &tenantRef{
-			ID:   tenantEntity.ID,
-			Name: tenantEntity.Name,
-			Slug: tenantEntity.Slug,
+			ID:                tenantEntity.ID,
+			Name:              tenantEntity.Name,
+			Slug:              tenantEntity.Slug,
+			UseCases:          useCases,
+			SignsInEverywhere: everywhere,
 		})
 	}
 

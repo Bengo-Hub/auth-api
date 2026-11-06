@@ -7,19 +7,107 @@ import (
 	"github.com/bengobox/auth-api/internal/ent"
 )
 
-// AppendTenantRedirectURIs adds tenant-slug-specific redirect URIs to all
-// public OAuth clients. Called automatically when a new tenant is created
-// (via registration or admin API) so that the new tenant's /{slug}/auth/callback
-// paths are immediately valid without re-running the seed.
-func AppendTenantRedirectURIs(ctx context.Context, entClient *ent.Client, tenantSlug string) error {
-	return syncTenantRedirectURIs(ctx, entClient, tenantSlug, "")
+// TenantPathsKey is the OAuth client metadata key that turns per-tenant callbacks off. An app on
+// its own domain serving one tenant (hadia-ui) sets it to false, so no other tenant's
+// /{slug}/auth/callback is ever registered on it.
+const TenantPathsKey = "tenant_paths"
+
+// ClientUseCasesKey is the OAuth client metadata key listing the tenant use cases an app serves
+// (pos-ui: hospitality, retail, ...). A tenant gets /{slug}/auth/callback only on apps that serve
+// one of its use cases. A client without the key serves every tenant (auth-ui, treasury-ui).
+const ClientUseCasesKey = "use_cases"
+
+// UsesTenantPaths reports whether a client takes /{slug}/auth/callback URIs at all.
+// True unless its metadata sets tenant_paths to false.
+func UsesTenantPaths(c *ent.OAuthClient) bool {
+	if c == nil {
+		return true
+	}
+	return metadataUsesTenantPaths(c.Metadata)
+}
+
+func metadataUsesTenantPaths(meta map[string]any) bool {
+	v, ok := meta[TenantPathsKey].(bool)
+	return !ok || v
+}
+
+// ServesUseCases reports whether a client with this metadata serves a tenant with these use
+// cases. A client with no use_cases list serves everyone; a tenant with no use cases (an older
+// tenant or the platform owner) is served everywhere, so nobody loses sign-in.
+func ServesUseCases(meta map[string]any, tenantUseCases []string) bool {
+	if !metadataUsesTenantPaths(meta) {
+		return false
+	}
+	served := metadataStrings(meta[ClientUseCasesKey])
+	if len(served) == 0 || len(tenantUseCases) == 0 {
+		return true
+	}
+	for _, s := range served {
+		for _, u := range tenantUseCases {
+			if strings.EqualFold(strings.TrimSpace(s), strings.TrimSpace(u)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ServesTenant reports whether a client with this metadata takes the tenant's callbacks. The
+// platform owner and demo tenants sign in to every app with per-tenant paths, whatever their own
+// use cases: platform staff operate every service and the demo covers all of them.
+func ServesTenant(meta map[string]any, t *ent.Tenant) bool {
+	if SignsInEverywhere(t) {
+		return metadataUsesTenantPaths(meta)
+	}
+	return ServesUseCases(meta, TenantUseCases(t))
+}
+
+// SignsInEverywhere reports whether the tenant is the platform owner or a demo tenant.
+func SignsInEverywhere(t *ent.Tenant) bool {
+	if t == nil {
+		return false
+	}
+	if t.IsDemo {
+		return true
+	}
+	owner, _ := t.Metadata["is_platform_owner"].(bool)
+	return owner
+}
+
+// TenantUseCases returns a tenant's use cases: use_cases, plus the legacy single use_case.
+func TenantUseCases(t *ent.Tenant) []string {
+	if t == nil {
+		return nil
+	}
+	out := append([]string(nil), t.UseCases...)
+	if t.UseCase != nil && *t.UseCase != "" {
+		seen := false
+		for _, u := range out {
+			if u == *t.UseCase {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			out = append(out, *t.UseCase)
+		}
+	}
+	return out
+}
+
+// AppendTenantRedirectURIs registers a tenant's /{slug}/auth/callback URIs on the OAuth clients
+// that serve its use cases, and removes them from clients that do not. Called when a tenant is
+// created (registration or admin API) so it can sign in at once without re-running the seed.
+// Idempotent, so it also repairs a tenant whose use cases changed.
+func AppendTenantRedirectURIs(ctx context.Context, entClient *ent.Client, t *ent.Tenant) error {
+	return SyncTenantRedirectURIs(ctx, entClient, t, "")
 }
 
 // RenameTenantRedirectURIs moves a renamed tenant's redirect URIs from the old slug to the new one
 // on every OAuth client: the new /{slug}/auth/callback URIs are added and the old slug's are
 // removed, so a stale slug cannot keep receiving authorization codes. Idempotent.
-func RenameTenantRedirectURIs(ctx context.Context, entClient *ent.Client, oldSlug, newSlug string) error {
-	return syncTenantRedirectURIs(ctx, entClient, newSlug, oldSlug)
+func RenameTenantRedirectURIs(ctx context.Context, entClient *ent.Client, oldSlug string, t *ent.Tenant) error {
+	return SyncTenantRedirectURIs(ctx, entClient, t, oldSlug)
 }
 
 // tenantRedirectURIs are the callback URIs one tenant slug owns on a client with production host.
@@ -27,16 +115,23 @@ func tenantRedirectURIs(prodHost, slug string) (prod, local string) {
 	return "https://" + prodHost + "/" + slug + "/auth/callback", "http://localhost:3000/" + slug + "/auth/callback"
 }
 
-// syncTenantRedirectURIs ensures addSlug's URIs exist on every client that has a production
-// callback host, and drops removeSlug's (when set and different) in the same write.
-func syncTenantRedirectURIs(ctx context.Context, entClient *ent.Client, addSlug, removeSlug string) error {
+// SyncTenantRedirectURIs makes every OAuth client match the tenant: its callbacks present on the
+// clients serving its use cases, absent elsewhere, and removeSlug's (when set) gone everywhere.
+func SyncTenantRedirectURIs(ctx context.Context, entClient *ent.Client, t *ent.Tenant, removeSlug string) error {
+	if t == nil {
+		return nil
+	}
 	clients, err := entClient.OAuthClient.Query().All(ctx)
 	if err != nil {
 		return err
 	}
-
 	for _, c := range clients {
-		uris, changed := nextRedirectURIs(c.RedirectUris, addSlug, removeSlug)
+		serves := ServesTenant(c.Metadata, t)
+		if !serves && !UsesTenantPaths(c) {
+			// A single-domain client never got tenant paths from us; leave its list alone.
+			continue
+		}
+		uris, changed := nextRedirectURIs(c.RedirectUris, t.Slug, removeSlug, serves)
 		if !changed {
 			continue
 		}
@@ -47,28 +142,38 @@ func syncTenantRedirectURIs(ctx context.Context, entClient *ent.Client, addSlug,
 	return nil
 }
 
-// nextRedirectURIs returns a client's redirect URIs with addSlug's callbacks present and
-// removeSlug's gone, and whether anything changed. Clients without a production callback host
-// (no https .../auth/callback URI) are left alone.
-func nextRedirectURIs(current []string, addSlug, removeSlug string) ([]string, bool) {
+// nextRedirectURIs returns a client's redirect URIs with slug's callbacks present (keep true) or
+// absent (keep false), removeSlug's gone, and whether anything changed. Clients without a
+// production callback host (no https .../auth/callback URI) are left alone.
+func nextRedirectURIs(current []string, slug, removeSlug string, keep bool) ([]string, bool) {
 	prodHost := inferProductionHost(current)
 	if prodHost == "" {
 		return current, false
 	}
 	changed := false
 	uris := append([]string(nil), current...)
-	addProd, addLocal := tenantRedirectURIs(prodHost, addSlug)
-	for _, u := range []string{addProd, addLocal} {
-		if !containsURI(uris, u) {
-			uris = append(uris, u)
-			changed = true
+	drop := map[string]bool{}
+	slugProd, slugLocal := tenantRedirectURIs(prodHost, slug)
+	if keep {
+		for _, u := range []string{slugProd, slugLocal} {
+			if !containsURI(uris, u) {
+				uris = append(uris, u)
+				changed = true
+			}
 		}
+	} else {
+		drop[strings.ToLower(slugProd)] = true
+		drop[strings.ToLower(slugLocal)] = true
 	}
-	if removeSlug != "" && !strings.EqualFold(removeSlug, addSlug) {
+	if removeSlug != "" && !strings.EqualFold(removeSlug, slug) {
 		oldProd, oldLocal := tenantRedirectURIs(prodHost, removeSlug)
+		drop[strings.ToLower(oldProd)] = true
+		drop[strings.ToLower(oldLocal)] = true
+	}
+	if len(drop) > 0 {
 		kept := uris[:0]
 		for _, u := range uris {
-			if strings.EqualFold(strings.TrimSpace(u), oldProd) || strings.EqualFold(strings.TrimSpace(u), oldLocal) {
+			if drop[strings.ToLower(strings.TrimSpace(u))] {
 				changed = true
 				continue
 			}

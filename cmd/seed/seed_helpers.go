@@ -17,6 +17,7 @@ import (
 	entapp "github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/platform/outbox"
+	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -323,6 +324,18 @@ func publishSeedPINEvent(ctx context.Context, client *ent.Client, tenantID, user
 	}
 }
 
+// backfillPostSeedTenants runs backfillTenantRedirectURIs for every tenant outside the seed list.
+func backfillPostSeedTenants(ctx context.Context, client *ent.Client, seedTenants []*tenantRef) {
+	log.Println("Backfilling redirect URIs for post-seed tenants...")
+	seedSlugSet := make(map[string]bool, len(seedTenants))
+	for _, te := range seedTenants {
+		seedSlugSet[te.Slug] = true
+	}
+	if err := backfillTenantRedirectURIs(ctx, client, seedSlugSet); err != nil {
+		log.Printf("⚠️  backfill redirect URIs: %v", err)
+	}
+}
+
 // backfillTenantRedirectURIs ensures every active tenant in the DB has
 // /{slug}/auth/callback redirect URIs registered on all OAuth clients.
 //
@@ -359,6 +372,10 @@ func backfillTenantRedirectURIs(ctx context.Context, client *ent.Client, seedSlu
 		slug := t.Slug
 		added := false
 		for _, c := range oauthClients {
+			// Only the apps serving this tenant's use cases take its callbacks.
+			if !auth.ServesTenant(c.Metadata, t) {
+				continue
+			}
 			// Derive the production host from the first https://*.../auth/callback URI.
 			prodHost := ""
 			for _, u := range c.RedirectUris {

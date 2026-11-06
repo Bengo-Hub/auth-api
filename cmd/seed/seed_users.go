@@ -12,6 +12,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/password"
+	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/google/uuid"
 )
 
@@ -517,7 +518,8 @@ func seedTruLoadDemoStaff(ctx context.Context, client *ent.Client, hasher *passw
 func seedTenantStaffUsers(ctx context.Context, client *ent.Client, hasher *password.Hasher, tenantEntities []*tenantRef) error {
 	log.Println("Seeding staff users for all tenants...")
 	// Production client tenants that manage their own real users — skip generic seed accounts.
-	skipSlugs := map[string]bool{"urban-loft": true}
+	// hadia: its staff roles come only from hadia-api, never from a seeded login.
+	skipSlugs := map[string]bool{"urban-loft": true, "hadia": true}
 	for _, te := range tenantEntities {
 		if skipSlugs[te.Slug] {
 			continue
@@ -653,11 +655,11 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		// SelfSignupRole marks a customer-facing app: people who sign in or sign up through it
 		// join the requested tenant with this role (see auth.SelfSignupRole). Empty = staff app.
 		SelfSignupRole string
-	}
-
-	var tenantSlugs []string
-	for _, te := range tenantEntities {
-		tenantSlugs = append(tenantSlugs, te.Slug)
+		// SingleHost: the client serves one tenant on its own domain, so it never takes other
+		// tenants' /{slug}/auth/callback URIs (metadata tenant_paths false).
+		SingleHost bool
+		// UseCases the app serves (metadata use_cases); empty = every tenant.
+		UseCases []string
 	}
 
 	// clientProductionHosts maps each OAuth client to its production hostname.
@@ -672,30 +674,39 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		// RedirectURIs, when set, replace the generated list: for an app on its own domain with
 		// no per-tenant paths (hadia-ui).
 		RedirectURIs []string
+		// UseCases the app serves: a tenant gets /{slug}/auth/callback here only when one of its
+		// use cases is listed (auth.ServesUseCases). Empty = a platform app every tenant uses.
+		UseCases []string
 	}
+	// Use case groups, matching usecase.ApplicableServices.
+	posUseCases := []string{"hospitality", "retail", "quick_service", "pharmacy", "services"}
+	orderingUseCases := []string{"hospitality", "retail", "quick_service", "e_commerce"}
+	inventoryUseCases := append(append([]string(nil), posUseCases...), "warehouse", "manufacturing", "e_commerce")
+	logisticsUseCases := append([]string{"logistics"}, orderingUseCases...)
 	clients := []clientDef{
 		{ID: "notifications-ui", Name: "Codevertex Notifications UI", ProductionHost: "notifications.codevertexafrica.com", Public: true},
-		{ID: "ordering-ui", Name: "Codevertex Ordering UI", ProductionHost: "ordering.codevertexafrica.com", Public: true, SelfSignupRole: "customer"},
-		{ID: "rider-app", Name: "Codevertex Rider App", ProductionHost: "riderapp.codevertexafrica.com", Public: true, SelfSignupRole: "driver"},
+		{ID: "ordering-ui", Name: "Codevertex Ordering UI", ProductionHost: "ordering.codevertexafrica.com", Public: true, SelfSignupRole: "customer", UseCases: orderingUseCases},
+		{ID: "rider-app", Name: "Codevertex Rider App", ProductionHost: "riderapp.codevertexafrica.com", Public: true, SelfSignupRole: "driver", UseCases: logisticsUseCases},
 		{ID: "codevertex-website", Name: "Codevertex Africa Limited Website", ProductionHost: "codevertexafrica.com", Public: true, SelfSignupRole: "student"},
 		{ID: "subscriptions-ui", Name: "Codevertex Subscriptions UI", ProductionHost: "pricing.codevertexafrica.com", Public: true},
 		{ID: "treasury-ui", Name: "Codevertex Treasury UI", ProductionHost: "books.codevertexafrica.com", Public: true},
-		{ID: "pos-ui", Name: "Codevertex POS UI", ProductionHost: "pos.codevertexafrica.com", Public: true},
-		{ID: "inventory-ui", Name: "Codevertex Inventory UI", ProductionHost: "inventory.codevertexafrica.com", Public: true},
+		{ID: "pos-ui", Name: "Codevertex POS UI", ProductionHost: "pos.codevertexafrica.com", Public: true, UseCases: posUseCases},
+		{ID: "inventory-ui", Name: "Codevertex Inventory UI", ProductionHost: "inventory.codevertexafrica.com", Public: true, UseCases: inventoryUseCases},
 		{ID: "erp-ui", Name: "Codevertex ERP UI", ProductionHost: "erp.codevertexafrica.com", Public: true},
-		{ID: "logistics-ui", Name: "Codevertex Logistics UI", ProductionHost: "logistics.codevertexafrica.com", Public: true},
+		{ID: "logistics-ui", Name: "Codevertex Logistics UI", ProductionHost: "logistics.codevertexafrica.com", Public: true, UseCases: logisticsUseCases},
 		{ID: "auth-ui", Name: "Codevertex Auth UI (Platform Admin)", ProductionHost: "accounts.codevertexafrica.com", Public: true},
 		{ID: "marketflow-ui", Name: "MarketFlow UI", ProductionHost: "marketflow.codevertexafrica.com", Public: true},
-		{ID: "truload-ui", Name: "TruLoad Frontend", ProductionHost: "truload.codevertexafrica.com", Public: true},
+		{ID: "truload-ui", Name: "TruLoad Frontend", ProductionHost: "truload.codevertexafrica.com", Public: true, UseCases: []string{"commercial_weighing", "axle_load_enforcement"}},
 		{ID: "ticketing-ui", Name: "Codevertex Ticketing UI", ProductionHost: "ticketing.codevertexafrica.com", Public: true},
-		{ID: "isp-billing-ui", Name: "Codevertex ISP Billing UI", ProductionHost: "ispbilling.codevertexafrica.com", Public: true},
-		{ID: "hospital-ui", Name: "Codevertex Hospital UI (Afya)", ProductionHost: "afya.codevertexafrica.com", Public: true},
+		{ID: "isp-billing-ui", Name: "Codevertex ISP Billing UI", ProductionHost: "ispbilling.codevertexafrica.com", Public: true, UseCases: []string{"isp", "hotspot"}},
+		{ID: "hospital-ui", Name: "Codevertex Hospital UI (Afya)", ProductionHost: "afya.codevertexafrica.com", Public: true, UseCases: []string{"hospital"}},
 		{ID: "projects-ui", Name: "Codevertex Projects UI", ProductionHost: "projects.codevertexafrica.com", Public: true},
-		{ID: "maskani-ui", Name: "Maskani Property Platform", ProductionHost: "maskaniapp.codevertexafrica.com", Public: true},
+		{ID: "maskani-ui", Name: "Maskani Property Platform", ProductionHost: "maskaniapp.codevertexafrica.com", Public: true, UseCases: []string{"property"}},
 		// Hadia gift registry (platform task A3): public PKCE client for owners and staff. Owners
 		// sign up by phone code into the hadia tenant (tenant metadata phone_self_signup), so the
 		// client is customer-facing; staff roles still come only from hadia-api and an admin.
 		{ID: "hadia-ui", Name: "Hadia", ProductionHost: "hadiafrica.com", Public: true, SelfSignupRole: "customer",
+			UseCases: []string{"gift_registry"},
 			RedirectURIs: []string{
 				"https://hadiafrica.com/auth/callback",
 				"https://staging.hadiafrica.com/auth/callback",
@@ -703,13 +714,20 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 			}},
 	}
 
-	// Collect all tenant slugs for OAuth redirect URI generation.
-	allSlugs := tenantSlugs
-
 	// buildRedirects generates the full redirect URI list for a client.
 	// Each client gets: base production callback, base localhost callback,
-	// plus per-tenant-slug variants of both.
-	buildRedirects := func(productionHost string) []string {
+	// plus per-tenant-slug variants of both for the seed tenants whose use cases it serves.
+	buildRedirects := func(productionHost string, useCases []string) []string {
+		meta := map[string]any{}
+		if len(useCases) > 0 {
+			meta[auth.ClientUseCasesKey] = useCases
+		}
+		var allSlugs []string
+		for _, te := range tenantEntities {
+			if te.SignsInEverywhere || auth.ServesUseCases(meta, te.UseCases) {
+				allSlugs = append(allSlugs, te.Slug)
+			}
+		}
 		seen := map[string]bool{}
 		var uris []string
 		add := func(u string) {
@@ -745,7 +763,7 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 
 	oauthClients := make([]oauthClientSpec, 0, len(clients))
 	for _, c := range clients {
-		uris := buildRedirects(c.ProductionHost)
+		uris := buildRedirects(c.ProductionHost, c.UseCases)
 		if len(c.RedirectURIs) > 0 {
 			uris = append([]string(nil), c.RedirectURIs...)
 		}
@@ -761,13 +779,13 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		// erp-ui is served on both the codevertex host (above) and the masterspace
 		// tenant host — add the masterspace base + per-tenant callbacks too.
 		if c.ID == "erp-ui" {
-			uris = append(uris, buildRedirects("erp.masterspace.co.ke")...)
+			uris = append(uris, buildRedirects("erp.masterspace.co.ke", c.UseCases)...)
 		}
 		// ordering-frontend also serves tenants' own domains (alphachinamarket.co.ke, ...).
 		if c.ID == "ordering-ui" {
 			for _, h := range tenantAppHosts {
 				if h = strings.TrimSpace(h); h != "" {
-					uris = append(uris, buildRedirects(h)...)
+					uris = append(uris, buildRedirects(h, c.UseCases)...)
 				}
 			}
 		}
@@ -777,6 +795,8 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 			RedirectURIs:   uris,
 			Public:         c.Public,
 			SelfSignupRole: c.SelfSignupRole,
+			SingleHost:     len(c.RedirectURIs) > 0,
+			UseCases:       c.UseCases,
 		})
 	}
 
@@ -798,6 +818,16 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 			} else {
 				delete(meta, "self_signup_role")
 			}
+			if c.SingleHost {
+				meta[auth.TenantPathsKey] = false
+			} else {
+				delete(meta, auth.TenantPathsKey)
+			}
+			if len(c.UseCases) > 0 {
+				meta[auth.ClientUseCasesKey] = c.UseCases
+			} else {
+				delete(meta, auth.ClientUseCasesKey)
+			}
 			_, err := existing.Update().
 				SetMetadata(meta).
 				SetName(c.Name).
@@ -816,6 +846,12 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		createMeta := map[string]any{}
 		if c.SelfSignupRole != "" {
 			createMeta["self_signup_role"] = c.SelfSignupRole
+		}
+		if c.SingleHost {
+			createMeta[auth.TenantPathsKey] = false
+		}
+		if len(c.UseCases) > 0 {
+			createMeta[auth.ClientUseCasesKey] = c.UseCases
 		}
 		_, err := client.OAuthClient.Create().
 			SetMetadata(createMeta).
