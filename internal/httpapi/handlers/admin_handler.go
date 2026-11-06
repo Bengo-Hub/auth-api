@@ -15,6 +15,7 @@ import (
 	sharedevents "github.com/Bengo-Hub/shared-events"
 
 	"github.com/Bengo-Hub/pagination"
+	"github.com/bengobox/auth-api/internal/audit"
 	subscriptionclient "github.com/bengobox/auth-api/internal/clients/subscription"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
@@ -60,6 +61,37 @@ type AdminHandler struct {
 	access *access.Resolver
 	// db is the raw handle for the schema-driven tenant purge (tenant_purge.go).
 	db *sql.DB
+	// auditor records membership changes in audit_logs.
+	auditor *audit.Logger
+}
+
+// writeAudit records an admin mutation against tenantID, with the caller as actor.
+func (h *AdminHandler) writeAudit(r *http.Request, tenantID uuid.UUID, action, resourceType, resourceID string, extra map[string]any) {
+	if h.auditor == nil {
+		return
+	}
+	uid, email, actorTenant := requestActor(r)
+	ctxData := map[string]any{}
+	if email != "" {
+		ctxData["actor_email"] = email
+	}
+	if actorTenant != nil && *actorTenant != tenantID {
+		ctxData["actor_tenant_id"] = actorTenant.String()
+	}
+	for k, v := range extra {
+		ctxData[k] = v
+	}
+	tid := tenantID
+	h.auditor.Record(r.Context(), audit.Entry{
+		TenantID:   &tid,
+		UserID:     uid,
+		Action:     action,
+		Resource:   resourceType,
+		ResourceID: resourceID,
+		IPAddress:  clientIP(r),
+		UserAgent:  userAgent(r),
+		Context:    ctxData,
+	})
 }
 
 // SetTenantCache lets tenant updates drop the shared "tenant:<slug>" entry that
@@ -94,6 +126,7 @@ func NewAdminHandler(entClient *ent.Client, tokens *token.Service, integrationSv
 		subClient:    subClient,
 		hasher:       hasher,
 		authUIURL:    authUIURL,
+		auditor:      audit.New(entClient, logger),
 	}
 }
 
@@ -2969,6 +3002,10 @@ func (h *AdminHandler) RemoveTenantMember(w http.ResponseWriter, r *http.Request
 		h.logger.Error("Failed to remove tenant member", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "could not remove member", nil)
 		return
+	}
+	if member != nil {
+		h.writeAudit(r, tenantID, "auth.tenant_member.removed", "tenant_membership", userID.String(),
+			map[string]any{"removed_roles": member.Roles})
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "removed"})

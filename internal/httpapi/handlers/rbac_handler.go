@@ -51,6 +51,11 @@ func (h *RBACHandler) requireAdmin(r *http.Request) bool {
 
 // actor extracts the acting user id/email from the request claims for audit logs.
 func (h *RBACHandler) actor(r *http.Request) (*uuid.UUID, string, *uuid.UUID) {
+	return requestActor(r)
+}
+
+// requestActor returns the signed-in caller's user id, email and token tenant, for audit entries.
+func requestActor(r *http.Request) (*uuid.UUID, string, *uuid.UUID) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok || claims == nil {
 		return nil, "", nil
