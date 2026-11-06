@@ -15,57 +15,169 @@ type Config struct {
 	ApplicableServices []string       `json:"applicable_services"`
 }
 
-// KnownUseCases is the authoritative list of valid outlet use_case values.
-// Each value maps to specific downstream services via ApplicableServices().
-var KnownUseCases = []string{
-	"hospitality",
-	"retail",
-	"quick_service",
-	"pharmacy",
-	"services",
-	"hospital",
-	"warehouse",
-	"logistics",
-	"commercial_weighing",
-	"axle_load_enforcement",
-	"manufacturing",
-	// ISP / hotspot providers onboard onto isp-billing. The signup form folds both
-	// "isp" and "hotspot" selections into use_case "isp" (the hotspot distinction is
-	// kept in tenant metadata.isp_business_type); "hotspot" is accepted here too for
-	// completeness.
-	"isp",
-	"hotspot",
+// Definition is one use case. Catalogue below is the only list of use cases in auth-api: the
+// outlet whitelist, outlet event routing, the self-signup trial plan and which apps a tenant can
+// sign in to are all read from it.
+type Definition struct {
+	Code        string
+	DisplayName string
+	// Aliases are other values tenants and outlets store for the same use case.
+	Aliases []string
+	// Outlet: accepted as an outlet use_case (KnownUseCases).
+	Outlet bool
+	// Services receive outlet sync events (ApplicableServices).
+	Services []string
+	// Apps are the OAuth clients whose /{slug}/auth/callback a tenant with this use case gets.
+	// An app listed under no use case is a platform app every tenant uses (auth-ui, treasury-ui).
+	Apps []string
+	// TrialPlan is the subscriptions-api plan a self-signup trial starts on; empty means STARTER.
+	TrialPlan string
+	Features  []string
+	// Nomenclature: catalog, item and category labels.
+	Catalog, Item, Category string
+}
+
+// App groups shared by several use cases.
+var (
+	posApps        = []string{"pos-ui", "inventory-ui"}
+	storefrontApps = []string{"pos-ui", "inventory-ui", "ordering-ui", "logistics-ui", "rider-app"}
+	posServices    = []string{"pos-api", "ordering-backend", "inventory-api"}
+)
+
+// Catalogue lists every use case. Keep subscriptions-api plan use_case values and the auth-ui
+// signup choices in line with these codes.
+var Catalogue = []Definition{
+	{Code: "hospitality", DisplayName: "Hospitality", Outlet: true,
+		Aliases:  []string{"food_delivery", "hotel", "restaurant", "bar", "cafe"},
+		Services: posServices, Apps: storefrontApps, TrialPlan: "POWERSUITE_HOSP_BASIC",
+		Features: []string{"menu_management", "table_ordering", "kitchen_display", "reservations"},
+		Catalog:  "Menu", Item: "Dish", Category: "Course"},
+	{Code: "retail", DisplayName: "Retail", Outlet: true,
+		Aliases:  []string{"grocery", "e_commerce", "ecommerce", "hardware", "agrovet"},
+		Services: posServices, Apps: storefrontApps, TrialPlan: "POWERSUITE_DUKA_BASIC",
+		Features: []string{"inventory_management", "barcoding", "pos_checkout", "ecommerce_sync"},
+		Catalog:  "Catalog", Item: "Product", Category: "Department"},
+	{Code: "quick_service", DisplayName: "Quick Service", Outlet: true,
+		Services: posServices, Apps: storefrontApps, TrialPlan: "POWERSUITE_HOSP_BASIC",
+		Features: []string{"kiosk_ordering", "fast_checkout", "inventory_tracking"},
+		Catalog:  "Menu", Item: "Item", Category: "Category"},
+	// The DAWA family was retired 2026-08-29; a pharmacy or chemist starts on hospital-service's
+	// AFYA_CHEMIST tier (facility_type chemist comes from the plan's own metadata).
+	{Code: "pharmacy", DisplayName: "Pharmacy", Outlet: true, Aliases: []string{"chemist"},
+		Services: []string{"pos-api", "inventory-api"}, Apps: append([]string{"hospital-ui"}, posApps...),
+		TrialPlan: "AFYA_CHEMIST",
+		Features:  []string{"prescription_management", "controlled_substances", "inventory_management"},
+		Catalog:   "Formulary", Item: "Medicine", Category: "Drug Class"},
+	{Code: "services", DisplayName: "Services", Outlet: true,
+		Services: []string{"pos-api", "inventory-api"}, Apps: posApps, TrialPlan: "POWERSUITE_HOSP_BASIC",
+		Features: []string{"appointment_scheduling", "service_catalog", "staff_commissions"},
+		Catalog:  "Services", Item: "Service", Category: "Service Type"},
+	{Code: "hospital", DisplayName: "Hospital / Clinic", Outlet: true,
+		Services: []string{"hospital-api"}, Apps: []string{"hospital-ui"},
+		Features: []string{"patient_records", "consultation", "laboratory", "pharmacy_dispensing", "billing"},
+		Catalog:  "Formulary", Item: "Drug", Category: "Department"},
+	{Code: "warehouse", DisplayName: "Warehouse", Outlet: true, Aliases: []string{"warehousing"},
+		Services: []string{"inventory-api"}, Apps: []string{"inventory-ui"}, TrialPlan: "POWERSUITE_DUKA_BASIC",
+		Features: []string{"stock_management", "lot_tracking", "put_away", "pick_pack"},
+		Catalog:  "Inventory", Item: "SKU", Category: "Category"},
+	{Code: "logistics", DisplayName: "Logistics", Outlet: true, Aliases: []string{"delivery", "courier", "distribution"},
+		Services: []string{"logistics-api"}, Apps: []string{"logistics-ui", "rider-app"},
+		Features: []string{"dispatch_management", "rider_tracking", "route_optimization", "delivery_tasks"},
+		Catalog:  "Services", Item: "Delivery Task", Category: "Zone"},
+	{Code: "commercial_weighing", DisplayName: "Commercial Weighing", Outlet: true, Aliases: []string{"weighbridge", "weighing"},
+		Services: []string{"truload"}, Apps: []string{"truload-ui"},
+		Features: []string{"weighbridge_operations", "commercial_transactions", "weight_certificates", "fleet_throughput"},
+		Catalog:  "Transactions", Item: "Weighing Session", Category: "Commodity"},
+	{Code: "axle_load_enforcement", DisplayName: "Axle Load Enforcement", Outlet: true,
+		Services: []string{"truload"}, Apps: []string{"truload-ui"},
+		Features: []string{"overload_detection", "enforcement_cases", "prosecution", "vehicle_inspection"},
+		Catalog:  "Cases", Item: "Weighing", Category: "Offence Type"},
+	{Code: "manufacturing", DisplayName: "Manufacturing", Outlet: true,
+		Services: []string{"inventory-api"}, Apps: []string{"inventory-ui"},
+		Features: []string{"bill_of_materials", "production_batches", "raw_material_consumption", "quality_control"},
+		Catalog:  "Bill of Materials", Item: "Product", Category: "Product Line"},
+	// ISP and hotspot providers onboard onto isp-billing. The signup form folds both into
+	// use_case "isp" (the hotspot distinction is kept in tenant metadata.isp_business_type).
+	{Code: "isp", DisplayName: "ISP / Hotspot", Outlet: true, Aliases: []string{"pppoe", "wifi"},
+		Services: []string{"isp-billing"}, Apps: []string{"isp-billing-ui"}, TrialPlan: "ISP_BILLING_STARTER",
+		Features: ispFeatures, Catalog: "Packages", Item: "Plan", Category: "Service Type"},
+	{Code: "hotspot", DisplayName: "ISP / Hotspot", Outlet: true,
+		Services: []string{"isp-billing"}, Apps: []string{"isp-billing-ui"}, TrialPlan: "ISP_BILLING_STARTER",
+		Features: ispFeatures, Catalog: "Packages", Item: "Plan", Category: "Service Type"},
 	// Maskani property platform: each estate or building is an outlet of the property tenant.
-	"property",
+	{Code: "property", DisplayName: "Property Management", Outlet: true, Aliases: []string{"estate", "real_estate"},
+		Services: []string{"maskani-api"}, Apps: []string{"maskani-ui"},
+		Features: []string{"unit_register", "service_charge_billing", "unit_sales", "visitor_management", "work_orders"},
+		Catalog:  "Charges", Item: "Unit", Category: "Block"},
 	// Hadia gift registry: registry owners and their guests on hadiafrica.com.
-	"gift_registry",
+	{Code: "gift_registry", DisplayName: "Gift Registry", Outlet: true, Aliases: []string{"registry"},
+		Services: []string{"hadia-api"}, Apps: []string{"hadia-ui"},
+		Features: []string{"registries", "guest_contributions", "escrow_wallets", "gift_pages"},
+		Catalog:  "Registries", Item: "Gift", Category: "Occasion"},
+	// Tenant-level only (never an outlet): library-service, and MarketFlow's FBO niche, whose
+	// app (marketflow-ui) is a platform app.
+	{Code: "library", DisplayName: "Library", Apps: []string{"library-ui"}, TrialPlan: "LIBRARY_STARTER",
+		Features: []string{"basic_operations"}, Catalog: "Catalog", Item: "Title", Category: "Collection"},
+	{Code: "fbo", DisplayName: "Forever Business Owner",
+		Features: []string{"basic_operations"}, Catalog: "Catalog", Item: "Item", Category: "Category"},
+}
+
+var ispFeatures = []string{"hotspot_management", "pppoe_management", "voucher_system", "customer_management", "router_management"}
+
+// KnownUseCases is the authoritative list of valid outlet use_case values.
+var KnownUseCases = func() []string {
+	out := make([]string, 0, len(Catalogue))
+	for _, d := range Catalogue {
+		if d.Outlet {
+			out = append(out, d.Code)
+		}
+	}
+	return out
+}()
+
+// Lookup returns the definition for a code or alias (case-insensitive), or nil.
+func Lookup(value string) *Definition {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return nil
+	}
+	for i := range Catalogue {
+		d := &Catalogue[i]
+		if d.Code == v {
+			return d
+		}
+		for _, a := range d.Aliases {
+			if a == v {
+				return d
+			}
+		}
+	}
+	return nil
+}
+
+// Canonical returns the catalogue code for a code or alias, or the value unchanged.
+func Canonical(value string) string {
+	if d := Lookup(value); d != nil {
+		return d.Code
+	}
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 // ApplicableServices returns which downstream services receive outlet sync events
 // for a given use_case. Used in outlet responses and NATS event routing.
 func ApplicableServices(useCase string) []string {
-	switch useCase {
-	case "hospitality", "retail", "quick_service":
-		return []string{"pos-api", "ordering-backend", "inventory-api"}
-	case "pharmacy", "services":
-		return []string{"pos-api", "inventory-api"}
-	case "hospital":
-		return []string{"hospital-api"}
-	case "warehouse", "manufacturing":
-		return []string{"inventory-api"}
-	case "logistics", "delivery", "courier", "distribution":
-		return []string{"logistics-api"}
-	case "commercial_weighing", "axle_load_enforcement", "weighbridge", "weighing":
-		return []string{"truload"}
-	case "isp", "hotspot", "pppoe", "wifi":
-		return []string{"isp-billing"}
-	case "property", "estate", "real_estate":
-		return []string{"maskani-api"}
-	case "gift_registry", "registry":
-		return []string{"hadia-api"}
-	default:
-		return []string{}
+	if d := Lookup(useCase); d != nil && len(d.Services) > 0 {
+		return append([]string(nil), d.Services...)
 	}
+	return []string{}
+}
+
+// TrialPlan returns the plan a self-signup trial for this use case starts on.
+func TrialPlan(useCase string) string {
+	if d := Lookup(useCase); d != nil && d.TrialPlan != "" {
+		return d.TrialPlan
+	}
+	return "STARTER"
 }
 
 // IsValidUseCase reports whether useCase is a known, supported outlet use case.
@@ -73,6 +185,40 @@ func IsValidUseCase(useCase string) bool {
 	for _, uc := range KnownUseCases {
 		if uc == useCase {
 			return true
+		}
+	}
+	return false
+}
+
+// UseCasesForApp returns the use case codes whose tenants sign in to an app; empty for a
+// platform app every tenant uses.
+func UseCasesForApp(clientID string) []string {
+	var out []string
+	for _, d := range Catalogue {
+		for _, a := range d.Apps {
+			if a == clientID {
+				out = append(out, d.Code)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// AppServes reports whether a tenant with these use cases signs in to the app. A platform app
+// serves everyone, and so does every app for a tenant with no use cases (an older tenant), so
+// nobody loses sign-in.
+func AppServes(clientID string, tenantUseCases []string) bool {
+	served := UseCasesForApp(clientID)
+	if len(served) == 0 || len(tenantUseCases) == 0 {
+		return true
+	}
+	for _, u := range tenantUseCases {
+		code := Canonical(u)
+		for _, s := range served {
+			if s == code {
+				return true
+			}
 		}
 	}
 	return false
@@ -89,187 +235,33 @@ func NewService() *Service {
 // ResolveConfig returns the configuration for a given use case.
 func (s *Service) ResolveConfig(ctx context.Context, useCase string) *Config {
 	applicable := ApplicableServices(useCase)
-	switch useCase {
-	case "hospitality":
+	if d := Lookup(useCase); d != nil && d.Outlet {
+		code := d.Code
+		if d.Code == "isp" || d.Code == "hotspot" {
+			code = useCase // ISP and hotspot keep the value asked for
+		}
 		return &Config{
-			UseCase:            "hospitality",
-			DisplayName:        "Hospitality",
+			UseCase:            code,
+			DisplayName:        d.DisplayName,
 			ApplicableServices: applicable,
-			Features:           []string{"menu_management", "table_ordering", "kitchen_display", "reservations"},
+			Features:           append([]string(nil), d.Features...),
 			Settings: map[string]any{
-				"catalog_nomenclature":  "Menu",
-				"item_nomenclature":     "Dish",
-				"category_nomenclature": "Course",
+				"catalog_nomenclature":  d.Catalog,
+				"item_nomenclature":     d.Item,
+				"category_nomenclature": d.Category,
 			},
 		}
-	case "retail":
-		return &Config{
-			UseCase:            "retail",
-			DisplayName:        "Retail",
-			ApplicableServices: applicable,
-			Features:           []string{"inventory_management", "barcoding", "pos_checkout", "ecommerce_sync"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Catalog",
-				"item_nomenclature":     "Product",
-				"category_nomenclature": "Department",
-			},
-		}
-	case "quick_service":
-		return &Config{
-			UseCase:            "quick_service",
-			DisplayName:        "Quick Service",
-			ApplicableServices: applicable,
-			Features:           []string{"kiosk_ordering", "fast_checkout", "inventory_tracking"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Menu",
-				"item_nomenclature":     "Item",
-				"category_nomenclature": "Category",
-			},
-		}
-	case "pharmacy":
-		return &Config{
-			UseCase:            "pharmacy",
-			DisplayName:        "Pharmacy",
-			ApplicableServices: applicable,
-			Features:           []string{"prescription_management", "controlled_substances", "inventory_management"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Formulary",
-				"item_nomenclature":     "Medicine",
-				"category_nomenclature": "Drug Class",
-			},
-		}
-	case "services":
-		return &Config{
-			UseCase:            "services",
-			DisplayName:        "Services",
-			ApplicableServices: applicable,
-			Features:           []string{"appointment_scheduling", "service_catalog", "staff_commissions"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Services",
-				"item_nomenclature":     "Service",
-				"category_nomenclature": "Service Type",
-			},
-		}
-	case "hospital":
-		return &Config{
-			UseCase:            "hospital",
-			DisplayName:        "Hospital / Clinic",
-			ApplicableServices: applicable,
-			Features:           []string{"patient_records", "consultation", "laboratory", "pharmacy_dispensing", "billing"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Formulary",
-				"item_nomenclature":     "Drug",
-				"category_nomenclature": "Department",
-			},
-		}
-	case "warehouse":
-		return &Config{
-			UseCase:            "warehouse",
-			DisplayName:        "Warehouse",
-			ApplicableServices: applicable,
-			Features:           []string{"stock_management", "lot_tracking", "put_away", "pick_pack"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Inventory",
-				"item_nomenclature":     "SKU",
-				"category_nomenclature": "Category",
-			},
-		}
-	case "logistics":
-		return &Config{
-			UseCase:            "logistics",
-			DisplayName:        "Logistics",
-			ApplicableServices: applicable,
-			Features:           []string{"dispatch_management", "rider_tracking", "route_optimization", "delivery_tasks"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Services",
-				"item_nomenclature":     "Delivery Task",
-				"category_nomenclature": "Zone",
-			},
-		}
-	case "commercial_weighing":
-		return &Config{
-			UseCase:            "commercial_weighing",
-			DisplayName:        "Commercial Weighing",
-			ApplicableServices: applicable,
-			Features:           []string{"weighbridge_operations", "commercial_transactions", "weight_certificates", "fleet_throughput"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Transactions",
-				"item_nomenclature":     "Weighing Session",
-				"category_nomenclature": "Commodity",
-			},
-		}
-	case "axle_load_enforcement":
-		return &Config{
-			UseCase:            "axle_load_enforcement",
-			DisplayName:        "Axle Load Enforcement",
-			ApplicableServices: applicable,
-			Features:           []string{"overload_detection", "enforcement_cases", "prosecution", "vehicle_inspection"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Cases",
-				"item_nomenclature":     "Weighing",
-				"category_nomenclature": "Offence Type",
-			},
-		}
-	case "manufacturing":
-		return &Config{
-			UseCase:            "manufacturing",
-			DisplayName:        "Manufacturing",
-			ApplicableServices: applicable,
-			Features:           []string{"bill_of_materials", "production_batches", "raw_material_consumption", "quality_control"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Bill of Materials",
-				"item_nomenclature":     "Product",
-				"category_nomenclature": "Product Line",
-			},
-		}
-	case "isp", "hotspot":
-		return &Config{
-			UseCase:            useCase,
-			DisplayName:        "ISP / Hotspot",
-			ApplicableServices: applicable,
-			Features:           []string{"hotspot_management", "pppoe_management", "voucher_system", "customer_management", "router_management"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Packages",
-				"item_nomenclature":     "Plan",
-				"category_nomenclature": "Service Type",
-			},
-		}
-	case "property":
-		return &Config{
-			UseCase:            "property",
-			DisplayName:        "Property Management",
-			ApplicableServices: applicable,
-			Features:           []string{"unit_register", "service_charge_billing", "unit_sales", "visitor_management", "work_orders"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Charges",
-				"item_nomenclature":     "Unit",
-				"category_nomenclature": "Block",
-			},
-		}
-	case "gift_registry":
-		return &Config{
-			UseCase:            "gift_registry",
-			DisplayName:        "Gift Registry",
-			ApplicableServices: applicable,
-			Features:           []string{"registries", "guest_contributions", "escrow_wallets", "gift_pages"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Registries",
-				"item_nomenclature":     "Gift",
-				"category_nomenclature": "Occasion",
-			},
-		}
-	default:
-		return &Config{
-			UseCase:            useCase,
-			DisplayName:        "Default",
-			ApplicableServices: applicable,
-			Features:           []string{"basic_operations"},
-			Settings: map[string]any{
-				"catalog_nomenclature":  "Catalog",
-				"item_nomenclature":     "Item",
-				"category_nomenclature": "Category",
-			},
-		}
+	}
+	return &Config{
+		UseCase:            useCase,
+		DisplayName:        "Default",
+		ApplicableServices: applicable,
+		Features:           []string{"basic_operations"},
+		Settings: map[string]any{
+			"catalog_nomenclature":  "Catalog",
+			"item_nomenclature":     "Item",
+			"category_nomenclature": "Category",
+		},
 	}
 }
 

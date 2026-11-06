@@ -32,6 +32,7 @@ import (
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
 	"github.com/bengobox/auth-api/internal/services/access"
 	"github.com/bengobox/auth-api/internal/services/integrations"
+	"github.com/bengobox/auth-api/internal/services/usecase"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
 	"github.com/pquerna/otp/totp"
@@ -376,28 +377,8 @@ func defaultTrialPlan(useCase string, metadata map[string]any, selected string) 
 	if selected != "" {
 		return selected
 	}
-	switch useCase {
-	case "isp", "hotspot", "pppoe":
-		return "ISP_BILLING_STARTER"
-	case "library":
-		return "LIBRARY_STARTER"
-	// Use-case PowerSuite families (subscriptions-api plans_powersuite_usecase.go):
-	// route each POS-shaped use case to its family's Basic tier so trial gating grants
-	// the modules that use case's dashboards actually need.
-	case "hospitality", "quick_service", "services", "food_delivery", "hotel", "restaurant", "bar", "cafe":
-		return "POWERSUITE_HOSP_BASIC"
-	case "retail", "grocery", "warehouse", "warehousing", "e_commerce", "ecommerce", "hardware", "agrovet":
-		return "POWERSUITE_DUKA_BASIC"
-	case "pharmacy", "chemist":
-		// The DAWA family (subscriptions-api cmd/seed/bundles.go) was retired 2026-08-29 —
-		// pos-api carries no pharmacy use case any more. A pharmacy/chemist tenant's real
-		// successor is hospital-service's own AFYA_CHEMIST tier (a different product family,
-		// service_tag "hospital"): CreateTrialSubscription resolves facility_type="chemist"
-		// automatically from the plan's own metadata, no extra plumbing needed here.
-		return "AFYA_CHEMIST"
-	default:
-		return "STARTER"
-	}
+	// Each use case's trial plan lives in the one catalogue (usecase.Catalogue TrialPlan).
+	return usecase.TrialPlan(useCase)
 }
 
 // EmailExists reports whether a user already exists with the given email.

@@ -1170,7 +1170,8 @@ func sameUseCases(a, b []string) bool {
 }
 
 // ProvisionTenantOAuthRedirects ensures the tenant's /{slug}/auth/callback URIs are
-// registered on the OAuth clients serving its use cases (and removed from the others). Idempotent — safe to call multiple times.
+// registered on the OAuth clients serving its use cases and removed from the others. Safe to
+// call any number of times.
 // Called automatically on tenant creation; this endpoint lets admins re-trigger it
 // retroactively for tenants that were created before OAuth clients existed.
 // POST /api/v1/admin/tenants/{tenant_id}/provision-oauth-redirects

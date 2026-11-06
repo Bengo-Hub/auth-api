@@ -5,17 +5,13 @@ import (
 	"strings"
 
 	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/services/usecase"
 )
 
 // TenantPathsKey is the OAuth client metadata key that turns per-tenant callbacks off. An app on
 // its own domain serving one tenant (hadia-ui) sets it to false, so no other tenant's
 // /{slug}/auth/callback is ever registered on it.
 const TenantPathsKey = "tenant_paths"
-
-// ClientUseCasesKey is the OAuth client metadata key listing the tenant use cases an app serves
-// (pos-ui: hospitality, retail, ...). A tenant gets /{slug}/auth/callback only on apps that serve
-// one of its use cases. A client without the key serves every tenant (auth-ui, treasury-ui).
-const ClientUseCasesKey = "use_cases"
 
 // UsesTenantPaths reports whether a client takes /{slug}/auth/callback URIs at all.
 // True unless its metadata sets tenant_paths to false.
@@ -31,35 +27,23 @@ func metadataUsesTenantPaths(meta map[string]any) bool {
 	return !ok || v
 }
 
-// ServesUseCases reports whether a client with this metadata serves a tenant with these use
-// cases. A client with no use_cases list serves everyone; a tenant with no use cases (an older
-// tenant or the platform owner) is served everywhere, so nobody loses sign-in.
-func ServesUseCases(meta map[string]any, tenantUseCases []string) bool {
+// ServesUseCases reports whether the app takes /{slug}/auth/callback for a tenant with these use
+// cases. Which app serves which use case comes from the one catalogue, usecase.Catalogue.
+func ServesUseCases(clientID string, meta map[string]any, tenantUseCases []string) bool {
 	if !metadataUsesTenantPaths(meta) {
 		return false
 	}
-	served := metadataStrings(meta[ClientUseCasesKey])
-	if len(served) == 0 || len(tenantUseCases) == 0 {
-		return true
-	}
-	for _, s := range served {
-		for _, u := range tenantUseCases {
-			if strings.EqualFold(strings.TrimSpace(s), strings.TrimSpace(u)) {
-				return true
-			}
-		}
-	}
-	return false
+	return usecase.AppServes(clientID, tenantUseCases)
 }
 
-// ServesTenant reports whether a client with this metadata takes the tenant's callbacks. The
-// platform owner and demo tenants sign in to every app with per-tenant paths, whatever their own
-// use cases: platform staff operate every service and the demo covers all of them.
-func ServesTenant(meta map[string]any, t *ent.Tenant) bool {
+// ServesTenant reports whether the app takes the tenant's callbacks. The platform owner and demo
+// tenants sign in to every app with per-tenant paths, whatever their own use cases: platform
+// staff operate every service and the demo covers all of them.
+func ServesTenant(clientID string, meta map[string]any, t *ent.Tenant) bool {
 	if SignsInEverywhere(t) {
 		return metadataUsesTenantPaths(meta)
 	}
-	return ServesUseCases(meta, TenantUseCases(t))
+	return ServesUseCases(clientID, meta, TenantUseCases(t))
 }
 
 // SignsInEverywhere reports whether the tenant is the platform owner or a demo tenant.
@@ -126,7 +110,7 @@ func SyncTenantRedirectURIs(ctx context.Context, entClient *ent.Client, t *ent.T
 		return err
 	}
 	for _, c := range clients {
-		serves := ServesTenant(c.Metadata, t)
+		serves := ServesTenant(c.ClientID, c.Metadata, t)
 		if !serves && !UsesTenantPaths(c) {
 			// A single-domain client never got tenant paths from us; leave its list alone.
 			continue

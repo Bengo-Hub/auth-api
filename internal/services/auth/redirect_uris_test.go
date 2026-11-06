@@ -64,21 +64,23 @@ func TestNextRedirectURIsSkipsClientsWithoutProductionHost(t *testing.T) {
 }
 
 func TestServesUseCases(t *testing.T) {
-	pos := map[string]any{ClientUseCasesKey: []any{"retail", "hospitality"}}
+	none := map[string]any{}
 	cases := []struct {
-		name string
-		meta map[string]any
-		uc   []string
-		want bool
+		name   string
+		client string
+		meta   map[string]any
+		uc     []string
+		want   bool
 	}{
-		{"unrestricted client serves all", map[string]any{}, []string{"property"}, true},
-		{"matching use case", pos, []string{"retail"}, true},
-		{"no matching use case", pos, []string{"property"}, false},
-		{"tenant without use cases served everywhere", pos, nil, true},
-		{"single-domain client serves nobody", map[string]any{TenantPathsKey: false}, nil, false},
+		{"platform app serves all", "treasury-ui", none, []string{"property"}, true},
+		{"matching use case", "pos-ui", none, []string{"retail"}, true},
+		{"alias matches its use case", "pos-ui", none, []string{"grocery"}, true},
+		{"no matching use case", "pos-ui", none, []string{"property"}, false},
+		{"tenant without use cases served everywhere", "pos-ui", none, nil, true},
+		{"single-domain client serves nobody", "hadia-ui", map[string]any{TenantPathsKey: false}, []string{"gift_registry"}, false},
 	}
 	for _, c := range cases {
-		if got := ServesUseCases(c.meta, c.uc); got != c.want {
+		if got := ServesUseCases(c.client, c.meta, c.uc); got != c.want {
 			t.Fatalf("%s: got %v, want %v", c.name, got, c.want)
 		}
 	}

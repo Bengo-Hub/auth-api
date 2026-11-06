@@ -373,7 +373,7 @@ func backfillTenantRedirectURIs(ctx context.Context, client *ent.Client, seedSlu
 		added := false
 		for _, c := range oauthClients {
 			// Only the apps serving this tenant's use cases take its callbacks.
-			if !auth.ServesTenant(c.Metadata, t) {
+			if !auth.ServesTenant(c.ClientID, c.Metadata, t) {
 				continue
 			}
 			// Derive the production host from the first https://*.../auth/callback URI.
