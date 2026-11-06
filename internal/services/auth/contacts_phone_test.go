@@ -32,11 +32,18 @@ func TestVerifyAndSetUserPhone(t *testing.T) {
 	if !row.IsVerified || !row.IsPrimary || row.VerifiedAt == nil || row.UserID != owner.ID {
 		t.Fatalf("first number: %+v", row)
 	}
+	// Services read the phone from /auth/me's profile, so it must land there, once.
+	if got := client.User.GetX(ctx, owner.ID).Profile["phone"]; got != first {
+		t.Fatalf("profile phone %v, want %s", got, first)
+	}
 	if err := s.VerifyAndSetUserPhone(ctx, owner.ID, second); err != nil {
 		t.Fatal(err)
 	}
 	if client.UserPhone.Query().Where(userphone.PhoneEQ(second)).OnlyX(ctx).IsPrimary {
 		t.Fatal("a second number must not take over as primary")
+	}
+	if got := client.User.GetX(ctx, owner.ID).Profile["phone"]; got != first {
+		t.Fatalf("a second number must not replace the profile phone: %v", got)
 	}
 	// Proving a number already on the account is idempotent.
 	if err := s.VerifyAndSetUserPhone(ctx, owner.ID, first); err != nil {

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -137,8 +138,28 @@ func (s *Service) SendAccountPhoneOTP(ctx context.Context, user *ent.User, tenan
 // VerifyAndSetUserPhone records a number the user has just proven, called only after the code
 // check. It is verified on their account, and primary when they have no primary number yet (an
 // owner who came in through Google, say). A row someone else only typed in is taken over; a number
-// proven by another account is refused with ErrPhoneAlreadyExists.
+// proven by another account is refused with ErrPhoneAlreadyExists. A profile with no phone gets
+// this one, since services read the phone from /auth/me's profile.
 func (s *Service) VerifyAndSetUserPhone(ctx context.Context, userID uuid.UUID, phone string) error {
+	if err := s.setProvenPhone(ctx, userID, phone); err != nil {
+		return err
+	}
+	user, err := s.entClient.User.Get(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if current, _ := user.Profile["phone"].(string); strings.TrimSpace(current) != "" {
+		return nil
+	}
+	profile := make(map[string]any, len(user.Profile)+1)
+	for k, v := range user.Profile {
+		profile[k] = v
+	}
+	profile["phone"] = phone
+	return user.Update().SetProfile(profile).Exec(ctx)
+}
+
+func (s *Service) setProvenPhone(ctx context.Context, userID uuid.UUID, phone string) error {
 	now := time.Now()
 	hasPrimary, err := s.entClient.UserPhone.Query().
 		Where(userphone.UserIDEQ(userID), userphone.IsPrimaryEQ(true)).Exist(ctx)
