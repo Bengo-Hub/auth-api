@@ -111,15 +111,13 @@ func main() {
 		log.Printf("⚠️  seed truload demo staff: %v", err)
 	}
 
-	// 7. Seed KURA admin (index 2)
-	if err := seedKURAAdmin(ctx, client, hasher, tenantEntities[2]); err != nil {
+	// 7. Seed KURA admin (looked up by slug, not list position)
+	if err := seedKURAAdmin(ctx, client, hasher, tenantBySlug(tenantEntities, "kura")); err != nil {
 		log.Printf("⚠️  seed kura admin: %v", err)
 	}
 
-	// 9. Seed generic staff users for all tenants
-	if err := seedTenantStaffUsers(ctx, client, hasher, tenantEntities); err != nil {
-		log.Printf("⚠️  seed tenant staff users: %v", err)
-	}
+	// 9. (removed 2026-11-06) generic staff@<slug>.com accounts are no longer seeded: tenants invite
+	// their own people.
 
 	// 9b. Seed real Masterspace (mss) staff for SSO.
 	if err := seedMasterspaceUsers(ctx, client, hasher, tenantEntities); err != nil {

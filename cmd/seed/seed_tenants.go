@@ -139,13 +139,6 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			brandColors:  map[string]any{"primary": "#006633", "secondary": "#bb0000", "accent": "#000000"},
 		},
 		{
-			name: "UltiChange", slug: "ultichange", baseDomain: "ultichange.org",
-			useCases: []string{"services", "e_commerce"},
-			logoURL:  mediaBase + "/images/logo/ultichange.svg", website: "https://ultichange.org",
-			contactEmail: "info@ultichange.org",
-			brandColors:  map[string]any{"primary": "#2d3436", "secondary": "#0984e3", "accent": "#00cec9"},
-		},
-		{
 			name: "Urban Loft Cafe", slug: "urban-loft", baseDomain: "theurbanloftcafe.com",
 			useCases: []string{"hospitality"},
 			logoURL:  mediaBase + "/images/logo/urban-loft.png", website: "https://theurbanloftcafe.com",

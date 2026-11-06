@@ -514,65 +514,6 @@ func seedTruLoadDemoStaff(ctx context.Context, client *ent.Client, hasher *passw
 	return nil
 }
 
-// seedTenantStaffUsers seeds a generic staff user for every tenant.
-func seedTenantStaffUsers(ctx context.Context, client *ent.Client, hasher *password.Hasher, tenantEntities []*tenantRef) error {
-	log.Println("Seeding staff users for all tenants...")
-	// Production client tenants that manage their own real users — skip generic seed accounts.
-	// hadia: its staff roles come only from hadia-api, never from a seeded login.
-	skipSlugs := map[string]bool{"urban-loft": true, "hadia": true}
-	for _, te := range tenantEntities {
-		if skipSlugs[te.Slug] {
-			continue
-		}
-		staffEmail := fmt.Sprintf("staff@%s.com", te.Slug)
-		staffPassword := os.Getenv("SEED_STAFF_PASSWORD")
-		if staffPassword == "" {
-			staffPassword = fmt.Sprintf("Staff%s2024!", te.Slug) // default for local dev
-		}
-		staffHash, _ := hasher.Hash(staffPassword)
-
-		staffUser, err := client.User.Create().
-			SetEmail(staffEmail).
-			SetPasswordHash(staffHash).
-			SetStatus("active").
-			SetPrimaryTenantID(te.ID.String()).
-			SetProfile(map[string]any{
-				"name":       fmt.Sprintf("%s Staff", te.Name),
-				"phone":      "+254700000003",
-				"created_by": "seed",
-				"role":       "staff",
-			}).
-			Save(ctx)
-		if err != nil {
-			staffUser, err = client.User.Query().Where(user.EmailEQ(staffEmail)).Only(ctx)
-			if err != nil {
-				log.Printf("  ⚠️  seed staff for %s: %v", te.Slug, err)
-			} else {
-				log.Printf("  ✓ Staff exists for %s: %s", te.Slug, staffEmail)
-			}
-		} else {
-			log.Printf("  ✓ Created staff for %s: %s", te.Slug, staffEmail)
-		}
-
-		if staffUser != nil {
-			exists, _ := client.TenantMembership.Query().
-				Where(
-					tenantmembership.UserID(staffUser.ID),
-					tenantmembership.TenantID(te.ID),
-				).Exist(ctx)
-			if !exists {
-				_, _ = client.TenantMembership.Create().
-					SetUserID(staffUser.ID).
-					SetTenantID(te.ID).
-					SetRoles([]string{"staff"}).
-					Save(ctx)
-				log.Printf("    ✓ Added staff role in %s", te.Slug)
-			}
-		}
-	}
-	return nil
-}
-
 // seedDemoTenantAdmin seeds the codevertex-demo tenant admin.
 func seedDemoTenantAdmin(ctx context.Context, client *ent.Client, hasher *password.Hasher, demoTenant *tenantRef) error {
 	demoTenantAdminEmail := "admin@demo.codevertexafrica.com"
