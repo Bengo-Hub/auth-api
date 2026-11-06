@@ -65,6 +65,9 @@ var hadiaTenantSpec = tenantSpec{
 	name: "Hadia", slug: "hadia", baseDomain: "hadiafrica.com",
 	website: "https://hadiafrica.com", contactEmail: "info@hadiafrica.com",
 	useCases: []string{"gift_registry"},
+	// Served by hadia-ui; the seed fills an empty logo only, so a logo set in auth-ui stays. A tenant
+	// with no logo stays off the codevertex-website client wall.
+	logoURL: "https://staging.hadiafrica.com/brand/kiondo/woven-heart/hadia-woven-heart-tenant-logo-512.png",
 	metadata: map[string]any{
 		"phone_self_signup":    true,
 		"self_signup_role":     "customer",
