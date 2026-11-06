@@ -279,6 +279,140 @@ func (h *AuthHandler) AddMyPhone(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"id": created.ID, "phone": created.Phone})
 }
 
+func (h *AuthHandler) myPhoneOTPKey(userID uuid.UUID, phone string) string {
+	return h.redisNamespace + ":verify:phone_otp:" + userID.String() + ":" + phone
+}
+
+// SendMyPhoneCode sends a WhatsApp code to a number the signed-in person wants on their account:
+// someone who came in through Google or email and has no proven phone yet. A code costs a message,
+// so it fails closed when Redis cannot count, it honours the tenant's prefix list and signup budget,
+// and a number another account has proven is refused before anything is sent.
+// POST /api/v1/auth/me/phones/send-code  body: {phone}
+func (h *AuthHandler) SendMyPhoneCode(w http.ResponseWriter, r *http.Request) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "phone verification not configured", nil)
+		return
+	}
+	userID, ok := h.myUserID(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth context", nil)
+		return
+	}
+	claims, _ := authmiddleware.ClaimsFromContext(r.Context())
+	tenantID, err := uuid.Parse(claims.TenantID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, "forbidden", "sign in to an organisation first", nil)
+		return
+	}
+	var req struct {
+		Phone string `json:"phone"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	phone, err := validateAndNormalizePhone(strings.TrimSpace(req.Phone))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_phone", "Enter the phone number with its country code.", nil)
+		return
+	}
+	tenant, err := h.service.GetTenant(r.Context(), tenantID)
+	if err != nil {
+		writeError(w, http.StatusForbidden, "forbidden", "sign in to an organisation first", nil)
+		return
+	}
+	user, err := h.service.GetUser(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth context", nil)
+		return
+	}
+	policy, hasPolicy := auth.TenantPhoneSignupPolicy(tenant)
+	if hasPolicy && !policy.AllowsPhone(phone) {
+		writeError(w, http.StatusBadRequest, "invalid_phone", "This number's country is not supported yet.", nil)
+		return
+	}
+	held, err := h.service.PhoneHeldByAnother(r.Context(), userID, phone)
+	if err != nil {
+		h.logger.Error("phone lookup", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not check the number", nil)
+		return
+	}
+	if held {
+		writeError(w, http.StatusConflict, "phone_exists", "That number is already used by another account. Sign in with it instead.", nil)
+		return
+	}
+	key := h.myPhoneOTPKey(userID, phone)
+	allowed, rateErr := h.codeSendAllowed(r.Context(), key+":rate")
+	if !allowed || rateErr != nil {
+		writeError(w, http.StatusTooManyRequests, "rate_limited", "Too many codes requested. Please try again later.", nil)
+		return
+	}
+	if hasPolicy && !h.signupSendAllowed(r.Context(), tenant.ID.String(), policy.PerMinute) {
+		writeError(w, http.StatusTooManyRequests, "rate_limited", "Too many codes requested. Please try again later.", nil)
+		return
+	}
+	otp, err := generateOTP()
+	if err != nil {
+		h.logger.Error("phone otp: generate", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to generate code", nil)
+		return
+	}
+	if err := h.redis.Set(r.Context(), key, hashOTP(otp), phoneOTPTTL).Err(); err != nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "could not store the code", nil)
+		return
+	}
+	h.service.SendAccountPhoneOTP(r.Context(), user, tenant, phone, otp, phoneOTPTTL)
+	writeJSON(w, http.StatusOK, map[string]any{"sent": true, "expires_in": int(phoneOTPTTL.Seconds())})
+}
+
+// VerifyMyPhoneCode checks the code and puts the proven number on the caller's account.
+// POST /api/v1/auth/me/phones/verify-code  body: {phone, code}
+func (h *AuthHandler) VerifyMyPhoneCode(w http.ResponseWriter, r *http.Request) {
+	if h.redis == nil || h.redisNamespace == "" {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "phone verification not configured", nil)
+		return
+	}
+	userID, ok := h.myUserID(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth context", nil)
+		return
+	}
+	var req struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	phone, err := validateAndNormalizePhone(strings.TrimSpace(req.Phone))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_phone", "Enter the phone number with its country code.", nil)
+		return
+	}
+	code := strings.TrimSpace(req.Code)
+	if code == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "phone and code are required", nil)
+		return
+	}
+	if res := h.checkCode(r.Context(), h.myPhoneOTPKey(userID, phone), code); res != codeOK {
+		writeCodeError(w, res, "code")
+		return
+	}
+	if err := h.service.VerifyAndSetUserPhone(r.Context(), userID, phone); err != nil {
+		if errors.Is(err, auth.ErrPhoneAlreadyExists) {
+			writeError(w, http.StatusConflict, "phone_exists", "That number is already used by another account. Sign in with it instead.", nil)
+			return
+		}
+		h.logger.Error("verify + set user phone", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "could not verify the number", nil)
+		return
+	}
+	// Bust the cached /me so the next call shows the number at once.
+	_ = h.redis.Del(r.Context(), h.redisNamespace+":auth:me:"+userID.String()).Err()
+	writeJSON(w, http.StatusOK, map[string]any{"verified": true, "phone": phone})
+}
+
 // SetPrimaryMyPhone marks one of the caller's own numbers primary.
 // POST /api/v1/auth/me/phones/{id}/primary
 func (h *AuthHandler) SetPrimaryMyPhone(w http.ResponseWriter, r *http.Request) {

@@ -319,6 +319,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			DeleteMyEmail:                      authHandler.DeleteMyEmail,
 			ListMyPhones:                       authHandler.ListMyPhones,
 			AddMyPhone:                         authHandler.AddMyPhone,
+			SendMyPhoneCode:                    authHandler.SendMyPhoneCode,
+			VerifyMyPhoneCode:                  authHandler.VerifyMyPhoneCode,
 			SetPrimaryMyPhone:                  authHandler.SetPrimaryMyPhone,
 			DeleteMyPhone:                      authHandler.DeleteMyPhone,
 			Login:                              authHandler.Login,

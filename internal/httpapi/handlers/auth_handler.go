@@ -74,6 +74,9 @@ type AuthService interface {
 	DeleteUserEmail(ctx context.Context, userID, emailID uuid.UUID) error
 	ListUserPhones(ctx context.Context, userID uuid.UUID) ([]*ent.UserPhone, error)
 	AddUserPhone(ctx context.Context, userID uuid.UUID, phone string) (*ent.UserPhone, error)
+	PhoneHeldByAnother(ctx context.Context, userID uuid.UUID, phone string) (bool, error)
+	SendAccountPhoneOTP(ctx context.Context, user *ent.User, tenant *ent.Tenant, phone, otp string, ttl time.Duration)
+	VerifyAndSetUserPhone(ctx context.Context, userID uuid.UUID, phone string) error
 	SetPrimaryUserPhone(ctx context.Context, userID, phoneID uuid.UUID) error
 	DeleteUserPhone(ctx context.Context, userID, phoneID uuid.UUID) error
 }

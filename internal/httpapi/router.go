@@ -84,6 +84,8 @@ type AuthHandlers struct {
 	DeleteMyEmail                      http.HandlerFunc
 	ListMyPhones                       http.HandlerFunc
 	AddMyPhone                         http.HandlerFunc
+	SendMyPhoneCode                    http.HandlerFunc
+	VerifyMyPhoneCode                  http.HandlerFunc
 	SetPrimaryMyPhone                  http.HandlerFunc
 	DeleteMyPhone                      http.HandlerFunc
 	Login                              http.HandlerFunc
@@ -384,6 +386,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Route("/me/phones", func(r chi.Router) {
 						r.Get("/", deps.AuthHandlers.ListMyPhones)
 						r.Post("/", deps.AuthHandlers.AddMyPhone)
+						r.With(sensitive).Post("/send-code", deps.AuthHandlers.SendMyPhoneCode)
+						r.With(sensitive).Post("/verify-code", deps.AuthHandlers.VerifyMyPhoneCode)
 						r.Post("/{id}/primary", deps.AuthHandlers.SetPrimaryMyPhone)
 						r.Delete("/{id}", deps.AuthHandlers.DeleteMyPhone)
 					})
