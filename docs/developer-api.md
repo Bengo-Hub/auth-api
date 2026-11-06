@@ -47,10 +47,131 @@ When enabled, the service links/creates users by provider subject and email, ass
 
 ## MFA – TOTP
 
-- Start TOTP: `POST /api/v1/auth/mfa/totp/start` → returns `secret` and provisioning URL
-- Confirm: `POST /api/v1/auth/mfa/totp/confirm` `{ "code": "123456" }`
-- Regenerate backup codes: `POST /api/v1/auth/mfa/backup-codes/regenerate`
+- Start TOTP: `POST /api/v1/auth/mfa/totp/start` returns `secret` and the provisioning URL. When an
+  authenticator is already enabled, send `{ "current_code": "123456" }` from it: without it the answer
+  is 409 `authenticator_exists`, with a wrong one 401 `invalid_totp`. An enrolment-only session can
+  never replace an enabled authenticator (always 409).
+- Confirm: `POST /api/v1/auth/mfa/totp/confirm` `{ "code": "123456" }`. On success the account's
+  other enrolment-only sessions are revoked.
+- Regenerate backup codes: `POST /api/v1/auth/mfa/backup-codes/regenerate`. An enrolment-only
+  session gets the first set only: when unused codes exist it answers 409 `backup_codes_exist`.
 - Consume backup code: `POST /api/v1/auth/mfa/backup-codes/consume` `{ "code": "..." }`
+- Wrong authenticator codes on `POST /auth/login` are counted per account: after 5 in 10 minutes the
+  answer is 429 `too_many_attempts` until the window passes (Redis; without it the per-address
+  limiter remains).
+- Lost authenticator: a platform owner calls `POST /api/v1/admin/users/{user_id}/mfa-reset` after
+  confirming who is asking outside the system. It removes the authenticator and backup codes and
+  revokes every session, is audited as `auth.mfa.reset`, and answers
+  `{id, had_authenticator, sessions_revoked}`. A covered account then enrols again at its next sign-in.
+
+## Sign-in methods (`amr`) and the MFA policy
+
+### The `amr` claim
+
+Every access token carries `amr`, the list of methods the session was signed in with (values
+from RFC 8176, plus `totp` and `mfa`):
+
+| Value  | Meaning |
+|--------|---------|
+| `pwd`  | Email and password |
+| `otp`  | A one-time code sent to a phone or an email address |
+| `fed`  | A social provider (Google, GitHub, Microsoft) |
+| `hwk`  | A passkey |
+| `pin`  | A service PIN (reserved: PIN sign-in happens in the services that own it, not here) |
+| `totp` | An authenticator app code |
+| `mfa`  | A second factor was verified on this sign-in |
+
+Examples: `["pwd"]`, `["pwd","totp","mfa"]`, `["fed","totp","mfa"]`, `["otp","totp","mfa"]`,
+`["hwk","totp","mfa"]`. The list is stored on the session: `POST /api/v1/auth/refresh`, the OIDC
+code exchange (`POST /api/v1/token`, which copies it from the single sign-on session through the
+authorization code) and outlet selection repeat it and never add a factor. The ID token carries
+the same `amr`. A session signed in before this claim existed has no `amr`.
+
+A resource server that needs a second factor checks that `amr` contains `mfa`. A token without
+`amr` is treated as not having it.
+
+### Enrolment-only tokens
+
+When the MFA policy covers a member who has no authenticator app yet, sign-in succeeds with an
+enrolment-only session instead of a normal one:
+
+- the token has `mfa_enrollment_required: true`, an `amr` without `mfa`, and `aud` is only
+  `mfa-enrollment` (a service validating `aud` refuses it outright);
+- it has no `roles`, `permissions`, `user_services`, `outlet_ids`, subscription claims or
+  `is_platform_owner`;
+- the sign-in response (`/auth/login`, `/auth/phone/otp/verify`, `/auth/webauthn/authenticate/finish`)
+  and `GET /auth/me` carry `mfa_enrollment_required: true` and empty `roles` and `permissions`;
+- auth-api accepts it only on `GET /auth/me`, `POST /auth/mfa/totp/start`,
+  `POST /auth/mfa/totp/confirm`, `POST /auth/mfa/backup-codes/regenerate` and `POST /auth/logout`.
+  Any other route answers 403 `mfa_enrollment_required`, and `GET /authorize` treats the caller as
+  signed out.
+
+After setting up the authenticator the person signs out and signs in again, now with the code,
+and gets a normal token with `mfa` in `amr`. Refreshing an enrolment-only session keeps it
+enrolment-only.
+
+### Who is covered
+
+The policy is `{"required_roles": [...], "all_accounts": bool}`. A member is covered when any of
+their memberships is covered by that tenant's effective policy (one of `required_roles` held there,
+or `all_accounts` on), when the policy of the tenant they sign in to has `all_accounts` on, or when a
+platform admin turned on enforcement for their account
+(`POST /api/v1/admin/users/{id}/mfa-enforcement`; this applies in every tenant). Every membership
+counts, not only the tenant named at sign-in, so naming a tenant with a weaker policy never lowers
+what an account must prove: a platform owner may sign in to any tenant, and a passkey sign-in names
+any tenant. The effective policy is the tenant's own (`mfa_policy` in its metadata) when it has one,
+otherwise the platform default (`mfa_policy_default` in the platform tenant's metadata, cached for
+30 seconds per pod). With neither, nothing is required. The Hadia tenant seed sets
+`required_roles` to `hadia_admin`, `hadia_finance` and `hadia_support`. Shared demo logins are never
+covered, because authenticator setup is refused for them: the demo tenant is recognised by its
+`is_demo` column and slug only (tenant metadata `is_demo` is platform-only and exempts nothing), and a
+demo account by profile `is_demo`, which registration strips and only a platform admin sets.
+
+Every sign-in path applies it:
+
+| Path | Covered, authenticator set up | Covered, no authenticator |
+|------|-------------------------------|---------------------------|
+| Password (`/auth/login`) | `mfa_required`, then resubmit with `totp_code` | Enrolment-only session |
+| Phone code (`/auth/phone/otp/verify`) | 403 `mfa_required` with `mfa_challenge` | Enrolment-only session |
+| Social provider callback | Redirect to `/auth/mfa?challenge=...` | Enrolment-only session |
+| Passkey (`/auth/webauthn/authenticate/finish`) | `{"mfa_required":true,"mfa_challenge":...}` | Enrolment-only session |
+| OIDC (`/authorize`, `/token`) | Session without `mfa`: sent back to sign-in (`reason=mfa_required`); `prompt=none` gets `interaction_required`; the code exchange answers `invalid_grant` | Sent back to sign-in; the code exchange issues an enrolment-only token |
+| Refresh | Session without `mfa`: 401 `mfa_required` (sign in again) | Session becomes enrolment-only |
+| Outlet selection (`/auth/select-outlet`) | Session without `mfa`: 401 | 401 |
+
+Outlet selection mints only for a live session (active, not expired, the same user), so a token
+from a logged-out or revoked session cannot renew itself. On a refresh a lookup error answers 5xx
+(retry) instead of `mfa_required`, so a brief database error signs nobody out; the sign-in paths
+keep failing closed.
+
+The challenge is finished with `POST /api/v1/auth/oauth/mfa/verify {challenge, totp_code}`.
+Lookup errors fail closed: the code is asked for and a full session is never issued on an error.
+An account with an authenticator is still asked for its code on password, phone and social
+sign-in even when no policy covers it, as before.
+
+### Editing the policy (platform owners only)
+
+Only a platform owner's session may read or change a policy; a tenant's own admin and
+admin-scoped service tokens get 403. Every change is written to the audit log as
+`auth.mfa_policy.updated`. The generic tenant update (`PUT /admin/tenants/{id}`) never writes
+these keys, a tenant admin cannot set `is_platform_owner`, `billing_mode` or `is_demo` through it,
+and its answer to a tenant admin leaves the policy out. It also refuses with 409 `tenant_changed`
+when the row changed since it was read, and the policy routes re-apply their change to the newer
+row, so neither save can silently revert the other.
+
+```
+GET   /api/v1/admin/mfa-policy                       # platform default
+PATCH /api/v1/admin/mfa-policy                       { "required_roles": ["..."], "all_accounts": false }
+GET   /api/v1/admin/tenants/{tenant_id}/mfa-policy   # the tenant's policy, or inherited
+PATCH /api/v1/admin/tenants/{tenant_id}/mfa-policy   { "required_roles": ["hadia_admin"], "all_accounts": false }
+PATCH /api/v1/admin/tenants/{tenant_id}/mfa-policy   { "inherit": true }   # follow the platform default again
+```
+
+Each answers `{policy, inherited, effective, available_roles}`: the stored policy, whether the
+tenant follows the platform default, the policy sign-ins follow, and the role codes to pick from
+(the role catalogue, roles the tenant's members hold, and any already in the policy). A role code
+is 1 to 64 letters, digits or `_ . : -`, at most 100 per policy. A new policy applies at the next
+sign-in or refresh.
 
 ## User Profile & Preferences
 

@@ -30,6 +30,9 @@ type Payload struct {
 	// PhoneSignup marks a phone-code MFA challenge whose person is joining the tenant through
 	// phone self-signup: the membership is created once the authenticator code passes.
 	PhoneSignup bool `json:"phone_signup,omitempty"`
+	// FirstFactor is set only on a social MFA challenge: the amr value of the step already passed
+	// ("fed" for a provider, "otp" for a phone code, "hwk" for a passkey). Empty means "fed".
+	FirstFactor string `json:"first_factor,omitempty"`
 }
 
 // PurposeSocialMFA marks a challenge token issued while a social sign-in awaits the MFA code.
@@ -52,6 +55,7 @@ func Encode(secret string, payload Payload, ttl time.Duration) (string, error) {
 		"purpose":      payload.Purpose,
 		"user_id":      payload.UserID,
 		"phone_signup": payload.PhoneSignup,
+		"first_factor": payload.FirstFactor,
 		"iat":          now.Unix(),
 		"exp":          now.Add(ttl).Unix(),
 	}
@@ -90,6 +94,7 @@ func Decode(secret string, token string) (*Payload, error) {
 		Purpose:     claimString(claims, "purpose"),
 		UserID:      claimString(claims, "user_id"),
 		PhoneSignup: claims["phone_signup"] == true,
+		FirstFactor: claimString(claims, "first_factor"),
 	}
 	if d, ok := claims["defaulted"].(bool); ok {
 		payload.Defaulted = d

@@ -30,6 +30,11 @@ const ScopeEquityPortal = "equity_portal"
 // downstream consumer validating `aud` also refuses them as session tokens.
 const AudienceEquityPortal = "equity-portal"
 
+// AudienceMFAEnrollment is the only audience of an enrolment-only token (MFAEnrollmentRequired):
+// a resource server that checks `aud` refuses it outright, and auth-api's own middleware lets it
+// reach only the authenticator setup routes.
+const AudienceMFAEnrollment = "mfa-enrollment"
+
 // Claims represents the JWT registered claims plus auth specific metadata.
 type Claims struct {
 	SessionID   string   `json:"sid"`
@@ -91,7 +96,28 @@ type Claims struct {
 	SupportFeeStatus string `json:"support_fee_status,omitempty"`
 	SupportFeeDueAt  *int64 `json:"support_fee_due_at,omitempty"`
 
+	// AMR lists how the session behind this token was authenticated (RFC 8176 values): pwd,
+	// otp (phone or email code), fed (social provider), hwk (passkey), pin, totp (authenticator
+	// app code), and mfa once a second factor was verified. Refresh keeps the session's list.
+	AMR []string `json:"amr,omitempty"`
+	// MFAEnrollmentRequired marks an enrolment-only token: the sign-in is covered by an MFA policy
+	// and the account has no authenticator yet. It carries no roles, permissions or services.
+	MFAEnrollmentRequired bool `json:"mfa_enrollment_required,omitempty"`
+
 	jwt.RegisteredClaims
+}
+
+// HasAMR reports whether the token's sign-in used the given method.
+func (c *Claims) HasAMR(method string) bool {
+	if c == nil {
+		return false
+	}
+	for _, m := range c.AMR {
+		if m == method {
+			return true
+		}
+	}
+	return false
 }
 
 // HasScope reports whether the token carries the given scope.
@@ -158,6 +184,31 @@ type AccessTokenInput struct {
 	// tenants only). Empty/nil = tenant has no support-fee obligation at all.
 	SupportFeeStatus string
 	SupportFeeDueAt  *time.Time
+
+	// AMR is the session's authentication methods (see Claims.AMR).
+	AMR []string
+	// MFAEnrollmentRequired mints an enrolment-only token (see Claims.MFAEnrollmentRequired).
+	MFAEnrollmentRequired bool
+}
+
+// enrollmentOnly keeps only what the authenticator setup screens need: who the person is, the
+// session, the tenant they signed in to and the demo flag. Everything a resource server could
+// grant on (roles, permissions, services, outlets, plan and platform-owner status) is dropped,
+// and the audience is AudienceMFAEnrollment alone.
+func (in AccessTokenInput) enrollmentOnly() AccessTokenInput {
+	return AccessTokenInput{
+		UserID:                in.UserID,
+		TenantID:              in.TenantID,
+		TenantSlug:            in.TenantSlug,
+		SessionID:             in.SessionID,
+		Email:                 in.Email,
+		EmailVerified:         in.EmailVerified,
+		Scopes:                in.Scopes,
+		IsDemo:                in.IsDemo,
+		AMR:                   in.AMR,
+		MFAEnrollmentRequired: true,
+		Audience:              []string{AudienceMFAEnrollment},
+	}
 }
 
 // Service handles JWT minting and verification.
@@ -208,6 +259,10 @@ func (s *Service) ReloadFromFiles() error {
 
 // MintAccessToken generates a signed JWT representing the authenticated user.
 func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, error) {
+	if input.MFAEnrollmentRequired {
+		// Enforced here as well as by the callers, so no path can mint an enrolment token that grants.
+		input = input.enrollmentOnly()
+	}
 	now := time.Now().UTC()
 	exp := now.Add(s.cfg.AccessTokenTTL)
 	jti := uuid.NewString()
@@ -280,6 +335,10 @@ func (s *Service) MintAccessToken(input AccessTokenInput) (string, time.Time, er
 	if input.SubscriptionExempt {
 		claims.SubscriptionExempt = true
 	}
+	if len(input.AMR) > 0 {
+		claims.AMR = append([]string(nil), input.AMR...)
+	}
+	claims.MFAEnrollmentRequired = input.MFAEnrollmentRequired
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = s.keyID

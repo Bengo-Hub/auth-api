@@ -34,6 +34,7 @@ import (
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
+	"github.com/pquerna/otp/totp"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
@@ -219,7 +220,19 @@ type LoginInput struct {
 	IPAddress  string
 	UserAgent  string
 	ClientID   string
+	// TOTPCode is the authenticator code, sent on the second submit once the first answered
+	// MFARequiredError.
+	TOTPCode string
 }
+
+// MFARequiredError is Login's answer when the password is right and the account has an
+// authenticator app but no code was sent: no session exists yet, and the person submits again
+// with the code.
+type MFARequiredError struct {
+	UserID uuid.UUID
+}
+
+func (e *MFARequiredError) Error() string { return "authenticator code required" }
 
 // WebAuthnLoginInput identifies a user who has already been verified by WebAuthn.
 type WebAuthnLoginInput struct {
@@ -257,12 +270,23 @@ func (s *Service) LoginWithWebAuthn(ctx context.Context, in WebAuthnLoginInput) 
 		}
 	}
 
+	// A passkey is one factor here. A member the MFA policy covers who has an authenticator app
+	// confirms its code on the same step social sign-ins use; without a tenant to bind the
+	// challenge to, they sign in with password and code instead.
+	if st := s.mfaStatusFor(ctx, userEntity.ID, tenantEntity); st.covered && st.hasAuthenticator {
+		if tenantEntity == nil {
+			return nil, ErrMFARequired
+		}
+		return s.socialMFAResult(userEntity, tenantEntity, &state.Payload{ClientID: in.ClientID, FirstFactor: AMRPasskey})
+	}
+
 	return s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  in.ClientID,
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
+		AMR:       []string{AMRPasskey},
 	})
 }
 
@@ -327,6 +351,11 @@ type AuthResult struct {
 	// MFAChallenge is set instead of tokens when a social sign-in still owes an authenticator code.
 	// The caller must not create a session; it hands the challenge to the browser for the code step.
 	MFAChallenge string
+	// AMR is how the session was authenticated (the token's amr claim).
+	AMR []string
+	// MFAEnrollmentRequired marks an enrolment-only session: the tokens carry no roles, and the
+	// person must set up an authenticator app and sign in again.
+	MFAEnrollmentRequired bool
 }
 
 // GetTenant returns a tenant by ID.
@@ -642,7 +671,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 
 	if in.OrgAction == "create_new" && in.NewOrg != nil {
 		// Create a brand-new organisation; the registering user becomes its admin.
-		meta := coalesceMap(in.NewOrg.Metadata)
+		// A registrant never sets keys that change what a token grants or what a sign-in must
+		// prove (is_platform_owner, billing_mode, the MFA policy): those are platform-owner only.
+		meta := withoutPlatformOnlyMetadata(coalesceMap(in.NewOrg.Metadata))
 		// Determine primary use case: first from UseCases array, fallback to UseCase string
 		primaryUseCase := in.NewOrg.UseCase
 		if primaryUseCase == "" && len(in.NewOrg.UseCases) > 0 {
@@ -780,7 +811,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		SetEmail(email).
 		SetStatus("active").
 		SetPrimaryTenantID(tenantEntity.ID.String()).
-		SetProfile(coalesceMap(in.Profile)).
+		SetProfile(withoutRegistrantOnlyKeys(coalesceMap(in.Profile))).
 		SetTermsAccepted(in.TermsAccepted).
 		SetEmailVerified(in.EmailVerified)
 	if in.EmailVerified {
@@ -876,6 +907,11 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		return nil, ErrTenantPendingApproval
 	}
 
+	// A password signup proved the password; an OAuth signup (no password) proved the provider.
+	registerAMR := []string{AMRPassword}
+	if in.Password == "" {
+		registerAMR = []string{AMRFederated}
+	}
 	return s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
@@ -883,6 +919,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
+		AMR:       registerAMR,
 	})
 }
 
@@ -1040,6 +1077,26 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		return nil, fmt.Errorf("verify membership: %w", err)
 	}
 
+	// The authenticator code is checked here, before any session exists, so the session can record
+	// that a second factor was proven. A lookup error fails closed: the code is asked for and,
+	// without a readable secret, never accepted.
+	amr := []string{AMRPassword}
+	mfaOn, mfaErr := s.IsMFAEnabled(ctx, userEntity.ID)
+	if mfaOn || mfaErr != nil {
+		code := strings.TrimSpace(in.TOTPCode)
+		if code == "" {
+			return nil, &MFARequiredError{UserID: userEntity.ID}
+		}
+		rec, recErr := s.entClient.MFATOTPSecret.Query().
+			Where(mfatotpsecret.UserID(userEntity.ID), mfatotpsecret.EnabledAtNotNil()).
+			Only(ctx)
+		if recErr != nil || !totp.Validate(code, rec.Secret) {
+			s.recordLoginAttempt(ctx, tenantEntity.ID, userEntity.ID, in.Email, false, "totp_invalid", in.IPAddress, in.UserAgent)
+			return nil, ErrMFACodeInvalid
+		}
+		amr = withSecondFactor(AMRPassword)
+	}
+
 	// Sign-ins are recorded in login_attempts and sessions; the audit log is for security events.
 	s.recordLoginAttempt(ctx, tenantEntity.ID, userEntity.ID, in.Email, true, "", in.IPAddress, in.UserAgent)
 
@@ -1068,6 +1125,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
+		AMR:       amr,
 	})
 }
 
@@ -1106,6 +1164,26 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (*AuthResult, er
 		tenantEntity, err = s.entClient.Tenant.Get(ctx, sessionEntity.TenantID)
 		if err != nil {
 			return nil, fmt.Errorf("load tenant: %w", err)
+		}
+	}
+
+	// A refresh repeats what the sign-in proved and never adds a factor. A policy that came into
+	// force after the sign-in still applies: a covered session without a second factor becomes
+	// enrolment-only, or is refused when the account has an authenticator to sign in with.
+	if amr, enrollmentOnly := sessionFactors(sessionEntity); !enrollmentOnly && !hasMethod(amr, AMRMFA) {
+		nowEnrollment, gateErr := s.gateRefresh(ctx, sessionEntity.Edges.User, tenantEntity, amr)
+		if gateErr != nil {
+			return nil, gateErr
+		}
+		if nowEnrollment {
+			userEdge := sessionEntity.Edges.User
+			sessionEntity, err = sessionEntity.Update().
+				SetMetadata(sessionFactorsMetadata(sessionEntity.Metadata, amr, true)).
+				Save(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("mark session enrolment-only: %w", err)
+			}
+			sessionEntity.Edges.User = userEdge
 		}
 	}
 
@@ -1222,6 +1300,7 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
+		AMR:       []string{AMRFederated},
 	})
 	if err != nil {
 		return nil, err
@@ -1334,6 +1413,7 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
+		AMR:       []string{AMRFederated},
 	})
 	if issueErr != nil {
 		return nil, issueErr
@@ -1438,6 +1518,7 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
+		AMR:       []string{AMRFederated},
 	})
 	if issueErr != nil {
 		return nil, issueErr
@@ -1803,6 +1884,8 @@ type issueSessionInput struct {
 	IPAddress string
 	UserAgent string
 	Scopes    []string
+	// AMR is what this sign-in proved (AMRPassword, AMROTP, ...), stored on the session.
+	AMR []string
 }
 
 // platformTenantSlug is the slug of the platform/owner tenant.
@@ -1853,6 +1936,13 @@ func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*Auth
 	if in.User != nil && !UserCanSignIn(in.User.Status) {
 		return nil, ErrAccountDisabled
 	}
+	// The MFA policy is applied here for the same reason: whatever path the person came by, a
+	// covered member either proved a second factor, gets an enrolment-only session, or is refused.
+	amr := normalizeAMR(in.AMR)
+	enrollmentOnly, err := s.gateSession(ctx, in.User, in.Tenant, amr)
+	if err != nil {
+		return nil, err
+	}
 	refreshPlain, refreshHash, err := s.tokenSvc.GenerateRefreshToken()
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
@@ -1865,7 +1955,8 @@ func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*Auth
 		SetExpiresAt(time.Now().Add(s.cfg.Token.RefreshTokenTTL)).
 		SetClientID(in.ClientID).
 		SetIPAddress(in.IPAddress).
-		SetUserAgent(in.UserAgent)
+		SetUserAgent(in.UserAgent).
+		SetMetadata(sessionFactorsMetadata(nil, amr, enrollmentOnly))
 	if in.Tenant != nil {
 		sessionCreate.SetTenantID(in.Tenant.ID)
 	}
@@ -1996,6 +2087,13 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		effectiveScopes = s.cfg.Token.DefaultScopes
 	}
 
+	// What the sign-in proved is read from the session, never recomputed: a refresh can only
+	// repeat it. An enrolment-only session mints a token with no roles, permissions or services.
+	amr, enrollmentOnly := sessionFactors(sessionEntity)
+	if enrollmentOnly {
+		return s.issueEnrollmentOnly(ctx, sessionEntity, userEntity, tenantEntity, tenantIDPtr, refreshToken, ip, ua, effectiveScopes, amr)
+	}
+
 	// Fetch roles/permissions scoped to the ACTIVE tenant specifically. Only
 	// fall back to the union across all of the user's tenants when there is no
 	// active-tenant membership at all (e.g. tenant not yet resolved) — that
@@ -2036,6 +2134,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		Roles:           roles,
 		Permissions:     permissions,
 		IsPlatformOwner: s.isPlatformOwnerUser(ctx, sessionEntity.UserID),
+		AMR:             amr,
 	}
 	if tenantEntity != nil {
 		tokenInput.TenantSlug = tenantEntity.Slug
@@ -2124,6 +2223,52 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		SessionID:             sessionEntity.ID,
 		Roles:                 roles,
 		Permissions:           permissions,
+		AMR:                   amr,
+	}, nil
+}
+
+// issueEnrollmentOnly mints the token of an enrolment-only session: identity, session, tenant
+// and the demo flag, nothing a resource server grants on. auth-api's own middleware lets it reach
+// only /auth/me, the authenticator setup routes and logout.
+func (s *Service) issueEnrollmentOnly(ctx context.Context, sessionEntity *ent.Session, userEntity *ent.User, tenantEntity *ent.Tenant,
+	tenantIDPtr *uuid.UUID, refreshToken, ip, ua string, scopes []string, amr []string) (*AuthResult, error) {
+	in := token.AccessTokenInput{
+		UserID:                sessionEntity.UserID,
+		TenantID:              tenantIDPtr,
+		SessionID:             sessionEntity.ID,
+		Email:                 userEntity.Email,
+		EmailVerified:         userEntity.EmailVerified,
+		Scopes:                scopes,
+		AMR:                   amr,
+		MFAEnrollmentRequired: true,
+	}
+	if tenantEntity != nil {
+		in.TenantSlug = tenantEntity.Slug
+		if v, ok := tenantEntity.Metadata["is_demo"].(bool); (ok && v) || tenantEntity.Slug == "codevertex-demo" {
+			in.IsDemo = true
+		}
+	}
+	accessToken, exp, err := s.tokenSvc.MintAccessToken(in)
+	if err != nil {
+		return nil, fmt.Errorf("mint access token: %w", err)
+	}
+	if ip != "" || ua != "" {
+		if err := s.entClient.Session.UpdateOneID(sessionEntity.ID).SetIPAddress(ip).SetUserAgent(ua).Exec(ctx); err != nil {
+			s.logger.Warn("failed to update session metadata", zap.Error(err))
+		}
+	}
+	return &AuthResult{
+		User:                  userEntity,
+		Tenant:                tenantEntity,
+		AccessToken:           accessToken,
+		AccessTokenExpiresAt:  exp,
+		RefreshToken:          refreshToken,
+		RefreshTokenExpiresAt: sessionEntity.ExpiresAt,
+		SessionID:             sessionEntity.ID,
+		Roles:                 []string{},
+		Permissions:           []string{},
+		AMR:                   amr,
+		MFAEnrollmentRequired: true,
 	}, nil
 }
 

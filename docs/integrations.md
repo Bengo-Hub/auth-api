@@ -483,6 +483,12 @@ r.Use(authMiddleware.RequireAuth)
 - Staff roles `hadia_admin`, `hadia_finance`, `hadia_support` (scope `hadia`) are seeded with
   auth.* self-service permissions; hadia-api owns their `hadia.*` codes and pushes the catalogue
   through `POST /api/v1/s2s/roles/sync` on every start.
+- MFA for staff (platform task A2, NFR-06): the tenant seed sets `mfa_policy` to those three roles
+  once (a platform owner can change it later on the tenant's sign-in security screen; a reseed
+  keeps the edit). A staff member signs in with an authenticator code and the token's `amr`
+  contains `mfa`; one without an authenticator gets an enrolment-only token (no roles,
+  `aud: mfa-enrollment`) that opens only the authenticator setup. hadia-api gates staff routes on
+  `amr` containing `mfa`. The contract is in `docs/developer-api.md`.
 
 ---
 

@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/bengobox/auth-api/internal/config"
+	"github.com/bengobox/auth-api/internal/ent"
 	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
+	"github.com/bengobox/auth-api/internal/services/auth"
 	"github.com/bengobox/auth-api/internal/services/oidc"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/go-chi/chi/v5/middleware"
@@ -58,6 +60,14 @@ type SelfServiceJoiner interface {
 	JoinAsSelfServiceMember(ctx context.Context, userID uuid.UUID, tenantSlug, clientID string) (bool, error)
 }
 
+// MFAStepUpPolicy applies the MFA policy to an authorization request and a code exchange: a
+// member the policy covers must come from a session that proved a second factor. Implemented by
+// auth.Service.
+type MFAStepUpPolicy interface {
+	OIDCStepUpFor(ctx context.Context, userID uuid.UUID, tenantID *uuid.UUID, amr []string) auth.OIDCStepUp
+	OIDCStepUpForSlug(ctx context.Context, userID uuid.UUID, tenantSlug string, amr []string) auth.OIDCStepUp
+}
+
 // OIDCHandler serves OIDC discovery and grant endpoints.
 type OIDCHandler struct {
 	cfg         *config.Config
@@ -67,6 +77,7 @@ type OIDCHandler struct {
 	rolesPerms  RolesPermissionsProvider // optional: for permissions in access token
 	subEnricher SubscriptionEnricher     // optional: for subscription claims in access token
 	joiner      SelfServiceJoiner        // optional: customer-facing apps join people as customers
+	mfa         MFAStepUpPolicy          // optional: the MFA policy (nil leaves it unapplied, tests only)
 	logger      *zap.Logger
 }
 
@@ -99,7 +110,41 @@ func NewOIDCHandlerWithRolesPermissions(cfg *config.Config, svc *oidc.Service, a
 	if j, ok := rolesPerms.(SelfServiceJoiner); ok {
 		h.joiner = j
 	}
+	if m, ok := rolesPerms.(MFAStepUpPolicy); ok {
+		h.mfa = m
+	}
 	return h
+}
+
+// redirectForMFA sends a person whose session did not prove the second factor the tenant's
+// policy asks for back to sign-in, keeping this authorize request as return_to. The sign-in then
+// asks for the authenticator code, or opens the authenticator setup when there is none. A silent
+// probe (prompt=none) gets interaction_required at the client instead.
+func (h *OIDCHandler) redirectForMFA(w http.ResponseWriter, r *http.Request, client *ent.OAuthClient, redirectURI, tenant string) {
+	if r.URL.Query().Get("prompt") == "none" {
+		u, err := url.Parse(redirectURI)
+		if err != nil || !h.oidc.ValidateRedirect(client, redirectURI) {
+			writeError(w, http.StatusBadRequest, "invalid_request", "invalid redirect_uri", nil)
+			return
+		}
+		uq := u.Query()
+		uq.Set("error", "interaction_required")
+		if state := r.URL.Query().Get("state"); state != "" {
+			uq.Set("state", state)
+		}
+		u.RawQuery = uq.Encode()
+		http.Redirect(w, r, u.String(), http.StatusFound)
+		return
+	}
+	u, _ := url.Parse(h.cfg.App.AuthUIURL + "/login")
+	uq := u.Query()
+	uq.Set("return_to", h.cfg.Token.Issuer+r.URL.RequestURI())
+	if tenant != "" {
+		uq.Set("tenant", tenant)
+	}
+	uq.Set("reason", "mfa_required")
+	u.RawQuery = uq.Encode()
+	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 
 // WellKnownConfig returns OIDC discovery document.
@@ -268,7 +313,17 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Generate code (include tenant from authorize URL so token exchange can prefer it)
+	// A member the tenant's MFA policy covers needs a session that proved a second factor. The
+	// code exchange checks again, so a code minted before a policy change is refused there too.
+	if h.mfa != nil {
+		if step := h.mfa.OIDCStepUpForSlug(r.Context(), parseUUID(claims.Subject), tenantFromURL, claims.AMR); step != auth.OIDCStepUpNone {
+			h.redirectForMFA(w, r, client, redirectURI, tenantFromURL)
+			return
+		}
+	}
+
+	// Generate code (include tenant from authorize URL so token exchange can prefer it, and the
+	// session's amr so the token carries what the sign-in proved)
 	codePlain := randomOIDCString(32)
 	_, err = h.oidc.CreateAuthorizationCode(
 		r.Context(),
@@ -281,6 +336,7 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		codeChallenge,
 		codeChallengeMethod,
 		tenantFromURL,
+		claims.AMR,
 	)
 	if err != nil {
 		reqID := middleware.GetReqID(r.Context())
@@ -394,11 +450,27 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// The token carries what the single sign-on session proved, never more. A covered member from
+	// a session without the second factor gets nothing (with an authenticator) or an enrolment-only
+	// token (without one).
+	amr := oidc.CodeAMR(authCode)
+	enrollmentOnly := false
+	if h.mfa != nil {
+		switch h.mfa.OIDCStepUpFor(r.Context(), userEntity.ID, tenantID, amr) {
+		case auth.OIDCStepUpSignIn:
+			writeError(w, http.StatusBadRequest, "invalid_grant", "this organisation asks for an authenticator code: sign in again", nil)
+			return
+		case auth.OIDCStepUpEnroll:
+			enrollmentOnly = true
+		}
+	}
+
 	// Create session when offline_access is requested (enables refresh tokens)
 	var sessionID uuid.UUID
 	var refreshToken string
 	if hasScope(scopes, "offline_access") {
-		session, sessErr := h.oidc.CreateSession(r.Context(), userEntity.ID, clientID, r.RemoteAddr, r.UserAgent())
+		session, sessErr := h.oidc.CreateSession(r.Context(), userEntity.ID, clientID, r.RemoteAddr, r.UserAgent(),
+			auth.SessionFactorsMetadata(amr, enrollmentOnly))
 		if sessErr != nil {
 			h.logger.Error("create oidc session failed", zap.Error(sessErr))
 			writeError(w, http.StatusInternalServerError, "server_error", "session creation failed", nil)
@@ -436,12 +508,15 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		IsPlatformOwner: isPlatformOwner,
 		IsDemo:          tenantSlug == "codevertex-demo",
 		Audience:        []string{client.ClientID, h.cfg.Token.Audience},
+		AMR:             amr,
+		// An enrolment-only token is stripped to identity when minted (token.AccessTokenInput).
+		MFAEnrollmentRequired: enrollmentOnly,
 	}
 	// Enrich with subscription claims so OIDC-issued tokens gate features identically
 	// to the REST login/refresh flow (fail-open). Without this, services that read
 	// SubscriptionFeatures from the JWT (e.g. inventory-api RequireFeature) reject
 	// entitled tenants with feature_not_available.
-	if tenantID != nil && h.subEnricher != nil {
+	if tenantID != nil && h.subEnricher != nil && !enrollmentOnly {
 		h.subEnricher.EnrichAccessTokenInput(r.Context(), *tenantID, &tokenInput)
 	}
 	access, accessExp, err := h.tokenSvc.MintAccessToken(tokenInput)
@@ -468,6 +543,14 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	if tenantID != nil {
 		idClaims["tenant_id"] = tenantID.String()
 		idClaims["tenant_slug"] = tenantSlug
+	}
+	if len(amr) > 0 {
+		idClaims["amr"] = amr
+	}
+	if enrollmentOnly {
+		idClaims["roles"] = []string{}
+		idClaims["mfa_enrollment_required"] = true
+		memberships = nil
 	}
 	if len(memberships) > 0 {
 		tenants := make([]map[string]any, 0, len(memberships))

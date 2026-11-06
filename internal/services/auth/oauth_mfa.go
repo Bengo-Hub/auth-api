@@ -44,7 +44,7 @@ func (s *Service) socialMFARequired(ctx context.Context, userID uuid.UUID) bool 
 // authenticator code on the same page social sign-ins use (/auth/mfa, POST /auth/oauth/mfa/verify).
 func (s *Service) PhoneMFAChallenge(target *PhoneLoginTarget, clientID string) (string, error) {
 	res, err := s.socialMFAResult(target.User, target.Tenant, &state.Payload{TenantSlug: target.Tenant.Slug, ClientID: clientID,
-		PhoneSignup: target.Signup != nil})
+		PhoneSignup: target.Signup != nil, FirstFactor: AMROTP})
 	if err != nil {
 		return "", err
 	}
@@ -54,6 +54,10 @@ func (s *Service) PhoneMFAChallenge(target *PhoneLoginTarget, clientID string) (
 // socialMFAResult is what a provider callback returns instead of a session when the account has
 // MFA: no tokens, only a short-lived signed challenge the browser exchanges with the code.
 func (s *Service) socialMFAResult(userEntity *ent.User, tenantEntity *ent.Tenant, payload *state.Payload) (*AuthResult, error) {
+	firstFactor := payload.FirstFactor
+	if firstFactor == "" {
+		firstFactor = AMRFederated
+	}
 	challenge, err := state.Encode(s.cfg.Security.OAuthStateSecret, state.Payload{
 		TenantSlug:  tenantEntity.Slug,
 		ClientID:    payload.ClientID,
@@ -63,6 +67,7 @@ func (s *Service) socialMFAResult(userEntity *ent.User, tenantEntity *ent.Tenant
 		Purpose:     state.PurposeSocialMFA,
 		UserID:      userEntity.ID.String(),
 		PhoneSignup: payload.PhoneSignup,
+		FirstFactor: firstFactor,
 	}, socialMFAChallengeTTL)
 	if err != nil {
 		return nil, fmt.Errorf("encode social mfa challenge: %w", err)
@@ -148,6 +153,10 @@ func (s *Service) CompleteSocialMFA(ctx context.Context, in SocialMFAInput) (*Au
 		}
 	}
 
+	firstFactor := payload.FirstFactor
+	if firstFactor == "" {
+		firstFactor = AMRFederated
+	}
 	result, err := s.issueSession(ctx, issueSessionInput{
 		User:      userEntity,
 		Tenant:    tenantEntity,
@@ -155,6 +164,7 @@ func (s *Service) CompleteSocialMFA(ctx context.Context, in SocialMFAInput) (*Au
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
+		AMR:       withSecondFactor(firstFactor),
 	})
 	if err != nil {
 		return nil, err

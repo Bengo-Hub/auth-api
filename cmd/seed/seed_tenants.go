@@ -29,6 +29,31 @@ type tenantSpec struct {
 	brandColors     map[string]any
 	// metadata holds extra keys the seed enforces on every run (merged over the stored metadata).
 	metadata map[string]any
+	// defaultMetadata holds keys the seed sets only while they are absent, so a later edit made
+	// through the admin routes (the MFA policy above all) survives every redeploy.
+	defaultMetadata map[string]any
+}
+
+// hadiaStaffRoles are the Hadia staff roles that must sign in with an authenticator app (NFR-06,
+// platform task A2).
+var hadiaStaffRoles = []string{"hadia_admin", "hadia_finance", "hadia_support"}
+
+// seedTenantMetadata merges the seed's metadata into the stored one: enforced keys always win,
+// default keys only fill a gap. The stored map is not modified.
+func seedTenantMetadata(stored, enforced, defaults map[string]any) map[string]any {
+	out := make(map[string]any, len(stored)+len(enforced)+len(defaults))
+	for k, v := range stored {
+		out[k] = v
+	}
+	for k, v := range enforced {
+		out[k] = v
+	}
+	for k, v := range defaults {
+		if _, ok := out[k]; !ok {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // hadiaTenantSpec is the Hadia gift registry tenant (hadia-api, hadia-ui). Registry owners sign
@@ -45,6 +70,11 @@ var hadiaTenantSpec = tenantSpec{
 		// Kenyan numbers only, and at most 30 signup codes a minute across all numbers.
 		"signup_phone_prefixes": []string{"+254"},
 		"signup_otp_per_minute": 30,
+	},
+	// Staff sign in with an authenticator app (auth.TenantMetadataMFAPolicy). Seeded once; a
+	// platform owner changes it on the tenant's sign-in security screen.
+	defaultMetadata: map[string]any{
+		"mfa_policy": map[string]any{"required_roles": hadiaStaffRoles, "all_accounts": false},
 	},
 }
 
@@ -154,7 +184,7 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 				SetSlug(t.slug).
 				SetStatus("active").
 				SetIsDemo(t.isDemo).
-				SetMetadata(meta)
+				SetMetadata(seedTenantMetadata(nil, meta, t.defaultMetadata))
 			if len(t.brandColors) > 0 {
 				create = create.SetBrandColors(t.brandColors)
 			}
@@ -183,13 +213,7 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			// (is_platform_owner, is_demo, base_domain, billing_mode).
 			// All user-configurable fields (logo, brand colours, contact info, use cases)
 			// are left untouched so admin customisations made via auth-ui are preserved.
-			existingMeta := tenantEntity.Metadata
-			if existingMeta == nil {
-				existingMeta = map[string]any{}
-			}
-			for k, v := range meta {
-				existingMeta[k] = v
-			}
+			existingMeta := seedTenantMetadata(tenantEntity.Metadata, meta, t.defaultMetadata)
 			upd := tenantEntity.Update().SetMetadata(existingMeta).SetIsDemo(t.isDemo)
 			// Backfill optional fields only when they are still unset (never overwrite).
 			if tenantEntity.LogoURL == nil && t.logoURL != "" {

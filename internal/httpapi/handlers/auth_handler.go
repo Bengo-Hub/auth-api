@@ -23,7 +23,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
-	"github.com/pquerna/otp/totp"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -391,6 +390,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Wrong authenticator codes are counted per account, not only per address, so a password holder
+	// cannot spread guesses over many addresses. The phone and social challenges already cap their
+	// attempts per challenge.
+	totpCode := strings.TrimSpace(req.TOTPCode)
+	failKey := h.totpFailKey(req.Email)
+	if totpCode != "" && failKey != "" {
+		if n, _ := h.redis.Get(r.Context(), failKey).Int(); n >= maxTOTPFailures {
+			writeError(w, http.StatusTooManyRequests, "too_many_attempts", "Too many wrong codes. Wait a few minutes and try again.", nil)
+			return
+		}
+	}
+
+	// The service checks the authenticator code before it creates any session, so the session can
+	// record the second factor (amr). Without a code it answers MFARequiredError and no session
+	// exists; a lookup error fails closed the same way, as the phone and social paths do.
 	result, err := h.service.Login(r.Context(), auth.LoginInput{
 		Email:      req.Email,
 		Password:   req.Password,
@@ -398,41 +412,36 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		ClientID:   req.ClientID,
 		IPAddress:  clientIP(r),
 		UserAgent:  userAgent(r),
+		TOTPCode:   totpCode,
 	})
+	if failKey != "" && totpCode != "" {
+		switch {
+		case errors.Is(err, auth.ErrMFACodeInvalid):
+			pipe := h.redis.TxPipeline()
+			pipe.Incr(r.Context(), failKey)
+			pipe.Expire(r.Context(), failKey, totpFailureWindow)
+			_, _ = pipe.Exec(r.Context())
+		case err == nil:
+			_ = h.redis.Del(r.Context(), failKey).Err()
+		}
+	}
 	if err != nil {
+		var mfaErr *auth.MFARequiredError
+		if errors.As(err, &mfaErr) {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"mfa_required": true,
+				"mfa_method":   "totp",
+				"user_id":      mfaErr.UserID.String(),
+			})
+			return
+		}
 		h.handleError(w, r, err)
 		return
 	}
 
-	// MFA enforcement: if TOTP is enabled, require code before issuing tokens.
-	// When totp_code is not provided, return mfa_required so the frontend
-	// can show the TOTP input and re-submit with the code included. A lookup error fails closed
-	// (the code is asked for), as the phone and social sign-in paths already do, so a database
-	// error can never skip the second factor.
-	if mfaEnabled, mfaErr := h.service.IsMFAEnabled(r.Context(), result.User.ID); mfaEnabled || mfaErr != nil {
-		if req.TOTPCode == "" {
-			writeJSON(w, http.StatusOK, map[string]any{
-				"mfa_required": true,
-				"mfa_method":   "totp",
-				"user_id":      result.User.ID.String(),
-			})
-			return
-		}
-		// Validate the provided TOTP code via the MFA service.
-		// The MFA service is accessed through the auth service's entClient.
-		totpRec, totpErr := result.User.QueryMfaTotp().Only(r.Context())
-		if totpErr != nil {
-			writeError(w, http.StatusInternalServerError, "server_error", "failed to load TOTP config", nil)
-			return
-		}
-		if !totp.Validate(req.TOTPCode, totpRec.Secret) {
-			writeError(w, http.StatusUnauthorized, "invalid_totp", "invalid TOTP code", nil)
-			return
-		}
-	}
-
-	// Cache the login result for /me optimization (TTL = token expiry or 24h)
-	if h.redis != nil && h.redisNamespace != "" {
+	// Cache the login result for /me optimization (TTL = token expiry or 24h). An enrolment-only
+	// session has no roles to cache.
+	if h.redis != nil && h.redisNamespace != "" && !result.MFAEnrollmentRequired {
 		cacheKey := h.redisNamespace + ":auth:me:" + result.User.ID.String()
 		ttl := 24 * time.Hour
 		if !result.AccessTokenExpiresAt.IsZero() {
@@ -850,6 +859,9 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 			iat = claims.IssuedAt.Unix()
 		}
 		cacheKey = fmt.Sprintf("%s:auth:me:%s:%d", h.redisNamespace, userID.String(), iat)
+		if claims.MFAEnrollmentRequired {
+			cacheKey += ":enrollment"
+		}
 		if cached, err := h.redis.Get(r.Context(), cacheKey).Bytes(); err == nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -1036,6 +1048,17 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	// would lock every visitor out of the account for good.
 	if v, ok := userEntity.Profile["must_change_password"].(bool); ok && v && !demoSelfServiceBlocked(claims) {
 		out["must_change_password"] = true
+	}
+
+	// An enrolment-only session (the MFA policy covers this member and no authenticator is set up)
+	// sees no roles, permissions or platform-owner status, so the UI shows only the setup screen.
+	out["amr"] = claims.AMR
+	if claims.MFAEnrollmentRequired {
+		out["mfa_enrollment_required"] = true
+		out["roles"] = []string{}
+		out["permissions"] = []string{}
+		delete(out, "is_platform_owner")
+		memberships = nil
 	}
 
 	// Resolve and embed the ACTIVE tenant as a nested object so frontend
@@ -1246,6 +1269,13 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 		writeError(w, http.StatusForbidden, "email_not_verified", "provider email must be verified", nil)
 	case errors.Is(err, auth.ErrEmailDomainNotAllowed):
 		writeError(w, http.StatusForbidden, "email_domain_blocked", "email domain not allowed", nil)
+	case errors.Is(err, auth.ErrMFACodeInvalid):
+		writeError(w, http.StatusUnauthorized, "invalid_totp", "invalid TOTP code", nil)
+	case errors.Is(err, auth.ErrMFARequired):
+		// A covered account with an authenticator reached a session without its code (or a
+		// session from before the policy is refreshed): sign in again and enter the code.
+		writeError(w, http.StatusUnauthorized, "mfa_required",
+			"This organisation asks for your authenticator code. Sign in again and enter it.", nil)
 	default:
 		reqID := middleware.GetReqID(r.Context())
 		h.logger.Error("auth handler error", zap.String("request_id", reqID), zap.Error(err))
@@ -1257,7 +1287,7 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 // to avoid duplicate keys (do not set them on user object).
 func (h *AuthHandler) toAuthResponse(result *auth.AuthResult) map[string]any {
 	userMap := userViewFromEnt(result.User)
-	return map[string]any{
+	out := map[string]any{
 		"access_token":       result.AccessToken,
 		"token_type":         "Bearer",
 		"expires_in":         int(time.Until(result.AccessTokenExpiresAt).Seconds()),
@@ -1268,7 +1298,14 @@ func (h *AuthHandler) toAuthResponse(result *auth.AuthResult) map[string]any {
 		"tenant":             tenantViewFromEnt(result.Tenant),
 		"roles":              result.Roles,
 		"permissions":        result.Permissions,
+		"amr":                result.AMR,
 	}
+	if result.MFAEnrollmentRequired {
+		// The tokens only open the authenticator setup: the client sends the person there, then
+		// back to sign-in.
+		out["mfa_enrollment_required"] = true
+	}
+	return out
 }
 
 func userViewFromEnt(user *ent.User) map[string]any {
@@ -1607,6 +1644,23 @@ func generateOTP() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
+// maxTOTPFailures wrong authenticator codes per account within totpFailureWindow lock the password
+// step's code check until the window passes.
+const (
+	maxTOTPFailures   = 5
+	totpFailureWindow = 10 * time.Minute
+)
+
+// totpFailKey is the Redis key counting wrong authenticator codes for one account (by normalised
+// email, hashed so no address sits in Redis). Empty without Redis: the per-address limiter remains.
+func (h *AuthHandler) totpFailKey(email string) string {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if h.redis == nil || h.redisNamespace == "" || email == "" {
+		return ""
+	}
+	return h.redisNamespace + ":auth:totp_fail:" + hashOTP(email)
 }
 
 func hashOTP(otp string) string {

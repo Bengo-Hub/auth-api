@@ -160,6 +160,12 @@ accounts; the dashboard gates access to the password-change screen until cleared
 
 ### MFA
 - TOTP enrollment/confirmation and backup codes under `/api/v1/auth/mfa/*` (requires auth).
+- Every access token carries `amr` (how the session signed in; `mfa` once a second factor was
+  verified). An MFA policy per tenant, with a platform default, says which roles (or all accounts)
+  must use an authenticator app; a covered member without one gets an enrolment-only token. Only a
+  platform owner edits the policy: `GET/PATCH /api/v1/admin/mfa-policy` and
+  `GET/PATCH /api/v1/admin/tenants/{id}/mfa-policy`. Details and the contract for services are in
+  [docs/developer-api.md](docs/developer-api.md) (Sign-in methods and the MFA policy).
 
 ## Project Structure
 

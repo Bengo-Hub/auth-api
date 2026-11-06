@@ -687,7 +687,7 @@ func publicTenantResponseFrom(t *ent.Tenant) PublicTenantResponse {
 		SubscriptionStatus:    t.SubscriptionStatus,
 		SubscriptionExpiresAt: t.SubscriptionExpiresAt,
 		TierLimits:            t.TierLimits,
-		Metadata:              t.Metadata,
+		Metadata:              auth.WithoutMFAPolicyMetadata(t.Metadata),
 		TaxPin:                t.TaxPin,
 		VatRegistered:         t.VatRegistered,
 		VatRegisteredOn:       t.VatRegisteredOn,
@@ -900,6 +900,13 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 				if str, ok := v.(string); ok && str == "" {
 					continue
 				}
+				// The MFA policy is written only through its platform-owner routes (audited), and
+				// the keys that change what a token grants only by a platform owner. The form sends
+				// the whole metadata back on every save, so these are skipped (the stored value
+				// stays), not refused.
+				if auth.IsMFAPolicyMetadataKey(k) || (auth.IsPlatformOnlyMetadataKey(k) && !h.requireAdmin(r)) {
+					continue
+				}
 				if k == MetadataKeyServiceBranding {
 					branding, err := mergeServiceBranding(metadata[k], v)
 					if err != nil {
@@ -924,10 +931,19 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 			metadata["contact_phone"] = req.ContactPhone
 		}
 		update.SetMetadata(metadata)
+		// The metadata map is written whole, so only over the row it was read from: a policy change
+		// or another save in between must not be reverted silently.
+		if existing != nil {
+			update.Where(tenant.UpdatedAtEQ(existing.UpdatedAt))
+		}
 	}
 
 	t, err := update.Save(r.Context())
 	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusConflict, "tenant_changed", "This organisation was changed by someone else. Reload and try again.", nil)
+			return
+		}
 		if ent.IsConstraintError(err) {
 			writeError(w, http.StatusConflict, "slug_taken", "that slug is already used by another organization", nil)
 			return
@@ -961,6 +977,11 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	h.invalidateTenantCache(r.Context(), t.Slug, oldSlug)
 	h.releaseTenantImages(r.Context(), imagesBefore, tenantImages(t))
 
+	// Which roles must prove a second factor is the platform's business: a tenant's own admin
+	// gets the tenant back without it.
+	if !h.requireAdmin(r) {
+		t.Metadata = auth.WithoutMFAPolicyMetadata(t.Metadata)
+	}
 	writeJSON(w, http.StatusOK, t)
 }
 

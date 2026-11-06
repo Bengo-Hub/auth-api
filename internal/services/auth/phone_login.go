@@ -159,5 +159,6 @@ func (s *Service) LoginWithPhoneOTP(ctx context.Context, target *PhoneLoginTarge
 		ClientID:  clientID,
 		IPAddress: ip,
 		UserAgent: ua,
+		AMR:       []string{AMROTP},
 	})
 }

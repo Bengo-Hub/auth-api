@@ -61,7 +61,9 @@ func (s *Service) ValidateRedirect(client *ent.OAuthClient, redirectURI string) 
 // CreateAuthorizationCode creates and stores an auth code with PKCE details.
 // tenantSlug is optional; when set (e.g. from authorize URL ?tenant=), it is stored in metadata
 // so token exchange can issue the token for that tenant if the user is a member.
-func (s *Service) CreateAuthorizationCode(ctx context.Context, userID uuid.UUID, clientID, redirectURI, scope, nonce, code, codeChallenge, codeChallengeMethod string, tenantSlug string) (*ent.AuthorizationCode, error) {
+// amr is what the single sign-on session proved; the code exchange copies it into the token and
+// never adds to it.
+func (s *Service) CreateAuthorizationCode(ctx context.Context, userID uuid.UUID, clientID, redirectURI, scope, nonce, code, codeChallenge, codeChallengeMethod string, tenantSlug string, amr []string) (*ent.AuthorizationCode, error) {
 	codeHash := sha256.Sum256([]byte(code))
 	builder := s.entClient.AuthorizationCode.Create().
 		SetUserID(userID).
@@ -73,10 +75,40 @@ func (s *Service) CreateAuthorizationCode(ctx context.Context, userID uuid.UUID,
 		SetCodeChallenge(codeChallenge).
 		SetCodeChallengeMethod(strings.ToLower(codeChallengeMethod)).
 		SetExpiresAt(time.Now().Add(5 * time.Minute))
+	meta := map[string]interface{}{}
 	if tenantSlug != "" {
-		builder = builder.SetMetadata(map[string]interface{}{"tenant_slug": tenantSlug})
+		meta["tenant_slug"] = tenantSlug
+	}
+	if len(amr) > 0 {
+		meta[MetadataAMR] = append([]string(nil), amr...)
+	}
+	if len(meta) > 0 {
+		builder = builder.SetMetadata(meta)
 	}
 	return builder.Save(ctx)
+}
+
+// MetadataAMR is the authorization code metadata key holding the session's amr.
+const MetadataAMR = "amr"
+
+// CodeAMR reads the amr stored on an authorization code. A code from before the claim existed
+// has none.
+func CodeAMR(code *ent.AuthorizationCode) []string {
+	if code == nil || code.Metadata == nil {
+		return nil
+	}
+	var out []string
+	switch v := code.Metadata[MetadataAMR].(type) {
+	case []any:
+		for _, m := range v {
+			if s, ok := m.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+	case []string:
+		out = append(out, v...)
+	}
+	return out
 }
 
 // ExchangeCode validates the code and returns user + client after consuming it.
@@ -147,8 +179,9 @@ type SessionResult struct {
 	ExpiresAt    time.Time
 }
 
-// CreateSession creates a new session with refresh token for the OIDC code exchange.
-func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, clientID string, ipAddress, userAgent string) (*SessionResult, error) {
+// CreateSession creates a new session with refresh token for the OIDC code exchange. metadata
+// records what the sign-in proved (auth.SessionFactorsMetadata), which a refresh repeats.
+func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, clientID string, ipAddress, userAgent string, metadata map[string]any) (*SessionResult, error) {
 	refreshPlain, refreshHash, err := s.tokenSvc.GenerateRefreshToken()
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
@@ -163,6 +196,9 @@ func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, clientID 
 		SetClientID(clientID).
 		SetIPAddress(ipAddress).
 		SetUserAgent(userAgent)
+	if len(metadata) > 0 {
+		sessionCreate.SetMetadata(metadata)
+	}
 
 	// Look up user's primary tenant
 	user, err := s.entClient.User.Get(ctx, userID)

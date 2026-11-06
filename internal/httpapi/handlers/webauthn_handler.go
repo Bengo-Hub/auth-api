@@ -158,8 +158,23 @@ func (h *WebAuthnHandler) FinishAuthentication(w http.ResponseWriter, r *http.Re
 		UserAgent:  r.Header.Get("User-Agent"),
 	})
 	if err != nil {
+		if errors.Is(err, auth.ErrMFARequired) {
+			writeError(w, http.StatusUnauthorized, "mfa_required",
+				"This organisation asks for your authenticator code. Sign in with your password and the code.", nil)
+			return
+		}
+		if errors.Is(err, auth.ErrAccountDisabled) {
+			writeError(w, http.StatusForbidden, "account_disabled", "This account has been disabled.", nil)
+			return
+		}
 		h.logger.Error("issue session after webauthn failed", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to issue session", nil)
+		return
+	}
+	// The MFA policy covers this member and the account has an authenticator app: no session yet.
+	// The browser confirms the code on the social sign-in code step (POST /auth/oauth/mfa/verify).
+	if result.MFAChallenge != "" {
+		writeJSON(w, http.StatusOK, map[string]any{"mfa_required": true, "mfa_method": "totp", "mfa_challenge": result.MFAChallenge})
 		return
 	}
 
@@ -196,7 +211,7 @@ func (h *WebAuthnHandler) FinishAuthentication(w http.ResponseWriter, r *http.Re
 // webAuthnAuthResponse builds the authentication response for WebAuthn logins,
 // mirroring toAuthResponse so RBAC state (roles/permissions) is returned to the client.
 func webAuthnAuthResponse(result *auth.AuthResult) map[string]any {
-	return map[string]any{
+	out := map[string]any{
 		"access_token":       result.AccessToken,
 		"token_type":         "Bearer",
 		"expires_in":         int(time.Until(result.AccessTokenExpiresAt).Seconds()),
@@ -207,7 +222,12 @@ func webAuthnAuthResponse(result *auth.AuthResult) map[string]any {
 		"tenant":             tenantViewFromEnt(result.Tenant),
 		"roles":              result.Roles,
 		"permissions":        result.Permissions,
+		"amr":                result.AMR,
 	}
+	if result.MFAEnrollmentRequired {
+		out["mfa_enrollment_required"] = true
+	}
+	return out
 }
 
 // ListCredentials returns all WebAuthn credentials for the authenticated user.

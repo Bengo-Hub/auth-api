@@ -176,7 +176,7 @@ type AuthHandlers struct {
 	UpdateTenantMember http.HandlerFunc
 	// S2SMemberOutletLimit answers which outlets a member is limited to.
 	S2SMemberOutletLimit http.HandlerFunc
-	RemoveTenantMember http.HandlerFunc
+	RemoveTenantMember   http.HandlerFunc
 	// S2SListTenantUsers lists a tenant's active members for S2S callers (X-API-Key).
 	S2SListTenantUsers http.HandlerFunc
 	// S2STenantBillingContact answers which phone a tenant's billing messages go to.
@@ -477,6 +477,11 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Post("/approve", deps.AuthHandlers.AdminApproveTenant)
 					r.Post("/reject", deps.AuthHandlers.AdminRejectTenant)
 					r.Post("/provision-oauth-redirects", deps.AuthHandlers.AdminProvisionTenantOAuthRedirects)
+					// The tenant's MFA policy (platform owners only, audited).
+					if deps.RBACHandler != nil {
+						r.Get("/mfa-policy", deps.RBACHandler.GetTenantMFAPolicy)
+						r.Patch("/mfa-policy", deps.RBACHandler.UpdateTenantMFAPolicy)
+					}
 					if deps.DomainHandler != nil {
 						r.Get("/domains", deps.DomainHandler.ListDomains)
 						r.Post("/domains", deps.DomainHandler.CreateDomain)
@@ -558,6 +563,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 							r.Post("/reset-password", deps.UserHandler.AdminResetPassword)
 							r.Post("/send-password-reset", deps.UserHandler.AdminSendPasswordResetEmail)
 							r.Post("/mfa-enforcement", deps.UserHandler.AdminSetMfaEnforcement)
+							// A lost authenticator: platform owners only, audited, ends every session.
+							r.Post("/mfa-reset", deps.RBACHandler.ResetUserMFA)
 						})
 					})
 				}
@@ -577,6 +584,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Get("/audit-logs", deps.RBACHandler.ListAuditLogs)
 					r.Get("/password-policy", deps.RBACHandler.GetPasswordPolicy)
 					r.Put("/password-policy", deps.RBACHandler.UpdatePasswordPolicy)
+					// The platform default MFA policy (platform owners only, audited).
+					r.Get("/mfa-policy", deps.RBACHandler.GetPlatformMFAPolicy)
+					r.Patch("/mfa-policy", deps.RBACHandler.UpdatePlatformMFAPolicy)
 				}
 				// Platform infrastructure monitoring (platform admins only) —
 				// replaces the removed Prometheus/Grafana stack.

@@ -23,6 +23,12 @@ import (
 )
 
 // OutletHandler manages outlet/branch CRUD and the outlet-selection SSO step.
+// mfaCoverageChecker is the part of the auth service that applies the MFA policy (it is also the
+// SubscriptionEnricher passed to NewOutletHandler). It fails closed: a lookup error counts as covered.
+type mfaCoverageChecker interface {
+	MFACovered(ctx context.Context, userID uuid.UUID, t *ent.Tenant) (covered, hasAuthenticator bool)
+}
+
 type OutletHandler struct {
 	ent    *ent.Client
 	tokens *token.Service
@@ -649,6 +655,11 @@ func (h *OutletHandler) SelectOutlet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid or expired exchange token", http.StatusUnauthorized)
 		return
 	}
+	// An enrolment-only token opens nothing but the authenticator setup, and never an outlet.
+	if claims.MFAEnrollmentRequired {
+		http.Error(w, "set up an authenticator app, then sign in again", http.StatusForbidden)
+		return
+	}
 
 	outletID, err := uuid.Parse(req.OutletID)
 	if err != nil {
@@ -679,9 +690,31 @@ func (h *OutletHandler) SelectOutlet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid token subject", http.StatusUnauthorized)
 		return
 	}
+	// The new token lives as long as a fresh one, so it is minted only for a session that is still
+	// signed in: a token from a session that was logged out, revoked or has expired cannot renew
+	// itself here.
 	sessionID, err := uuid.Parse(claims.SessionID)
 	if err != nil {
-		sessionID = uuid.New()
+		http.Error(w, "token is not bound to a session", http.StatusUnauthorized)
+		return
+	}
+	sess, err := h.ent.Session.Get(r.Context(), sessionID)
+	if err != nil || sess.UserID != userID || sess.Status != "active" || time.Now().After(sess.ExpiresAt) {
+		http.Error(w, "the session has ended, sign in again", http.StatusUnauthorized)
+		return
+	}
+	// A session that never proved a second factor is refused when the MFA policy now covers the
+	// member (the same check a refresh makes), so a token from before a policy cannot outlive it.
+	if checker, ok := h.subEnricher.(mfaCoverageChecker); ok && !containsFold(claims.AMR, "mfa") {
+		t, tErr := h.ent.Tenant.Get(r.Context(), tenantID)
+		if tErr != nil {
+			http.Error(w, "outlet not found or access denied", http.StatusForbidden)
+			return
+		}
+		if covered, _ := checker.MFACovered(r.Context(), userID, t); covered {
+			http.Error(w, "this account must sign in with its authenticator app", http.StatusUnauthorized)
+			return
+		}
 	}
 
 	// A manager limited to certain outlets can only open one of them.
@@ -713,6 +746,8 @@ func (h *OutletHandler) SelectOutlet(w http.ResponseWriter, r *http.Request) {
 		OutletCode:         o.Code,
 		OutletUseCase:      o.UseCase,
 		IsHQUser:           o.IsHq,
+		// The outlet step proves nothing new: the session's methods carry over unchanged.
+		AMR: claims.AMR,
 	}
 	// Re-fetch the full subscription claim set fresh from subscription-service rather than
 	// copying it from the old token — this is the same EnrichAccessTokenInput call the OIDC and

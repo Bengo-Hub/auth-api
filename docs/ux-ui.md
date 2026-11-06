@@ -45,24 +45,24 @@ Content-Type: application/json
 }
 ```
 
-**MFA Required** (200, partial):
+**MFA Required** (200, no tokens, no session yet):
 ```json
 {
   "mfa_required": true,
-  "mfa_token": "temporary-mfa-token",
-  "mfa_methods": ["totp"]
+  "mfa_method": "totp",
+  "user_id": "user-uuid"
 }
 ```
 
-When `mfa_required` is true, the frontend must prompt for a TOTP code and call:
+When `mfa_required` is true, the frontend asks for the authenticator code and sends the same
+login request again with `"totp_code": "123456"`. A wrong code answers 401 `invalid_totp`.
 
-```
-POST /api/v1/auth/mfa/totp/confirm
-{
-  "mfa_token": "temporary-mfa-token",
-  "code": "123456"
-}
-```
+**Authenticator setup required** (200, enrolment-only tokens): when the tenant's MFA policy covers
+the member and the account has no authenticator app, the response carries
+`"mfa_enrollment_required": true` with empty `roles`. The token opens only the authenticator setup
+(`/auth/mfa/totp/*`), `/auth/me` and logout. auth-ui takes the person to the setup page, signs
+them out when it is done and brings them back to sign-in, where they enter the new code. See
+`docs/developer-api.md` (Sign-in methods and the MFA policy).
 
 ### 2. Registration
 

@@ -62,6 +62,10 @@ func (a *Auth) RequireAuth(next http.Handler) http.Handler {
 					writeAuthErrorCode(w, http.StatusForbidden, "invalid_token_scope", equityPortalScopeRejection)
 					return
 				}
+				if !EnrollmentRouteAllowed(claims, r) {
+					writeAuthErrorCode(w, http.StatusForbidden, "mfa_enrollment_required", mfaEnrollmentRejection)
+					return
+				}
 				ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
@@ -85,6 +89,10 @@ func (a *Auth) RequireAuth(next http.Handler) http.Handler {
 						writeAuthErrorCode(w, http.StatusForbidden, "invalid_token_scope", equityPortalScopeRejection)
 						return
 					}
+					if !EnrollmentRouteAllowed(claims, r) {
+						writeAuthErrorCode(w, http.StatusForbidden, "mfa_enrollment_required", mfaEnrollmentRejection)
+						return
+					}
 					ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
@@ -105,8 +113,9 @@ func (a *Auth) TryAuth(next http.Handler) http.Handler {
 		if authHeader != "" && strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
 			tokenStr := strings.TrimSpace(authHeader[7:])
 			claims, err := a.validator.ValidateAccessToken(tokenStr)
-			// Portal-only tokens are never a session: leave the context anonymous.
-			if err == nil && !claims.IsEquityPortalOnly() {
+			// Portal-only tokens are never a session, and an enrolment-only token is one only on the
+			// setup routes: elsewhere (the authorize endpoint above all) the context stays anonymous.
+			if err == nil && !claims.IsEquityPortalOnly() && EnrollmentRouteAllowed(claims, r) {
 				if a.revoked != nil && claims != nil && claims.ID != "" {
 					if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && !revoked {
 						ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
@@ -127,8 +136,9 @@ func (a *Auth) TryAuth(next http.Handler) http.Handler {
 			tokenStr := a.resolveSessionCookie(r.Context(), cookie.Value)
 			if tokenStr != "" {
 				claims, err := a.validator.ValidateAccessToken(tokenStr)
-				// Portal-only tokens are never a session: leave the context anonymous.
-				if err == nil && !claims.IsEquityPortalOnly() {
+				// Portal-only tokens are never a session, and enrolment-only tokens only on the setup
+				// routes: leave the context anonymous otherwise.
+				if err == nil && !claims.IsEquityPortalOnly() && EnrollmentRouteAllowed(claims, r) {
 					if a.revoked != nil && claims != nil && claims.ID != "" {
 						if revoked, err := a.revoked.IsRevoked(r.Context(), claims.ID); err == nil && !revoked {
 							ctx := context.WithValue(r.Context(), claimsContextKey{}, claims)
@@ -170,6 +180,37 @@ func (a *Auth) resolveSessionCookie(ctx context.Context, value string) string {
 // holder UUID with no login, so honouring it here would turn a shareable link
 // into a full platform session.
 const equityPortalScopeRejection = "equity portal tokens are only valid on equity portal routes"
+
+// mfaEnrollmentRejection is returned when an enrolment-only token is used outside the setup routes.
+const mfaEnrollmentRejection = "set up an authenticator app, then sign in again"
+
+// enrollmentRoutes are the only routes an enrolment-only token reaches: the profile (so the UI
+// knows to show the setup), the authenticator setup and its backup codes, and sign-out.
+var enrollmentRoutes = routeSet(
+	"GET /api/v1/auth/me",
+	"POST /api/v1/auth/logout",
+	"POST /api/v1/auth/mfa/totp/start",
+	"POST /api/v1/auth/mfa/totp/confirm",
+	"POST /api/v1/auth/mfa/backup-codes/regenerate",
+)
+
+func routeSet(routes ...string) map[string]bool {
+	set := make(map[string]bool, len(routes))
+	for _, r := range routes {
+		set[r] = true
+	}
+	return set
+}
+
+// EnrollmentRouteAllowed reports whether claims may be used on this request. Every token passes
+// except an enrolment-only one (token.Claims.MFAEnrollmentRequired) off the setup routes.
+func EnrollmentRouteAllowed(claims *token.Claims, r *http.Request) bool {
+	if claims == nil || !claims.MFAEnrollmentRequired {
+		return true
+	}
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	return enrollmentRoutes[r.Method+" "+path]
+}
 
 func writeAuthError(w http.ResponseWriter, status int, message string) {
 	writeAuthErrorCode(w, status, "unauthorized", message)
