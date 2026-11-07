@@ -59,8 +59,13 @@ func seedAdminUser(ctx context.Context, client *ent.Client, hasher *password.Has
 		log.Printf("✓ Created admin user: %s", adminEmail)
 	}
 
-	// Add superuser membership to all tenants
+	// Superuser in the platform tenant only. It used to join every tenant on every start, so a
+	// client organisation could never remove it (Hadia's team, 7 November 2026): the platform owner
+	// already reaches every tenant through is_platform_owner, and a client adds people itself.
 	for _, tenantEnt := range tenantEntities {
+		if tenantEnt.Slug != "codevertex" {
+			continue
+		}
 		exists, err := client.TenantMembership.Query().
 			Where(
 				tenantmembership.UserID(adminUser.ID),
