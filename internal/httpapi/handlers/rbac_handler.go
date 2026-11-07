@@ -319,6 +319,12 @@ func (h *RBACHandler) SyncServiceRoles(w http.ResponseWriter, r *http.Request) {
 	}
 	in := make([]auth.ServiceRoleInput, 0, len(req.Roles))
 	for _, role := range req.Roles {
+		// A service's stray row must not reach the global catalogue: code "a" (ASSISTANT ADMIN)
+		// came in this way and showed in every tenant's role lists.
+		if len(strings.TrimSpace(role.RoleCode)) < 2 {
+			h.logger.Warn("service role skipped: code too short", zap.String("service", req.Service), zap.String("role_code", role.RoleCode))
+			continue
+		}
 		scope := strings.TrimSpace(role.Scope)
 		if scope == "" {
 			scope = strings.TrimSpace(req.Service)

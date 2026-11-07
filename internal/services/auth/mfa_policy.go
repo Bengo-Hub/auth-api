@@ -20,6 +20,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
+	"github.com/bengobox/auth-api/internal/services/usecase"
 )
 
 // Authentication method references carried in the access token's amr claim. The first five are
@@ -553,15 +554,48 @@ func (s *Service) updateTenantMetadata(ctx context.Context, load func() (*ent.Te
 	return errors.New("tenant metadata kept changing; try again")
 }
 
-// mfaRoleChoices lists the role codes the policy editor offers.
+// roleScopesFor is the role scopes of a tenant's use cases: "hadia-api" gives scope "hadia".
+func roleScopesFor(primary string, useCases []string) map[string]bool {
+	scopes := map[string]bool{}
+	for _, uc := range append([]string{primary}, useCases...) {
+		for _, svc := range usecase.ApplicableServices(uc) {
+			scopes[strings.SplitN(svc, "-", 2)[0]] = true
+		}
+	}
+	return scopes
+}
+
+// roleFitsTenant reports whether a catalogue role belongs in a tenant's editor. The catalogue is
+// global, so without this a gift registry was offered barista and doctor.
+func roleFitsTenant(code, scope string, scopes map[string]bool) bool {
+	return code == "admin" || code == "superuser" || scopes[scope]
+}
+
+// mfaRoleChoices lists the role codes the policy editor offers: for the platform default every
+// catalogue role; for a tenant the roles of its use cases, the ones its members hold, and any
+// already in the policy.
 func (s *Service) mfaRoleChoices(ctx context.Context, tenantID *uuid.UUID, current MFAPolicy) ([]string, error) {
 	set := map[string]bool{}
-	codes, err := s.entClient.Role.Query().Select(role.FieldRoleCode).Strings(ctx)
+	roles, err := s.entClient.Role.Query().Select(role.FieldRoleCode, role.FieldScope).All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list roles: %w", err)
 	}
-	for _, c := range codes {
-		set[c] = true
+	var scopes map[string]bool
+	if tenantID != nil {
+		t, err := s.entClient.Tenant.Get(ctx, *tenantID)
+		if err != nil {
+			return nil, fmt.Errorf("read tenant: %w", err)
+		}
+		primary := ""
+		if t.UseCase != nil {
+			primary = *t.UseCase
+		}
+		scopes = roleScopesFor(primary, t.UseCases)
+	}
+	for _, r := range roles {
+		if scopes == nil || roleFitsTenant(r.RoleCode, r.Scope, scopes) {
+			set[r.RoleCode] = true
+		}
 	}
 	if tenantID != nil {
 		ms, err := s.entClient.TenantMembership.Query().Where(tenantmembership.TenantID(*tenantID)).All(ctx)
