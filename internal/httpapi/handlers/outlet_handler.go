@@ -77,15 +77,26 @@ func (h *OutletHandler) outletLimitReached(ctx context.Context, tenantID uuid.UU
 	return count >= limit, limit
 }
 
+// defaultOutletUseCase is the tenant's own primary use case, so an outlet created without one does
+// not become hospitality (and offer POS and ordering) for a gift registry or a library.
+func defaultOutletUseCase(t *ent.Tenant) string {
+	if t.UseCase != nil && *t.UseCase != "" && usecase.IsValidUseCase(*t.UseCase) {
+		return *t.UseCase
+	}
+	return "hospitality"
+}
+
 // ─── Request / Response types ────────────────────────────────────────────────
 
 type outletRequest struct {
-	Code            string         `json:"code"`
-	Name            string         `json:"name"`
-	UseCase         string         `json:"use_case"`
-	Address         string         `json:"address,omitempty"`
-	Timezone        string         `json:"timezone,omitempty"`
-	IsHQ            bool           `json:"is_hq,omitempty"`
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	UseCase  string `json:"use_case"`
+	Address  string `json:"address,omitempty"`
+	Timezone string `json:"timezone,omitempty"`
+	// IsHQ is a pointer so an update that leaves it out keeps the outlet's flag; a plain bool read
+	// as false and silently took HQ away from the outlet.
+	IsHQ            *bool          `json:"is_hq,omitempty"`
 	Status          string         `json:"status,omitempty"`
 	PinLoginMessage string         `json:"pin_login_message,omitempty"`
 	Metadata        map[string]any `json:"metadata,omitempty"`
@@ -291,10 +302,7 @@ func (h *OutletHandler) ensureHQOutlet(ctx context.Context, t *ent.Tenant) ([]*e
 
 	// No outlets for this tenant — provision the default HQ "MAIN" outlet on the fly.
 	// Reuse the tenant's primary use_case so downstream route-gating is correct.
-	hqUseCase := "hospitality"
-	if t.UseCase != nil && *t.UseCase != "" && usecase.IsValidUseCase(*t.UseCase) {
-		hqUseCase = *t.UseCase
-	}
+	hqUseCase := defaultOutletUseCase(t)
 	hqName := "Main / HQ"
 	if t.Name != "" {
 		hqName = t.Name + " HQ"
@@ -414,7 +422,8 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If is_hq is set, clear it from existing outlets first (only one HQ allowed).
-	if req.IsHQ {
+	isHQ := req.IsHQ != nil && *req.IsHQ
+	if isHQ {
 		h.ent.Outlet.Update().
 			Where(outlet.TenantID(t.ID), outlet.IsHq(true)).
 			SetIsHq(false).
@@ -423,7 +432,7 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 
 	useCase := req.UseCase
 	if useCase == "" {
-		useCase = "hospitality"
+		useCase = defaultOutletUseCase(t)
 	}
 	if !usecase.IsValidUseCase(useCase) {
 		http.Error(w, "invalid use_case: must be one of "+strings.Join(usecase.KnownUseCases, ", "), http.StatusUnprocessableEntity)
@@ -445,7 +454,7 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 		SetUseCase(useCase).
 		SetStatus(status).
 		SetTimezone(tz).
-		SetIsHq(req.IsHQ)
+		SetIsHq(isHQ)
 
 	if req.Address != "" {
 		create = create.SetAddress(req.Address)
@@ -525,7 +534,7 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If promoting to HQ, demote any existing HQ.
-	if req.IsHQ && !existing.IsHq {
+	if req.IsHQ != nil && *req.IsHQ && !existing.IsHq {
 		h.ent.Outlet.Update().
 			Where(outlet.TenantID(t.ID), outlet.IsHq(true)).
 			SetIsHq(false).
@@ -568,7 +577,9 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 	if md != nil {
 		update = update.SetMetadata(md)
 	}
-	update = update.SetIsHq(req.IsHQ)
+	if req.IsHQ != nil {
+		update = update.SetIsHq(*req.IsHQ)
+	}
 
 	o, err := update.Save(r.Context())
 	if err != nil {
