@@ -2817,12 +2817,17 @@ func normalizeEmail(email string) string {
 // SendOTPEmail publishes an otp.requested event so the notifications service
 // emails the OTP to the user. Best-effort — never blocks the caller.
 func (s *Service) SendOTPEmail(ctx context.Context, tenantID, userID uuid.UUID, email, otp string) {
-	s.publishEvent(ctx, tenantID, "auth.user", userID, "otp.requested", map[string]any{
+	payload := map[string]any{
 		"user_id":   userID.String(),
 		"tenant_id": tenantID.String(),
 		"email":     email,
 		"otp":       otp,
-	})
+	}
+	// The email names the organisation, so a person with several accounts knows which code is which.
+	if t, err := s.entClient.Tenant.Get(ctx, tenantID); err == nil {
+		payload["brand_name"] = t.Name
+	}
+	s.publishEvent(ctx, tenantID, "auth.user", userID, "otp.requested", payload)
 }
 
 // publishEvent writes an event to the outbox table for async NATS publishing.
