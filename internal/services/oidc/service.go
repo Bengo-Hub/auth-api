@@ -181,7 +181,12 @@ type SessionResult struct {
 
 // CreateSession creates a new session with refresh token for the OIDC code exchange. metadata
 // records what the sign-in proved (auth.SessionFactorsMetadata), which a refresh repeats.
-func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, clientID string, ipAddress, userAgent string, metadata map[string]any) (*SessionResult, error) {
+// CreateSession opens the refresh session behind an SSO token. tenantID is the tenant the token was
+// issued for: a refresh repeats it. It used to be the user's primary tenant, so a person signing
+// into one app (Hadia) with an account first made elsewhere got a first token for Hadia and, on the
+// first refresh, a token for the other tenant, which the app then refused. With no tenant (a token
+// scoped to none) the primary tenant is kept.
+func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, tenantID *uuid.UUID, clientID string, ipAddress, userAgent string, metadata map[string]any) (*SessionResult, error) {
 	refreshPlain, refreshHash, err := s.tokenSvc.GenerateRefreshToken()
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
@@ -200,9 +205,9 @@ func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, clientID 
 		sessionCreate.SetMetadata(metadata)
 	}
 
-	// Look up user's primary tenant
-	user, err := s.entClient.User.Get(ctx, userID)
-	if err == nil && user.PrimaryTenantID != "" {
+	if tenantID != nil && *tenantID != uuid.Nil {
+		sessionCreate.SetTenantID(*tenantID)
+	} else if user, err := s.entClient.User.Get(ctx, userID); err == nil && user.PrimaryTenantID != "" {
 		if tid, parseErr := uuid.Parse(user.PrimaryTenantID); parseErr == nil {
 			sessionCreate.SetTenantID(tid)
 		}

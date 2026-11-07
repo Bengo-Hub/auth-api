@@ -469,7 +469,8 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	var sessionID uuid.UUID
 	var refreshToken string
 	if hasScope(scopes, "offline_access") {
-		session, sessErr := h.oidc.CreateSession(r.Context(), userEntity.ID, clientID, r.RemoteAddr, r.UserAgent(),
+		// The session keeps the tenant this token is for, so a refresh never switches tenant.
+		session, sessErr := h.oidc.CreateSession(r.Context(), userEntity.ID, tenantID, clientID, r.RemoteAddr, r.UserAgent(),
 			auth.SessionFactorsMetadata(amr, enrollmentOnly))
 		if sessErr != nil {
 			h.logger.Error("create oidc session failed", zap.Error(sessErr))
