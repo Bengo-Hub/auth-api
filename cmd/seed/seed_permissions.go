@@ -316,6 +316,7 @@ var rolePerms = map[string][]string{
 	"hadia_admin":   hadiaStaffSelfService,
 	"hadia_finance": hadiaStaffSelfService,
 	"hadia_support": hadiaStaffSelfService,
+	"hadia_staff":   hadiaStaffSelfService,
 	// viewer — read-only cross-service role for auditors, observers, and reporting users.
 	// Can view data across services but cannot create, modify, or delete anything.
 	"viewer": {

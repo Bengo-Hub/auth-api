@@ -37,7 +37,7 @@ type tenantSpec struct {
 
 // hadiaStaffRoles are the Hadia staff roles that must sign in with an authenticator app (NFR-06,
 // platform task A2).
-var hadiaStaffRoles = []string{"hadia_admin", "hadia_finance", "hadia_support"}
+var hadiaStaffRoles = []string{"hadia_admin", "hadia_finance", "hadia_staff", "hadia_support"}
 
 // seedTenantMetadata merges the seed's metadata into the stored one: enforced keys always win,
 // default keys only fill a gap. The stored map is not modified.

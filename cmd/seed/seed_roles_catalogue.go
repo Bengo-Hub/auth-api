@@ -89,6 +89,9 @@ var hadiaRoles = map[string]string{
 	"hadia_admin":   "Hadia administrator",
 	"hadia_finance": "Hadia finance",
 	"hadia_support": "Hadia support",
+	// The gate role everyone invited to the console holds: it carries no hadia.* permission and exists so
+	// the tenant's MFA policy covers them. Their real roles are held in hadia-api.
+	"hadia_staff": "Hadia staff",
 }
 
 // roleScope infers a coarse scope grouping for a role code.

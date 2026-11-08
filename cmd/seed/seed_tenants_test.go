@@ -19,7 +19,7 @@ func TestHadiaTenantSeedsTheStaffMFAPolicy(t *testing.T) {
 	var stored any
 	_ = json.Unmarshal(raw, &stored)
 	p, ok := auth.ParseMFAPolicy(stored)
-	if !ok || p.AllAccounts || strings.Join(p.RequiredRoles, ",") != "hadia_admin,hadia_finance,hadia_support" {
+	if !ok || p.AllAccounts || strings.Join(p.RequiredRoles, ",") != "hadia_admin,hadia_finance,hadia_staff,hadia_support" {
 		t.Fatalf("hadia mfa_policy = %+v (present %v)", p, ok)
 	}
 	for _, role := range hadiaStaffRoles {
