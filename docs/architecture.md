@@ -189,8 +189,11 @@ hold by the same rules as live events.
 
 ### Session & Token Management
 
-- JWT access tokens (RS256, 15-min TTL)
-- Opaque refresh tokens (rotated on use)
+- JWT access tokens (RS256, 8-hour default, `ACCESS_TTL`)
+- Opaque refresh tokens (rotated on use; each refresh extends the session)
+- Session lifetime since last use: 24 hours for staff apps (`REFRESH_TTL`), 7 days for the apps in `LONG_REFRESH_CLIENTS` (rider and customer-facing, `LONG_REFRESH_TTL`)
+- One person keeps the 5 most recently used sessions per app (`MAX_SESSIONS_PER_CLIENT`); older ones end with reason `session_limit` when a new one starts, and the cleanup job purges them
+- A sign-in through an app makes two sessions for that app: the sign-in session and, seconds later, the one from the code exchange
 - Session tracking with device/IP binding
 - Token revocation and introspection
 - Key rotation with JWKS history

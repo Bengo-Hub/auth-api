@@ -477,6 +477,9 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "server_error", "session creation failed", nil)
 			return
 		}
+		if session.LimitError != nil {
+			h.logger.Warn("oidc session limit not applied", zap.Error(session.LimitError))
+		}
 		sessionID = session.SessionID
 		refreshToken = session.RefreshToken
 	} else {

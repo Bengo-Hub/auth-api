@@ -32,6 +32,7 @@ import (
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
 	"github.com/bengobox/auth-api/internal/services/access"
 	"github.com/bengobox/auth-api/internal/services/integrations"
+	"github.com/bengobox/auth-api/internal/services/sessionlimit"
 	"github.com/bengobox/auth-api/internal/services/usecase"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
@@ -1178,7 +1179,7 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (*AuthResult, er
 		refreshToken = plain
 		sessionEntity, err = sessionEntity.Update().
 			SetRefreshTokenHash(hashed).
-			SetExpiresAt(time.Now().Add(s.cfg.Token.RefreshTokenTTL)).
+			SetExpiresAt(time.Now().Add(s.cfg.Token.RefreshTTLFor(sessionEntity.ClientID))).
 			Save(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("rotate session token: %w", err)
@@ -1933,7 +1934,7 @@ func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*Auth
 		SetRefreshTokenHash(refreshHash).
 		SetSessionType("user").
 		SetStatus("active").
-		SetExpiresAt(time.Now().Add(s.cfg.Token.RefreshTokenTTL)).
+		SetExpiresAt(time.Now().Add(s.cfg.Token.RefreshTTLFor(in.ClientID))).
 		SetClientID(in.ClientID).
 		SetIPAddress(in.IPAddress).
 		SetUserAgent(in.UserAgent).
@@ -1946,6 +1947,10 @@ func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*Auth
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 	sessionEntity.Edges.User = in.User
+	// Best effort: a failure to trim older sessions must never block a sign-in.
+	if _, limitErr := sessionlimit.Enforce(ctx, s.entClient, in.User.ID, in.ClientID, s.cfg.Token.MaxSessionsPerClient); limitErr != nil {
+		s.logger.Warn("session limit not applied", zap.Error(limitErr))
+	}
 
 	return s.issueSessionWithExisting(ctx, sessionEntity, in.Tenant, refreshPlain, in.IPAddress, in.UserAgent, in.Scopes)
 }

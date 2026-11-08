@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -140,14 +141,29 @@ type RedisConfig struct {
 }
 
 type TokenConfig struct {
-	Issuer              string        `env:"ISSUER" envDefault:"https://auth.bengobox.local"`
-	Audience            string        `env:"AUDIENCE" envDefault:"codevertex"`
-	PrivateKeyPath      string        `env:"PRIVATE_KEY_PATH"`
-	PublicKeyPath       string        `env:"PUBLIC_KEY_PATH"`
-	AccessTokenTTL      time.Duration `env:"ACCESS_TTL" envDefault:"8h"`
-	RefreshTokenTTL     time.Duration `env:"REFRESH_TTL" envDefault:"720h"`
-	RotateRefreshTokens bool          `env:"ROTATE_REFRESH" envDefault:"true"`
-	DefaultScopes       []string      `env:"DEFAULT_SCOPES" envSeparator:"," envDefault:"profile,email,offline_access"`
+	Issuer         string        `env:"ISSUER" envDefault:"https://auth.bengobox.local"`
+	Audience       string        `env:"AUDIENCE" envDefault:"codevertex"`
+	PrivateKeyPath string        `env:"PRIVATE_KEY_PATH"`
+	PublicKeyPath  string        `env:"PUBLIC_KEY_PATH"`
+	AccessTokenTTL time.Duration `env:"ACCESS_TTL" envDefault:"8h"`
+	// RefreshTokenTTL is how long a staff app's session lasts since it was last used: every refresh
+	// extends it. LongRefreshClients (rider and customer-facing apps) get LongRefreshTokenTTL instead.
+	RefreshTokenTTL     time.Duration `env:"REFRESH_TTL" envDefault:"24h"`
+	LongRefreshTokenTTL time.Duration `env:"LONG_REFRESH_TTL" envDefault:"168h"`
+	LongRefreshClients  []string      `env:"LONG_REFRESH_CLIENTS" envSeparator:"," envDefault:"rider-app,ordering-ui,hadia-ui,codevertex-website,cafe-website"`
+	// MaxSessionsPerClient is how many sessions one person keeps per app; the least recently used
+	// beyond it end when a new one starts. Zero turns the limit off.
+	MaxSessionsPerClient int      `env:"MAX_SESSIONS_PER_CLIENT" envDefault:"5"`
+	RotateRefreshTokens  bool     `env:"ROTATE_REFRESH" envDefault:"true"`
+	DefaultScopes        []string `env:"DEFAULT_SCOPES" envSeparator:"," envDefault:"profile,email,offline_access"`
+}
+
+// RefreshTTLFor is the session lifetime for an app.
+func (t TokenConfig) RefreshTTLFor(clientID string) time.Duration {
+	if t.LongRefreshTokenTTL > 0 && slices.Contains(t.LongRefreshClients, clientID) {
+		return t.LongRefreshTokenTTL
+	}
+	return t.RefreshTokenTTL
 }
 
 type SecurityConfig struct {

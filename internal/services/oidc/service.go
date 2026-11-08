@@ -17,6 +17,7 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
+	"github.com/bengobox/auth-api/internal/services/sessionlimit"
 	"github.com/bengobox/auth-api/internal/token"
 	"github.com/google/uuid"
 )
@@ -177,6 +178,8 @@ type SessionResult struct {
 	SessionID    uuid.UUID
 	RefreshToken string
 	ExpiresAt    time.Time
+	// LimitError is set when older sessions could not be trimmed; the new session is still valid.
+	LimitError error
 }
 
 // CreateSession creates a new session with refresh token for the OIDC code exchange. metadata
@@ -191,7 +194,7 @@ func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, tenantID 
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
-	expiresAt := time.Now().Add(s.cfg.Token.RefreshTokenTTL)
+	expiresAt := time.Now().Add(s.cfg.Token.RefreshTTLFor(clientID))
 	sessionCreate := s.entClient.Session.Create().
 		SetUserID(userID).
 		SetRefreshTokenHash(refreshHash).
@@ -217,7 +220,10 @@ func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, tenantID 
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
+	// Best effort: the session exists, so a failure to trim older ones is reported, not returned.
+	_, limitErr := sessionlimit.Enforce(ctx, s.entClient, userID, clientID, s.cfg.Token.MaxSessionsPerClient)
 	return &SessionResult{
+		LimitError:   limitErr,
 		SessionID:    session.ID,
 		RefreshToken: refreshPlain,
 		ExpiresAt:    expiresAt,
