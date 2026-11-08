@@ -73,6 +73,16 @@ var ispRoles = map[string]bool{
 	"isp_viewer":     true,
 }
 
+// hospitalRoles are hospital-service staff roles (scope = hospital, the scope of the hospital use
+// case's hospital-api). Without it they fell to platform, and a hospital tenant's role editor
+// showed doctor only once a member already held it. Fine-grained hospital.* permissions stay in
+// hospital-api's own RBAC.
+var hospitalRoles = map[string]bool{
+	"doctor":        true,
+	"nurse":         true,
+	"records_clerk": true,
+}
+
 // hadiaRoles are Hadia's staff roles (scope = hadia), named as hadia-api's role push names them so
 // a reseed and the push agree (hadia-api internal/modules/rbac/catalog.go).
 var hadiaRoles = map[string]string{
@@ -94,6 +104,8 @@ func roleScope(code string) string {
 		return "isp"
 	case hadiaRoles[code] != "":
 		return "hadia"
+	case hospitalRoles[code]:
+		return "hospital"
 	case platformSystemRoles[code]:
 		return "platform"
 	default:
