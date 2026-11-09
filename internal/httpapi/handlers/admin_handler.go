@@ -1879,6 +1879,9 @@ func (h *AdminHandler) S2SPlatformAlertSettings(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusOK, map[string]string{
 		"slack_webhook_url": creds["slack_webhook_url"],
 		"alert_email_to":    creds["alert_email_to"],
+		// alert_whatsapp_to: comma separated ops numbers for payment provider outage alerts
+		// (notifications-api gateway_health_alert.go), sent with an approved WhatsApp template.
+		"alert_whatsapp_to": creds["alert_whatsapp_to"],
 	})
 }
 
