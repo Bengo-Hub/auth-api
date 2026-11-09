@@ -168,6 +168,24 @@ func (h *AdminHandler) CanManageTenant(r *http.Request, tenantID uuid.UUID) bool
 	return h.requireTenantAdmin(r, tenantID)
 }
 
+// requireTenantMember allows a signed-in member of the tenant, a platform owner, or an
+// admin-scoped service token. It guards reads of the tenant's own private details.
+func (h *AdminHandler) requireTenantMember(r *http.Request, tenantID uuid.UUID) bool {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok || claims == nil {
+		return false
+	}
+	if claims.IsPlatformOwner {
+		return true
+	}
+	for _, s := range claims.Scope {
+		if s == "admin" || s == "auth.admin" {
+			return true
+		}
+	}
+	return claims.TenantID != "" && claims.TenantID == tenantID.String()
+}
+
 func (h *AdminHandler) requireTenantAdmin(r *http.Request, tenantID uuid.UUID) bool {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok || claims == nil {
@@ -615,10 +633,71 @@ type PublicTenantResponse struct {
 	// has one (for example alphachinamarket.co.ke). Frontends link to it in place of
 	// ordering.codevertexafrica.com/{slug}; a website still takes precedence where one is set.
 	StorefrontDomain *string `json:"storefront_domain,omitempty"`
-	// Tax / KRA compliance — consumed by treasury-ui to pre-fill payment-details.
+	// Tax / KRA compliance. TaxPin is filled only on the signed-in GET /tenants/{tenant_id}: a sole
+	// trader's PIN identifies a person, so the public lookups never carry it (2026-11-09).
 	TaxPin          *string    `json:"tax_pin,omitempty"`
 	VatRegistered   bool       `json:"vat_registered"`
 	VatRegisteredOn *time.Time `json:"vat_registered_on,omitempty"`
+}
+
+// internalMetadataKeys are tenant metadata kept by the platform for itself, never shown publicly:
+// the backup record holds storage keys and the requesting user's id.
+// Older tenants keep their KRA PIN in metadata, so those keys are private too.
+var internalMetadataKeys = map[string]bool{"backup": true, "rejection_reason": true, "tax_pin": true, "kra_pin": true}
+
+// credentialWords mark a metadata key as a credential, whatever else it is called.
+var credentialWords = []string{"secret", "token", "password", "credential", "api_key", "apikey", "private"}
+
+// publicMetadata is the tenant metadata safe for the unauthenticated lookups: everything a
+// frontend brands with or a service reads for contact details, without the MFA policy, the
+// platform's internal records or anything named like a credential. A denylist rather than an
+// allowlist, because tenants and admins add branding keys that frontends read by name.
+func publicMetadata(meta map[string]any) map[string]any {
+	out := auth.WithoutMFAPolicyMetadata(meta)
+	for k := range out {
+		lk := strings.ToLower(k)
+		if internalMetadataKeys[lk] {
+			delete(out, k)
+			continue
+		}
+		for _, w := range credentialWords {
+			if strings.Contains(lk, w) {
+				delete(out, k)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// GetTenantPrivate handles GET /api/v1/tenants/{tenant_id} (signed in): the public shape plus the
+// tax PIN, for the tenant's own members, platform owners and admin-scoped service tokens.
+// treasury-ui reads the PIN here to pre-fill its payment details.
+func (h *AdminHandler) GetTenantPrivate(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "tenant_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
+		return
+	}
+	if !h.requireTenantMember(r, id) {
+		writeError(w, http.StatusForbidden, "forbidden", "only the tenant's own members can read this", nil)
+		return
+	}
+	t, err := h.ent.Tenant.Get(r.Context(), id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "tenant not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to get tenant", nil)
+		return
+	}
+	resp := publicTenantResponseFrom(t)
+	resp.StorefrontDomain = h.storefrontDomain(r.Context(), t.ID)
+	resp.TaxPin = t.TaxPin
+	// Its own members see the full metadata (older tenants' PIN lives there), but never the MFA policy.
+	resp.Metadata = auth.WithoutMFAPolicyMetadata(t.Metadata)
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // GetTenantBySlugPublic retrieves a tenant by slug via public endpoint (for tenant auto-discovery and branding).
@@ -720,8 +799,7 @@ func publicTenantResponseFrom(t *ent.Tenant) PublicTenantResponse {
 		SubscriptionStatus:    t.SubscriptionStatus,
 		SubscriptionExpiresAt: t.SubscriptionExpiresAt,
 		TierLimits:            t.TierLimits,
-		Metadata:              auth.WithoutMFAPolicyMetadata(t.Metadata),
-		TaxPin:                t.TaxPin,
+		Metadata:              publicMetadata(t.Metadata),
 		VatRegistered:         t.VatRegistered,
 		VatRegisteredOn:       t.VatRegisteredOn,
 	}

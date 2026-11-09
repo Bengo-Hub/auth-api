@@ -115,6 +115,7 @@ type AuthHandlers struct {
 	AdminCreateTenant                  http.HandlerFunc
 	AdminListTenants                   http.HandlerFunc
 	AdminUpdateTenant                  http.HandlerFunc
+	GetTenantPrivate                   http.HandlerFunc // signed-in tenant read with the tax PIN (members only)
 	AdminDeleteTenant                  http.HandlerFunc
 	AdminApproveTenant                 http.HandlerFunc
 	AdminRejectTenant                  http.HandlerFunc
@@ -476,6 +477,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Post("/tenants", deps.AuthHandlers.AdminCreateTenant)
 				r.Get("/tenants", deps.AuthHandlers.AdminListTenants)
 				r.Route("/tenants/{tenant_id}", func(r chi.Router) {
+					if deps.AuthHandlers.GetTenantPrivate != nil {
+						r.Get("/", deps.AuthHandlers.GetTenantPrivate)
+					}
 					r.Put("/", deps.AuthHandlers.AdminUpdateTenant)
 					r.Delete("/", deps.AuthHandlers.AdminDeleteTenant)
 					r.Post("/approve", deps.AuthHandlers.AdminApproveTenant)
