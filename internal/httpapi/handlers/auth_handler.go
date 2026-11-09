@@ -324,6 +324,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		IPAddress:     clientIP(r),
 		UserAgent:     userAgent(r),
 		ClientID:      req.ClientID,
+		Origin:        r.Header.Get("Origin"),
 		ServiceID:     req.ServiceID,
 		SelectedPlan:  req.SelectedPlan,
 		OrgAction:     req.OrgAction,
@@ -370,6 +371,7 @@ func (h *AuthHandler) RegisterOAuth(w http.ResponseWriter, r *http.Request) {
 		IPAddress:     clientIP(r),
 		UserAgent:     userAgent(r),
 		ClientID:      req.ClientID,
+		Origin:        r.Header.Get("Origin"),
 		SelectedPlan:  req.SelectedPlan,
 		OrgAction:     req.OrgAction,
 		NewOrg:        newOrg,
@@ -413,6 +415,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Password:   req.Password,
 		TenantSlug: req.TenantSlug,
 		ClientID:   req.ClientID,
+		Origin:     r.Header.Get("Origin"),
 		IPAddress:  clientIP(r),
 		UserAgent:  userAgent(r),
 		TOTPCode:   totpCode,
@@ -545,6 +548,7 @@ func (h *AuthHandler) GoogleOAuthStart(w http.ResponseWriter, r *http.Request) {
 	authURL, err := h.service.StartGoogleOAuth(r.Context(), auth.OAuthStartInput{
 		TenantSlug:  req.TenantSlug,
 		ClientID:    req.ClientID,
+		Origin:      r.Header.Get("Origin"),
 		Flow:        req.Flow,
 		RedirectURI: req.RedirectURI,
 		ReturnTo:    req.ReturnTo,
@@ -745,6 +749,7 @@ func (h *AuthHandler) GitHubOAuthStart(w http.ResponseWriter, r *http.Request) {
 	authURL, err := h.service.StartGitHubOAuth(r.Context(), auth.OAuthStartInput{
 		TenantSlug:  req.TenantSlug,
 		ClientID:    req.ClientID,
+		Origin:      r.Header.Get("Origin"),
 		Flow:        req.Flow,
 		RedirectURI: req.RedirectURI,
 		ReturnTo:    req.ReturnTo,
@@ -774,6 +779,7 @@ func (h *AuthHandler) MicrosoftOAuthStart(w http.ResponseWriter, r *http.Request
 	authURL, err := h.service.StartMicrosoftOAuth(r.Context(), auth.OAuthStartInput{
 		TenantSlug:  req.TenantSlug,
 		ClientID:    req.ClientID,
+		Origin:      r.Header.Get("Origin"),
 		Flow:        req.Flow,
 		RedirectURI: req.RedirectURI,
 		ReturnTo:    req.ReturnTo,

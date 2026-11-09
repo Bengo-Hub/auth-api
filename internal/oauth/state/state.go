@@ -20,6 +20,9 @@ type Payload struct {
 	// Defaulted is true when no organisation was named and the platform tenant was used as a
 	// placeholder: a person who belongs elsewhere then signs in to their own tenant instead.
 	Defaulted bool `json:"defaulted,omitempty"`
+	// Portal is true when the sign-in started on the accounts portal: the session it makes is the
+	// portal's own, not the app's (the app gets its session from the code exchange).
+	Portal bool `json:"portal,omitempty"`
 	// Purpose separates the two kinds of token this package signs. Empty is a provider round trip
 	// (the OAuth state); PurposeSocialMFA is the short-lived challenge issued after a provider
 	// sign-in when the account still owes an authenticator code. Each decoder checks it, so one

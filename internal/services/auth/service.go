@@ -187,6 +187,9 @@ type RegisterInput struct {
 	IPAddress  string
 	UserAgent  string
 	ClientID   string
+	// Origin is the request's Origin header; from the accounts portal it marks the session as the
+	// portal's own (see issueSessionInput.Portal).
+	Origin string
 	// ServiceID identifies the service context of the registration (e.g. "truload", "logistics").
 	// When set, it is included in the auth.user.created event so notifications-api can resolve
 	// the correct per-service app URL for the welcome email link.
@@ -222,6 +225,9 @@ type LoginInput struct {
 	IPAddress  string
 	UserAgent  string
 	ClientID   string
+	// Origin is the request's Origin header; from the accounts portal it marks the session as the
+	// portal's own (see issueSessionInput.Portal).
+	Origin string
 	// TOTPCode is the authenticator code, sent on the second submit once the first answered
 	// MFARequiredError.
 	TOTPCode string
@@ -309,6 +315,9 @@ type OAuthStartInput struct {
 	ReturnTo    string
 	IPAddress   string
 	UserAgent   string
+	// Origin is the request's Origin header; from the accounts portal it is carried in the state
+	// so the callback's session is recorded as the portal's own.
+	Origin string
 }
 
 // OAuthCallbackInput defines provider callback payload.
@@ -898,6 +907,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  in.ClientID,
+		Portal:    s.isPortalOrigin(in.Origin),
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
@@ -1104,6 +1114,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  in.ClientID,
+		Portal:    s.isPortalOrigin(in.Origin),
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
@@ -1203,6 +1214,7 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 	payload := state.Payload{
 		TenantSlug:  tenantEntity.Slug,
 		ClientID:    in.ClientID,
+		Portal:      s.isPortalOrigin(in.Origin),
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
@@ -1279,6 +1291,7 @@ func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  payload.ClientID,
+		Portal:    payload.Portal,
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
@@ -1315,6 +1328,7 @@ func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (str
 	payload := state.Payload{
 		TenantSlug:  tenantEntity.Slug,
 		ClientID:    in.ClientID,
+		Portal:      s.isPortalOrigin(in.Origin),
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
@@ -1392,6 +1406,7 @@ func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  payload.ClientID,
+		Portal:    payload.Portal,
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
@@ -1416,6 +1431,7 @@ func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (
 	payload := state.Payload{
 		TenantSlug:  tenantEntity.Slug,
 		ClientID:    in.ClientID,
+		Portal:      s.isPortalOrigin(in.Origin),
 		Flow:        defaultFlow(in.Flow),
 		RedirectURI: in.RedirectURI,
 		Nonce:       randomNonce(),
@@ -1497,6 +1513,7 @@ func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackIn
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  payload.ClientID,
+		Portal:    payload.Portal,
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
@@ -1868,6 +1885,26 @@ type issueSessionInput struct {
 	Scopes    []string
 	// AMR is what this sign-in proved (AMRPassword, AMROTP, ...), stored on the session.
 	AMR []string
+	// Portal marks a sign-in made on the accounts portal. Its session is the portal's own SSO
+	// session, so it is stored with no client: ClientID still decides roles, but recording it
+	// against the app counted every portal sign-in twice towards that app's session limit (the
+	// app's real session comes from the code exchange). An app signing in directly (hadia-ui's
+	// phone code) is not the portal, and keeps its client.
+	Portal bool
+}
+
+// sessionClientID is the client a new session is recorded against.
+func (in issueSessionInput) sessionClientID() string {
+	if in.Portal {
+		return ""
+	}
+	return in.ClientID
+}
+
+// isPortalOrigin reports whether a request came from the accounts portal's own pages.
+func (s *Service) isPortalOrigin(origin string) bool {
+	portal := strings.TrimRight(strings.TrimSpace(s.cfg.App.AuthUIURL), "/")
+	return portal != "" && strings.EqualFold(strings.TrimRight(strings.TrimSpace(origin), "/"), portal)
 }
 
 // platformTenantSlug is the slug of the platform/owner tenant.
@@ -1934,8 +1971,8 @@ func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*Auth
 		SetRefreshTokenHash(refreshHash).
 		SetSessionType("user").
 		SetStatus("active").
-		SetExpiresAt(time.Now().Add(s.cfg.Token.RefreshTTLFor(in.ClientID))).
-		SetClientID(in.ClientID).
+		SetExpiresAt(time.Now().Add(s.cfg.Token.RefreshTTLFor(in.sessionClientID()))).
+		SetClientID(in.sessionClientID()).
 		SetIPAddress(in.IPAddress).
 		SetUserAgent(in.UserAgent).
 		SetMetadata(sessionFactorsMetadata(nil, amr, enrollmentOnly))
@@ -1948,7 +1985,7 @@ func (s *Service) issueSession(ctx context.Context, in issueSessionInput) (*Auth
 	}
 	sessionEntity.Edges.User = in.User
 	// Best effort: a failure to trim older sessions must never block a sign-in.
-	if _, limitErr := sessionlimit.Enforce(ctx, s.entClient, in.User.ID, in.ClientID, s.cfg.Token.MaxSessionsPerClient); limitErr != nil {
+	if _, limitErr := sessionlimit.Enforce(ctx, s.entClient, in.User.ID, in.sessionClientID(), s.cfg.Token.MaxSessionsPerClient); limitErr != nil {
 		s.logger.Warn("session limit not applied", zap.Error(limitErr))
 	}
 

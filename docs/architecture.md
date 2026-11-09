@@ -193,7 +193,7 @@ hold by the same rules as live events.
 - Opaque refresh tokens (rotated on use; each refresh extends the session)
 - Session lifetime since last use: 24 hours for staff apps (`REFRESH_TTL`), 7 days for the apps in `LONG_REFRESH_CLIENTS` (rider and customer-facing, `LONG_REFRESH_TTL`)
 - One person keeps the 5 most recently used sessions per app (`MAX_SESSIONS_PER_CLIENT`); older ones end with reason `session_limit` when a new one starts, and the cleanup job purges them
-- A sign-in through an app makes two sessions for that app: the sign-in session and, seconds later, the one from the code exchange
+- A sign-in on the accounts portal (request Origin equals `AUTH_UI_URL`) is the portal's own SSO session and is recorded with no client, so it does not count towards the app's limit; the app's session comes from the code exchange. `client_id` still decides roles. An app that signs in directly from its own origin (hadia-ui's phone code) keeps its client
 - Session tracking with device/IP binding
 - Token revocation and introspection
 - Key rotation with JWKS history

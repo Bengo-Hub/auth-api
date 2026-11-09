@@ -61,6 +61,7 @@ func (s *Service) socialMFAResult(userEntity *ent.User, tenantEntity *ent.Tenant
 	challenge, err := state.Encode(s.cfg.Security.OAuthStateSecret, state.Payload{
 		TenantSlug:  tenantEntity.Slug,
 		ClientID:    payload.ClientID,
+		Portal:      payload.Portal,
 		Flow:        defaultFlow(payload.Flow),
 		Nonce:       randomNonce(),
 		ReturnTo:    payload.ReturnTo,
@@ -161,6 +162,7 @@ func (s *Service) CompleteSocialMFA(ctx context.Context, in SocialMFAInput) (*Au
 		User:      userEntity,
 		Tenant:    tenantEntity,
 		ClientID:  payload.ClientID,
+		Portal:    payload.Portal,
 		IPAddress: in.IPAddress,
 		UserAgent: in.UserAgent,
 		Scopes:    s.cfg.Token.DefaultScopes,
