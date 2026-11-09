@@ -182,7 +182,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		webAuthnHandler = handlers.NewWebAuthnHandler(webAuthnService, authService, logger, redisClient, cfg.Redis.Namespace)
 	}
 
-	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger)
+	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger).
+		WithSetPasswordLinks(authService)
 	adminHandler.SetTenantCache(redisClient)
 	adminHandler.SetAccessResolver(accessResolver)
 	adminHandler.SetDB(sqlDB)
@@ -233,7 +234,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	appHandler := handlers.NewAppHandler(entClient, logger)
 	etimsNotifier := handlers.NewEtimsSupportNotifier(integrationSvc, cfg.Notifications.BaseURL, cfg.Subscription.APIKey, logger)
 	integrationRequestHandler := handlers.NewIntegrationRequestHandler(entClient, etimsNotifier, hasher, authService, logger)
-	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger)
+	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger).
+		WithSetPasswordLinks(authService)
 	// Profile pictures still inline as data: URIs move to object storage once (no-op after).
 	go func() {
 		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)

@@ -1593,6 +1593,42 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 	return tokenPlain, nil
 }
 
+// SetPasswordLinkTTL is how long an invite's set-password link works (owner, 10 November 2026).
+const SetPasswordLinkTTL = 72 * time.Hour
+
+// IssueSetPasswordLink makes a one-time "set your password" link for a newly created account, for
+// its welcome email: the same token and page as a password reset, valid SetPasswordLinkTTL, and no
+// reset email of its own (the welcome carries it). No password ever travels by email.
+func (s *Service) IssueSetPasswordLink(ctx context.Context, userID uuid.UUID, tenantSlug, serviceID string) (string, error) {
+	userEntity, err := s.entClient.User.Get(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("get user: %w", err)
+	}
+	tenantEntity, err := s.passwordResetTenant(ctx, userEntity, tenantSlug)
+	if err != nil {
+		return "", err
+	}
+	tokenPlain, tokenHash, err := generatePasswordResetToken()
+	if err != nil {
+		return "", err
+	}
+	if err := s.entClient.PasswordResetToken.Create().
+		SetUserID(userEntity.ID).
+		SetTokenHash(tokenHash).
+		SetExpiresAt(time.Now().Add(SetPasswordLinkTTL)).
+		Exec(ctx); err != nil {
+		return "", fmt.Errorf("create set-password token: %w", err)
+	}
+	s.auditor.Record(ctx, audit.Entry{
+		TenantID:   &tenantEntity.ID,
+		UserID:     &userEntity.ID,
+		Action:     "auth.password_set_link.issued",
+		Resource:   "user",
+		ResourceID: userEntity.ID.String(),
+	})
+	return buildResetLink(tenantEntity.Metadata, tenantEntity.Slug, serviceID, userEntity.Email, tokenPlain), nil
+}
+
 // passwordResetTenant picks the tenant a reset email is sent under: the requested one when the
 // user is a member of it, else their primary tenant, else their first active membership.
 func (s *Service) passwordResetTenant(ctx context.Context, userEntity *ent.User, requestedSlug string) (*ent.Tenant, error) {
@@ -1657,16 +1693,36 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, in PasswordResetConf
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	if err := s.entClient.User.UpdateOneID(resetToken.Edges.User.ID).
-		SetPasswordHash(hashedPassword).
-		Exec(ctx); err != nil {
-		return fmt.Errorf("update password: %w", err)
+	// Claim the token first, in one conditional update: two submissions racing with the same link
+	// cannot both set a password (the second finds it used).
+	claimed, err := s.entClient.PasswordResetToken.Update().
+		Where(passwordresettoken.ID(resetToken.ID), passwordresettoken.UsedAtIsNil()).
+		SetUsedAt(time.Now()).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("mark reset token used: %w", err)
+	}
+	if claimed == 0 {
+		return ErrPasswordResetTokenInvalid
 	}
 
-	if err := s.entClient.PasswordResetToken.UpdateOneID(resetToken.ID).
-		SetUsedAt(time.Now()).
-		Exec(ctx); err != nil {
-		return fmt.Errorf("mark reset token used: %w", err)
+	// The person chose this password from a link only they received, so a pending "change your
+	// temporary password" is done (10 November 2026: an invite's set-password link must not be
+	// followed by a second forced change at first sign-in).
+	upd := s.entClient.User.UpdateOneID(resetToken.Edges.User.ID).SetPasswordHash(hashedPassword)
+	if profile := resetToken.Edges.User.Profile; profile != nil {
+		if _, pending := profile["must_change_password"]; pending {
+			next := make(map[string]any, len(profile))
+			for k, v := range profile {
+				if k != "must_change_password" {
+					next[k] = v
+				}
+			}
+			upd.SetProfile(next)
+		}
+	}
+	if err := upd.Exec(ctx); err != nil {
+		return fmt.Errorf("update password: %w", err)
 	}
 
 	s.auditor.Record(ctx, audit.Entry{

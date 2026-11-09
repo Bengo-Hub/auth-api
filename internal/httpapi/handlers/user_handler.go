@@ -36,6 +36,7 @@ type UserHandler struct {
 	redis          *redis.Client
 	redisNamespace string
 	authUIURL      string
+	setPassword    SetPasswordLinker // invite set-password links (set_password_link.go)
 }
 
 func NewUserHandler(entClient *ent.Client, hasher *password.Hasher, authSvc AuthService, redisClient *redis.Client, redisNamespace, authUIURL string, logger *zap.Logger) *UserHandler {
@@ -623,7 +624,7 @@ func (h *UserHandler) AdminCreateUser(w http.ResponseWriter, r *http.Request) {
 			tenantID = tid
 		}
 	}
-	writeOutboxEvent(r.Context(), h.ent, h.logger, tenantID, "auth.user", u.ID, "created", map[string]any{
+	created := map[string]any{
 		"user_id":              u.ID.String(),
 		"email":                u.Email,
 		"full_name":            profileStr(u.Profile, "name"),
@@ -631,7 +632,15 @@ func (h *UserHandler) AdminCreateUser(w http.ResponseWriter, r *http.Request) {
 		"welcome":              true,
 		"must_change_password": true,
 		"login_url":            h.authUIURL,
-	})
+	}
+	// A one-time set-password link (owner, 10 November 2026), only when the password was generated:
+	// an admin who typed one in relays it themselves.
+	if generated {
+		if link := issueSetPasswordLink(r.Context(), h.setPassword, h.logger, u.ID, "", ""); link != "" {
+			created["set_password_url"] = link
+		}
+	}
+	writeOutboxEvent(r.Context(), h.ent, h.logger, tenantID, "auth.user", u.ID, "created", created)
 
 	resp := mapUser(u)
 	out := map[string]any{

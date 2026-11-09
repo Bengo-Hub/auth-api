@@ -54,6 +54,9 @@ type AdminHandler struct {
 	subClient    *subscriptionclient.Client
 	hasher       *password.Hasher
 	authUIURL    string
+	// setPassword issues an invite's one-time set-password link (auth.Service); nil leaves the
+	// welcome email with the sign-in link only.
+	setPassword  SetPasswordLinker
 	tenantCache  *redis.Client
 	// tenantBackups builds tenant backups from every service's export (tenant_backup.go).
 	tenantBackups *tenantbackup.Service
@@ -2350,6 +2353,11 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 			payload["welcome"] = true
 			payload["must_change_password"] = true
 			payload["login_url"] = h.authUIURL
+			// A one-time set-password link (72 hours) instead of a password nobody receives
+			// (owner, 10 November 2026). Without it the welcome falls back to the sign-in link.
+			if link := issueSetPasswordLink(r.Context(), h.setPassword, h.logger, userID, tenantSlug, req.Service); link != "" {
+				payload["set_password_url"] = link
+			}
 		}
 		if req.SkipWelcome {
 			payload["skip_welcome"] = true
