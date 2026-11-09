@@ -821,7 +821,8 @@ func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p := pagination.Parse(r)
-	search := r.URL.Query().Get("search")
+	// Trimmed, whitespace-collapsed and capped at 100 characters (shared rule with the UI).
+	search := pagination.SearchTerm(r, "search")
 
 	// ?status=pending_approval|rejected|suspended|inactive|all — default stays "active" so
 	// every existing caller (org pickers, tenant search) is unaffected. "all" removes the

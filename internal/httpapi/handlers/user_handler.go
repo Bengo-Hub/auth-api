@@ -156,7 +156,7 @@ func mapUser(u *ent.User) *userResponse {
 // @Param role query string false "Filter by role held in any (or the given) tenant membership"
 // @Param search query string false "Search by email or name (case-insensitive)"
 // @Param page query int false "Page number (1-based)"
-// @Param limit query int false "Page size (default 50)"
+// @Param limit query int false "Page size (default 20)"
 // @Success 200 {object} map[string]any
 func (h *UserHandler) AdminListUsers(w http.ResponseWriter, r *http.Request) {
 	if !h.requirePlatformAdmin(r) {
@@ -168,7 +168,7 @@ func (h *UserHandler) AdminListUsers(w http.ResponseWriter, r *http.Request) {
 	statusFilter := q.Get("status")
 	tenantFilter := q.Get("tenant_id")
 	roleFilter := strings.TrimSpace(q.Get("role"))
-	search := strings.TrimSpace(q.Get("search"))
+	search := pagination.SearchTerm(r, "search")
 	p := pagination.Parse(r)
 
 	query := h.ent.User.Query().WithMemberships()
@@ -181,7 +181,9 @@ func (h *UserHandler) AdminListUsers(w http.ResponseWriter, r *http.Request) {
 		// Built with Builder.Arg rather than ExprP: ExprP leaves a literal "?" in the SQL,
 		// which Postgres parses as the jsonb "?" operator (syntax error at "OR"), so every
 		// platform-admin search failed and existing users could not be found.
-		like := "%" + search + "%"
+		// EscapeLike makes "%" and "_" in the term match literally (this is hand-written
+		// SQL, so Ent's own escaping does not apply).
+		like := pagination.ContainsPattern(search)
 		ilike := func(expr string) *entsql.Predicate {
 			return entsql.P(func(b *entsql.Builder) {
 				b.WriteString(expr).WriteString(" ILIKE ").Arg(like)
