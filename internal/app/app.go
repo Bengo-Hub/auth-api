@@ -391,6 +391,9 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminUpdateIntegrationStatus:       adminHandler.UpdateIntegrationStatus,
 			// Tenant member management
 			AddTenantMember:          adminHandler.AddTenantMember,
+			MyInvitations:            adminHandler.MyInvitations,
+			AcceptInvitation:         adminHandler.AcceptInvitation,
+			DeclineInvitation:        adminHandler.DeclineInvitation,
 			ListTenantMembers:        adminHandler.ListTenantMembers,
 			UpdateTenantMember:       adminHandler.UpdateTenantMember,
 			S2SMemberOutletLimit:     adminHandler.S2SMemberOutletLimit,

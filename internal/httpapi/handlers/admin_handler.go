@@ -2153,6 +2153,7 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 	// by email, create the account on the fly when it does not yet exist (#3).
 	var userID uuid.UUID
 	var tempPassword string // set only when a brand-new account is created
+	accountCreated := false // a phone-only account made by this call (no temporary password)
 	if req.UserID != "" {
 		if id, pErr := uuid.Parse(req.UserID); pErr != nil {
 			writeError(w, http.StatusBadRequest, "invalid_request", "invalid user_id", nil)
@@ -2199,6 +2200,7 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 				writeError(w, fail.status, fail.code, fail.message, nil)
 				return
 			}
+			accountCreated = true
 			userID = created.ID
 		} else {
 			writeError(w, http.StatusInternalServerError, "server_error", "user lookup failed", nil)
@@ -2273,9 +2275,14 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var membership *ent.TenantMembership
+	invited := false
 	if existingMember != nil && memberReAddRefused(existingMember.Status) {
 		// Adding someone again (an invite from any app) never undoes a suspension: reactivating is
 		// an explicit status change on the member by a tenant admin (audit H4 and MF #3).
+		if existingMember.Status == memberStatusInvited {
+			writeError(w, http.StatusConflict, "invitation_pending", "This person was already invited and has not accepted yet.", nil)
+			return
+		}
 		writeError(w, http.StatusConflict, "member_inactive",
 			"This person's membership is "+existingMember.Status+". A tenant admin can reactivate it on the member's page.", nil)
 		return
@@ -2299,12 +2306,19 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		}
 		membership, err = upd.Save(r.Context())
 	} else {
+		// Create new. An account that already existed joins only after its owner accepts (audit H4,
+		// owner decision 2026-11-10); a new account, or an interactive platform owner, joins at once.
+		invited = needsMemberConsent(tempPassword != "" || accountCreated, interactivePlatformOwner(r), isPortalAdd(req.Phone, req.Roles))
+		status := "active"
+		if invited {
+			status = memberStatusInvited
+		}
 		// Create new
 		crt := h.ent.TenantMembership.Create().
 			SetUserID(userID).
 			SetTenantID(tenantID).
 			SetRoles(req.Roles).
-			SetStatus("active")
+			SetStatus(status)
 		if outletID != nil {
 			crt = crt.SetOutletID(*outletID)
 		}
@@ -2326,6 +2340,17 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 	// that service: before the created event below, which carries the member's services.
 	if req.Service != "" && services == nil {
 		membership = h.grantMemberService(r.Context(), membership, strings.ToLower(strings.TrimSpace(req.Service)))
+	}
+	if invited {
+		h.notifyMemberInvite(r.Context(), tenantID, userID)
+		h.writeAudit(r, tenantID, "auth.tenant_member.invited", "tenant_membership", userID.String(),
+			map[string]any{"roles": membership.Roles})
+		writeJSON(w, http.StatusAccepted, map[string]any{
+			"id": membership.ID.String(), "user_id": userID.String(), "tenant_id": tenantID.String(),
+			"roles": membership.Roles, "status": membership.Status,
+			"message": "This person already has an account. They were emailed an invitation and join once they accept.",
+		})
+		return
 	}
 
 	// Publish auth.user.created so downstream services (pos-api, etc.) can provision the user.
@@ -2939,6 +2964,11 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 	}
 	// Tenant-scoped lifecycle: suspend/activate/deactivate a member (#3). This is
 	// distinct from the platform-wide user.status managed by platform admins.
+	// Only the person turns an invitation into a membership (audit H4).
+	if membership.Status == memberStatusInvited && req.Status == "active" {
+		writeError(w, http.StatusConflict, "invitation_pending", "This person has not accepted the invitation yet. Only they can accept it.", nil)
+		return
+	}
 	if req.Status != "" {
 		switch req.Status {
 		case "active", "suspended", "deactivated", "inactive":

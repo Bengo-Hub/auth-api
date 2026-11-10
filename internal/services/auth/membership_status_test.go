@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/bengobox/auth-api/internal/ent/session"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 )
 
@@ -159,5 +160,42 @@ func TestPasswordResetRevokesSessions(t *testing.T) {
 	}
 	if got := w.client.Session.GetX(ctx, old.ID).Status; got != "revoked" {
 		t.Fatalf("old session %s after reset, want revoked", got)
+	}
+}
+
+// Security audit 2026-11-10 (L3): a rotated refresh token presented again long after rotation
+// means it was copied; the session is revoked. Within a short grace window (two tabs refreshing
+// at once) it is only refused.
+func TestRefreshTokenReuseRevokesSession(t *testing.T) {
+	w := newMFATestWorld(t)
+	w.s.cfg.Token.RotateRefreshTokens = true // production default (ROTATE_REFRESH=true)
+	ctx := context.Background()
+	u, _ := w.member(t, w.plain, []string{"member"}, false)
+	signedIn, err := w.login(u, w.plain, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := w.s.Refresh(ctx, RefreshInput{RefreshToken: signedIn.RefreshToken})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Within the grace window: refused, session kept.
+	if _, err := w.s.Refresh(ctx, RefreshInput{RefreshToken: signedIn.RefreshToken}); err != ErrInvalidCredentials {
+		t.Fatalf("reuse within grace: %v", err)
+	}
+	if _, err := w.s.Refresh(ctx, RefreshInput{RefreshToken: first.RefreshToken}); err != nil {
+		t.Fatalf("the current token still works after a benign race: %v", err)
+	}
+	// Age the rotation past the grace window, then replay the oldest token.
+	sess := w.client.Session.Query().Where(session.UserID(u.ID), session.StatusEQ("active")).OnlyX(ctx)
+	meta := sess.Metadata
+	meta[refreshRotatedAtKey] = time.Now().Add(-10 * time.Minute).Format(time.RFC3339)
+	meta[refreshPrevHashKey] = hashToken(first.RefreshToken)
+	sess.Update().SetMetadata(meta).ExecX(ctx)
+	if _, err := w.s.Refresh(ctx, RefreshInput{RefreshToken: first.RefreshToken}); err != ErrInvalidCredentials {
+		t.Fatalf("stale reuse: %v", err)
+	}
+	if got := w.client.Session.GetX(ctx, sess.ID).Status; got != "revoked" {
+		t.Fatalf("session after stale reuse: %s, want revoked", got)
 	}
 }

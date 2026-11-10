@@ -1155,6 +1155,7 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (*AuthResult, er
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
+			s.revokeOnStaleRefreshReuse(ctx, hash)
 			return nil, ErrInvalidCredentials
 		}
 		return nil, fmt.Errorf("query session: %w", err)
@@ -1210,8 +1211,16 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (*AuthResult, er
 			return nil, fmt.Errorf("generate refresh token: %w", err)
 		}
 		refreshToken = plain
+		// Remember the token this replaces, so a stale copy presented later is caught (L3).
+		rotMeta := make(map[string]any, len(sessionEntity.Metadata)+2)
+		for k, v := range sessionEntity.Metadata {
+			rotMeta[k] = v
+		}
+		rotMeta[refreshPrevHashKey] = sessionEntity.RefreshTokenHash
+		rotMeta[refreshRotatedAtKey] = time.Now().UTC().Format(time.RFC3339)
 		sessionEntity, err = sessionEntity.Update().
 			SetRefreshTokenHash(hashed).
+			SetMetadata(rotMeta).
 			SetExpiresAt(time.Now().Add(s.cfg.Token.RefreshTTLFor(sessionEntity.ClientID))).
 			Save(ctx)
 		if err != nil {

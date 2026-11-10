@@ -164,13 +164,25 @@ func (s *Service) ExchangeCode(ctx context.Context, codePlain, clientID, redirec
 			return nil, nil, nil, fmt.Errorf("invalid client credentials")
 		}
 	}
-	// consume
-	if err := s.entClient.AuthorizationCode.UpdateOneID(code.ID).
-		SetConsumedAt(time.Now()).
-		Exec(ctx); err != nil {
+	// Consume in one conditional update, so two exchanges racing on one code cannot both win (L2).
+	won, err := consumeCode(ctx, s.entClient, code.ID)
+	if err != nil {
 		return nil, nil, nil, fmt.Errorf("consume code: %w", err)
 	}
+	if !won {
+		return nil, nil, nil, fmt.Errorf("code already used")
+	}
 	return userEntity, client, code, nil
+}
+
+// consumeCode marks an authorization code consumed if no one has yet, and reports whether this
+// call did it.
+func consumeCode(ctx context.Context, client *ent.Client, id uuid.UUID) (bool, error) {
+	n, err := client.AuthorizationCode.Update().
+		Where(authorizationcode.ID(id), authorizationcode.ConsumedAtIsNil()).
+		SetConsumedAt(time.Now()).
+		Save(ctx)
+	return n == 1, err
 }
 
 // SessionResult holds the session and refresh token created for OIDC flows.

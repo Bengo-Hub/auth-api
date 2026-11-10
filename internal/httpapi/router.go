@@ -96,6 +96,8 @@ type AuthHandlers struct {
 	ConfirmPasswordReset               http.HandlerFunc
 	Me                                 http.HandlerFunc
 	MyMemberships                      http.HandlerFunc
+	// Invitations waiting for the signed-in person (audit H4).
+	MyInvitations, AcceptInvitation, DeclineInvitation http.HandlerFunc
 	Logout                             http.HandlerFunc
 	LogoutGet                          http.HandlerFunc
 	GoogleOAuthStart                   http.HandlerFunc
@@ -362,6 +364,12 @@ func NewRouter(deps RouterDeps) http.Handler {
 				// Organisation picker source (wrong-organisation SSO recovery)
 				if deps.AuthHandlers.MyMemberships != nil {
 					r.Get("/me/memberships", deps.AuthHandlers.MyMemberships)
+				}
+				// Organisations that invited the signed-in person; only they accept or decline (audit H4).
+				if deps.AuthHandlers.MyInvitations != nil {
+					r.Get("/me/invitations", deps.AuthHandlers.MyInvitations)
+					r.Post("/me/invitations/{tenant_id}/accept", deps.AuthHandlers.AcceptInvitation)
+					r.Post("/me/invitations/{tenant_id}/decline", deps.AuthHandlers.DeclineInvitation)
 				}
 				// Self-service profile update (name, avatar URL, preferences)
 				if deps.UserHandler != nil {
