@@ -10,7 +10,7 @@ require (
 	github.com/Bengo-Hub/pagination v0.5.0
 	github.com/Bengo-Hub/shared-events v0.10.0
 	github.com/Bengo-Hub/shared-password-hasher v0.1.1
-	github.com/Bengo-Hub/shared-ratelimit v0.2.1
+	github.com/Bengo-Hub/shared-ratelimit v0.3.1
 	github.com/Bengo-Hub/shared-service-client v0.3.1
 	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/caarlos0/env/v11 v11.3.1
