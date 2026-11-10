@@ -3000,6 +3000,10 @@ func (h *AdminHandler) UpdateTenantMember(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusInternalServerError, "server_error", "could not update member", nil)
 		return
 	}
+	// A member suspended or deactivated here is signed out of this tenant at once (audit H2).
+	if req.Status != "" && req.Status != "active" {
+		revokeMemberSessions(r.Context(), h.ent, tenantID, updated.UserID)
+	}
 
 	// Publish auth.user.updated so downstream services can sync role/outlet changes.
 	// tenant_slug and email are REQUIRED by at least one consumer (truload-backend's
@@ -3093,6 +3097,8 @@ func (h *AdminHandler) RemoveTenantMember(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusInternalServerError, "server_error", "could not remove member", nil)
 		return
 	}
+	// A removed member is signed out of this tenant at once, not at their next refresh.
+	revokeMemberSessions(r.Context(), h.ent, tenantID, userID)
 	if member != nil {
 		h.writeAudit(r, tenantID, "auth.tenant_member.removed", "tenant_membership", userID.String(),
 			map[string]any{"removed_roles": member.Roles})

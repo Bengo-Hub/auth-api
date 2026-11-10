@@ -1020,7 +1020,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 	// platform tenant) may sign in to ANY tenant — the same cross-tenant access
 	// /authorize and /token already grant. Without this, a platform owner using
 	// the credential form on another tenant's login hit tenant_mismatch.
-	_, err = s.entClient.TenantMembership.Query().
+	loginMembership, err := s.entClient.TenantMembership.Query().
 		Where(
 			tenantmembership.UserID(userEntity.ID),
 			tenantmembership.TenantID(tenantEntity.ID),
@@ -1028,6 +1028,11 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*AuthResult, error)
 		First(ctx)
 	if err != nil && ent.IsNotFound(err) && s.isPlatformOwnerUser(ctx, userEntity.ID) {
 		err = nil
+	}
+	// A suspended or deactivated member may not sign in to this tenant (audit H2).
+	if err == nil && loginMembership != nil && loginMembership.Status != "active" && !s.isPlatformOwnerUser(ctx, userEntity.ID) {
+		s.recordLoginAttempt(ctx, tenantEntity.ID, userEntity.ID, in.Email, false, "membership_"+loginMembership.Status, in.IPAddress, in.UserAgent)
+		return nil, ErrNotTenantMember
 	}
 	// Signing in through a customer-facing app (ordering, rider, Digitika) to a tenant the
 	// person has no membership in makes them that tenant's customer (or learner, or rider
@@ -2713,13 +2718,17 @@ var ErrTenantMembershipRequired = errors.New("you do not have access to this org
 // Anywhere else (a staff app, or another organisation) an existing membership is required, exactly as
 // for password sign-in. Before this, any social sign-in could join any organisation from any app.
 func (s *Service) ensureMembership(ctx context.Context, userEntity *ent.User, tenantEntity *ent.Tenant, role string) error {
-	exists, err := s.entClient.TenantMembership.Query().
+	existing, err := s.entClient.TenantMembership.Query().
 		Where(tenantmembership.UserID(userEntity.ID), tenantmembership.TenantID(tenantEntity.ID)).
-		Exist(ctx)
-	if err != nil {
+		First(ctx)
+	if err != nil && !ent.IsNotFound(err) {
 		return fmt.Errorf("check tenant membership: %w", err)
 	}
-	if exists {
+	if existing != nil {
+		// A suspended or deactivated member is refused, never re-joined (audit H2).
+		if existing.Status != "active" && !s.isPlatformOwnerUser(ctx, userEntity.ID) {
+			return ErrNotTenantMember
+		}
 		return nil
 	}
 	customerApp := role != "member"

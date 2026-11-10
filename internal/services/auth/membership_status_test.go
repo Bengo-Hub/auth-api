@@ -95,3 +95,47 @@ func TestRefreshRefusedAfterMembershipEnds(t *testing.T) {
 		t.Fatalf("got %v, want ErrNotTenantMember", err)
 	}
 }
+
+// H2: a suspended member cannot sign in to that tenant with a password.
+func TestLoginRefusedForSuspendedMember(t *testing.T) {
+	w := newMFATestWorld(t)
+	ctx := context.Background()
+	u, _ := w.member(t, w.plain, []string{"member"}, false)
+	if _, err := w.login(u, w.plain, ""); err != nil {
+		t.Fatalf("active member signs in: %v", err)
+	}
+	w.client.TenantMembership.Update().
+		Where(tenantmembership.UserID(u.ID), tenantmembership.TenantID(w.plain.ID)).
+		SetStatus("suspended").ExecX(ctx)
+	if _, err := w.login(u, w.plain, ""); err != ErrNotTenantMember {
+		t.Fatalf("suspended member: got %v, want ErrNotTenantMember", err)
+	}
+}
+
+// H2: a social sign-in does not let a suspended member back in.
+func TestEnsureMembershipRefusesSuspended(t *testing.T) {
+	w := newMFATestWorld(t)
+	ctx := context.Background()
+	u, _ := w.member(t, w.plain, []string{"member"}, false)
+	w.client.TenantMembership.Update().
+		Where(tenantmembership.UserID(u.ID), tenantmembership.TenantID(w.plain.ID)).
+		SetStatus("deactivated").ExecX(ctx)
+	if err := w.s.ensureMembership(ctx, u, w.plain, "customer"); err != ErrNotTenantMember {
+		t.Fatalf("got %v, want ErrNotTenantMember", err)
+	}
+}
+
+// H2: the customer-app joiner used to answer "joined" for any existing membership, which let a
+// suspended member through /authorize.
+func TestJoinDoesNotPassSuspendedMember(t *testing.T) {
+	w := newMFATestWorld(t)
+	ctx := context.Background()
+	u, _ := w.member(t, w.plain, []string{"customer"}, false)
+	w.client.TenantMembership.Update().
+		Where(tenantmembership.UserID(u.ID), tenantmembership.TenantID(w.plain.ID)).
+		SetStatus("suspended").ExecX(ctx)
+	joined, err := w.s.joinTenantAs(ctx, u, w.plain, "customer", "self_signup")
+	if err != nil || joined {
+		t.Fatalf("suspended member joined=%v err=%v", joined, err)
+	}
+}

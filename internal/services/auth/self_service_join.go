@@ -93,14 +93,16 @@ func (s *Service) joinTenantAs(ctx context.Context, userEntity *ent.User, tenant
 // unassigned, so the member follows their roles). A service that lets people sign up for itself
 // grants itself, as an S2S member add does.
 func (s *Service) joinTenantWith(ctx context.Context, userEntity *ent.User, tenantEntity *ent.Tenant, role string, services []string, method string) (bool, error) {
-	exists, err := s.entClient.TenantMembership.Query().
+	existing, err := s.entClient.TenantMembership.Query().
 		Where(tenantmembership.UserID(userEntity.ID), tenantmembership.TenantID(tenantEntity.ID)).
-		Exist(ctx)
-	if err != nil {
+		First(ctx)
+	if err != nil && !ent.IsNotFound(err) {
 		return false, err
 	}
-	if exists {
-		return true, nil
+	if existing != nil {
+		// Only an active membership counts; a suspended or deactivated member is never
+		// re-joined by signing in again (audit H2).
+		return existing.Status == "active", nil
 	}
 	create := s.entClient.TenantMembership.Create().
 		SetUserID(userEntity.ID).

@@ -240,8 +240,10 @@ type UserMembership struct {
 
 // GetUserMemberships returns the user's tenant memberships with tenant details.
 func (s *Service) GetUserMemberships(ctx context.Context, userID uuid.UUID) ([]UserMembership, error) {
+	// Only active memberships: a suspended or deactivated member cannot authorize into the
+	// tenant, gets no roles from it and does not see it in their organisation list (audit H2).
 	memberships, err := s.entClient.TenantMembership.Query().
-		Where(tenantmembership.UserID(userID)).
+		Where(tenantmembership.UserID(userID), tenantmembership.StatusEQ("active")).
 		WithTenant().
 		All(ctx)
 	if err != nil {
