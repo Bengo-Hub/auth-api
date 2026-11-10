@@ -186,3 +186,26 @@ func (h *AdminHandler) DeclineInvitation(w http.ResponseWriter, r *http.Request)
 	h.writeAudit(r, m.TenantID, "auth.tenant_member.invitation_declined", "tenant_membership", userID.String(), nil)
 	writeJSON(w, http.StatusOK, map[string]any{"status": "declined", "tenant_id": m.TenantID.String()})
 }
+
+// serviceAdminGrantRefused reports a service (S2S, platform claims with no subject) asking to grant
+// an admin-tier role. Services add their own staff roles; admin, owner and superuser are given only
+// by a signed-in admin, since a service endpoint with a weak guard could otherwise make anyone an
+// organisation admin, or a platform owner in the codevertex tenant (audit 2026-11-11).
+func serviceAdminGrantRefused(r *http.Request, roles []string) bool {
+	if !isPlatformActor(r) || interactivePlatformOwner(r) {
+		return false
+	}
+	for _, role := range roles {
+		if serviceUngrantableRoles[strings.ToLower(strings.TrimSpace(role))] {
+			return true
+		}
+	}
+	return false
+}
+
+// serviceUngrantableRoles are the admin-equivalent roles any Codevertex service treats as running
+// the organisation (outlet management, billing contacts, inventory and POS admin checks).
+var serviceUngrantableRoles = map[string]bool{
+	"admin": true, "administrator": true, "superuser": true, "superusers": true, "super_admin": true,
+	"owner": true, "tenant_admin": true, "system_admin": true,
+}

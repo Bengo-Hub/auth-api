@@ -2133,6 +2133,11 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid payload", nil)
 		return
 	}
+	if serviceAdminGrantRefused(r, req.Roles) {
+		writeError(w, http.StatusForbidden, "admin_role_not_grantable",
+			"Admin, owner and superuser roles are given by an organisation admin in the accounts site, not by an app.", nil)
+		return
+	}
 	// Checked before any account is created. A service adding a member for itself comes in with
 	// platform claims and may use its own roles.
 	if h.checkGrantableRoles(w, r, req.Roles, nil) {

@@ -85,3 +85,27 @@ func TestAcceptAndDeclineInvitation(t *testing.T) {
 		t.Fatal("a declined invitation leaves no membership")
 	}
 }
+
+// Security audit 2026-11-11: services add members through the S2S route with platform claims, so
+// role checks were skipped; an unguarded service endpoint (inventory, treasury, projects
+// POST /users) let any member make themselves, or anyone, admin of the organisation, and in the
+// codevertex tenant that makes a platform owner. A service add never grants an admin-tier role;
+// those are given by a signed-in admin.
+func TestServiceAddCannotGrantAdminRoles(t *testing.T) {
+	svc := httptest.NewRequest(http.MethodPost, "/", nil)
+	svc = svc.WithContext(authmiddleware.ContextWithClaims(svc.Context(), &token.Claims{IsPlatformOwner: true}))
+	for _, roles := range [][]string{{"admin"}, {"cashier", "superuser"}, {"owner"}} {
+		if !serviceAdminGrantRefused(svc, roles) {
+			t.Errorf("service add of %v must be refused", roles)
+		}
+	}
+	if serviceAdminGrantRefused(svc, []string{"cashier", "store_manager", "marketflow_admin"}) {
+		t.Error("service roles are fine")
+	}
+	po := &token.Claims{IsPlatformOwner: true}
+	po.Subject = uuid.NewString()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	if serviceAdminGrantRefused(req.WithContext(authmiddleware.ContextWithClaims(req.Context(), po)), []string{"admin"}) {
+		t.Error("a signed-in platform owner may grant admin")
+	}
+}
