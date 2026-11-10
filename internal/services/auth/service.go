@@ -48,6 +48,8 @@ var (
 	ErrPasswordTooWeak = errors.New("password too weak")
 	// ErrTenantNotFound returned when tenant slug missing.
 	ErrTenantNotFound = errors.New("tenant not found")
+	// ErrNotTenantMember: the session's tenant no longer has an active membership for the user.
+	ErrNotTenantMember = errors.New("you are no longer an active member of this organisation")
 	// ErrPasswordResetTokenInvalid indicates invalid/expired token.
 	ErrPasswordResetTokenInvalid = errors.New("password reset token invalid or expired")
 	// ErrEmailAlreadyExists indicates duplicate registration.
@@ -1162,6 +1164,12 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (*AuthResult, er
 		if err != nil {
 			return nil, fmt.Errorf("load tenant: %w", err)
 		}
+		// A member removed or suspended after signing in stops here (audit H2); the session is
+		// revoked so it cannot be retried. Platform owners act for any tenant.
+		if !s.hasActiveMembership(ctx, sessionEntity.UserID, tenantEntity.ID) && !s.isPlatformOwnerUser(ctx, sessionEntity.UserID) {
+			_, _ = sessionEntity.Update().SetStatus("revoked").Save(ctx)
+			return nil, ErrNotTenantMember
+		}
 	}
 
 	// A refresh repeats what the sign-in proved and never adds a factor. A policy that came into
@@ -1802,6 +1810,7 @@ func (s *Service) GetUserRolesAndPermissionsForTenant(ctx context.Context, userI
 		Where(
 			tenantmembership.UserID(userID),
 			tenantmembership.TenantID(tenantID),
+			tenantmembership.StatusEQ("active"), // suspended or deactivated members hold no roles (audit H2)
 		).
 		Only(ctx)
 	if err != nil {
@@ -1996,11 +2005,20 @@ func (s *Service) IsPlatformOwner(ctx context.Context, userID uuid.UUID) bool {
 
 // isPlatformOwnerUser reports whether the user holds an admin-tier role
 // (admin/superuser) within their platform tenant ("codevertex") membership.
+// hasActiveMembership reports whether the user is an active member of the tenant.
+func (s *Service) hasActiveMembership(ctx context.Context, userID, tenantID uuid.UUID) bool {
+	n, err := s.entClient.TenantMembership.Query().
+		Where(tenantmembership.UserID(userID), tenantmembership.TenantID(tenantID), tenantmembership.StatusEQ("active")).
+		Count(ctx)
+	return err == nil && n > 0
+}
+
 func (s *Service) isPlatformOwnerUser(ctx context.Context, userID uuid.UUID) bool {
 	m, err := s.entClient.TenantMembership.Query().
 		Where(
 			tenantmembership.UserID(userID),
 			tenantmembership.HasTenantWith(tenant.SlugEQ(platformTenantSlug)),
+			tenantmembership.StatusEQ("active"),
 		).
 		Only(ctx)
 	if err != nil || m == nil {
@@ -2188,7 +2206,10 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 		tenantRoles, permissions, _ = s.GetUserRolesAndPermissionsForTenant(ctx, userEntity.ID, *tenantIDPtr)
 		roles = tenantRoles
 	}
-	if len(roles) == 0 && len(permissions) == 0 {
+	// The union across tenants is only for a session with no tenant at all. With a tenant set, a
+	// member with no roles there gets none: the union let a member removed from one tenant
+	// refresh into it carrying roles held in another (audit H2).
+	if tenantIDPtr == nil && len(roles) == 0 && len(permissions) == 0 {
 		allRoles, allPermissions, _ := s.GetUserRolesAndPermissions(ctx, sessionEntity.UserID)
 		if len(roles) == 0 {
 			roles = allRoles
