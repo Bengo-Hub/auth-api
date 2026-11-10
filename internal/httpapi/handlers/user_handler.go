@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/session"
 )
 
 // UserHandler provides platform-admin user management APIs.
@@ -682,9 +683,20 @@ func (h *UserHandler) AdminResetPassword(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to load user", nil)
 		return
 	}
-	if !h.requireAdminForTenant(r, h.resolveUserTenantID(r.Context(), u)) {
+	tenantOfUser := h.resolveUserTenantID(r.Context(), u)
+	if !h.requireAdminForTenant(r, tenantOfUser) {
 		writeError(w, http.StatusForbidden, "forbidden", "platform admin or tenant admin required", nil)
 		return
+	}
+	// A tenant admin sets a password only for an account that is their organisation's alone; a
+	// password set here would also open the person's other organisations (audit M2). The reset
+	// email, which only the person can use, works for everyone.
+	if !isPlatformActor(r) {
+		if tenantOfUser == uuid.Nil || !accountOnlyInTenant(r.Context(), h.ent, userID, tenantOfUser) {
+			writeError(w, http.StatusForbidden, "shared_account",
+				"This person also belongs to another organisation. Send them a password reset email instead.", nil)
+			return
+		}
 	}
 
 	var req adminResetPasswordRequest
@@ -719,6 +731,12 @@ func (h *UserHandler) AdminResetPassword(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	h.invalidateMeCache(r.Context(), userID)
+	// Whoever was signed in with the old password is signed out (audit M2).
+	if _, rerr := h.ent.Session.Update().
+		Where(session.UserID(userID), session.StatusEQ("active")).
+		SetStatus("revoked").Save(r.Context()); rerr != nil {
+		h.logger.Warn("revoke sessions after admin password reset", zap.Error(rerr))
+	}
 	h.logger.Info("admin reset user password", zap.String("user_id", userID.String()))
 
 	out := map[string]any{"id": userID, "status": "password_reset"}

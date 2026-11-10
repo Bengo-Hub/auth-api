@@ -801,6 +801,11 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		if err != nil {
 			return nil, err
 		}
+		// Staff join an existing organisation only by invite (audit M1); customer apps and the
+		// platform tenant keep self sign-up. Checked before any account is made.
+		if !selfJoinAllowed(tenantEntity.Slug, in.Role, s.SelfSignupRole(ctx, in.ClientID)) {
+			return nil, ErrTenantMembershipRequired
+		}
 	}
 
 	email := normalizeEmail(in.Email)
@@ -1740,6 +1745,10 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, in PasswordResetConf
 	}
 	if err := upd.Exec(ctx); err != nil {
 		return fmt.Errorf("update password: %w", err)
+	}
+	// A reset usually means the old password is not safe: every existing session ends (audit M2).
+	if err := s.RevokeAllSessions(ctx, resetToken.Edges.User.ID, uuid.Nil); err != nil {
+		s.logger.Warn("revoke sessions after password reset", zap.Error(err))
 	}
 
 	s.auditor.Record(ctx, audit.Entry{

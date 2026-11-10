@@ -1944,6 +1944,14 @@ func (h *AdminHandler) attachPhoneIfFree(ctx context.Context, tenantID, userID u
 	if err != nil {
 		return
 	}
+	// A phone is a way to sign in as the account. A tenant admin may set one only on an account
+	// that belongs to their tenant alone; otherwise they could sign in as someone with access to
+	// other organisations (audit H3). That person adds their own phone, verified by code.
+	if !accountOnlyInTenant(ctx, h.ent, userID, tenantID) {
+		h.logger.Info("member phone not attached: account belongs to other tenants",
+			zap.String("tenant_id", tenantID.String()), zap.String("user_id", userID.String()))
+		return
+	}
 	holder, err := h.ent.UserPhone.Query().Where(userphone.PhoneEQ(phone)).WithUser().Only(ctx)
 	if err == nil {
 		if holder.UserID != userID {
@@ -2265,11 +2273,17 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var membership *ent.TenantMembership
+	if existingMember != nil && memberReAddRefused(existingMember.Status) {
+		// Adding someone again (an invite from any app) never undoes a suspension: reactivating is
+		// an explicit status change on the member by a tenant admin (audit H4 and MF #3).
+		writeError(w, http.StatusConflict, "member_inactive",
+			"This person's membership is "+existingMember.Status+". A tenant admin can reactivate it on the member's page.", nil)
+		return
+	}
 	if existingMember != nil {
 		// Update existing. A portal invite adds its role; an admin add sets the roles as given.
 		upd := existingMember.Update().
-			SetRoles(memberRoles).
-			SetStatus("active")
+			SetRoles(memberRoles)
 		if outletID != nil {
 			upd = upd.SetOutletID(*outletID)
 		}

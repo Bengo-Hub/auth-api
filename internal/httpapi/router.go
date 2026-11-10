@@ -31,6 +31,8 @@ type RouterDeps struct {
 	// TenantAppHosts are tenants' own storefront domains (config Security.TenantAppHosts); their
 	// https origins are allowed by CORS so the storefront can exchange its sign-in token.
 	TenantAppHosts []string
+	// Development allows localhost origins (audit M3); never set in production.
+	Development bool
 	// DomainHandler serves self-service tenant domains (nil disables the routes).
 	DomainHandler         *handlers.DomainHandler
 	HealthHandler         http.HandlerFunc
@@ -247,7 +249,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 	r.Use(ratelimit.TrustedRealIP)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
-	r.Use(httpware.CORS(corsPolicy(deps.TenantAppHosts...)))
+	r.Use(httpware.CORS(corsPolicy(deps.Development, deps.TenantAppHosts...)))
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/v1/docs/", http.StatusMovedPermanently)
@@ -836,22 +838,41 @@ func NewRouter(deps RouterDeps) http.Handler {
 	return r
 }
 
-// corsOrigins are the browser origins allowed to call the auth API. The two wildcard entries cover
-// every https subdomain of the platform domain and of masterspace.co.ke (the primary tenant's
-// custom domain, where the ERP UI exchanges its OIDC token cross-origin). Keep the hosts in sync
-// with cmd/seed buildRedirects().
+// corsAppHosts are the platform's app UIs on codevertexafrica.com allowed to call the auth API
+// with the signed-in session. An explicit list, not *.codevertexafrica.com: that also trusted
+// webmail (renders incoming email HTML), mail-admin, argocd and nats (audit M3, owner decision
+// 2026-11-10). A new app UI is added here and in cmd/seed buildRedirects().
+var corsAppHosts = []string{
+	"accounts", "sso", "www", "pos", "inventory", "ordering", "marketflow", "erp", "maskani",
+	"maskaniapp", "library", "afya", "books", "projects", "ticketing", "truload", "logistics",
+	"riderapp", "pricing", "notifications", "ispbilling",
+}
+
+// corsOrigins are the other allowed origins: the platform root, the tenants' fixed domains and
+// masterspace.co.ke's subdomains (the primary tenant's custom domain, where the ERP UI exchanges
+// its OIDC token cross-origin).
 var corsOrigins = []string{
+	"https://codevertexafrica.com", "https://theurbanloftcafe.com", "https://*.masterspace.co.ke",
+}
+
+// corsDevOrigins are allowed only in development: a page on someone's own machine must never
+// reach the production session (audit M3).
+var corsDevOrigins = []string{
 	"http://localhost:3000", "http://localhost:3001", "http://localhost:3010", "http://localhost:4101",
 	"http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3010",
 	"https://localhost:3000", "https://auth.codevertex.local:4101",
-	"https://codevertexafrica.com", "https://theurbanloftcafe.com",
-	"https://*.codevertexafrica.com", "https://*.masterspace.co.ke",
 }
 
 // corsPolicy is the fleet's standard CORS policy plus the WebAuthn session header the passkey
 // ceremony sends and reads back. tenantHosts adds each tenant storefront domain as an https origin.
-func corsPolicy(tenantHosts ...string) httpware.CORSConfig {
+func corsPolicy(development bool, tenantHosts ...string) httpware.CORSConfig {
 	origins := append([]string{}, corsOrigins...)
+	for _, h := range corsAppHosts {
+		origins = append(origins, "https://"+h+".codevertexafrica.com")
+	}
+	if development {
+		origins = append(origins, corsDevOrigins...)
+	}
 	for _, h := range tenantHosts {
 		if h = strings.ToLower(strings.TrimSpace(h)); h != "" {
 			origins = append(origins, "https://"+h)

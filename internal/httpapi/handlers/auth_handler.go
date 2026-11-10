@@ -1273,7 +1273,7 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 	case errors.Is(err, auth.ErrEmailAlreadyExists):
 		writeError(w, http.StatusConflict, "email_exists", "user with email already exists", nil)
 	case errors.Is(err, auth.ErrTenantMembershipRequired):
-		writeError(w, http.StatusForbidden, "tenant_membership_required", "you do not have access to this organisation", nil)
+		writeError(w, http.StatusForbidden, "tenant_membership_required", "You need an invite from this organisation's admin to join it.", nil)
 	case errors.Is(err, auth.ErrProviderNotEnabled):
 		writeError(w, http.StatusBadRequest, "provider_disabled", "oauth provider not enabled", nil)
 	case errors.Is(err, auth.ErrOAuthStateInvalid):

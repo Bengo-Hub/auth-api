@@ -135,3 +135,17 @@ func (s *Service) joinTenantWith(ctx context.Context, userEntity *ent.User, tena
 	})
 	return true, nil
 }
+
+// selfJoinAllowed reports whether a public sign-up may join an existing tenant without an invite
+// (audit M1, owner decision 2026-11-10): only with a customer-app role (customer, student,
+// parent, driver), or into the platform tenant. A plain "member" of a business is invite only.
+func selfJoinAllowed(tenantSlug, requestedRole, clientRole string) bool {
+	if tenantSlug == platformTenantSlug {
+		return true
+	}
+	role := strings.TrimSpace(requestedRole)
+	if role == "" {
+		role = strings.TrimSpace(clientRole)
+	}
+	return role != "" && role != "member" && IsSelfServiceRole(role)
+}

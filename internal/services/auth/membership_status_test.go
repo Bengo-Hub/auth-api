@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -137,5 +139,25 @@ func TestJoinDoesNotPassSuspendedMember(t *testing.T) {
 	joined, err := w.s.joinTenantAs(ctx, u, w.plain, "customer", "self_signup")
 	if err != nil || joined {
 		t.Fatalf("suspended member joined=%v err=%v", joined, err)
+	}
+}
+
+// M2: completing a password reset ends every existing session of the account.
+func TestPasswordResetRevokesSessions(t *testing.T) {
+	w := newMFATestWorld(t)
+	ctx := context.Background()
+	u, _ := w.member(t, w.plain, []string{"member"}, false)
+	old := w.client.Session.Create().SetUserID(u.ID).SetRefreshTokenHash(uuid.NewString()).SetSessionType("user").
+		SetStatus("active").SetExpiresAt(time.Now().Add(time.Hour)).SaveX(ctx)
+	link, err := w.s.IssueSetPasswordLink(ctx, u.ID, w.plain.Slug, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := url.Parse(link)
+	if err := w.s.ConfirmPasswordReset(ctx, PasswordResetConfirmInput{Token: parsed.Query().Get("token"), NewPassword: "Kiondo!Basket2026x"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := w.client.Session.GetX(ctx, old.ID).Status; got != "revoked" {
+		t.Fatalf("old session %s after reset, want revoked", got)
 	}
 }

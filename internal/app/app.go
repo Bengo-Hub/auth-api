@@ -284,6 +284,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 
 	router := httpapi.NewRouter(httpapi.RouterDeps{
 		TenantAppHosts:         cfg.Security.TenantAppHosts,
+		Development:            cfg.App.Environment == "development" || cfg.App.Environment == "local",
 		DomainHandler:          domainHandler,
 		OutletHandler:          outletHandler,
 		InternalServiceKey:     cfg.Subscription.APIKey,
