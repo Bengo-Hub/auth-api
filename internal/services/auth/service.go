@@ -607,21 +607,22 @@ func (s *Service) VerifyAndSetUserEmail(ctx context.Context, userID uuid.UUID, e
 // MarkEmailVerifiedByEmail flips the durable email_verified flag for an existing user
 // (the verify-email banner's action, tied to the existing VerifyEmailCode OTP flow) and
 // emits auth.user.updated so downstream projections (notifications gate, etc.) refresh.
-// No-op (returns false) when no account exists or it is already verified.
-func (s *Service) MarkEmailVerifiedByEmail(ctx context.Context, email string) (bool, error) {
+// It returns the account's id (uuid.Nil when none exists), also when it was already verified, so
+// the caller can drop that user's cached /me either way, and whether this call changed the flag.
+func (s *Service) MarkEmailVerifiedByEmail(ctx context.Context, email string) (uuid.UUID, bool, error) {
 	u, err := s.entClient.User.Query().Where(user.EmailEQ(normalizeEmail(email))).Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return false, nil
+			return uuid.Nil, false, nil
 		}
-		return false, err
+		return uuid.Nil, false, err
 	}
 	if u.EmailVerified {
-		return false, nil
+		return u.ID, false, nil
 	}
 	updated, err := u.Update().SetEmailVerified(true).SetEmailVerifiedAt(time.Now()).Save(ctx)
 	if err != nil {
-		return false, err
+		return uuid.Nil, false, err
 	}
 	tenantID := uuid.Nil
 	if updated.PrimaryTenantID != "" {
@@ -638,7 +639,7 @@ func (s *Service) MarkEmailVerifiedByEmail(ctx context.Context, email string) (b
 		"tenant_id":      updated.PrimaryTenantID,
 		"email_verified": true,
 	})
-	return true, nil
+	return updated.ID, true, nil
 }
 
 // Register creates a new user and returns session tokens.

@@ -64,7 +64,7 @@ type AuthService interface {
 	SendOTPEmail(ctx context.Context, tenantID, userID uuid.UUID, email, otp string)
 	EmailExists(ctx context.Context, email string) (bool, error)
 	EmailAccountStatus(ctx context.Context, email string) (exists, verified bool)
-	MarkEmailVerifiedByEmail(ctx context.Context, email string) (bool, error)
+	MarkEmailVerifiedByEmail(ctx context.Context, email string) (uuid.UUID, bool, error)
 	EmailTakenByOther(ctx context.Context, email string, userID uuid.UUID) bool
 	VerifyAndSetUserEmail(ctx context.Context, userID uuid.UUID, email string) error
 	StartVerificationClock(ctx context.Context, u *ent.User) *ent.User
@@ -1153,10 +1153,7 @@ func (h *AuthHandler) AcceptTerms(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Invalidate /me cache so the next request reflects updated terms_accepted.
-	if h.redis != nil && h.redisNamespace != "" {
-		cacheKey := h.redisNamespace + ":auth:me:" + userID.String()
-		_ = h.redis.Del(r.Context(), cacheKey).Err()
-	}
+	invalidateMeCacheKeys(r.Context(), h.redis, h.redisNamespace, userID)
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
@@ -2002,9 +1999,7 @@ func (h *AuthHandler) verifyMyEmailCode(ctx context.Context, w http.ResponseWrit
 	}
 
 	// Bust the cached /me so the next call reflects verified=true immediately.
-	if h.redisNamespace != "" {
-		_ = h.redis.Del(ctx, fmt.Sprintf("%s:auth:me:%s", h.redisNamespace, userID.String())).Err()
-	}
+	invalidateMeCacheKeys(ctx, h.redis, h.redisNamespace, userID)
 
 	writeJSON(w, http.StatusOK, map[string]any{"verified": true, "email": email})
 }
@@ -2107,8 +2102,12 @@ func (h *AuthHandler) VerifyEmailCode(w http.ResponseWriter, r *http.Request) {
 
 	// If the email already belongs to an account (the verify-email banner flow for an
 	// existing unverified user), promote the durable users.email_verified flag now.
-	if _, err := h.service.MarkEmailVerifiedByEmail(r.Context(), email); err != nil {
+	if uid, _, err := h.service.MarkEmailVerifiedByEmail(r.Context(), email); err != nil {
 		h.logger.Warn("verify-code: mark existing user verified", zap.Error(err))
+	} else if uid != uuid.Nil {
+		// Drop every cached /me of that user (keyed per token, "<ns>:auth:me:<uid>:<iat>"), or the
+		// verify-email banner keeps showing after a successful verification until the cache expires.
+		invalidateMeCacheKeys(r.Context(), h.redis, h.redisNamespace, uid)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"verified": true})

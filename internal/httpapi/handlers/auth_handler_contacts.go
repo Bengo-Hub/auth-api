@@ -409,7 +409,7 @@ func (h *AuthHandler) VerifyMyPhoneCode(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	// Bust the cached /me so the next call shows the number at once.
-	_ = h.redis.Del(r.Context(), h.redisNamespace+":auth:me:"+userID.String()).Err()
+	invalidateMeCacheKeys(r.Context(), h.redis, h.redisNamespace, userID)
 	writeJSON(w, http.StatusOK, map[string]any{"verified": true, "phone": phone})
 }
 
