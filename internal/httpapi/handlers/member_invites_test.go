@@ -109,3 +109,28 @@ func TestServiceAddCannotGrantAdminRoles(t *testing.T) {
 		t.Error("a signed-in platform owner may grant admin")
 	}
 }
+
+// Security audit 2026-11-11: a service "add" of an existing member replaced their roles, so anyone
+// with user-management in a downstream app could demote the organisation's owner by adding their
+// email again. A service add is add-only on an existing membership.
+func TestServiceAddIsAddOnly(t *testing.T) {
+	svc := httptest.NewRequest(http.MethodPost, "/", nil)
+	svc = svc.WithContext(authmiddleware.ContextWithClaims(svc.Context(), &token.Claims{IsPlatformOwner: true}))
+	got := memberRolesFor(svc, []string{"owner", "cashier"}, []string{"stock_clerk"}, false)
+	if len(got) != 3 || got[0] != "owner" {
+		t.Fatalf("service add on an existing member must keep their roles: %v", got)
+	}
+	admin := &token.Claims{TenantID: uuid.NewString(), Roles: []string{"admin"}}
+	admin.Subject = uuid.NewString()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req = req.WithContext(authmiddleware.ContextWithClaims(req.Context(), admin))
+	if got := memberRolesFor(req, []string{"cashier"}, []string{"stock_clerk"}, false); len(got) != 1 || got[0] != "stock_clerk" {
+		t.Fatalf("a signed-in admin sets the roles as given: %v", got)
+	}
+	if got := memberRolesFor(req, []string{"cashier"}, []string{"stock_clerk"}, true); len(got) != 2 {
+		t.Fatalf("merge_roles merges: %v", got)
+	}
+	if got := memberRolesFor(svc, nil, []string{"stock_clerk"}, false); len(got) != 1 {
+		t.Fatalf("a new membership takes the requested roles: %v", got)
+	}
+}

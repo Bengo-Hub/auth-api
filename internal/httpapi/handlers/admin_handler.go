@@ -2236,10 +2236,14 @@ func (h *AdminHandler) AddTenantMember(w http.ResponseWriter, r *http.Request) {
 		outletID = h.defaultOutletID(r.Context(), tenantID)
 	}
 
-	memberRoles := req.Roles
-	if existingMember != nil && req.MergeRoles {
-		memberRoles = mergeRoleLists(existingMember.Roles, req.Roles)
+	var existingRoles []string
+	if existingMember != nil {
+		existingRoles = existingMember.Roles
+		if existingRoles == nil {
+			existingRoles = []string{}
+		}
 	}
+	memberRoles := memberRolesFor(r, existingRoles, req.Roles, req.MergeRoles)
 
 	var outletLimit []string
 	outletLimitChanged := false

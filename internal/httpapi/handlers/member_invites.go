@@ -209,3 +209,17 @@ var serviceUngrantableRoles = map[string]bool{
 	"admin": true, "administrator": true, "superuser": true, "superusers": true, "super_admin": true,
 	"owner": true, "tenant_admin": true, "system_admin": true,
 }
+
+// memberRolesFor is the roles a member add leaves on the membership. A service add (S2S platform
+// claims, no subject) on an existing membership only adds roles, never removes or replaces them:
+// otherwise a user manager in any app could demote the organisation's owner (audit 2026-11-11). A
+// signed-in admin sets the roles as given, or merges with merge_roles.
+func memberRolesFor(r *http.Request, existing, requested []string, merge bool) []string {
+	if existing == nil {
+		return requested
+	}
+	if merge || (isPlatformActor(r) && !interactivePlatformOwner(r)) {
+		return mergeRoleLists(existing, requested)
+	}
+	return requested
+}
