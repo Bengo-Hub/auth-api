@@ -649,6 +649,12 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 	if in.OrgAction != "create_new" && strings.TrimSpace(in.Role) != "" && !IsSelfServiceRole(in.Role) {
 		return nil, ErrRoleNotAllowed
 	}
+	// A new organisation's slug is checked before anything else (security audit 2026-11-10, C1).
+	if in.OrgAction == "create_new" && in.NewOrg != nil {
+		if err := validateNewOrgSlug(in.NewOrg.Slug); err != nil {
+			return nil, err
+		}
+	}
 	// Password validation is skipped for OAuth registrations (empty password).
 	if in.Password != "" {
 		if err := s.ValidatePassword(ctx, in.Password); err != nil {
@@ -694,13 +700,10 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		tenantEntity, err = create.Save(ctx)
 		if err != nil {
 			if ent.IsConstraintError(err) {
-				// Org already exists — try to look it up so we can join it instead.
-				tenantEntity, err = s.entClient.Tenant.Query().
-					Where(tenant.SlugEQ(in.NewOrg.Slug)).
-					Only(ctx)
-				if err != nil {
-					return nil, fmt.Errorf("org slug already taken: %w", err)
-				}
+				// The slug belongs to an existing organisation. Never join it: the registrant
+				// would become its admin (security audit 2026-11-10, C1). Joining an existing
+				// organisation goes through join_existing or an invitation only.
+				return nil, ErrOrgSlugTaken
 			} else {
 				return nil, fmt.Errorf("create tenant: %w", err)
 			}

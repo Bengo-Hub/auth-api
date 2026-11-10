@@ -385,7 +385,7 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scopes := scopesFromString(authCode.Scope)
+	scopes := userTokenScopes(authCode.Scope)
 
 	// Fetch user memberships for enriched tokens
 	memberships, _ := h.oidc.GetUserMemberships(r.Context(), userEntity.ID)
@@ -647,4 +647,24 @@ func randomOIDCString(n int) string {
 func parseUUID(s string) uuid.UUID {
 	id, _ := uuid.Parse(s)
 	return id
+}
+
+// userTokenScopes turns a requested scope string into the scopes a sign-in (user) token may
+// carry: the reserved platform scopes (admin, auth.admin, the internal service scope) are
+// dropped, whatever the caller asked for. The admin gates trust those scopes as platform
+// authority, so only API keys and platform apps may hold them (security audit 2026-11-10, C2).
+func userTokenScopes(s string) []string {
+	return userTokenScopesFromList(scopesFromString(s))
+}
+
+// userTokenScopesFromList is userTokenScopes for a scope list (case-insensitive).
+func userTokenScopesFromList(in []string) []string {
+	var out []string
+	for _, sc := range in {
+		if reservedPlatformScopes[strings.ToLower(sc)] {
+			continue
+		}
+		out = append(out, sc)
+	}
+	return out
 }

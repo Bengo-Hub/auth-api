@@ -747,7 +747,7 @@ func (h *OutletHandler) SelectOutlet(w http.ResponseWriter, r *http.Request) {
 		TenantSlug:         claims.TenantSlug,
 		SessionID:          sessionID,
 		Email:              claims.Email,
-		Scopes:             claims.Scope,
+		Scopes:             userTokenScopesFromList(claims.Scope),
 		Roles:              claims.Roles,
 		Permissions:        claims.Permissions,
 		IsPlatformOwner:    claims.IsPlatformOwner,

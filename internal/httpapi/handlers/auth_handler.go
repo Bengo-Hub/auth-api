@@ -1256,6 +1256,11 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 	case errors.Is(err, auth.ErrRoleNotAllowed):
 		writeError(w, http.StatusForbidden, "role_not_allowed",
 			"That role is given by an organisation admin, not at sign-up.", nil)
+	case errors.Is(err, auth.ErrOrgSlugTaken):
+		writeError(w, http.StatusConflict, "org_slug_taken",
+			"That organisation address is already taken. Choose another, or ask the organisation's admin to invite you.", nil)
+	case errors.Is(err, auth.ErrInvalidOrgSlug):
+		writeError(w, http.StatusBadRequest, "invalid_org_slug", auth.ErrInvalidOrgSlug.Error(), nil)
 	case errors.Is(err, auth.ErrTenantPendingApproval):
 		writeError(w, http.StatusForbidden, "tenant_pending_approval",
 			"Your organization registration is awaiting review by our platform team. We'll notify you by email once it's approved.", nil)
