@@ -178,6 +178,16 @@ func (h *OutletHandler) requireTenantAdmin(r *http.Request) bool {
 	return false
 }
 
+// requireTenantAdminOf is requireTenantAdmin for one tenant: a tenant admin's roles apply only
+// in the tenant of their token, so they may manage that tenant's outlets and no other.
+func (h *OutletHandler) requireTenantAdminOf(r *http.Request, tenantID uuid.UUID) bool {
+	if !h.requireTenantAdmin(r) {
+		return false
+	}
+	claims, _ := authmiddleware.ClaimsFromContext(r.Context())
+	return claims.IsPlatformOwner || claims.TenantID == tenantID.String()
+}
+
 func (h *OutletHandler) isPlatformOwner(r *http.Request) bool {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	return ok && claims != nil && claims.IsPlatformOwner
@@ -396,6 +406,11 @@ func (h *OutletHandler) CreateOutlet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tenant not found", http.StatusNotFound)
 		return
 	}
+	// The {slug} tenant must be the caller's own (audit H1); platform owners act for any.
+	if !h.requireTenantAdminOf(r, t.ID) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 
 	var req outletRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -519,6 +534,11 @@ func (h *OutletHandler) UpdateOutlet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tenant not found", http.StatusNotFound)
 		return
 	}
+	// The {slug} tenant must be the caller's own (audit H1); platform owners act for any.
+	if !h.requireTenantAdminOf(r, t.ID) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 
 	var req outletRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -621,6 +641,11 @@ func (h *OutletHandler) ArchiveOutlet(w http.ResponseWriter, r *http.Request) {
 	t, err := h.resolveTenantFromSlug(r.Context(), slug)
 	if err != nil {
 		http.Error(w, "tenant not found", http.StatusNotFound)
+		return
+	}
+	// The {slug} tenant must be the caller's own (audit H1); platform owners act for any.
+	if !h.requireTenantAdminOf(r, t.ID) {
+		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 
