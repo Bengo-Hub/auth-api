@@ -41,6 +41,10 @@ type DomainsConfig struct {
 	ClusterIssuer string `env:"DOMAINS_CLUSTER_ISSUER" envDefault:"letsencrypt-prod"`
 	// ReconcileSeconds is how often pending domains are checked.
 	ReconcileSeconds int `env:"DOMAINS_RECONCILE_SECONDS" envDefault:"30"`
+	// RequiredFeatures names the plan feature an app's custom domain needs, as
+	// "service=feature,..." (owner, 2026-11-11: MarketFlow custom domains are Pro and up). Apps
+	// not listed are open to every plan. Empty turns the gate off.
+	RequiredFeatures string `env:"DOMAINS_REQUIRED_FEATURES" envDefault:"marketflow=marketflow_custom_domain"`
 }
 
 // DevOpsConfig holds credentials for auth-api's platform-admin "Infrastructure Monitor" panel to

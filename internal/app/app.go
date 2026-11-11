@@ -213,6 +213,11 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	// Self-service tenant domains: DNS (our Cloudflare zones), Ingress + certificate, OAuth
 	// redirects. One replica reconciles at a time (shared Redis lock).
 	domainSvc := domains.New(entClient, logger, cfg.Domains.CloudflareAPIToken, cfg.Domains.OriginIP, cfg.Domains.ClusterIssuer)
+	if subClient != nil {
+		// A custom domain can be a plan feature (DOMAINS_REQUIRED_FEATURES; MarketFlow: Pro and up).
+		// With subscriptions off every tenant stays ungated, as everywhere else.
+		domainSvc.SetPlanGate(domains.ParseRequiredFeatures(cfg.Domains.RequiredFeatures), DomainPlanLookup(subClient))
+	}
 	domainHandler := handlers.NewDomainHandler(domainSvc, adminHandler.CanManageTenant, logger)
 	authService.SetExtraTrustedHosts(domainSvc.ActiveHosts)
 	authHandler.SetExtraLogoutHosts(domainSvc.ActiveHosts)
@@ -583,6 +588,28 @@ func MemberPlanLookup(subClient *subscriptionclient.Client) access.EntitlementFu
 			tags = []string{}
 		}
 		return tags, sub.BillingMode, nil
+	}
+}
+
+// DomainPlanLookup reads what the custom domain plan gate needs: whether the tenant is exempt
+// from gating (platform, demo) and its plan's feature codes. No subscription means no features.
+func DomainPlanLookup(subClient *subscriptionclient.Client) domains.PlanLookup {
+	return func(ctx context.Context, tenantID uuid.UUID) (domains.PlanInfo, error) {
+		entitled, err := subClient.GetEntitledServices(ctx, tenantID)
+		if err != nil {
+			return domains.PlanInfo{}, err
+		}
+		if entitled.Exempt {
+			return domains.PlanInfo{Exempt: true}, nil
+		}
+		sub, err := subClient.GetTenantSubscription(ctx, tenantID)
+		if err != nil {
+			return domains.PlanInfo{}, err
+		}
+		if sub == nil {
+			return domains.PlanInfo{}, nil
+		}
+		return domains.PlanInfo{Features: sub.Features}, nil
 	}
 }
 

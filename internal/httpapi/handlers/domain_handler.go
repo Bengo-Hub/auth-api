@@ -47,7 +47,9 @@ func (h *DomainHandler) fail(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, "domain_taken", err.Error(), nil)
 	case errors.Is(err, domains.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", err.Error(), nil)
-	case errors.Is(err, domains.ErrUnavailable):
+	case errors.Is(err, domains.ErrPlanRequired):
+		writeError(w, http.StatusForbidden, "plan_upgrade_required", err.Error(), nil)
+	case errors.Is(err, domains.ErrUnavailable), errors.Is(err, domains.ErrPlanUnverified):
 		writeError(w, http.StatusServiceUnavailable, "domains_unavailable", err.Error(), nil)
 	default:
 		h.log.Error("tenant domains", zap.Error(err))

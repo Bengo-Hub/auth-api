@@ -106,6 +106,10 @@ type Service struct {
 	cf       *cloudflare
 	k8s      *cluster
 
+	// Plan gate (plangate.go): service key -> required feature code.
+	required   map[string]string
+	planLookup PlanLookup
+
 	cacheMu sync.Mutex
 	cache   map[string]cachedResolution
 	hostsAt time.Time
@@ -171,6 +175,9 @@ func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, rawHost, servi
 	}
 	if _, ok := Target(service); !ok {
 		return Domain{}, ErrUnknownService
+	}
+	if err := s.CheckPlan(ctx, tenantID, service); err != nil {
+		return Domain{}, err
 	}
 	mode := "external"
 	zoneID := ""
