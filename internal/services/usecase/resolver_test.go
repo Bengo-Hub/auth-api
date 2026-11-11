@@ -17,6 +17,8 @@ func TestTrialPlanMatchesTheFormerSwitch(t *testing.T) {
 		"warehousing": "POWERSUITE_DUKA_BASIC", "e_commerce": "POWERSUITE_DUKA_BASIC", "ecommerce": "POWERSUITE_DUKA_BASIC",
 		"hardware": "POWERSUITE_DUKA_BASIC", "agrovet": "POWERSUITE_DUKA_BASIC",
 		"pharmacy": "AFYA_CHEMIST", "chemist": "AFYA_CHEMIST",
+		// 2026-11-11: a Forever Business Owner trials on MarketFlow's free tier.
+		"fbo": "MARKETFLOW_STARTER",
 		"logistics": "STARTER", "property": "STARTER", "gift_registry": "STARTER", "unknown": "STARTER", "": "STARTER",
 	}
 	for in, plan := range want {

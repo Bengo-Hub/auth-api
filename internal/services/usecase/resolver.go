@@ -118,7 +118,9 @@ var Catalogue = []Definition{
 	// app (marketflow-ui) is a platform app.
 	{Code: "library", DisplayName: "Library", Apps: []string{"library-ui"}, TrialPlan: "LIBRARY_STARTER",
 		Features: []string{"basic_operations"}, Catalog: "Catalog", Item: "Title", Category: "Collection"},
-	{Code: "fbo", DisplayName: "Forever Business Owner",
+	// fbo trials on MarketFlow's free tier (2026-11-11): the old "STARTER" fallback names no plan,
+	// so a new Forever Business Owner got no subscription and MarketFlow refused every request.
+	{Code: "fbo", DisplayName: "Forever Business Owner", TrialPlan: "MARKETFLOW_STARTER",
 		Features: []string{"basic_operations"}, Catalog: "Catalog", Item: "Item", Category: "Category"},
 }
 
