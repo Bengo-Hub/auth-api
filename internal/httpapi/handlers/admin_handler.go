@@ -66,6 +66,9 @@ type AdminHandler struct {
 	db *sql.DB
 	// auditor records membership changes in audit_logs.
 	auditor *audit.Logger
+	// inviter and inviteAppURLs serve business invites (business_invite.go).
+	inviter       BusinessInviter
+	inviteAppURLs map[string]string
 }
 
 // writeAudit records an admin mutation against tenantID, with the caller as actor.

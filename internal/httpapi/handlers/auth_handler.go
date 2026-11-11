@@ -329,6 +329,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		SelectedPlan:  req.SelectedPlan,
 		OrgAction:     req.OrgAction,
 		NewOrg:        newOrg,
+		InviteToken:   req.InviteToken,
 		Role:          req.Role,
 		TermsAccepted: req.TermsAccepted,
 		// The email/password path only reaches here after the OTP verify-code gate
@@ -375,6 +376,7 @@ func (h *AuthHandler) RegisterOAuth(w http.ResponseWriter, r *http.Request) {
 		SelectedPlan:  req.SelectedPlan,
 		OrgAction:     req.OrgAction,
 		NewOrg:        newOrg,
+		InviteToken:   req.InviteToken,
 		TermsAccepted: req.TermsAccepted,
 		// OAuth signup: the email is provider-verified (Google login is rejected
 		// upstream when unverified), so the account starts email-verified.
@@ -1263,6 +1265,9 @@ func (h *AuthHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 			"That organisation address is already taken. Choose another, or ask the organisation's admin to invite you.", nil)
 	case errors.Is(err, auth.ErrInvalidOrgSlug):
 		writeError(w, http.StatusBadRequest, "invalid_org_slug", auth.ErrInvalidOrgSlug.Error(), nil)
+	case errors.Is(err, auth.ErrInvalidBusinessInvite):
+		writeError(w, http.StatusBadRequest, "invalid_invite",
+			"This invitation link is invalid, already used or expired, or it was sent to another email. Ask for a new one, or sign up without it.", nil)
 	case errors.Is(err, auth.ErrTenantPendingApproval):
 		writeError(w, http.StatusForbidden, "tenant_pending_approval",
 			"Your organization registration is awaiting review by our platform team. We'll notify you by email once it's approved.", nil)
@@ -1446,8 +1451,10 @@ type registerRequest struct {
 	// OrgAction is "join_existing" (default) or "create_new".
 	// When "create_new", NewOrg must be populated and the registering user
 	// becomes the tenant admin for the new organisation.
-	OrgAction string         `json:"org_action,omitempty"`
-	NewOrg    *newOrgRequest `json:"new_org,omitempty"`
+	OrgAction string `json:"org_action,omitempty"`
+	// InviteToken is a platform owner's business invite (skips the review for a new organisation).
+	InviteToken string         `json:"invite_token,omitempty"`
+	NewOrg      *newOrgRequest `json:"new_org,omitempty"`
 	// Role is an optional role hint for pre-invited users (e.g. "driver" for fleet invitations).
 	Role string `json:"role,omitempty"`
 	// TermsAccepted records whether the user accepted the Terms of Service at signup.
@@ -1503,6 +1510,8 @@ type oauthRegisterRequest struct {
 	ClientID      string         `json:"client_id"`
 	SelectedPlan  string         `json:"selected_plan,omitempty"`
 	OrgAction     string         `json:"org_action,omitempty"`
+	// InviteToken is a platform owner's business invite (skips the review for a new organisation).
+	InviteToken   string         `json:"invite_token,omitempty"`
 	NewOrg        *newOrgRequest `json:"new_org,omitempty"`
 	TermsAccepted bool           `json:"terms_accepted"`
 }

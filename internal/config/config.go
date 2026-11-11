@@ -102,6 +102,9 @@ type AppConfig struct {
 	Environment string `env:"APP_ENV" envDefault:"development"`
 	ServiceName string `env:"APP_NAME" envDefault:"auth-api"`
 	AuthUIURL   string `env:"AUTH_UI_URL" envDefault:"https://accounts.codevertexafrica.com"`
+	// BusinessInviteAppURLs maps the apps a business can be invited to onto their web address
+	// (app=url, comma separated); the invite link opens the app's /join page.
+	BusinessInviteAppURLs string `env:"BUSINESS_INVITE_APP_URLS" envDefault:"marketflow=https://marketflow.codevertexafrica.com"`
 }
 
 // WebAuthnConfig holds WebAuthn / passkey relying party settings.

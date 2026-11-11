@@ -122,6 +122,7 @@ type AuthHandlers struct {
 	GetTenantPrivate                   http.HandlerFunc // signed-in tenant read with the tax PIN (members only)
 	AdminDeleteTenant                  http.HandlerFunc
 	AdminApproveTenant                 http.HandlerFunc
+	AdminInviteBusiness                http.HandlerFunc
 	AdminRejectTenant                  http.HandlerFunc
 	AdminProvisionTenantOAuthRedirects http.HandlerFunc
 	// Tenant backups (SSO client area): newest backup + download link, and start a new one.
@@ -485,6 +486,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Use(deps.RequireAuthHandler)
 				}
 				r.Post("/tenants", deps.AuthHandlers.AdminCreateTenant)
+				// A platform owner invites a new business to an app (business_invite.go).
+				if deps.AuthHandlers.AdminInviteBusiness != nil {
+					r.Post("/business-invites", deps.AuthHandlers.AdminInviteBusiness)
+				}
 				r.Get("/tenants", deps.AuthHandlers.AdminListTenants)
 				r.Route("/tenants/{tenant_id}", func(r chi.Router) {
 					if deps.AuthHandlers.GetTenantPrivate != nil {

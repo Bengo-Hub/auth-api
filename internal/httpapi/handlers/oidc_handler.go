@@ -230,6 +230,11 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		if tenant := r.URL.Query().Get("tenant"); tenant != "" {
 			uq.Set("tenant", tenant)
 		}
+		// A platform owner's business invite rides along to the sign-up page (business_invite.go),
+		// which sends it with the registration. It is checked there, never trusted here.
+		if inv := r.URL.Query().Get("invite"); inv != "" && dest == "/signup" && len(inv) <= 2048 {
+			uq.Set("invite", inv)
+		}
 
 		u.RawQuery = uq.Encode()
 

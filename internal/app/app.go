@@ -2,14 +2,16 @@ package app
 
 import (
 	"context"
+	"strings"
 
 	"database/sql"
 	"fmt"
+	"net/http"
+	"time"
+
 	sharedcache "github.com/Bengo-Hub/cache"
 	"github.com/Bengo-Hub/httpware/objectstore"
 	"github.com/google/uuid"
-	"net/http"
-	"time"
 
 	eventslib "github.com/Bengo-Hub/shared-events"
 	"github.com/bengobox/auth-api/internal/audit"
@@ -183,7 +185,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	}
 
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger).
-		WithSetPasswordLinks(authService)
+		WithSetPasswordLinks(authService).
+		WithBusinessInvites(authService, parseAppURLs(cfg.App.BusinessInviteAppURLs))
 	adminHandler.SetTenantCache(redisClient)
 	adminHandler.SetAccessResolver(accessResolver)
 	adminHandler.SetDB(sqlDB)
@@ -365,6 +368,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			GetTenantPrivate:                   adminHandler.GetTenantPrivate,
 			AdminDeleteTenant:                  adminHandler.DeleteTenant,
 			AdminApproveTenant:                 adminHandler.ApproveTenant,
+			AdminInviteBusiness:                adminHandler.InviteBusiness,
 			AdminRejectTenant:                  adminHandler.RejectTenant,
 			AdminProvisionTenantOAuthRedirects: adminHandler.ProvisionTenantOAuthRedirects,
 			AdminGetTenantBackup:               adminHandler.GetTenantBackup,
@@ -615,4 +619,18 @@ func NewSubscriptionClient(cfg *config.Config, integrationSvc *integrations.Serv
 		)
 	}
 	return subClient
+}
+
+// parseAppURLs reads "app=url,app2=url2" (BUSINESS_INVITE_APP_URLS). Only https addresses are
+// kept, so an invite link can never point at a plain-http or script URL.
+func parseAppURLs(s string) map[string]string {
+	out := map[string]string{}
+	for _, part := range strings.Split(s, ",") {
+		k, v, ok := strings.Cut(strings.TrimSpace(part), "=")
+		k, v = strings.TrimSpace(k), strings.TrimSpace(v)
+		if ok && k != "" && strings.HasPrefix(v, "https://") {
+			out[k] = v
+		}
+	}
+	return out
 }

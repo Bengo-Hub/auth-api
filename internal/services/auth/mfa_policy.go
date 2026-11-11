@@ -631,6 +631,9 @@ var platformOnlyMetadataKeys = map[string]bool{
 	"billing_mode":                   true,
 	// is_demo exempts a whole tenant from what demo logins may not do; only the platform sets it.
 	"is_demo": true,
+	// The invite that created the organisation; set only by Register from a valid invite, so
+	// nobody can burn another business's invitation by naming its id.
+	MetaBusinessInvite: true,
 }
 
 // mfaPolicyMetadataKeys are written only through the MFA policy routes, by anyone.

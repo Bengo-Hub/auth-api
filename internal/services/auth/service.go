@@ -205,6 +205,9 @@ type RegisterInput struct {
 	// is granted the "admin" role for the newly created organisation.
 	OrgAction string
 	NewOrg    *NewOrgInput
+	// InviteToken is a platform owner's business invite (business_invite.go). With a valid one
+	// for this email, a new organisation is created active instead of waiting for review.
+	InviteToken string
 	// Role is an optional role hint for the initial TenantMembership.
 	// Used when the registering user was pre-invited with a specific role
 	// (e.g. "driver" for fleet invitations). If empty, defaults to "admin"
@@ -674,6 +677,21 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		// A registrant never sets keys that change what a token grants or what a sign-in must
 		// prove (is_platform_owner, billing_mode, the MFA policy): those are platform-owner only.
 		meta := withoutPlatformOnlyMetadata(coalesceMap(in.NewOrg.Metadata))
+		// A platform owner's invite skips the review; without one the organisation waits.
+		status := TenantStatusPendingApproval
+		if strings.TrimSpace(in.InviteToken) != "" {
+			inv, ierr := s.redeemBusinessInvite(ctx, in.InviteToken, in.Email)
+			if ierr != nil {
+				return nil, ierr
+			}
+			status = "active"
+			meta[MetaBusinessInvite] = inv.ID
+			// The invite's business type applies when the form gave none (fbo trials on MarketFlow).
+			if inv.UseCase != "" && in.NewOrg.UseCase == "" && len(in.NewOrg.UseCases) == 0 {
+				in.NewOrg.UseCase = inv.UseCase
+				in.NewOrg.UseCases = []string{inv.UseCase}
+			}
+		}
 		// Determine primary use case: first from UseCases array, fallback to UseCase string
 		primaryUseCase := in.NewOrg.UseCase
 		if primaryUseCase == "" && len(in.NewOrg.UseCases) > 0 {
@@ -689,7 +707,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 			SetUseCase(primaryUseCase).
 			SetUseCases(in.NewOrg.UseCases).
 			SetVatRegistered(in.NewOrg.VatRegistered).
-			SetStatus(TenantStatusPendingApproval)
+			SetStatus(status)
 		if len(meta) > 0 {
 			create = create.SetMetadata(meta)
 		}
