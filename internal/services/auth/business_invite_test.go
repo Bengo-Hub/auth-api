@@ -109,3 +109,24 @@ func TestRegisterWithBusinessInvite(t *testing.T) {
 		t.Fatalf("second use: %v", err)
 	}
 }
+
+// A self sign-up waits for review and records the app it came through, so the approval email can
+// open that app; a value sent in the form's metadata is never kept.
+func TestRegisterRecordsSignupClient(t *testing.T) {
+	s, client, _ := newPhoneSignupTestService(t)
+	s.hasher = password.NewHasher(config.SecurityConfig{})
+	ctx := context.Background()
+	slug := "self-" + uuid.NewString()[:8]
+	_, err := s.Register(ctx, RegisterInput{Email: "self-" + uuid.NewString()[:8] + "@example.com", Password: "Str0ng!Passw0rd-x", ClientID: "marketflow-ui", // secret-scan:allow (fake test fixture)
+		OrgAction: "create_new", NewOrg: &NewOrgInput{Name: "Self", Slug: slug, Metadata: map[string]any{MetaSignupClientID: "evil-client"}}})
+	if !errors.Is(err, ErrTenantPendingApproval) {
+		t.Fatalf("a self sign-up waits for review: %v", err)
+	}
+	ten, err := client.Tenant.Query().Where(tenant.SlugEQ(slug)).Only(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ten.Status != TenantStatusPendingApproval || ten.Metadata[MetaSignupClientID] != "marketflow-ui" {
+		t.Fatalf("status %q, signup client %v", ten.Status, ten.Metadata[MetaSignupClientID])
+	}
+}

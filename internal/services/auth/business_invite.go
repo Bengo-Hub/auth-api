@@ -32,6 +32,10 @@ const BusinessInviteTTL = 7 * 24 * time.Hour
 // MetaBusinessInvite is the tenant metadata key that records the invite that created it.
 const MetaBusinessInvite = "business_invite_id"
 
+// MetaSignupClientID is the OAuth client a self-registered organisation signed up through; the
+// approval email opens that app (its registered redirect address), never a URL from the request.
+const MetaSignupClientID = "signup_client_id"
+
 // BusinessInviteApps are the apps a business can be invited to.
 var BusinessInviteApps = map[string]bool{"marketflow": true}
 

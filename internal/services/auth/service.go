@@ -677,6 +677,10 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		// A registrant never sets keys that change what a token grants or what a sign-in must
 		// prove (is_platform_owner, billing_mode, the MFA policy): those are platform-owner only.
 		meta := withoutPlatformOnlyMetadata(coalesceMap(in.NewOrg.Metadata))
+		// The app the business signed up through: its approval email links back there.
+		if c := strings.TrimSpace(in.ClientID); c != "" && len(c) <= 200 {
+			meta[MetaSignupClientID] = c
+		}
 		// A platform owner's invite skips the review; without one the organisation waits.
 		status := TenantStatusPendingApproval
 		if strings.TrimSpace(in.InviteToken) != "" {

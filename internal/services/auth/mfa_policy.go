@@ -634,6 +634,8 @@ var platformOnlyMetadataKeys = map[string]bool{
 	// The invite that created the organisation; set only by Register from a valid invite, so
 	// nobody can burn another business's invitation by naming its id.
 	MetaBusinessInvite: true,
+	// Set only by Register from the sign-up's client; the approval email links to that app.
+	MetaSignupClientID: true,
 }
 
 // mfaPolicyMetadataKeys are written only through the MFA policy routes, by anyone.

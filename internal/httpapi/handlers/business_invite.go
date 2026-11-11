@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -9,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/bengobox/auth-api/internal/ent"
+	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/services/auth"
 )
@@ -88,4 +92,26 @@ func (h *AdminHandler) InviteBusiness(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"id": inv.ID, "email": inv.Email, "org_name": inv.OrgName, "app": inv.App, "expires_at": inv.ExpiresAt, "link": link,
 	})
+}
+
+// founderLoginURL is where an approval email sends the founder: the app they signed up through
+// (the origin of its registered https redirect address), or the accounts sign-in when there is
+// none. The app address comes from the OAuth client row, never from the registration request.
+func (h *AdminHandler) founderLoginURL(ctx context.Context, t *ent.Tenant) string {
+	fallback := fmt.Sprintf("%s/login?tenant=%s", strings.TrimRight(h.authUIURL, "/"), t.Slug)
+	cid, _ := t.Metadata[auth.MetaSignupClientID].(string)
+	if cid == "" {
+		return fallback
+	}
+	c, err := h.ent.OAuthClient.Query().Where(oauthclient.ClientIDEQ(cid)).Only(ctx)
+	if err != nil {
+		return fallback
+	}
+	for _, u := range c.RedirectUris {
+		p, err := url.Parse(u)
+		if err == nil && p.Scheme == "https" && p.Host != "" {
+			return p.Scheme + "://" + p.Host + "/"
+		}
+	}
+	return fallback
 }

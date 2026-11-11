@@ -1261,7 +1261,7 @@ func (h *AdminHandler) notifyFounder(ctx context.Context, t *ent.Tenant, eventTy
 		"email":     founder.Email,
 		"name":      name,
 		"org_name":  t.Name,
-		"login_url": fmt.Sprintf("%s/login?tenant=%s", strings.TrimRight(h.authUIURL, "/"), t.Slug),
+		"login_url": h.founderLoginURL(ctx, t),
 	}
 	if reason != "" {
 		payload["reason"] = reason
