@@ -528,6 +528,13 @@ func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	if tenantID != nil && h.subEnricher != nil && !enrollmentOnly {
 		h.subEnricher.EnrichAccessTokenInput(r.Context(), *tenantID, &tokenInput)
 	}
+	// Same exemption rule as the REST login/refresh flow: OIDC tokens never carried sub_exempt,
+	// so a platform tenant member who is not a platform owner was refused by service gates.
+	if tenantSlug != "" && !enrollmentOnly && !tokenInput.SubscriptionExempt {
+		if t, err := h.oidc.TenantBySlug(r.Context(), tenantSlug); err == nil {
+			tokenInput.SubscriptionExempt = auth.TenantSubscriptionExempt(t)
+		}
+	}
 	access, accessExp, err := h.tokenSvc.MintAccessToken(tokenInput)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "server_error", "mint access token failed", nil)

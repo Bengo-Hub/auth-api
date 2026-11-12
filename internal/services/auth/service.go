@@ -2290,7 +2290,7 @@ func (s *Service) issueSessionWithExisting(ctx context.Context, sessionEntity *e
 
 		// Platform-granted subscription exemption (auth is the source of truth). Stamped as the
 		// sub_exempt JWT claim so every downstream service bypasses subscription gating.
-		tokenInput.SubscriptionExempt = tenantEntity.SubscriptionExempt
+		tokenInput.SubscriptionExempt = TenantSubscriptionExempt(tenantEntity)
 
 		// Platform owner may also be flagged via metadata (in addition to the canonical
 		// "codevertex" slug) so a renamed/secondary platform tenant still bypasses gating —
