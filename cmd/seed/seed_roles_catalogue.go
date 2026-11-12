@@ -94,9 +94,22 @@ var hadiaRoles = map[string]string{
 	"hadia_staff": "Hadia staff",
 }
 
+// marketflowRoles are MarketFlow's SSO roles (scope = marketflow), named as marketflow-api's role
+// push names them so a reseed and the push agree (marketflow-api internal/modules/rbac/auth_roles.go).
+// marketflow-api maps each to its own local role; none of them is admin tier in auth.
+// marketflow_reviewer is the least-privilege Meta App Review account: marketflow-api limits it to an
+// explicit allow-list of the endpoints Meta's reviewers test.
+var marketflowRoles = map[string]string{
+	"marketflow_admin":    "MarketFlow admin",
+	"marketflow_member":   "MarketFlow member",
+	"marketflow_reviewer": "MarketFlow app reviewer",
+}
+
 // roleScope infers a coarse scope grouping for a role code.
 func roleScope(code string) string {
 	switch {
+	case marketflowRoles[code] != "":
+		return "marketflow"
 	case erpRoles[code]:
 		return "erp"
 	case posRoles[code]:
@@ -119,6 +132,9 @@ func roleScope(code string) string {
 // roleDisplayName turns a snake_case role code into a Title Case display name.
 func roleDisplayName(code string) string {
 	if name := hadiaRoles[code]; name != "" {
+		return name
+	}
+	if name := marketflowRoles[code]; name != "" {
 		return name
 	}
 	parts := strings.Split(code, "_")

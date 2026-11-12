@@ -17,6 +17,8 @@ func TestIsPlatformAdminRole(t *testing.T) {
 		{"member alone does not qualify", []string{"member"}, false},
 		{"custom COO role does not qualify", []string{"COO"}, false},
 		{"owner alone does not qualify (not admin/superuser)", []string{"owner"}, false},
+		{"MarketFlow app reviewer does not qualify", []string{"marketflow_reviewer"}, false},
+		{"MarketFlow app reviewer in the platform tenant does not qualify", []string{"member", "marketflow_reviewer"}, false},
 		{"empty roles does not qualify", []string{}, false},
 		{"nil roles does not qualify", nil, false},
 		{"case-sensitive: Admin (capitalized) does not qualify", []string{"Admin"}, false},

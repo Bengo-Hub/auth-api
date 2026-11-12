@@ -98,6 +98,14 @@ var hadiaStaffSelfService = []string{
 	"auth.notifications.view",
 }
 
+// marketflowSelfService is the auth.* self-service set of MarketFlow's SSO roles. What they may do
+// in MarketFlow is decided by marketflow-api.
+var marketflowSelfService = []string{
+	"auth.profile.view", "auth.profile.change",
+	"auth.preferences.view", "auth.preferences.change",
+	"auth.notifications.view",
+}
+
 // rolePerms maps each role name to its allowed permission codes.
 // superuser and admin receive all permissions (empty slice = all).
 var rolePerms = map[string][]string{
@@ -317,6 +325,13 @@ var rolePerms = map[string][]string{
 	"hadia_finance": hadiaStaffSelfService,
 	"hadia_support": hadiaStaffSelfService,
 	"hadia_staff":   hadiaStaffSelfService,
+	// MarketFlow SSO roles. marketflow-api owns what they may do and pushes the catalogue
+	// (POST /api/v1/s2s/roles/sync, scope marketflow); auth-api seeds the same codes so they can be
+	// assigned before the first push, with auth.* self-service only. marketflow_reviewer is the
+	// least-privilege Meta App Review role.
+	"marketflow_admin":    marketflowSelfService,
+	"marketflow_member":   marketflowSelfService,
+	"marketflow_reviewer": marketflowSelfService,
 	// viewer — read-only cross-service role for auditors, observers, and reporting users.
 	// Can view data across services but cannot create, modify, or delete anything.
 	"viewer": {
