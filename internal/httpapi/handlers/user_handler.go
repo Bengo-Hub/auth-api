@@ -902,6 +902,14 @@ func (h *UserHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_country", "Unrecognized country code.", nil)
 		return
 	}
+	// The time zone every app shows this user's dates in (documents use the outlet's, then the
+	// tenant's). It must be an IANA name such as Africa/Nairobi, or the apps could not use it.
+	if req.Timezone != "" {
+		if _, tzErr := time.LoadLocation(req.Timezone); tzErr != nil {
+			writeError(w, http.StatusBadRequest, "invalid_timezone", "Unrecognized time zone, use a name such as Africa/Nairobi.", nil)
+			return
+		}
+	}
 
 	u, err := h.ent.User.Get(r.Context(), userID)
 	if err != nil {

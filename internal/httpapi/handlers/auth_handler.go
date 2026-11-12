@@ -1406,6 +1406,11 @@ type newOrgRequest struct {
 	TaxPin          string `json:"tax_pin,omitempty"`           // KRA PIN
 	VatRegistered   bool   `json:"vat_registered,omitempty"`    // registered for VAT?
 	VatRegisteredOn string `json:"vat_registered_on,omitempty"` // ISO date (YYYY-MM-DD)
+	// Timezone is the organisation's IANA time zone as the sign-up browser detected it (the person
+	// can change it on the form); Country is its ISO country code. Both optional: the server falls
+	// back to the country's zone, then Africa/Nairobi.
+	Timezone string `json:"timezone,omitempty"`
+	Country  string `json:"country,omitempty"`
 }
 
 // toNewOrgInput maps the wire newOrgRequest to the service NewOrgInput, parsing
@@ -1423,6 +1428,8 @@ func toNewOrgInput(req *newOrgRequest) *auth.NewOrgInput {
 		Metadata:      req.Metadata,
 		TaxPin:        strings.TrimSpace(req.TaxPin),
 		VatRegistered: req.VatRegistered,
+		Timezone:      strings.TrimSpace(req.Timezone),
+		Country:       strings.ToUpper(strings.TrimSpace(req.Country)),
 	}
 	if s := strings.TrimSpace(req.VatRegisteredOn); s != "" {
 		// Accept either a plain date (YYYY-MM-DD) or a full RFC3339 timestamp.

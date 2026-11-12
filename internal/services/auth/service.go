@@ -178,6 +178,10 @@ type NewOrgInput struct {
 	TaxPin          string     // KRA PIN
 	VatRegistered   bool       // Whether the business is registered for VAT
 	VatRegisteredOn *time.Time // Date of VAT registration (when VatRegistered=true)
+	// Timezone (IANA) and Country (ISO 3166-1 alpha-2) as detected or chosen at sign-up. SSO owns
+	// both; services read them from the tenant cache and the auth.tenant events.
+	Timezone string
+	Country  string
 }
 
 // RegisterInput captures registration payload.
@@ -721,6 +725,18 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		if in.NewOrg.VatRegisteredOn != nil {
 			create = create.SetVatRegisteredOn(*in.NewOrg.VatRegisteredOn)
 		}
+		// SSO owns the organisation's time zone: what the sign-up browser detected (or the person
+		// picked), else the country's usual zone, else Africa/Nairobi. Every service reads it from
+		// the tenant cache and the auth.tenant events; an admin changes it in Organisation settings.
+		orgCountry := in.NewOrg.Country
+		if orgCountry == "" {
+			orgCountry, _ = in.Profile["country"].(string)
+		}
+		profileTZ, _ := in.Profile["timezone"].(string)
+		create = create.SetTimezone(ResolveTimezone(orgCountry, in.NewOrg.Timezone, profileTZ))
+		if c := strings.ToUpper(strings.TrimSpace(orgCountry)); len(c) == 2 {
+			create = create.SetCountry(c)
+		}
 		tenantEntity, err = create.Save(ctx)
 		if err != nil {
 			if ent.IsConstraintError(err) {
@@ -777,6 +793,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 			"vat_registered":    tenantEntity.VatRegistered,
 			"vat_registered_on": tenantEntity.VatRegisteredOn,
 			"country":           tenantEntity.Country,
+			"timezone":          tenantEntity.Timezone,
 		})
 
 		// Initialize default HQ outlet — persist to DB + publish auth.outlet.created.
@@ -831,6 +848,13 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 	}
 
 	email := normalizeEmail(in.Email)
+	// Every user has a time zone of their own (screens show their dates in it): the one picked or
+	// detected at sign-up, else the organisation's. They change it later on their Profile page.
+	in.Profile = coalesceMap(in.Profile)
+	if tz, _ := in.Profile["timezone"].(string); !ValidTimezone(tz) {
+		country, _ := in.Profile["country"].(string)
+		in.Profile["timezone"] = ResolveTimezone(country, tenantTimezone(tenantEntity))
+	}
 	userCreate := s.entClient.User.Create().
 		SetEmail(email).
 		SetStatus("active").
