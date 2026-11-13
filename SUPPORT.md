@@ -10,13 +10,13 @@ Need help with the Auth Service? This guide outlines the available support chann
 
 ## Internal Support (Codevertex Teams)
 
-- Engineering Slack: `#bengobox-auth`, monitored during business hours (EAT).
+- Engineering Slack: `#codevertex-auth`, monitored during business hours (EAT).
 - Pager rotation: see the on-call schedule in Opsgenie.
 - Emergency escalation: call the IAM on-call engineer if SSO failures impact production.
 
 ## External Integrators / Partners
 
-- Email `support@bengobox.com` with tenant ID, client ID, and correlation IDs.
+- Email `support@codevertexafrica.com` with tenant ID, client ID, and correlation IDs.
 - Response target: within 1 business day.
 - Critical outages: escalate via partnership account manager.
 

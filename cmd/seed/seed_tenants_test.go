@@ -32,6 +32,20 @@ func TestHadiaTenantSeedsTheStaffMFAPolicy(t *testing.T) {
 	}
 }
 
+// The platform tenant is seeded with support@ as its support email, once: an edit survives a reseed.
+func TestCodevertexSupportEmailSeed(t *testing.T) {
+	fresh := seedTenantMetadata(nil, map[string]any{"is_platform_owner": true}, codevertexDefaultMetadata)
+	support, _ := fresh["support"].(map[string]any)
+	if support["email"] != "support@codevertexafrica.com" {
+		t.Fatalf("seeded support = %v", fresh["support"])
+	}
+	edited := map[string]any{"support": map[string]any{"email": "help@codevertexafrica.com"}}
+	again := seedTenantMetadata(edited, map[string]any{"is_platform_owner": true}, codevertexDefaultMetadata)
+	if s, _ := again["support"].(map[string]any); s["email"] != "help@codevertexafrica.com" {
+		t.Fatalf("reseed overwrote the edited support contact: %v", again["support"])
+	}
+}
+
 // Enforced keys always win; a default fills only a gap, so an edited policy survives a reseed.
 func TestSeedTenantMetadata(t *testing.T) {
 	edited := map[string]any{"required_roles": []any{"hadia_admin"}}

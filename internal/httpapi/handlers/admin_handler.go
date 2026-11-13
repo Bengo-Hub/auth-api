@@ -268,6 +268,9 @@ func (h *AdminHandler) publishTenantLifecycleEvent(ctx context.Context, t *ent.T
 		"vat_registered_on": t.VatRegisteredOn,
 		"country":           t.Country,
 		"timezone":          t.Timezone,
+		"contact_email":     t.ContactEmail,
+		"contact_phone":     t.ContactPhone,
+		"support":           tenantSupportPayload(t.Metadata),
 	})
 }
 
@@ -374,6 +377,12 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	metadata := make(map[string]interface{})
 	if req.Metadata != nil {
 		metadata = req.Metadata
+	}
+	if v, ok := metadata[MetadataKeySupport]; ok {
+		if err := applyTenantSupportMetadata(metadata, v); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_support_contact", err.Error(), nil)
+			return
+		}
 	}
 	if req.ContactEmail != "" {
 		metadata["contact_email"] = req.ContactEmail
@@ -525,6 +534,12 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 	metadata := make(map[string]interface{})
 	if req.Metadata != nil {
 		metadata = req.Metadata
+	}
+	if v, ok := metadata[MetadataKeySupport]; ok {
+		if err := applyTenantSupportMetadata(metadata, v); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_support_contact", err.Error(), nil)
+			return
+		}
 	}
 	if req.ContactEmail != "" {
 		metadata["contact_email"] = req.ContactEmail
@@ -1023,6 +1038,13 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 				// the whole metadata back on every save, so these are skipped (the stored value
 				// stays), not refused.
 				if auth.IsMFAPolicyMetadataKey(k) || (auth.IsPlatformOnlyMetadataKey(k) && !h.requireAdmin(r)) {
+					continue
+				}
+				if k == MetadataKeySupport {
+					if err := applyTenantSupportMetadata(metadata, v); err != nil {
+						writeError(w, http.StatusBadRequest, "invalid_support_contact", err.Error(), nil)
+						return
+					}
 					continue
 				}
 				if k == MetadataKeyServiceBranding {

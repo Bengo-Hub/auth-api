@@ -83,6 +83,17 @@ var hadiaTenantSpec = tenantSpec{
 	},
 }
 
+// platformSupportEmail is where platform support goes: Codevertex's own tickets and the platform
+// tickets of every tenant (support routing, 12 November 2026). Sales, legal and privacy stay on
+// info@ (the contact email).
+const platformSupportEmail = "support@codevertexafrica.com"
+
+// codevertexDefaultMetadata seeds the platform tenant's support contact (metadata "support", see
+// handlers.MetadataKeySupport). Set once: an edit made on auth-ui My Tenant survives every redeploy.
+var codevertexDefaultMetadata = map[string]any{
+	"support": map[string]any{"email": platformSupportEmail},
+}
+
 // seedHadiaTenant reports whether the Hadia tenant is seeded. The seed runs on every auth-api
 // deploy, and this tenant turns on phone self-signup, so it stays out of production until Hadia
 // goes live (go-live step 8): set SEED_HADIA_TENANT=true then. Local and staging seeds set it too.
@@ -125,7 +136,8 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			isPlatformOwner: true, useCases: []string{"services"},
 			logoURL: mediaBase + "/images/logo/codevertex.png", website: "https://codevertexafrica.com",
 			contactEmail: "info@codevertexafrica.com", contactPhone: "+254 743 793 901",
-			brandColors: map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
+			brandColors:     map[string]any{"primary": "#9100B0", "secondary": "#6E6873", "accent": "#000000"},
+			defaultMetadata: codevertexDefaultMetadata,
 		},
 		{
 			name: "Masterspace Solutions", slug: "mss", baseDomain: "masterspace.co.ke",
