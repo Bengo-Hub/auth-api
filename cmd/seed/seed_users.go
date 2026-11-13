@@ -108,12 +108,12 @@ type demoStaffSpec struct {
 }
 
 // allPOSOutlets lists all codevertex-demo outlet slugs that matter for POS login.
-var allPOSOutlets = []string{"demo-hospitality", "demo-retail", "demo-quick", "demo-pharmacy", "demo-services", "demo-printing"}
+var allPOSOutlets = []string{"demo-hospitality", "demo-retail", "demo-quick", "demo-services", "demo-printing"}
 
 // demoStaff lists all cross-platform demo staff under codevertex-demo.
 // PIN layout: manager=1111, cashier=2222, waiter=3333, kitchen=4444, bar=5555,
 //
-//	receptionist=6666, pharmacist=7777, stylist=8888, therapist=9999, technician=7070.
+//	receptionist=6666, stylist=8888, therapist=9999, technician=7070.
 //
 // Admin (0000) is in seedDemoTenantAdmin.
 // Auth-api publishes auth.user.created + auth.user.pin_set events so pos-api
@@ -126,8 +126,6 @@ var demoStaff = []demoStaffSpec{
 	{"kitchen@demo.codevertexafrica.com", "Demo Kitchen", "kitchen", "4444", []string{"demo-hospitality", "demo-quick"}},
 	{"bar@demo.codevertexafrica.com", "Demo Bar Staff", "bar", "5555", []string{"demo-hospitality"}},
 	{"receptionist@demo.codevertexafrica.com", "Demo Receptionist", "receptionist", "6666", []string{"demo-hospitality", "demo-services", "demo-printing"}},
-	// Pharmacy role
-	{"pharmacist@demo.codevertexafrica.com", "Grace Pharmacist", "pharmacist", "7777", []string{"demo-pharmacy"}},
 	// Services roles (beauty salon / spa / wellness)
 	{"stylist@demo.codevertexafrica.com", "Demo Stylist", "stylist", "8888", []string{"demo-services"}},
 	{"therapist@demo.codevertexafrica.com", "Demo Therapist", "therapist", "9999", []string{"demo-services"}},
@@ -150,24 +148,20 @@ var demoStaff = []demoStaffSpec{
 	{"mgr.hospitality@demo.codevertexafrica.com", "Demo Hospitality Manager", "manager", "", []string{"demo-hospitality"}},
 	{"mgr.retail@demo.codevertexafrica.com", "Demo Retail Manager", "manager", "", []string{"demo-retail"}},
 	{"mgr.quick@demo.codevertexafrica.com", "Demo Quick-Service Manager", "manager", "", []string{"demo-quick"}},
-	{"mgr.pharmacy@demo.codevertexafrica.com", "Demo Pharmacy Manager", "manager", "", []string{"demo-pharmacy"}},
 	{"mgr.services@demo.codevertexafrica.com", "Demo Services Manager", "manager", "", []string{"demo-services"}},
 	{"mgr.warehouse@demo.codevertexafrica.com", "Demo Warehouse Manager", "manager", "", []string{"demo-warehouse"}},
 	{"mgr.mfg@demo.codevertexafrica.com", "Demo Manufacturing Manager", "manager", "", []string{"demo-manufacturing"}},
 	// Multi-location manager — assigned to 3 outlets across POS + non-POS use_cases to
 	// prove the select-outlet multi-location flow (user must pick one before entering).
-	{"mgr.multi@demo.codevertexafrica.com", "Demo Multi-Outlet Manager", "manager", "", []string{"demo-retail", "demo-pharmacy", "demo-manufacturing"}},
+	{"mgr.multi@demo.codevertexafrica.com", "Demo Multi-Outlet Manager", "manager", "", []string{"demo-retail", "demo-services", "demo-manufacturing"}},
 
-	// Codevertex Afya (hospital-service) clinical staff — SSO-only (no POS PIN), scoped
-	// to demo-hospital. Distinct emails from pos-api's own pharmacist@demo above (this is
-	// an additive, hospital-service-scoped identity set — pos-api's pharmacy demo data is
-	// untouched). doctor/nurse/pharmacist/records_clerk are hospital-api's OWN local RBAC roles
-	// (rbac/seed.go), unrelated to pos-api's clinical module — that module (and its own
-	// pharmacist/records_clerk role rows) was decisively removed 2026-08-29; this comment
-	// previously (incorrectly) implied they still came from there.
+	// Codevertex Afya (hospital-service) clinical staff, SSO-only (no POS PIN), scoped to
+	// demo-hospital. doctor/nurse/records_clerk are hospital-api's own local RBAC roles
+	// (rbac/seed.go). The pharmacist personas (pharmacist@, pharmacist.afya@,
+	// pharmacist.chemist@, mgr.pharmacy@) were removed with the POS pharmacy outlet on
+	// 2026-11-13 (owner decision); the pharmacist role itself stays for real tenants.
 	{"doctor@demo.codevertexafrica.com", "Dr. Amina Otieno", "doctor", "", []string{"demo-hospital"}},
 	{"nurse@demo.codevertexafrica.com", "Nurse Faith Wanjiru", "nurse", "", []string{"demo-hospital"}},
-	{"pharmacist.afya@demo.codevertexafrica.com", "Demo Afya Pharmacist", "pharmacist", "", []string{"demo-hospital"}},
 	{"records@demo.codevertexafrica.com", "Demo Afya Records Clerk", "records_clerk", "", []string{"demo-hospital"}},
 	{"mgr.hospital@demo.codevertexafrica.com", "Demo Afya Clinic Manager", "manager", "", []string{"demo-hospital"}},
 	// hospital-api's own RoleCashier (rbac/seed.go) — the universal billing-desk fallback that
@@ -177,12 +171,6 @@ var demoStaff = []demoStaffSpec{
 	// POS outlets, not demo-hospital. Added 2026-09-02 so this already-built role is actually
 	// demoable, not just correct in code nobody could reach from the login screen.
 	{"cashier.afya@demo.codevertexafrica.com", "Demo Afya Cashier", "cashier", "", []string{"demo-hospital"}},
-
-	// Codevertex Afya Chemist tier — a standalone walk-in-sale/dispensing-only outlet
-	// (demo-chemist, distinct from demo-hospital), typically a real-world 1-2-person shop. One
-	// account, holding hospital-api's pharmacist role (already grants prescribe+dispense+
-	// collect_own — everything the New Sale flow needs solo), is enough to demo the whole thing.
-	{"pharmacist.chemist@demo.codevertexafrica.com", "Demo Chemist Pharmacist", "pharmacist", "", []string{"demo-chemist"}},
 
 	// Maskani (property-service) estate staff, SSO-only, scoped to demo-estate (Shaba Village).
 	// Roles are property-specific names on purpose: codevertex-demo hosts every vertical, so

@@ -169,7 +169,7 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 			// "manufacturing" was missing even though the demo owns a manufacturing outlet
 			// (MFG), an mgr.mfg@ demo user, and seeded production batches + BOM stock.
 			useCases: []string{
-				"hospitality", "retail", "quick_service", "pharmacy", "services",
+				"hospitality", "retail", "quick_service", "services",
 				"logistics", "warehouse", "manufacturing", "commercial_weighing",
 				"axle_load_enforcement", "hospital", "property",
 			},
@@ -357,13 +357,8 @@ var outletsByTenant = map[string][]outletDef{
 			lat:     -0.0951611, lng: 34.7576062,
 			pinMsg: "Welcome to Demo Express. Fast service starts here!",
 		},
-		// Pharmacy outlet
-		{
-			slug: "demo-pharmacy", code: "PHARMA",
-			name: "Demo Health Pharmacy", useCase: "pharmacy", isHQ: false,
-			address: "Demo Health Centre, Upper Hill, Nairobi",
-			pinMsg:  "Welcome to Demo Health Pharmacy. Verify prescriptions at counter",
-		},
+		// (The "Demo Health Pharmacy" POS outlet was removed on 2026-11-13: pharmacy lives in
+		// hospital-service since 2026-08-29.)
 		// Hospital/clinic outlet — Codevertex Afya (consultation, lab, pharmacy, billing).
 		// No facility_type metadata set: this is the full-tier showcase outlet (hospital-ui's
 		// useFacilityType() falls back to 'hospital', the richest tier, when an outlet has none
