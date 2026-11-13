@@ -636,6 +636,9 @@ var platformOnlyMetadataKeys = map[string]bool{
 	MetaBusinessInvite: true,
 	// Set only by Register from the sign-up's client; the approval email links to that app.
 	MetaSignupClientID: true,
+	// Set only by Register from a gift a friend link; the referral itself lives in
+	// subscriptions-api, this is the record of what the sign-up carried.
+	MetaReferredByCode: true,
 }
 
 // mfaPolicyMetadataKeys are written only through the MFA policy routes, by anyone.

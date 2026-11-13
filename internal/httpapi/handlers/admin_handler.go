@@ -56,8 +56,8 @@ type AdminHandler struct {
 	authUIURL    string
 	// setPassword issues an invite's one-time set-password link (auth.Service); nil leaves the
 	// welcome email with the sign-in link only.
-	setPassword  SetPasswordLinker
-	tenantCache  *redis.Client
+	setPassword SetPasswordLinker
+	tenantCache *redis.Client
 	// tenantBackups builds tenant backups from every service's export (tenant_backup.go).
 	tenantBackups *tenantbackup.Service
 	// access decides members' services (member service assignment, S2S ?service= filter).
@@ -404,7 +404,7 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if plan != "" && h.subClient != nil {
-		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan, t.Slug, t.Name)
+		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan, t.Slug, t.Name, "")
 		if err != nil {
 			h.logger.Warn("failed to provision trial subscription", zap.String("tenant_id", t.ID.String()), zap.Error(err))
 		} else {
@@ -563,7 +563,7 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 	}
 
 	if plan != "" && h.subClient != nil {
-		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan, t.Slug, t.Name)
+		sub, err := h.subClient.CreateTrialSubscription(r.Context(), t.ID, plan, t.Slug, t.Name, "")
 		if err != nil {
 			h.logger.Warn("failed to provision trial subscription", zap.String("tenant_id", t.ID.String()), zap.Error(err))
 		} else {

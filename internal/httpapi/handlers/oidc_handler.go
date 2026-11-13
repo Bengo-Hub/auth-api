@@ -235,6 +235,10 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		if inv := r.URL.Query().Get("invite"); inv != "" && dest == "/signup" && len(inv) <= 2048 {
 			uq.Set("invite", inv)
 		}
+		// A gift a friend link's code rides along the same way; Register keeps only a valid one.
+		if ref := auth.NormalizeReferralCode(r.URL.Query().Get("ref")); ref != "" && dest == "/signup" {
+			uq.Set("ref", ref)
+		}
 
 		u.RawQuery = uq.Encode()
 

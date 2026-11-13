@@ -330,6 +330,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		OrgAction:     req.OrgAction,
 		NewOrg:        newOrg,
 		InviteToken:   req.InviteToken,
+		ReferralCode:  req.ReferralCode,
 		Role:          req.Role,
 		TermsAccepted: req.TermsAccepted,
 		// The email/password path only reaches here after the OTP verify-code gate
@@ -377,6 +378,7 @@ func (h *AuthHandler) RegisterOAuth(w http.ResponseWriter, r *http.Request) {
 		OrgAction:     req.OrgAction,
 		NewOrg:        newOrg,
 		InviteToken:   req.InviteToken,
+		ReferralCode:  req.ReferralCode,
 		TermsAccepted: req.TermsAccepted,
 		// OAuth signup: the email is provider-verified (Google login is rejected
 		// upstream when unverified), so the account starts email-verified.
@@ -1462,6 +1464,8 @@ type registerRequest struct {
 	// InviteToken is a platform owner's business invite (skips the review for a new organisation).
 	InviteToken string         `json:"invite_token,omitempty"`
 	NewOrg      *newOrgRequest `json:"new_org,omitempty"`
+	// ReferralCode is a gift a friend link's code (kept only when well formed).
+	ReferralCode string `json:"referral_code,omitempty"`
 	// Role is an optional role hint for pre-invited users (e.g. "driver" for fleet invitations).
 	Role string `json:"role,omitempty"`
 	// TermsAccepted records whether the user accepted the Terms of Service at signup.
@@ -1521,6 +1525,8 @@ type oauthRegisterRequest struct {
 	InviteToken   string         `json:"invite_token,omitempty"`
 	NewOrg        *newOrgRequest `json:"new_org,omitempty"`
 	TermsAccepted bool           `json:"terms_accepted"`
+	// ReferralCode is a gift a friend link's code (kept only when well formed).
+	ReferralCode string `json:"referral_code,omitempty"`
 }
 
 // ListSessions returns all active sessions for the authenticated user.

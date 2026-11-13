@@ -245,7 +245,9 @@ func (c *Client) GetEntitledServices(ctx context.Context, tenantID uuid.UUID) (*
 // CreateTrialSubscription provisions a new trial subscription for a tenant.
 // slug and name seed the subscription service's local tenant projection on demand,
 // so provisioning at signup does not race the async auth.tenant.created sync.
-func (c *Client) CreateTrialSubscription(ctx context.Context, tenantID uuid.UUID, planCode, slug, name string) (*TenantSubscription, error) {
+// referredByCode is the inviting tenant's gift a friend code ("" for none); subscriptions-api
+// records the referrer from it, refusing a self-referral.
+func (c *Client) CreateTrialSubscription(ctx context.Context, tenantID uuid.UUID, planCode, slug, name, referredByCode string) (*TenantSubscription, error) {
 	path := "/api/v1/subscription"
 
 	reqBody := map[string]any{
@@ -254,6 +256,9 @@ func (c *Client) CreateTrialSubscription(ctx context.Context, tenantID uuid.UUID
 		"trial_days":  14, // Default trial period
 		"tenant_slug": slug,
 		"tenant_name": name,
+	}
+	if referredByCode != "" {
+		reqBody["referred_by_code"] = referredByCode
 	}
 
 	headers := make(map[string]string)

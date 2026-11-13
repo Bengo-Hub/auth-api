@@ -212,6 +212,11 @@ type RegisterInput struct {
 	// InviteToken is a platform owner's business invite (business_invite.go). With a valid one
 	// for this email, a new organisation is created active instead of waiting for review.
 	InviteToken string
+	// ReferralCode is the inviting tenant's code from a "gift a friend" link (subscriptions-api
+	// referral code, CV-XXXXXXXX). It is passed to the new organisation's trial subscription,
+	// which records the referrer (self-referral refused there) and pays both sides on the first
+	// payment. A malformed code is ignored, never an error.
+	ReferralCode string
 	// Role is an optional role hint for the initial TenantMembership.
 	// Used when the registering user was pre-invited with a specific role
 	// (e.g. "driver" for fleet invitations). If empty, defaults to "admin"
@@ -700,6 +705,11 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 				in.NewOrg.UseCases = []string{inv.UseCase}
 			}
 		}
+		// A gift a friend link's code is kept for the record and given to the trial subscription.
+		referralCode := NormalizeReferralCode(in.ReferralCode)
+		if referralCode != "" {
+			meta[MetaReferredByCode] = referralCode
+		}
 		// Determine primary use case: first from UseCases array, fallback to UseCase string
 		primaryUseCase := in.NewOrg.UseCase
 		if primaryUseCase == "" && len(in.NewOrg.UseCases) > 0 {
@@ -754,7 +764,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 		plan := defaultTrialPlan(primaryUseCase, meta, in.SelectedPlan)
 
 		if s.subscriptionCl != nil {
-			sub, err := s.subscriptionCl.CreateTrialSubscription(ctx, tenantEntity.ID, plan, tenantEntity.Slug, tenantEntity.Name)
+			sub, err := s.subscriptionCl.CreateTrialSubscription(ctx, tenantEntity.ID, plan, tenantEntity.Slug, tenantEntity.Name, referralCode)
 			if err != nil {
 				s.logger.Warn("failed to provision trial subscription",
 					zap.String("tenant_id", tenantEntity.ID.String()),
