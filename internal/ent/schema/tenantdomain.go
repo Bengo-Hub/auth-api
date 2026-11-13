@@ -30,7 +30,7 @@ func (TenantDomain) Fields() []ent.Field {
 		field.String("hostname").NotEmpty().Unique().
 			Comment("Lower-case hostname without scheme or port, e.g. shop.example.co.ke"),
 		field.String("status").Default("pending_dns").
-			Comment("pending_dns | issuing | active | failed | removing"),
+			Comment("pending_dns | issuing | active | failed | removing | paused (plan no longer includes it)"),
 		field.String("dns_mode").Default("external").
 			Comment("cloudflare: we manage the record in our account; external: the tenant adds it"),
 		field.String("cf_zone_id").Optional().Comment("Cloudflare zone that holds the record (dns_mode=cloudflare)"),
@@ -38,6 +38,10 @@ func (TenantDomain) Fields() []ent.Field {
 		field.String("last_error").Optional().Comment("Why the last reconcile step did not finish"),
 		field.Time("last_checked_at").Optional().Nillable(),
 		field.Time("activated_at").Optional().Nillable(),
+		// Set when the tenant's plan no longer includes custom domains for this app; the domain
+		// keeps working until then, and is paused after it (owner, 2026-11-12: 14 days).
+		field.Time("grace_until").Optional().Nillable().
+			Comment("End of the grace after a plan stopped including this custom domain; paused after it"),
 		field.String("created_by").Optional().Comment("User id of whoever added it"),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),

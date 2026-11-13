@@ -105,6 +105,11 @@ func ActivatedAt(v time.Time) predicate.TenantDomain {
 	return predicate.TenantDomain(sql.FieldEQ(FieldActivatedAt, v))
 }
 
+// GraceUntil applies equality check predicate on the "grace_until" field. It's identical to GraceUntilEQ.
+func GraceUntil(v time.Time) predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldEQ(FieldGraceUntil, v))
+}
+
 // CreatedBy applies equality check predicate on the "created_by" field. It's identical to CreatedByEQ.
 func CreatedBy(v string) predicate.TenantDomain {
 	return predicate.TenantDomain(sql.FieldEQ(FieldCreatedBy, v))
@@ -743,6 +748,56 @@ func ActivatedAtIsNil() predicate.TenantDomain {
 // ActivatedAtNotNil applies the NotNil predicate on the "activated_at" field.
 func ActivatedAtNotNil() predicate.TenantDomain {
 	return predicate.TenantDomain(sql.FieldNotNull(FieldActivatedAt))
+}
+
+// GraceUntilEQ applies the EQ predicate on the "grace_until" field.
+func GraceUntilEQ(v time.Time) predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldEQ(FieldGraceUntil, v))
+}
+
+// GraceUntilNEQ applies the NEQ predicate on the "grace_until" field.
+func GraceUntilNEQ(v time.Time) predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldNEQ(FieldGraceUntil, v))
+}
+
+// GraceUntilIn applies the In predicate on the "grace_until" field.
+func GraceUntilIn(vs ...time.Time) predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldIn(FieldGraceUntil, vs...))
+}
+
+// GraceUntilNotIn applies the NotIn predicate on the "grace_until" field.
+func GraceUntilNotIn(vs ...time.Time) predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldNotIn(FieldGraceUntil, vs...))
+}
+
+// GraceUntilGT applies the GT predicate on the "grace_until" field.
+func GraceUntilGT(v time.Time) predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldGT(FieldGraceUntil, v))
+}
+
+// GraceUntilGTE applies the GTE predicate on the "grace_until" field.
+func GraceUntilGTE(v time.Time) predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldGTE(FieldGraceUntil, v))
+}
+
+// GraceUntilLT applies the LT predicate on the "grace_until" field.
+func GraceUntilLT(v time.Time) predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldLT(FieldGraceUntil, v))
+}
+
+// GraceUntilLTE applies the LTE predicate on the "grace_until" field.
+func GraceUntilLTE(v time.Time) predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldLTE(FieldGraceUntil, v))
+}
+
+// GraceUntilIsNil applies the IsNil predicate on the "grace_until" field.
+func GraceUntilIsNil() predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldIsNull(FieldGraceUntil))
+}
+
+// GraceUntilNotNil applies the NotNil predicate on the "grace_until" field.
+func GraceUntilNotNil() predicate.TenantDomain {
+	return predicate.TenantDomain(sql.FieldNotNull(FieldGraceUntil))
 }
 
 // CreatedByEQ applies the EQ predicate on the "created_by" field.

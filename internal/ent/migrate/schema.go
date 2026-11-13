@@ -913,6 +913,7 @@ var (
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "last_checked_at", Type: field.TypeTime, Nullable: true},
 		{Name: "activated_at", Type: field.TypeTime, Nullable: true},
+		{Name: "grace_until", Type: field.TypeTime, Nullable: true},
 		{Name: "created_by", Type: field.TypeString, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},

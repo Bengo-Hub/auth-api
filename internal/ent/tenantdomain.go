@@ -24,7 +24,7 @@ type TenantDomain struct {
 	Service string `json:"service,omitempty"`
 	// Lower-case hostname without scheme or port, e.g. shop.example.co.ke
 	Hostname string `json:"hostname,omitempty"`
-	// pending_dns | issuing | active | failed | removing
+	// pending_dns | issuing | active | failed | removing | paused (plan no longer includes it)
 	Status string `json:"status,omitempty"`
 	// cloudflare: we manage the record in our account; external: the tenant adds it
 	DNSMode string `json:"dns_mode,omitempty"`
@@ -38,6 +38,8 @@ type TenantDomain struct {
 	LastCheckedAt *time.Time `json:"last_checked_at,omitempty"`
 	// ActivatedAt holds the value of the "activated_at" field.
 	ActivatedAt *time.Time `json:"activated_at,omitempty"`
+	// End of the grace after a plan stopped including this custom domain; paused after it
+	GraceUntil *time.Time `json:"grace_until,omitempty"`
 	// User id of whoever added it
 	CreatedBy string `json:"created_by,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -54,7 +56,7 @@ func (*TenantDomain) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case tenantdomain.FieldService, tenantdomain.FieldHostname, tenantdomain.FieldStatus, tenantdomain.FieldDNSMode, tenantdomain.FieldCfZoneID, tenantdomain.FieldCfRecordID, tenantdomain.FieldLastError, tenantdomain.FieldCreatedBy:
 			values[i] = new(sql.NullString)
-		case tenantdomain.FieldLastCheckedAt, tenantdomain.FieldActivatedAt, tenantdomain.FieldCreatedAt, tenantdomain.FieldUpdatedAt:
+		case tenantdomain.FieldLastCheckedAt, tenantdomain.FieldActivatedAt, tenantdomain.FieldGraceUntil, tenantdomain.FieldCreatedAt, tenantdomain.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		case tenantdomain.FieldID, tenantdomain.FieldTenantID:
 			values[i] = new(uuid.UUID)
@@ -141,6 +143,13 @@ func (_m *TenantDomain) assignValues(columns []string, values []any) error {
 				_m.ActivatedAt = new(time.Time)
 				*_m.ActivatedAt = value.Time
 			}
+		case tenantdomain.FieldGraceUntil:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field grace_until", values[i])
+			} else if value.Valid {
+				_m.GraceUntil = new(time.Time)
+				*_m.GraceUntil = value.Time
+			}
 		case tenantdomain.FieldCreatedBy:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field created_by", values[i])
@@ -226,6 +235,11 @@ func (_m *TenantDomain) String() string {
 	builder.WriteString(", ")
 	if v := _m.ActivatedAt; v != nil {
 		builder.WriteString("activated_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.GraceUntil; v != nil {
+		builder.WriteString("grace_until=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteString(", ")

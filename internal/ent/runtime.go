@@ -852,11 +852,11 @@ func init() {
 	// tenantdomain.DefaultDNSMode holds the default value on creation for the dns_mode field.
 	tenantdomain.DefaultDNSMode = tenantdomainDescDNSMode.Default.(string)
 	// tenantdomainDescCreatedAt is the schema descriptor for created_at field.
-	tenantdomainDescCreatedAt := tenantdomainFields[12].Descriptor()
+	tenantdomainDescCreatedAt := tenantdomainFields[13].Descriptor()
 	// tenantdomain.DefaultCreatedAt holds the default value on creation for the created_at field.
 	tenantdomain.DefaultCreatedAt = tenantdomainDescCreatedAt.Default.(func() time.Time)
 	// tenantdomainDescUpdatedAt is the schema descriptor for updated_at field.
-	tenantdomainDescUpdatedAt := tenantdomainFields[13].Descriptor()
+	tenantdomainDescUpdatedAt := tenantdomainFields[14].Descriptor()
 	// tenantdomain.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	tenantdomain.DefaultUpdatedAt = tenantdomainDescUpdatedAt.Default.(func() time.Time)
 	// tenantdomain.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

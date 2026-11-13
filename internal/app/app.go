@@ -217,6 +217,22 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		// A custom domain can be a plan feature (DOMAINS_REQUIRED_FEATURES; MarketFlow: Pro and up).
 		// With subscriptions off every tenant stays ungated, as everywhere else.
 		domainSvc.SetPlanGate(domains.ParseRequiredFeatures(cfg.Domains.RequiredFeatures), DomainPlanLookup(subClient))
+		// After a downgrade the domain keeps working for the grace, then pauses (owner, 2026-11-12);
+		// the business hears about each step at its contact email.
+		domainSvc.SetDowngrade(cfg.Domains.DowngradeGrace, DomainDowngradeNotifier(entClient, cfg.App.AuthUIURL, logger))
+		go func() {
+			ticker := time.NewTicker(6 * time.Hour)
+			defer ticker.Stop()
+			for {
+				rctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+				if _, err := sharedcache.RunOnce(rctx, redisClient, logger, cfg.Redis.Namespace+":domains:plans", 6*time.Hour,
+					func(ctx context.Context) error { return domainSvc.EnforcePlans(ctx, time.Now()) }); err != nil {
+					logger.Warn("tenant domains plan check", zap.Error(err))
+				}
+				cancel()
+				<-ticker.C
+			}
+		}()
 	}
 	domainHandler := handlers.NewDomainHandler(domainSvc, adminHandler.CanManageTenant, logger)
 	authService.SetExtraTrustedHosts(domainSvc.ActiveHosts)
@@ -610,6 +626,45 @@ func DomainPlanLookup(subClient *subscriptionclient.Client) domains.PlanLookup {
 			return domains.PlanInfo{}, nil
 		}
 		return domains.PlanInfo{Features: sub.Features}, nil
+	}
+}
+
+// DomainDowngradeNotifier emails the business (its contact email) when a custom domain enters
+// its grace after a downgrade, is paused, or comes back: outbox event
+// auth.domain.<grace|paused|restored>.notify for notifications-api (one template, auth/domain_notice,
+// with the sentence for each kind in "reason" and a link to the Domains tab in "login_url").
+// A tenant with no contact email gets no email; the Domains tab still shows the state.
+func DomainDowngradeNotifier(client *ent.Client, authUIURL string, logger *zap.Logger) domains.DowngradeNotifier {
+	return func(ctx context.Context, tenantID uuid.UUID, host, service, kind string, until time.Time) {
+		t, err := client.Tenant.Get(ctx, tenantID)
+		if err != nil || t.ContactEmail == nil || strings.TrimSpace(*t.ContactEmail) == "" {
+			return
+		}
+		app := service
+		if target, ok := domains.Target(service); ok {
+			app = target.Name
+		}
+		reason := ""
+		switch kind {
+		case domains.NoticeGrace:
+			reason = fmt.Sprintf("Your plan no longer includes a custom domain for %s. %s keeps working until %s; upgrade before then to keep it.",
+				app, host, until.Format("2 January 2006"))
+		case domains.NoticePaused:
+			reason = fmt.Sprintf("%s is paused because your plan no longer includes a custom domain for %s. Upgrade and it comes back at once.", host, app)
+		case domains.NoticeRestored:
+			reason = fmt.Sprintf("%s is working again on %s.", host, app)
+		}
+		data := map[string]any{
+			"tenant_id": tenantID.String(), "email": strings.TrimSpace(*t.ContactEmail), "name": t.Name, "org_name": t.Name,
+			"hostname": host, "service": service, "reason": reason,
+			"login_url": strings.TrimRight(authUIURL, "/") + "/dashboard/my-tenant?tab=domains",
+		}
+		if !until.IsZero() {
+			data["grace_until"] = until.UTC().Format(time.RFC3339)
+		}
+		if err := outbox.Write(ctx, client, tenantID, "auth.domain", tenantID, kind+".notify", "", data); err != nil {
+			logger.Warn("domain downgrade notice not queued", zap.String("hostname", host), zap.Error(err))
+		}
 	}
 }
 

@@ -45,6 +45,9 @@ type DomainsConfig struct {
 	// "service=feature,..." (owner, 2026-11-11: MarketFlow custom domains are Pro and up). Apps
 	// not listed are open to every plan. Empty turns the gate off.
 	RequiredFeatures string `env:"DOMAINS_REQUIRED_FEATURES" envDefault:"marketflow=marketflow_custom_domain"`
+	// DowngradeGrace is how long a domain keeps working after the plan stops including it,
+	// before it is paused (owner, 2026-11-12: 14 days).
+	DowngradeGrace time.Duration `env:"DOMAINS_DOWNGRADE_GRACE" envDefault:"336h"`
 }
 
 // DevOpsConfig holds credentials for auth-api's platform-admin "Infrastructure Monitor" panel to

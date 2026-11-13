@@ -140,6 +140,20 @@ func (_c *TenantDomainCreate) SetNillableActivatedAt(v *time.Time) *TenantDomain
 	return _c
 }
 
+// SetGraceUntil sets the "grace_until" field.
+func (_c *TenantDomainCreate) SetGraceUntil(v time.Time) *TenantDomainCreate {
+	_c.mutation.SetGraceUntil(v)
+	return _c
+}
+
+// SetNillableGraceUntil sets the "grace_until" field if the given value is not nil.
+func (_c *TenantDomainCreate) SetNillableGraceUntil(v *time.Time) *TenantDomainCreate {
+	if v != nil {
+		_c.SetGraceUntil(*v)
+	}
+	return _c
+}
+
 // SetCreatedBy sets the "created_by" field.
 func (_c *TenantDomainCreate) SetCreatedBy(v string) *TenantDomainCreate {
 	_c.mutation.SetCreatedBy(v)
@@ -362,6 +376,10 @@ func (_c *TenantDomainCreate) createSpec() (*TenantDomain, *sqlgraph.CreateSpec)
 		_spec.SetField(tenantdomain.FieldActivatedAt, field.TypeTime, value)
 		_node.ActivatedAt = &value
 	}
+	if value, ok := _c.mutation.GraceUntil(); ok {
+		_spec.SetField(tenantdomain.FieldGraceUntil, field.TypeTime, value)
+		_node.GraceUntil = &value
+	}
 	if value, ok := _c.mutation.CreatedBy(); ok {
 		_spec.SetField(tenantdomain.FieldCreatedBy, field.TypeString, value)
 		_node.CreatedBy = value
@@ -573,6 +591,24 @@ func (u *TenantDomainUpsert) UpdateActivatedAt() *TenantDomainUpsert {
 // ClearActivatedAt clears the value of the "activated_at" field.
 func (u *TenantDomainUpsert) ClearActivatedAt() *TenantDomainUpsert {
 	u.SetNull(tenantdomain.FieldActivatedAt)
+	return u
+}
+
+// SetGraceUntil sets the "grace_until" field.
+func (u *TenantDomainUpsert) SetGraceUntil(v time.Time) *TenantDomainUpsert {
+	u.Set(tenantdomain.FieldGraceUntil, v)
+	return u
+}
+
+// UpdateGraceUntil sets the "grace_until" field to the value that was provided on create.
+func (u *TenantDomainUpsert) UpdateGraceUntil() *TenantDomainUpsert {
+	u.SetExcluded(tenantdomain.FieldGraceUntil)
+	return u
+}
+
+// ClearGraceUntil clears the value of the "grace_until" field.
+func (u *TenantDomainUpsert) ClearGraceUntil() *TenantDomainUpsert {
+	u.SetNull(tenantdomain.FieldGraceUntil)
 	return u
 }
 
@@ -829,6 +865,27 @@ func (u *TenantDomainUpsertOne) UpdateActivatedAt() *TenantDomainUpsertOne {
 func (u *TenantDomainUpsertOne) ClearActivatedAt() *TenantDomainUpsertOne {
 	return u.Update(func(s *TenantDomainUpsert) {
 		s.ClearActivatedAt()
+	})
+}
+
+// SetGraceUntil sets the "grace_until" field.
+func (u *TenantDomainUpsertOne) SetGraceUntil(v time.Time) *TenantDomainUpsertOne {
+	return u.Update(func(s *TenantDomainUpsert) {
+		s.SetGraceUntil(v)
+	})
+}
+
+// UpdateGraceUntil sets the "grace_until" field to the value that was provided on create.
+func (u *TenantDomainUpsertOne) UpdateGraceUntil() *TenantDomainUpsertOne {
+	return u.Update(func(s *TenantDomainUpsert) {
+		s.UpdateGraceUntil()
+	})
+}
+
+// ClearGraceUntil clears the value of the "grace_until" field.
+func (u *TenantDomainUpsertOne) ClearGraceUntil() *TenantDomainUpsertOne {
+	return u.Update(func(s *TenantDomainUpsert) {
+		s.ClearGraceUntil()
 	})
 }
 
@@ -1257,6 +1314,27 @@ func (u *TenantDomainUpsertBulk) UpdateActivatedAt() *TenantDomainUpsertBulk {
 func (u *TenantDomainUpsertBulk) ClearActivatedAt() *TenantDomainUpsertBulk {
 	return u.Update(func(s *TenantDomainUpsert) {
 		s.ClearActivatedAt()
+	})
+}
+
+// SetGraceUntil sets the "grace_until" field.
+func (u *TenantDomainUpsertBulk) SetGraceUntil(v time.Time) *TenantDomainUpsertBulk {
+	return u.Update(func(s *TenantDomainUpsert) {
+		s.SetGraceUntil(v)
+	})
+}
+
+// UpdateGraceUntil sets the "grace_until" field to the value that was provided on create.
+func (u *TenantDomainUpsertBulk) UpdateGraceUntil() *TenantDomainUpsertBulk {
+	return u.Update(func(s *TenantDomainUpsert) {
+		s.UpdateGraceUntil()
+	})
+}
+
+// ClearGraceUntil clears the value of the "grace_until" field.
+func (u *TenantDomainUpsertBulk) ClearGraceUntil() *TenantDomainUpsertBulk {
+	return u.Update(func(s *TenantDomainUpsert) {
+		s.ClearGraceUntil()
 	})
 }
 

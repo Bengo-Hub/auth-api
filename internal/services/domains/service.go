@@ -109,6 +109,9 @@ type Service struct {
 	// Plan gate (plangate.go): service key -> required feature code.
 	required   map[string]string
 	planLookup PlanLookup
+	// Downgrade handling (downgrade.go): grace length and the business notice.
+	grace  time.Duration
+	notify DowngradeNotifier
 
 	cacheMu sync.Mutex
 	cache   map[string]cachedResolution

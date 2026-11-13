@@ -199,6 +199,26 @@ func (_u *TenantDomainUpdate) ClearActivatedAt() *TenantDomainUpdate {
 	return _u
 }
 
+// SetGraceUntil sets the "grace_until" field.
+func (_u *TenantDomainUpdate) SetGraceUntil(v time.Time) *TenantDomainUpdate {
+	_u.mutation.SetGraceUntil(v)
+	return _u
+}
+
+// SetNillableGraceUntil sets the "grace_until" field if the given value is not nil.
+func (_u *TenantDomainUpdate) SetNillableGraceUntil(v *time.Time) *TenantDomainUpdate {
+	if v != nil {
+		_u.SetGraceUntil(*v)
+	}
+	return _u
+}
+
+// ClearGraceUntil clears the value of the "grace_until" field.
+func (_u *TenantDomainUpdate) ClearGraceUntil() *TenantDomainUpdate {
+	_u.mutation.ClearGraceUntil()
+	return _u
+}
+
 // SetCreatedBy sets the "created_by" field.
 func (_u *TenantDomainUpdate) SetCreatedBy(v string) *TenantDomainUpdate {
 	_u.mutation.SetCreatedBy(v)
@@ -337,6 +357,12 @@ func (_u *TenantDomainUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if _u.mutation.ActivatedAtCleared() {
 		_spec.ClearField(tenantdomain.FieldActivatedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.GraceUntil(); ok {
+		_spec.SetField(tenantdomain.FieldGraceUntil, field.TypeTime, value)
+	}
+	if _u.mutation.GraceUntilCleared() {
+		_spec.ClearField(tenantdomain.FieldGraceUntil, field.TypeTime)
 	}
 	if value, ok := _u.mutation.CreatedBy(); ok {
 		_spec.SetField(tenantdomain.FieldCreatedBy, field.TypeString, value)
@@ -537,6 +563,26 @@ func (_u *TenantDomainUpdateOne) ClearActivatedAt() *TenantDomainUpdateOne {
 	return _u
 }
 
+// SetGraceUntil sets the "grace_until" field.
+func (_u *TenantDomainUpdateOne) SetGraceUntil(v time.Time) *TenantDomainUpdateOne {
+	_u.mutation.SetGraceUntil(v)
+	return _u
+}
+
+// SetNillableGraceUntil sets the "grace_until" field if the given value is not nil.
+func (_u *TenantDomainUpdateOne) SetNillableGraceUntil(v *time.Time) *TenantDomainUpdateOne {
+	if v != nil {
+		_u.SetGraceUntil(*v)
+	}
+	return _u
+}
+
+// ClearGraceUntil clears the value of the "grace_until" field.
+func (_u *TenantDomainUpdateOne) ClearGraceUntil() *TenantDomainUpdateOne {
+	_u.mutation.ClearGraceUntil()
+	return _u
+}
+
 // SetCreatedBy sets the "created_by" field.
 func (_u *TenantDomainUpdateOne) SetCreatedBy(v string) *TenantDomainUpdateOne {
 	_u.mutation.SetCreatedBy(v)
@@ -705,6 +751,12 @@ func (_u *TenantDomainUpdateOne) sqlSave(ctx context.Context) (_node *TenantDoma
 	}
 	if _u.mutation.ActivatedAtCleared() {
 		_spec.ClearField(tenantdomain.FieldActivatedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.GraceUntil(); ok {
+		_spec.SetField(tenantdomain.FieldGraceUntil, field.TypeTime, value)
+	}
+	if _u.mutation.GraceUntilCleared() {
+		_spec.ClearField(tenantdomain.FieldGraceUntil, field.TypeTime)
 	}
 	if value, ok := _u.mutation.CreatedBy(); ok {
 		_spec.SetField(tenantdomain.FieldCreatedBy, field.TypeString, value)

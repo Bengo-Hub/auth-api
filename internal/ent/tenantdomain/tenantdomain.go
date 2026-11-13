@@ -34,6 +34,8 @@ const (
 	FieldLastCheckedAt = "last_checked_at"
 	// FieldActivatedAt holds the string denoting the activated_at field in the database.
 	FieldActivatedAt = "activated_at"
+	// FieldGraceUntil holds the string denoting the grace_until field in the database.
+	FieldGraceUntil = "grace_until"
 	// FieldCreatedBy holds the string denoting the created_by field in the database.
 	FieldCreatedBy = "created_by"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -57,6 +59,7 @@ var Columns = []string{
 	FieldLastError,
 	FieldLastCheckedAt,
 	FieldActivatedAt,
+	FieldGraceUntil,
 	FieldCreatedBy,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -147,6 +150,11 @@ func ByLastCheckedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByActivatedAt orders the results by the activated_at field.
 func ByActivatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldActivatedAt, opts...).ToFunc()
+}
+
+// ByGraceUntil orders the results by the grace_until field.
+func ByGraceUntil(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGraceUntil, opts...).ToFunc()
 }
 
 // ByCreatedBy orders the results by the created_by field.
