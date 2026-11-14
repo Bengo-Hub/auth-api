@@ -99,6 +99,26 @@ func (_u *LegalAcceptanceUpdate) SetNillableAcceptedAt(v *time.Time) *LegalAccep
 	return _u
 }
 
+// SetAcceptedByUserID sets the "accepted_by_user_id" field.
+func (_u *LegalAcceptanceUpdate) SetAcceptedByUserID(v uuid.UUID) *LegalAcceptanceUpdate {
+	_u.mutation.SetAcceptedByUserID(v)
+	return _u
+}
+
+// SetNillableAcceptedByUserID sets the "accepted_by_user_id" field if the given value is not nil.
+func (_u *LegalAcceptanceUpdate) SetNillableAcceptedByUserID(v *uuid.UUID) *LegalAcceptanceUpdate {
+	if v != nil {
+		_u.SetAcceptedByUserID(*v)
+	}
+	return _u
+}
+
+// ClearAcceptedByUserID clears the value of the "accepted_by_user_id" field.
+func (_u *LegalAcceptanceUpdate) ClearAcceptedByUserID() *LegalAcceptanceUpdate {
+	_u.mutation.ClearAcceptedByUserID()
+	return _u
+}
+
 // SetIPAddress sets the "ip_address" field.
 func (_u *LegalAcceptanceUpdate) SetIPAddress(v string) *LegalAcceptanceUpdate {
 	_u.mutation.SetIPAddress(v)
@@ -253,6 +273,12 @@ func (_u *LegalAcceptanceUpdate) sqlSave(ctx context.Context) (_node int, err er
 	if value, ok := _u.mutation.AcceptedAt(); ok {
 		_spec.SetField(legalacceptance.FieldAcceptedAt, field.TypeTime, value)
 	}
+	if value, ok := _u.mutation.AcceptedByUserID(); ok {
+		_spec.SetField(legalacceptance.FieldAcceptedByUserID, field.TypeUUID, value)
+	}
+	if _u.mutation.AcceptedByUserIDCleared() {
+		_spec.ClearField(legalacceptance.FieldAcceptedByUserID, field.TypeUUID)
+	}
 	if value, ok := _u.mutation.IPAddress(); ok {
 		_spec.SetField(legalacceptance.FieldIPAddress, field.TypeString, value)
 	}
@@ -358,6 +384,26 @@ func (_u *LegalAcceptanceUpdateOne) SetNillableAcceptedAt(v *time.Time) *LegalAc
 	if v != nil {
 		_u.SetAcceptedAt(*v)
 	}
+	return _u
+}
+
+// SetAcceptedByUserID sets the "accepted_by_user_id" field.
+func (_u *LegalAcceptanceUpdateOne) SetAcceptedByUserID(v uuid.UUID) *LegalAcceptanceUpdateOne {
+	_u.mutation.SetAcceptedByUserID(v)
+	return _u
+}
+
+// SetNillableAcceptedByUserID sets the "accepted_by_user_id" field if the given value is not nil.
+func (_u *LegalAcceptanceUpdateOne) SetNillableAcceptedByUserID(v *uuid.UUID) *LegalAcceptanceUpdateOne {
+	if v != nil {
+		_u.SetAcceptedByUserID(*v)
+	}
+	return _u
+}
+
+// ClearAcceptedByUserID clears the value of the "accepted_by_user_id" field.
+func (_u *LegalAcceptanceUpdateOne) ClearAcceptedByUserID() *LegalAcceptanceUpdateOne {
+	_u.mutation.ClearAcceptedByUserID()
 	return _u
 }
 
@@ -544,6 +590,12 @@ func (_u *LegalAcceptanceUpdateOne) sqlSave(ctx context.Context) (_node *LegalAc
 	}
 	if value, ok := _u.mutation.AcceptedAt(); ok {
 		_spec.SetField(legalacceptance.FieldAcceptedAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.AcceptedByUserID(); ok {
+		_spec.SetField(legalacceptance.FieldAcceptedByUserID, field.TypeUUID, value)
+	}
+	if _u.mutation.AcceptedByUserIDCleared() {
+		_spec.ClearField(legalacceptance.FieldAcceptedByUserID, field.TypeUUID)
 	}
 	if value, ok := _u.mutation.IPAddress(); ok {
 		_spec.SetField(legalacceptance.FieldIPAddress, field.TypeString, value)

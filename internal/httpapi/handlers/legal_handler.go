@@ -3,6 +3,7 @@ package handlers
 import (
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Bengo-Hub/httpware/objectstore"
@@ -23,10 +24,14 @@ type LegalHandler struct {
 	ent    *ent.Client
 	media  *objectstore.Store // signature images, private
 	logger *zap.Logger
+	// noticeDefault and noticeByType are the minimum notice of an effective-dated version
+	// (config LEGAL_MIN_NOTICE_DAYS and LEGAL_MIN_NOTICE_DAYS_BY_TYPE; 14 days unless set).
+	noticeDefault time.Duration
+	noticeByType  map[string]time.Duration
 }
 
 func NewLegalHandler(entClient *ent.Client, media *objectstore.Store, logger *zap.Logger) *LegalHandler {
-	return &LegalHandler{ent: entClient, media: media, logger: logger.Named("legal")}
+	return &LegalHandler{ent: entClient, media: media, logger: logger.Named("legal"), noticeDefault: defaultMinNotice}
 }
 
 // maxSignatureBytes keeps the limit signature uploads always had.
@@ -42,9 +47,13 @@ func RegisterLegalMediaTypes() {
 // GetCurrentDocument returns the current version of a legal document (public).
 // GET /api/v1/legal/documents/{type}
 func (h *LegalHandler) GetCurrentDocument(w http.ResponseWriter, r *http.Request) {
-	docType := chi.URLParam(r, "type")
+	docType := normalizeDocType(chi.URLParam(r, "type"))
 	if !isValidDocType(docType) {
-		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, DPA, or RESELLER_AGREEMENT", nil)
+		writeError(w, http.StatusBadRequest, "invalid_doc_type", invalidDocTypeMessage, nil)
+		return
+	}
+	if isEffectiveDated(docType) {
+		h.getEffectiveDated(w, r, docType)
 		return
 	}
 
@@ -108,22 +117,48 @@ func (h *LegalHandler) UpsertDocument(w http.ResponseWriter, r *http.Request) {
 		HtmlContent   string `json:"html_content"`
 		EffectiveDate string `json:"effective_date"`
 		SetCurrent    bool   `json:"set_current"`
+		// SkipNotice lets an effective-dated version start sooner than its type's minimum
+		// notice (14 days for the MarketFlow auto-publish terms). Meant for a first version
+		// that no tenant has accepted anything before, or a correction the owner approved.
+		SkipNotice bool `json:"skip_notice"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", "invalid request body", nil)
 		return
 	}
+	req.DocType = normalizeDocType(req.DocType)
+	req.Version = strings.TrimSpace(req.Version)
 	if !isValidDocType(req.DocType) {
-		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, DPA, or RESELLER_AGREEMENT", nil)
+		writeError(w, http.StatusBadRequest, "invalid_doc_type", invalidDocTypeMessage, nil)
 		return
 	}
-	effDate, err := time.Parse(time.DateOnly, req.EffectiveDate)
+	if req.Version == "" || len(req.Version) > 32 {
+		writeError(w, http.StatusBadRequest, "invalid_version", "version is required, up to 32 characters", nil)
+		return
+	}
+	effDate, err := parseEffectiveDate(req.EffectiveDate)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_date", "effective_date must be YYYY-MM-DD", nil)
+		writeError(w, http.StatusBadRequest, "invalid_date", "effective_date must be YYYY-MM-DD or RFC 3339", nil)
 		return
 	}
 
 	ctx := r.Context()
+	now := time.Now()
+	dated := isEffectiveDated(req.DocType)
+	if dated {
+		// An effective-dated version is in force by its date, never by the is_current flag.
+		req.SetCurrent = false
+		if strings.TrimSpace(req.HtmlContent) == "" {
+			writeError(w, http.StatusBadRequest, "invalid_content", "html_content is required", nil)
+			return
+		}
+		if notice := h.minNotice(req.DocType); notice > 0 && !req.SkipNotice && effDate.Before(now.Add(notice)) {
+			writeError(w, http.StatusBadRequest, "notice_too_short",
+				"effective_date must give tenants the minimum notice; send skip_notice to override",
+				map[string]any{"min_notice_days": int(notice.Hours() / 24), "earliest": now.Add(notice).UTC().Format(time.RFC3339)})
+			return
+		}
+	}
 
 	// If this version already exists, update it; otherwise create.
 	existing, _ := h.ent.LegalDocument.Query().
@@ -131,6 +166,15 @@ func (h *LegalHandler) UpsertDocument(w http.ResponseWriter, r *http.Request) {
 			legaldocument.DocTypeEQ(legaldocument.DocType(req.DocType)),
 			legaldocument.VersionEQ(req.Version),
 		).Only(ctx)
+
+	// A version that has come into force is what tenants were bound by: editing it in place
+	// would change the record of what applied. Publish a new version instead.
+	if dated && existing != nil && !existing.EffectiveDate.After(now) {
+		writeError(w, http.StatusConflict, "document_in_force",
+			"this version is already in force and is immutable; publish a new version instead",
+			map[string]any{"doc_type": req.DocType, "version": req.Version})
+		return
+	}
 
 	// A document version that anyone has already signed/accepted is immutable: the
 	// legal_acceptance row is evidence of consent to THAT body of text, so editing
@@ -211,12 +255,17 @@ func (h *LegalHandler) UpsertDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"id":       doc.ID.String(),
 		"doc_type": string(doc.DocType),
 		"version":  doc.Version,
 		"current":  doc.IsCurrent,
-	})
+	}
+	if dated {
+		resp["current"] = !doc.EffectiveDate.After(now)
+		resp["effective_at"] = doc.EffectiveDate.UTC().Format(time.RFC3339)
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // AcceptDocument records a legal document acceptance (authed).
@@ -237,8 +286,9 @@ func (h *LegalHandler) AcceptDocument(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_body", "invalid request body", nil)
 		return
 	}
+	req.DocType = normalizeDocType(req.DocType)
 	if !isValidDocType(req.DocType) {
-		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, DPA, or RESELLER_AGREEMENT", nil)
+		writeError(w, http.StatusBadRequest, "invalid_doc_type", invalidDocTypeMessage, nil)
 		return
 	}
 
@@ -247,27 +297,14 @@ func (h *LegalHandler) AcceptDocument(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_tenant", "invalid tenant ID in token", nil)
 		return
 	}
-
-	acceptance, err := h.ent.LegalAcceptance.Create().
-		SetEntityID(tenantID).
-		SetEntityType("tenant").
-		SetDocType(legalacceptance.DocType(req.DocType)).
-		SetDocVersion(req.DocVersion).
-		SetAcceptedAt(time.Now()).
-		SetIPAddress(clientIP(r)).
-		SetUserAgent(userAgent(r)).
-		Save(r.Context())
-	if err != nil {
-		h.logger.Error("failed to record legal acceptance", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to record acceptance", nil)
-		return
+	var userID *uuid.UUID
+	if id, err := uuid.Parse(claims.Subject); err == nil {
+		userID = &id
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"id":          acceptance.ID.String(),
-		"doc_type":    acceptance.DocType,
-		"version":     acceptance.DocVersion,
-		"accepted_at": acceptance.AcceptedAt.Format(time.RFC3339),
+	h.recordAcceptance(w, r, acceptanceInput{
+		TenantID: tenantID, UserID: userID, DocType: req.DocType, Version: req.DocVersion,
+		IP: clientIP(r), UserAgent: userAgent(r),
 	})
 }
 
@@ -287,10 +324,10 @@ func (h *LegalHandler) parseSignatureUpload(w http.ResponseWriter, r *http.Reque
 		return "", "", "", false
 	}
 
-	docType = r.FormValue("doc_type")
+	docType = normalizeDocType(r.FormValue("doc_type"))
 	docVersion = r.FormValue("doc_version")
 	if !isValidDocType(docType) {
-		writeError(w, http.StatusBadRequest, "invalid_doc_type", "doc_type must be EPA, MSA, DPA, or RESELLER_AGREEMENT", nil)
+		writeError(w, http.StatusBadRequest, "invalid_doc_type", invalidDocTypeMessage, nil)
 		return "", "", "", false
 	}
 
@@ -605,7 +642,7 @@ func (h *LegalHandler) UpdateApplication(w http.ResponseWriter, r *http.Request)
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 func isValidDocType(t string) bool {
-	return t == "EPA" || t == "MSA" || t == "DPA" || t == "RESELLER_AGREEMENT"
+	return legaldocument.DocTypeValidator(legaldocument.DocType(t)) == nil
 }
 
 func toApplicationResponse(a *ent.EquityHolderApplication) map[string]any {

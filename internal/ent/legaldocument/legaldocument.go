@@ -68,10 +68,11 @@ type DocType string
 
 // DocType values.
 const (
-	DocTypeEPA                DocType = "EPA"
-	DocTypeMSA                DocType = "MSA"
-	DocTypeDPA                DocType = "DPA"
-	DocTypeRESELLER_AGREEMENT DocType = "RESELLER_AGREEMENT"
+	DocTypeEPA                          DocType = "EPA"
+	DocTypeMSA                          DocType = "MSA"
+	DocTypeDPA                          DocType = "DPA"
+	DocTypeRESELLER_AGREEMENT           DocType = "RESELLER_AGREEMENT"
+	DocTypeMARKETFLOW_AUTOPUBLISH_TERMS DocType = "MARKETFLOW_AUTOPUBLISH_TERMS"
 )
 
 func (dt DocType) String() string {
@@ -81,7 +82,7 @@ func (dt DocType) String() string {
 // DocTypeValidator is a validator for the "doc_type" field enum values. It is called by the builders before save.
 func DocTypeValidator(dt DocType) error {
 	switch dt {
-	case DocTypeEPA, DocTypeMSA, DocTypeDPA, DocTypeRESELLER_AGREEMENT:
+	case DocTypeEPA, DocTypeMSA, DocTypeDPA, DocTypeRESELLER_AGREEMENT, DocTypeMARKETFLOW_AUTOPUBLISH_TERMS:
 		return nil
 	default:
 		return fmt.Errorf("legaldocument: invalid enum value for doc_type field: %q", dt)

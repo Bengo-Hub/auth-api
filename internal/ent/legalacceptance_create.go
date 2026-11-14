@@ -54,6 +54,20 @@ func (_c *LegalAcceptanceCreate) SetAcceptedAt(v time.Time) *LegalAcceptanceCrea
 	return _c
 }
 
+// SetAcceptedByUserID sets the "accepted_by_user_id" field.
+func (_c *LegalAcceptanceCreate) SetAcceptedByUserID(v uuid.UUID) *LegalAcceptanceCreate {
+	_c.mutation.SetAcceptedByUserID(v)
+	return _c
+}
+
+// SetNillableAcceptedByUserID sets the "accepted_by_user_id" field if the given value is not nil.
+func (_c *LegalAcceptanceCreate) SetNillableAcceptedByUserID(v *uuid.UUID) *LegalAcceptanceCreate {
+	if v != nil {
+		_c.SetAcceptedByUserID(*v)
+	}
+	return _c
+}
+
 // SetIPAddress sets the "ip_address" field.
 func (_c *LegalAcceptanceCreate) SetIPAddress(v string) *LegalAcceptanceCreate {
 	_c.mutation.SetIPAddress(v)
@@ -275,6 +289,10 @@ func (_c *LegalAcceptanceCreate) createSpec() (*LegalAcceptance, *sqlgraph.Creat
 		_spec.SetField(legalacceptance.FieldAcceptedAt, field.TypeTime, value)
 		_node.AcceptedAt = value
 	}
+	if value, ok := _c.mutation.AcceptedByUserID(); ok {
+		_spec.SetField(legalacceptance.FieldAcceptedByUserID, field.TypeUUID, value)
+		_node.AcceptedByUserID = &value
+	}
 	if value, ok := _c.mutation.IPAddress(); ok {
 		_spec.SetField(legalacceptance.FieldIPAddress, field.TypeString, value)
 		_node.IPAddress = value
@@ -400,6 +418,24 @@ func (u *LegalAcceptanceUpsert) SetAcceptedAt(v time.Time) *LegalAcceptanceUpser
 // UpdateAcceptedAt sets the "accepted_at" field to the value that was provided on create.
 func (u *LegalAcceptanceUpsert) UpdateAcceptedAt() *LegalAcceptanceUpsert {
 	u.SetExcluded(legalacceptance.FieldAcceptedAt)
+	return u
+}
+
+// SetAcceptedByUserID sets the "accepted_by_user_id" field.
+func (u *LegalAcceptanceUpsert) SetAcceptedByUserID(v uuid.UUID) *LegalAcceptanceUpsert {
+	u.Set(legalacceptance.FieldAcceptedByUserID, v)
+	return u
+}
+
+// UpdateAcceptedByUserID sets the "accepted_by_user_id" field to the value that was provided on create.
+func (u *LegalAcceptanceUpsert) UpdateAcceptedByUserID() *LegalAcceptanceUpsert {
+	u.SetExcluded(legalacceptance.FieldAcceptedByUserID)
+	return u
+}
+
+// ClearAcceptedByUserID clears the value of the "accepted_by_user_id" field.
+func (u *LegalAcceptanceUpsert) ClearAcceptedByUserID() *LegalAcceptanceUpsert {
+	u.SetNull(legalacceptance.FieldAcceptedByUserID)
 	return u
 }
 
@@ -575,6 +611,27 @@ func (u *LegalAcceptanceUpsertOne) SetAcceptedAt(v time.Time) *LegalAcceptanceUp
 func (u *LegalAcceptanceUpsertOne) UpdateAcceptedAt() *LegalAcceptanceUpsertOne {
 	return u.Update(func(s *LegalAcceptanceUpsert) {
 		s.UpdateAcceptedAt()
+	})
+}
+
+// SetAcceptedByUserID sets the "accepted_by_user_id" field.
+func (u *LegalAcceptanceUpsertOne) SetAcceptedByUserID(v uuid.UUID) *LegalAcceptanceUpsertOne {
+	return u.Update(func(s *LegalAcceptanceUpsert) {
+		s.SetAcceptedByUserID(v)
+	})
+}
+
+// UpdateAcceptedByUserID sets the "accepted_by_user_id" field to the value that was provided on create.
+func (u *LegalAcceptanceUpsertOne) UpdateAcceptedByUserID() *LegalAcceptanceUpsertOne {
+	return u.Update(func(s *LegalAcceptanceUpsert) {
+		s.UpdateAcceptedByUserID()
+	})
+}
+
+// ClearAcceptedByUserID clears the value of the "accepted_by_user_id" field.
+func (u *LegalAcceptanceUpsertOne) ClearAcceptedByUserID() *LegalAcceptanceUpsertOne {
+	return u.Update(func(s *LegalAcceptanceUpsert) {
+		s.ClearAcceptedByUserID()
 	})
 }
 
@@ -926,6 +983,27 @@ func (u *LegalAcceptanceUpsertBulk) SetAcceptedAt(v time.Time) *LegalAcceptanceU
 func (u *LegalAcceptanceUpsertBulk) UpdateAcceptedAt() *LegalAcceptanceUpsertBulk {
 	return u.Update(func(s *LegalAcceptanceUpsert) {
 		s.UpdateAcceptedAt()
+	})
+}
+
+// SetAcceptedByUserID sets the "accepted_by_user_id" field.
+func (u *LegalAcceptanceUpsertBulk) SetAcceptedByUserID(v uuid.UUID) *LegalAcceptanceUpsertBulk {
+	return u.Update(func(s *LegalAcceptanceUpsert) {
+		s.SetAcceptedByUserID(v)
+	})
+}
+
+// UpdateAcceptedByUserID sets the "accepted_by_user_id" field to the value that was provided on create.
+func (u *LegalAcceptanceUpsertBulk) UpdateAcceptedByUserID() *LegalAcceptanceUpsertBulk {
+	return u.Update(func(s *LegalAcceptanceUpsert) {
+		s.UpdateAcceptedByUserID()
+	})
+}
+
+// ClearAcceptedByUserID clears the value of the "accepted_by_user_id" field.
+func (u *LegalAcceptanceUpsertBulk) ClearAcceptedByUserID() *LegalAcceptanceUpsertBulk {
+	return u.Update(func(s *LegalAcceptanceUpsert) {
+		s.ClearAcceptedByUserID()
 	})
 }
 

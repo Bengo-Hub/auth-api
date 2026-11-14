@@ -70,6 +70,11 @@ func AcceptedAt(v time.Time) predicate.LegalAcceptance {
 	return predicate.LegalAcceptance(sql.FieldEQ(FieldAcceptedAt, v))
 }
 
+// AcceptedByUserID applies equality check predicate on the "accepted_by_user_id" field. It's identical to AcceptedByUserIDEQ.
+func AcceptedByUserID(v uuid.UUID) predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldEQ(FieldAcceptedByUserID, v))
+}
+
 // IPAddress applies equality check predicate on the "ip_address" field. It's identical to IPAddressEQ.
 func IPAddress(v string) predicate.LegalAcceptance {
 	return predicate.LegalAcceptance(sql.FieldEQ(FieldIPAddress, v))
@@ -273,6 +278,56 @@ func AcceptedAtLT(v time.Time) predicate.LegalAcceptance {
 // AcceptedAtLTE applies the LTE predicate on the "accepted_at" field.
 func AcceptedAtLTE(v time.Time) predicate.LegalAcceptance {
 	return predicate.LegalAcceptance(sql.FieldLTE(FieldAcceptedAt, v))
+}
+
+// AcceptedByUserIDEQ applies the EQ predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDEQ(v uuid.UUID) predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldEQ(FieldAcceptedByUserID, v))
+}
+
+// AcceptedByUserIDNEQ applies the NEQ predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDNEQ(v uuid.UUID) predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldNEQ(FieldAcceptedByUserID, v))
+}
+
+// AcceptedByUserIDIn applies the In predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDIn(vs ...uuid.UUID) predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldIn(FieldAcceptedByUserID, vs...))
+}
+
+// AcceptedByUserIDNotIn applies the NotIn predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDNotIn(vs ...uuid.UUID) predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldNotIn(FieldAcceptedByUserID, vs...))
+}
+
+// AcceptedByUserIDGT applies the GT predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDGT(v uuid.UUID) predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldGT(FieldAcceptedByUserID, v))
+}
+
+// AcceptedByUserIDGTE applies the GTE predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDGTE(v uuid.UUID) predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldGTE(FieldAcceptedByUserID, v))
+}
+
+// AcceptedByUserIDLT applies the LT predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDLT(v uuid.UUID) predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldLT(FieldAcceptedByUserID, v))
+}
+
+// AcceptedByUserIDLTE applies the LTE predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDLTE(v uuid.UUID) predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldLTE(FieldAcceptedByUserID, v))
+}
+
+// AcceptedByUserIDIsNil applies the IsNil predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDIsNil() predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldIsNull(FieldAcceptedByUserID))
+}
+
+// AcceptedByUserIDNotNil applies the NotNil predicate on the "accepted_by_user_id" field.
+func AcceptedByUserIDNotNil() predicate.LegalAcceptance {
+	return predicate.LegalAcceptance(sql.FieldNotNull(FieldAcceptedByUserID))
 }
 
 // IPAddressEQ applies the EQ predicate on the "ip_address" field.

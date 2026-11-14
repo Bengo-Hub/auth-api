@@ -318,19 +318,19 @@ func init() {
 		}
 	}()
 	// legalacceptanceDescIPAddress is the schema descriptor for ip_address field.
-	legalacceptanceDescIPAddress := legalacceptanceFields[6].Descriptor()
+	legalacceptanceDescIPAddress := legalacceptanceFields[7].Descriptor()
 	// legalacceptance.IPAddressValidator is a validator for the "ip_address" field. It is called by the builders before save.
 	legalacceptance.IPAddressValidator = legalacceptanceDescIPAddress.Validators[0].(func(string) error)
 	// legalacceptanceDescUserAgent is the schema descriptor for user_agent field.
-	legalacceptanceDescUserAgent := legalacceptanceFields[7].Descriptor()
+	legalacceptanceDescUserAgent := legalacceptanceFields[8].Descriptor()
 	// legalacceptance.UserAgentValidator is a validator for the "user_agent" field. It is called by the builders before save.
 	legalacceptance.UserAgentValidator = legalacceptanceDescUserAgent.Validators[0].(func(string) error)
 	// legalacceptanceDescSignatureImageURL is the schema descriptor for signature_image_url field.
-	legalacceptanceDescSignatureImageURL := legalacceptanceFields[8].Descriptor()
+	legalacceptanceDescSignatureImageURL := legalacceptanceFields[9].Descriptor()
 	// legalacceptance.SignatureImageURLValidator is a validator for the "signature_image_url" field. It is called by the builders before save.
 	legalacceptance.SignatureImageURLValidator = legalacceptanceDescSignatureImageURL.Validators[0].(func(string) error)
 	// legalacceptanceDescCreatedAt is the schema descriptor for created_at field.
-	legalacceptanceDescCreatedAt := legalacceptanceFields[9].Descriptor()
+	legalacceptanceDescCreatedAt := legalacceptanceFields[10].Descriptor()
 	// legalacceptance.DefaultCreatedAt holds the default value on creation for the created_at field.
 	legalacceptance.DefaultCreatedAt = legalacceptanceDescCreatedAt.Default.(func() time.Time)
 	// legalacceptanceDescID is the schema descriptor for id field.

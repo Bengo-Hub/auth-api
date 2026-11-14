@@ -320,9 +320,10 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "entity_id", Type: field.TypeUUID},
 		{Name: "entity_type", Type: field.TypeEnum, Enums: []string{"tenant", "user"}},
-		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT"}},
+		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS"}},
 		{Name: "doc_version", Type: field.TypeString, Size: 32},
 		{Name: "accepted_at", Type: field.TypeTime},
+		{Name: "accepted_by_user_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "ip_address", Type: field.TypeString, Nullable: true, Size: 64},
 		{Name: "user_agent", Type: field.TypeString, Nullable: true, Size: 512},
 		{Name: "signature_image_url", Type: field.TypeString, Nullable: true, Size: 1024},
@@ -349,7 +350,7 @@ var (
 	// LegalDocumentsColumns holds the columns for the "legal_documents" table.
 	LegalDocumentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
-		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT"}},
+		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS"}},
 		{Name: "version", Type: field.TypeString, Size: 32},
 		{Name: "html_content", Type: field.TypeString, Size: 2147483647},
 		{Name: "effective_date", Type: field.TypeTime},

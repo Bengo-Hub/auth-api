@@ -9615,6 +9615,7 @@ type LegalAcceptanceMutation struct {
 	doc_type            *legalacceptance.DocType
 	doc_version         *string
 	accepted_at         *time.Time
+	accepted_by_user_id *uuid.UUID
 	ip_address          *string
 	user_agent          *string
 	signature_image_url *string
@@ -9909,6 +9910,55 @@ func (m *LegalAcceptanceMutation) ResetAcceptedAt() {
 	m.accepted_at = nil
 }
 
+// SetAcceptedByUserID sets the "accepted_by_user_id" field.
+func (m *LegalAcceptanceMutation) SetAcceptedByUserID(u uuid.UUID) {
+	m.accepted_by_user_id = &u
+}
+
+// AcceptedByUserID returns the value of the "accepted_by_user_id" field in the mutation.
+func (m *LegalAcceptanceMutation) AcceptedByUserID() (r uuid.UUID, exists bool) {
+	v := m.accepted_by_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAcceptedByUserID returns the old "accepted_by_user_id" field's value of the LegalAcceptance entity.
+// If the LegalAcceptance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LegalAcceptanceMutation) OldAcceptedByUserID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAcceptedByUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAcceptedByUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAcceptedByUserID: %w", err)
+	}
+	return oldValue.AcceptedByUserID, nil
+}
+
+// ClearAcceptedByUserID clears the value of the "accepted_by_user_id" field.
+func (m *LegalAcceptanceMutation) ClearAcceptedByUserID() {
+	m.accepted_by_user_id = nil
+	m.clearedFields[legalacceptance.FieldAcceptedByUserID] = struct{}{}
+}
+
+// AcceptedByUserIDCleared returns if the "accepted_by_user_id" field was cleared in this mutation.
+func (m *LegalAcceptanceMutation) AcceptedByUserIDCleared() bool {
+	_, ok := m.clearedFields[legalacceptance.FieldAcceptedByUserID]
+	return ok
+}
+
+// ResetAcceptedByUserID resets all changes to the "accepted_by_user_id" field.
+func (m *LegalAcceptanceMutation) ResetAcceptedByUserID() {
+	m.accepted_by_user_id = nil
+	delete(m.clearedFields, legalacceptance.FieldAcceptedByUserID)
+}
+
 // SetIPAddress sets the "ip_address" field.
 func (m *LegalAcceptanceMutation) SetIPAddress(s string) {
 	m.ip_address = &s
@@ -10126,7 +10176,7 @@ func (m *LegalAcceptanceMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *LegalAcceptanceMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.entity_id != nil {
 		fields = append(fields, legalacceptance.FieldEntityID)
 	}
@@ -10141,6 +10191,9 @@ func (m *LegalAcceptanceMutation) Fields() []string {
 	}
 	if m.accepted_at != nil {
 		fields = append(fields, legalacceptance.FieldAcceptedAt)
+	}
+	if m.accepted_by_user_id != nil {
+		fields = append(fields, legalacceptance.FieldAcceptedByUserID)
 	}
 	if m.ip_address != nil {
 		fields = append(fields, legalacceptance.FieldIPAddress)
@@ -10172,6 +10225,8 @@ func (m *LegalAcceptanceMutation) Field(name string) (ent.Value, bool) {
 		return m.DocVersion()
 	case legalacceptance.FieldAcceptedAt:
 		return m.AcceptedAt()
+	case legalacceptance.FieldAcceptedByUserID:
+		return m.AcceptedByUserID()
 	case legalacceptance.FieldIPAddress:
 		return m.IPAddress()
 	case legalacceptance.FieldUserAgent:
@@ -10199,6 +10254,8 @@ func (m *LegalAcceptanceMutation) OldField(ctx context.Context, name string) (en
 		return m.OldDocVersion(ctx)
 	case legalacceptance.FieldAcceptedAt:
 		return m.OldAcceptedAt(ctx)
+	case legalacceptance.FieldAcceptedByUserID:
+		return m.OldAcceptedByUserID(ctx)
 	case legalacceptance.FieldIPAddress:
 		return m.OldIPAddress(ctx)
 	case legalacceptance.FieldUserAgent:
@@ -10250,6 +10307,13 @@ func (m *LegalAcceptanceMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAcceptedAt(v)
+		return nil
+	case legalacceptance.FieldAcceptedByUserID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAcceptedByUserID(v)
 		return nil
 	case legalacceptance.FieldIPAddress:
 		v, ok := value.(string)
@@ -10309,6 +10373,9 @@ func (m *LegalAcceptanceMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *LegalAcceptanceMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(legalacceptance.FieldAcceptedByUserID) {
+		fields = append(fields, legalacceptance.FieldAcceptedByUserID)
+	}
 	if m.FieldCleared(legalacceptance.FieldIPAddress) {
 		fields = append(fields, legalacceptance.FieldIPAddress)
 	}
@@ -10332,6 +10399,9 @@ func (m *LegalAcceptanceMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *LegalAcceptanceMutation) ClearField(name string) error {
 	switch name {
+	case legalacceptance.FieldAcceptedByUserID:
+		m.ClearAcceptedByUserID()
+		return nil
 	case legalacceptance.FieldIPAddress:
 		m.ClearIPAddress()
 		return nil
@@ -10363,6 +10433,9 @@ func (m *LegalAcceptanceMutation) ResetField(name string) error {
 		return nil
 	case legalacceptance.FieldAcceptedAt:
 		m.ResetAcceptedAt()
+		return nil
+	case legalacceptance.FieldAcceptedByUserID:
+		m.ResetAcceptedByUserID()
 		return nil
 	case legalacceptance.FieldIPAddress:
 		m.ResetIPAddress()

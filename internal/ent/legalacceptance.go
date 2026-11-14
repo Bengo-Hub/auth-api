@@ -28,6 +28,8 @@ type LegalAcceptance struct {
 	DocVersion string `json:"doc_version,omitempty"`
 	// AcceptedAt holds the value of the "accepted_at" field.
 	AcceptedAt time.Time `json:"accepted_at,omitempty"`
+	// The user who accepted on the tenant's behalf (nil on rows written before 2026-11-14 or by a service without a user)
+	AcceptedByUserID *uuid.UUID `json:"accepted_by_user_id,omitempty"`
 	// IPAddress holds the value of the "ip_address" field.
 	IPAddress string `json:"ip_address,omitempty"`
 	// UserAgent holds the value of the "user_agent" field.
@@ -44,6 +46,8 @@ func (*LegalAcceptance) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case legalacceptance.FieldAcceptedByUserID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case legalacceptance.FieldEntityType, legalacceptance.FieldDocType, legalacceptance.FieldDocVersion, legalacceptance.FieldIPAddress, legalacceptance.FieldUserAgent, legalacceptance.FieldSignatureImageURL:
 			values[i] = new(sql.NullString)
 		case legalacceptance.FieldAcceptedAt, legalacceptance.FieldCreatedAt:
@@ -100,6 +104,13 @@ func (_m *LegalAcceptance) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field accepted_at", values[i])
 			} else if value.Valid {
 				_m.AcceptedAt = value.Time
+			}
+		case legalacceptance.FieldAcceptedByUserID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field accepted_by_user_id", values[i])
+			} else if value.Valid {
+				_m.AcceptedByUserID = new(uuid.UUID)
+				*_m.AcceptedByUserID = *value.S.(*uuid.UUID)
 			}
 		case legalacceptance.FieldIPAddress:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -175,6 +186,11 @@ func (_m *LegalAcceptance) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("accepted_at=")
 	builder.WriteString(_m.AcceptedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := _m.AcceptedByUserID; v != nil {
+		builder.WriteString("accepted_by_user_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("ip_address=")
 	builder.WriteString(_m.IPAddress)

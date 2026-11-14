@@ -25,6 +25,8 @@ const (
 	FieldDocVersion = "doc_version"
 	// FieldAcceptedAt holds the string denoting the accepted_at field in the database.
 	FieldAcceptedAt = "accepted_at"
+	// FieldAcceptedByUserID holds the string denoting the accepted_by_user_id field in the database.
+	FieldAcceptedByUserID = "accepted_by_user_id"
 	// FieldIPAddress holds the string denoting the ip_address field in the database.
 	FieldIPAddress = "ip_address"
 	// FieldUserAgent holds the string denoting the user_agent field in the database.
@@ -45,6 +47,7 @@ var Columns = []string{
 	FieldDocType,
 	FieldDocVersion,
 	FieldAcceptedAt,
+	FieldAcceptedByUserID,
 	FieldIPAddress,
 	FieldUserAgent,
 	FieldSignatureImageURL,
@@ -104,10 +107,11 @@ type DocType string
 
 // DocType values.
 const (
-	DocTypeEPA                DocType = "EPA"
-	DocTypeMSA                DocType = "MSA"
-	DocTypeDPA                DocType = "DPA"
-	DocTypeRESELLER_AGREEMENT DocType = "RESELLER_AGREEMENT"
+	DocTypeEPA                          DocType = "EPA"
+	DocTypeMSA                          DocType = "MSA"
+	DocTypeDPA                          DocType = "DPA"
+	DocTypeRESELLER_AGREEMENT           DocType = "RESELLER_AGREEMENT"
+	DocTypeMARKETFLOW_AUTOPUBLISH_TERMS DocType = "MARKETFLOW_AUTOPUBLISH_TERMS"
 )
 
 func (dt DocType) String() string {
@@ -117,7 +121,7 @@ func (dt DocType) String() string {
 // DocTypeValidator is a validator for the "doc_type" field enum values. It is called by the builders before save.
 func DocTypeValidator(dt DocType) error {
 	switch dt {
-	case DocTypeEPA, DocTypeMSA, DocTypeDPA, DocTypeRESELLER_AGREEMENT:
+	case DocTypeEPA, DocTypeMSA, DocTypeDPA, DocTypeRESELLER_AGREEMENT, DocTypeMARKETFLOW_AUTOPUBLISH_TERMS:
 		return nil
 	default:
 		return fmt.Errorf("legalacceptance: invalid enum value for doc_type field: %q", dt)
@@ -155,6 +159,11 @@ func ByDocVersion(opts ...sql.OrderTermOption) OrderOption {
 // ByAcceptedAt orders the results by the accepted_at field.
 func ByAcceptedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAcceptedAt, opts...).ToFunc()
+}
+
+// ByAcceptedByUserID orders the results by the accepted_by_user_id field.
+func ByAcceptedByUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAcceptedByUserID, opts...).ToFunc()
 }
 
 // ByIPAddress orders the results by the ip_address field.

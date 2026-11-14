@@ -658,11 +658,16 @@ func NewRouter(deps RouterDeps) http.Handler {
 		// chi has no admin-only middleware group in this service.
 		if deps.LegalHandler != nil {
 			r.Get("/legal/documents/{type}", deps.LegalHandler.GetCurrentDocument)
+			// Every published version (the effective-dated MarketFlow auto-publish terms are read
+			// here by auth-ui's /legal pages, including an upcoming version during its notice).
+			r.Get("/legal/documents/{type}/versions", deps.LegalHandler.ListDocumentVersions)
+			r.Get("/legal/documents/{type}/versions/{version}", deps.LegalHandler.GetDocumentVersion)
 			r.Group(func(r chi.Router) {
 				if deps.RequireAuthHandler != nil {
 					r.Use(deps.RequireAuthHandler)
 				}
 				r.Post("/auth/legal/accept", deps.LegalHandler.AcceptDocument)
+				r.Get("/auth/legal/acceptances", deps.LegalHandler.ListMyAcceptances)
 				r.Post("/auth/legal/sign", deps.LegalHandler.SignDocument)
 				r.Post("/auth/equity/apply", deps.LegalHandler.CreateApplication)
 			})
@@ -834,6 +839,13 @@ func NewRouter(deps RouterDeps) http.Handler {
 			// IntegrationRequest row itself — the caller keeps owning its own lead record.
 			if deps.AuthHandlers.S2SNotifyIntegrationRequest != nil {
 				r.Post("/api/v1/s2s/notifications/etims-integration-request", deps.AuthHandlers.S2SNotifyIntegrationRequest)
+			}
+			// Product terms acceptance (MarketFlow auto-publish terms, owner 2026-11-14): the product
+			// reads which versions a tenant accepted and records an acceptance it took from a user it
+			// has authorised. The handler refuses the platform agreements (EPA, MSA, DPA, reseller).
+			if deps.LegalHandler != nil {
+				r.Get("/api/v1/s2s/tenants/{tenant_id}/legal/acceptances", deps.LegalHandler.S2SListTenantAcceptances)
+				r.Post("/api/v1/s2s/tenants/{tenant_id}/legal/acceptances", deps.LegalHandler.S2SAcceptForTenant)
 			}
 			// ticketing-api trades a widget otp_token for the verified email, once.
 			if deps.AuthHandlers.S2SValidateOTPToken != nil {

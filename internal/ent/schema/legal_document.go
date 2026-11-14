@@ -13,6 +13,11 @@ import (
 // Covered types: EPA (Equity Participation Agreement), MSA (Master Services Agreement),
 // DPA (Data Processing Agreement), RESELLER_AGREEMENT (Certified Reseller & Partner
 // Program agreement) — governed by Kenya Companies Act 2015 and DPA 2019.
+//
+// MARKETFLOW_AUTOPUBLISH_TERMS (owner 2026-11-14) is the MarketFlow Autopilot auto-publish (veto
+// window) terms. It is effective-dated: the version in force is the newest one whose
+// effective_date has passed, and a version with a later date is announced as upcoming, so
+// is_current is not used for it (see effectiveDatedDocTypes in the legal handler).
 type LegalDocument struct {
 	ent.Schema
 }
@@ -24,8 +29,8 @@ func (LegalDocument) Fields() []ent.Field {
 			Immutable(),
 
 		field.Enum("doc_type").
-			Values("EPA", "MSA", "DPA", "RESELLER_AGREEMENT").
-			Comment("Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement, RESELLER_AGREEMENT=Certified Reseller & Partner Program agreement"),
+			Values("EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS").
+			Comment("Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement, RESELLER_AGREEMENT=Certified Reseller & Partner Program agreement, MARKETFLOW_AUTOPUBLISH_TERMS=MarketFlow Autopilot auto-publish terms (effective-dated)"),
 
 		field.String("version").
 			NotEmpty().

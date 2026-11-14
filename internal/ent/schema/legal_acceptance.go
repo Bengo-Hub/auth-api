@@ -30,7 +30,7 @@ func (LegalAcceptance) Fields() []ent.Field {
 			Comment("Whether entity_id refers to a tenant or a user"),
 
 		field.Enum("doc_type").
-			Values("EPA", "MSA", "DPA", "RESELLER_AGREEMENT"),
+			Values("EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS"),
 
 		field.String("doc_version").
 			NotEmpty().
@@ -38,6 +38,11 @@ func (LegalAcceptance) Fields() []ent.Field {
 			Comment("Version of the document accepted"),
 
 		field.Time("accepted_at"),
+
+		field.UUID("accepted_by_user_id", uuid.UUID{}).
+			Optional().
+			Nillable().
+			Comment("The user who accepted on the tenant's behalf (nil on rows written before 2026-11-14 or by a service without a user)"),
 
 		field.String("ip_address").
 			Optional().

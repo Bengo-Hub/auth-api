@@ -25,6 +25,18 @@ type Config struct {
 	Notifications NotificationsConfig `envPrefix:""`
 	DevOps        DevOpsConfig        `envPrefix:"DEVOPS_"`
 	Domains       DomainsConfig       `envPrefix:""`
+	Legal         LegalConfig         `envPrefix:"LEGAL_"`
+}
+
+// LegalConfig drives the effective-dated legal documents (owner 2026-11-14): how much notice a
+// new version must give before it applies. The admin's skip_notice still overrides it for an
+// urgent legal change.
+type LegalConfig struct {
+	// MinNoticeDays is the minimum notice, in days, for every effective-dated document type.
+	MinNoticeDays int `env:"MIN_NOTICE_DAYS" envDefault:"14"`
+	// MinNoticeDaysByType overrides it per type, as "TYPE=days,..." (for example
+	// "MARKETFLOW_AUTOPUBLISH_TERMS=30"). Empty: every type uses MinNoticeDays.
+	MinNoticeDaysByType string `env:"MIN_NOTICE_DAYS_BY_TYPE"`
 }
 
 // DomainsConfig drives self-service tenant domains (internal/services/domains). All values come
