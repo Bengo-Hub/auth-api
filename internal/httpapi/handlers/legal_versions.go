@@ -78,6 +78,19 @@ func (h *LegalHandler) minNotice(docType string) time.Duration {
 	return h.noticeDefault
 }
 
+// checkNotice refuses (400 notice_too_short) an effective date that gives less than the type's
+// minimum notice, unless skip is set. It writes the response itself and returns false then.
+func (h *LegalHandler) checkNotice(w http.ResponseWriter, docType string, effDate time.Time, skip bool, now time.Time) bool {
+	notice := h.minNotice(docType)
+	if notice <= 0 || skip || !effDate.Before(now.Add(notice)) {
+		return true
+	}
+	writeError(w, http.StatusBadRequest, "notice_too_short",
+		"effective_date must give tenants the minimum notice; send skip_notice to override",
+		map[string]any{"min_notice_days": int(notice.Hours() / 24), "earliest": now.Add(notice).UTC().Format(time.RFC3339)})
+	return false
+}
+
 // normalizeDocType accepts the URL form too: "marketflow-autopublish-terms" is
 // MARKETFLOW_AUTOPUBLISH_TERMS.
 func normalizeDocType(s string) string {
@@ -93,18 +106,23 @@ func parseEffectiveDate(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339, s)
 }
 
-// docTimeline returns the version in force at now (newest effective_date not after now) and the
-// next version announced after it (earliest effective_date after now). Either may be nil.
+// isPublished is the filter every public read and every acceptance check uses: a draft is never
+// shown, never current or upcoming and never accepted.
+var isPublished = legaldocument.StatusEQ(legaldocument.StatusPublished)
+
+// docTimeline returns the published version in force at now (newest effective_date not after now)
+// and the next published version announced after it (earliest effective_date after now). Either
+// may be nil.
 func docTimeline(ctx context.Context, client *ent.Client, docType string, now time.Time) (current, upcoming *ent.LegalDocument, err error) {
 	current, err = client.LegalDocument.Query().
-		Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), legaldocument.EffectiveDateLTE(now)).
+		Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), isPublished, legaldocument.EffectiveDateLTE(now)).
 		Order(ent.Desc(legaldocument.FieldEffectiveDate), ent.Desc(legaldocument.FieldCreatedAt)).
 		First(ctx)
 	if err != nil && !ent.IsNotFound(err) {
 		return nil, nil, err
 	}
 	upcoming, err = client.LegalDocument.Query().
-		Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), legaldocument.EffectiveDateGT(now)).
+		Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), isPublished, legaldocument.EffectiveDateGT(now)).
 		Order(ent.Asc(legaldocument.FieldEffectiveDate), ent.Asc(legaldocument.FieldCreatedAt)).
 		First(ctx)
 	if err != nil && !ent.IsNotFound(err) {
@@ -121,8 +139,12 @@ func legalDocJSON(doc *ent.LegalDocument, now time.Time, withBody bool) map[stri
 		"version":        doc.Version,
 		"effective_date": doc.EffectiveDate.UTC().Format(time.DateOnly),
 		"effective_at":   doc.EffectiveDate.UTC().Format(time.RFC3339),
+		"status":         string(doc.Status),
 	}
-	if isEffectiveDated(string(doc.DocType)) {
+	if doc.Status == legaldocument.StatusDraft {
+		// A draft's date is only a proposal; the date is set when it is published.
+		m["in_force"] = false
+	} else if isEffectiveDated(string(doc.DocType)) {
 		m["in_force"] = !doc.EffectiveDate.After(now)
 	} else {
 		m["is_current"] = doc.IsCurrent
@@ -170,7 +192,7 @@ func (h *LegalHandler) ListDocumentVersions(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	docs, err := h.ent.LegalDocument.Query().
-		Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType))).
+		Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), isPublished).
 		Order(ent.Desc(legaldocument.FieldEffectiveDate), ent.Desc(legaldocument.FieldCreatedAt)).
 		All(r.Context())
 	if err != nil {
@@ -197,9 +219,10 @@ func (h *LegalHandler) GetDocumentVersion(w http.ResponseWriter, r *http.Request
 	}
 	version := strings.TrimSpace(chi.URLParam(r, "version"))
 	doc, err := h.ent.LegalDocument.Query().
-		Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), legaldocument.VersionEQ(version)).
+		Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), legaldocument.VersionEQ(version), isPublished).
 		First(r.Context())
 	if ent.IsNotFound(err) {
+		// A draft answers exactly like a version that does not exist.
 		writeError(w, http.StatusNotFound, "not_found", "no such version", map[string]any{"doc_type": docType, "version": version})
 		return
 	}

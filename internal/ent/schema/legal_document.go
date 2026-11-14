@@ -50,6 +50,16 @@ func (LegalDocument) Fields() []ent.Field {
 		field.Time("created_at").
 			Immutable().
 			Default(time.Now),
+
+		// Draft state (owner 2026-11-14): a platform admin prepares an effective-dated version
+		// as a draft, previews it and then publishes it with its effective date. A draft is
+		// never returned by the public reads, is never current or upcoming and cannot be
+		// accepted; its effective_date is only a proposal until it is published. Rows that
+		// existed before this field are published (the column default).
+		field.Enum("status").
+			Values("draft", "published").
+			Default("published").
+			Comment("draft: admin-only, not in force, not acceptable; published: public and follows effective_date"),
 	}
 }
 
@@ -57,5 +67,6 @@ func (LegalDocument) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("doc_type", "version").Unique(),
 		index.Fields("doc_type", "is_current"),
+		index.Fields("doc_type", "status"),
 	}
 }

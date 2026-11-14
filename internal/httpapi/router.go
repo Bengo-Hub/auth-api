@@ -676,6 +676,13 @@ func NewRouter(deps RouterDeps) http.Handler {
 					r.Use(deps.RequireAuthHandler)
 				}
 				r.Post("/admin/legal/documents", deps.LegalHandler.UpsertDocument)
+				// Drafts of the effective-dated documents (owner 2026-11-14): the admin saves a
+				// draft, previews it on auth-ui's /legal/.../preview/{version} page and publishes
+				// it with its effective date. Drafts never appear in the public reads above.
+				r.Get("/admin/legal/documents/{type}/versions", deps.LegalHandler.AdminListVersions)
+				r.Get("/admin/legal/documents/{type}/versions/{version}", deps.LegalHandler.AdminGetVersion)
+				r.Put("/admin/legal/documents/{type}/drafts/{version}", deps.LegalHandler.SaveDraft)
+				r.Post("/admin/legal/documents/{type}/drafts/{version}/publish", deps.LegalHandler.PublishDraft)
 				r.Get("/admin/equity/applications", deps.LegalHandler.ListApplications)
 				r.Put("/admin/equity/applications/{id}", deps.LegalHandler.UpdateApplication)
 			})

@@ -66,6 +66,7 @@ func (h *LegalHandler) GetCurrentDocument(w http.ResponseWriter, r *http.Request
 		Where(
 			legaldocument.DocTypeEQ(legaldocument.DocType(docType)),
 			legaldocument.IsCurrentEQ(true),
+			legaldocument.StatusEQ(legaldocument.StatusPublished),
 		).
 		Order(
 			ent.Desc(legaldocument.FieldEffectiveDate),
@@ -152,10 +153,7 @@ func (h *LegalHandler) UpsertDocument(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid_content", "html_content is required", nil)
 			return
 		}
-		if notice := h.minNotice(req.DocType); notice > 0 && !req.SkipNotice && effDate.Before(now.Add(notice)) {
-			writeError(w, http.StatusBadRequest, "notice_too_short",
-				"effective_date must give tenants the minimum notice; send skip_notice to override",
-				map[string]any{"min_notice_days": int(notice.Hours() / 24), "earliest": now.Add(notice).UTC().Format(time.RFC3339)})
+		if !h.checkNotice(w, req.DocType, effDate, req.SkipNotice, now) {
 			return
 		}
 	}
@@ -166,6 +164,15 @@ func (h *LegalHandler) UpsertDocument(w http.ResponseWriter, r *http.Request) {
 			legaldocument.DocTypeEQ(legaldocument.DocType(req.DocType)),
 			legaldocument.VersionEQ(req.Version),
 		).Only(ctx)
+
+	// A draft is edited and published through the draft endpoints, so this one never turns a
+	// draft public by accident.
+	if existing != nil && existing.Status == legaldocument.StatusDraft {
+		writeError(w, http.StatusConflict, "version_is_draft",
+			"this version is a draft; edit it with PUT .../drafts/{version} and publish it with POST .../drafts/{version}/publish",
+			map[string]any{"doc_type": req.DocType, "version": req.Version})
+		return
+	}
 
 	// A version that has come into force is what tenants were bound by: editing it in place
 	// would change the record of what applied. Publish a new version instead.
