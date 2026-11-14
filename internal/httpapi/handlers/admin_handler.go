@@ -2846,13 +2846,16 @@ func (h *AdminHandler) S2SListTenantUsers(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	members, err := h.ent.TenantMembership.Query().
-		Where(
-			tenantmembership.TenantID(t.ID),
-			tenantmembership.StatusEQ("active"),
-		).
-		Order(ent.Asc(tenantmembership.FieldCreatedAt)).
-		All(r.Context())
+	// ?status=all also lists suspended and invited members, each with its status, for callers
+	// that must see everyone holding a role (pos's staff bind check refuses binding a row to an
+	// admin even when that admin is suspended or has not accepted yet). The default stays active
+	// members only, which every other caller (erp's employee backfill) relies on.
+	allStatuses := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("status")), "all")
+	memberQ := h.ent.TenantMembership.Query().Where(tenantmembership.TenantID(t.ID))
+	if !allStatuses {
+		memberQ = memberQ.Where(tenantmembership.StatusEQ("active"))
+	}
+	members, err := memberQ.Order(ent.Asc(tenantmembership.FieldCreatedAt)).All(r.Context())
 	if err != nil {
 		h.logger.Error("S2S list users: query memberships", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "could not list users", nil)
@@ -2884,6 +2887,8 @@ func (h *AdminHandler) S2SListTenantUsers(w http.ResponseWriter, r *http.Request
 		OutletID *string  `json:"outlet_id,omitempty"`
 		// Services the member gets (absent when unknown, "*" = every service).
 		Services []string `json:"services,omitempty"`
+		// Status is the membership status (active, suspended, invited); sent with ?status=all.
+		Status string `json:"status,omitempty"`
 	}
 	// ?service=pos lists only the members that service should keep (access rules); a member
 	// whose services are unknown is kept, so a lookup failure never hides anyone.
@@ -2904,6 +2909,9 @@ func (h *AdminHandler) S2SListTenantUsers(w http.ResponseWriter, r *http.Request
 			outletIDStr = &s
 		}
 		entry := s2sUser{ID: m.UserID.String(), Roles: roles, OutletID: outletIDStr, Services: services}
+		if allStatuses {
+			entry.Status = m.Status
+		}
 		if u, ok := userMap[m.UserID]; ok {
 			entry.Email = u.Email
 			if u.Profile != nil {
