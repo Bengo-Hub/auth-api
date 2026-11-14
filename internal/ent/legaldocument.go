@@ -29,7 +29,9 @@ type LegalDocument struct {
 	// Only one document per doc_type may be current; set via update, not create
 	IsCurrent bool `json:"is_current,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt    time.Time `json:"created_at,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	// draft: admin-only, not in force, not acceptable; published: public and follows effective_date
+	Status       legaldocument.Status `json:"status,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -40,7 +42,7 @@ func (*LegalDocument) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case legaldocument.FieldIsCurrent:
 			values[i] = new(sql.NullBool)
-		case legaldocument.FieldDocType, legaldocument.FieldVersion, legaldocument.FieldHTMLContent:
+		case legaldocument.FieldDocType, legaldocument.FieldVersion, legaldocument.FieldHTMLContent, legaldocument.FieldStatus:
 			values[i] = new(sql.NullString)
 		case legaldocument.FieldEffectiveDate, legaldocument.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -103,6 +105,12 @@ func (_m *LegalDocument) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CreatedAt = value.Time
 			}
+		case legaldocument.FieldStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field status", values[i])
+			} else if value.Valid {
+				_m.Status = legaldocument.Status(value.String)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -156,6 +164,9 @@ func (_m *LegalDocument) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("status=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Status))
 	builder.WriteByte(')')
 	return builder.String()
 }

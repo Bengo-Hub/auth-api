@@ -76,6 +76,20 @@ func (_c *LegalDocumentCreate) SetNillableCreatedAt(v *time.Time) *LegalDocument
 	return _c
 }
 
+// SetStatus sets the "status" field.
+func (_c *LegalDocumentCreate) SetStatus(v legaldocument.Status) *LegalDocumentCreate {
+	_c.mutation.SetStatus(v)
+	return _c
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_c *LegalDocumentCreate) SetNillableStatus(v *legaldocument.Status) *LegalDocumentCreate {
+	if v != nil {
+		_c.SetStatus(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *LegalDocumentCreate) SetID(v uuid.UUID) *LegalDocumentCreate {
 	_c.mutation.SetID(v)
@@ -133,6 +147,10 @@ func (_c *LegalDocumentCreate) defaults() {
 		v := legaldocument.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
+	if _, ok := _c.mutation.Status(); !ok {
+		v := legaldocument.DefaultStatus
+		_c.mutation.SetStatus(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := legaldocument.DefaultID()
 		_c.mutation.SetID(v)
@@ -168,6 +186,14 @@ func (_c *LegalDocumentCreate) check() error {
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "LegalDocument.created_at"`)}
+	}
+	if _, ok := _c.mutation.Status(); !ok {
+		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "LegalDocument.status"`)}
+	}
+	if v, ok := _c.mutation.Status(); ok {
+		if err := legaldocument.StatusValidator(v); err != nil {
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "LegalDocument.status": %w`, err)}
+		}
 	}
 	return nil
 }
@@ -228,6 +254,10 @@ func (_c *LegalDocumentCreate) createSpec() (*LegalDocument, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(legaldocument.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
+	}
+	if value, ok := _c.mutation.Status(); ok {
+		_spec.SetField(legaldocument.FieldStatus, field.TypeEnum, value)
+		_node.Status = value
 	}
 	return _node, _spec
 }
@@ -338,6 +368,18 @@ func (u *LegalDocumentUpsert) SetIsCurrent(v bool) *LegalDocumentUpsert {
 // UpdateIsCurrent sets the "is_current" field to the value that was provided on create.
 func (u *LegalDocumentUpsert) UpdateIsCurrent() *LegalDocumentUpsert {
 	u.SetExcluded(legaldocument.FieldIsCurrent)
+	return u
+}
+
+// SetStatus sets the "status" field.
+func (u *LegalDocumentUpsert) SetStatus(v legaldocument.Status) *LegalDocumentUpsert {
+	u.Set(legaldocument.FieldStatus, v)
+	return u
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *LegalDocumentUpsert) UpdateStatus() *LegalDocumentUpsert {
+	u.SetExcluded(legaldocument.FieldStatus)
 	return u
 }
 
@@ -459,6 +501,20 @@ func (u *LegalDocumentUpsertOne) SetIsCurrent(v bool) *LegalDocumentUpsertOne {
 func (u *LegalDocumentUpsertOne) UpdateIsCurrent() *LegalDocumentUpsertOne {
 	return u.Update(func(s *LegalDocumentUpsert) {
 		s.UpdateIsCurrent()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *LegalDocumentUpsertOne) SetStatus(v legaldocument.Status) *LegalDocumentUpsertOne {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *LegalDocumentUpsertOne) UpdateStatus() *LegalDocumentUpsertOne {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.UpdateStatus()
 	})
 }
 
@@ -747,6 +803,20 @@ func (u *LegalDocumentUpsertBulk) SetIsCurrent(v bool) *LegalDocumentUpsertBulk 
 func (u *LegalDocumentUpsertBulk) UpdateIsCurrent() *LegalDocumentUpsertBulk {
 	return u.Update(func(s *LegalDocumentUpsert) {
 		s.UpdateIsCurrent()
+	})
+}
+
+// SetStatus sets the "status" field.
+func (u *LegalDocumentUpsertBulk) SetStatus(v legaldocument.Status) *LegalDocumentUpsertBulk {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.SetStatus(v)
+	})
+}
+
+// UpdateStatus sets the "status" field to the value that was provided on create.
+func (u *LegalDocumentUpsertBulk) UpdateStatus() *LegalDocumentUpsertBulk {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.UpdateStatus()
 	})
 }
 

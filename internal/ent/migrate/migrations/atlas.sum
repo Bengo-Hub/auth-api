@@ -1,4 +1,4 @@
-h1:+jcX91+suH8qU/ncQBDUoUfydygM0stGLoFY/Np/fgY=
+h1:lmecr1BZgUAgZPu3FUnR2+ofvsBez5XfwSkqUVsjIdY=
 20260418145526_initial_with_fix.sql h1:PPhZsHSwYMGYB1hN9CRT/hZUuo/n5QZI+9ZXUlHmXOE=
 20260427115501_add_terms_accepted_to_users.sql h1:HM8zaomTVrJDWTZiGSFknYAAYqUV5Wc/qmh4j3oUcng=
 20260429072541_equity_legal.sql h1:EZ/2ZvuTU11gKbWXXJJTb9KdTKGONFbAiP6jRqFaddA=
@@ -26,3 +26,4 @@ h1:+jcX91+suH8qU/ncQBDUoUfydygM0stGLoFY/Np/fgY=
 20261105171134_member_outlet_ids.sql h1:moNLekjnY76aVncwjItgqsR8FC7hupNlyEr2LjTD0uo=
 20261112230000_tenant_domain_grace.sql h1:FFtAeDHxcz9yAUykU9MeBoWApijRPmiq5ulyViFxXDQ=
 20261114120000_legal_acceptance_user.sql h1:hlWtva7So6W3vSgTvgwqiX1DTmdTtGt6bcMgRdnKhmA=
+20261114200000_legal_document_status.sql h1:PKxuSYP7scocUZkgYvRDBzhuuZc+/sKhOHEPBkMyBjE=

@@ -98,6 +98,20 @@ func (_u *LegalDocumentUpdate) SetNillableIsCurrent(v *bool) *LegalDocumentUpdat
 	return _u
 }
 
+// SetStatus sets the "status" field.
+func (_u *LegalDocumentUpdate) SetStatus(v legaldocument.Status) *LegalDocumentUpdate {
+	_u.mutation.SetStatus(v)
+	return _u
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_u *LegalDocumentUpdate) SetNillableStatus(v *legaldocument.Status) *LegalDocumentUpdate {
+	if v != nil {
+		_u.SetStatus(*v)
+	}
+	return _u
+}
+
 // Mutation returns the LegalDocumentMutation object of the builder.
 func (_u *LegalDocumentUpdate) Mutation() *LegalDocumentMutation {
 	return _u.mutation
@@ -142,6 +156,11 @@ func (_u *LegalDocumentUpdate) check() error {
 			return &ValidationError{Name: "version", err: fmt.Errorf(`ent: validator failed for field "LegalDocument.version": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Status(); ok {
+		if err := legaldocument.StatusValidator(v); err != nil {
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "LegalDocument.status": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -171,6 +190,9 @@ func (_u *LegalDocumentUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if value, ok := _u.mutation.IsCurrent(); ok {
 		_spec.SetField(legaldocument.FieldIsCurrent, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Status(); ok {
+		_spec.SetField(legaldocument.FieldStatus, field.TypeEnum, value)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -262,6 +284,20 @@ func (_u *LegalDocumentUpdateOne) SetNillableIsCurrent(v *bool) *LegalDocumentUp
 	return _u
 }
 
+// SetStatus sets the "status" field.
+func (_u *LegalDocumentUpdateOne) SetStatus(v legaldocument.Status) *LegalDocumentUpdateOne {
+	_u.mutation.SetStatus(v)
+	return _u
+}
+
+// SetNillableStatus sets the "status" field if the given value is not nil.
+func (_u *LegalDocumentUpdateOne) SetNillableStatus(v *legaldocument.Status) *LegalDocumentUpdateOne {
+	if v != nil {
+		_u.SetStatus(*v)
+	}
+	return _u
+}
+
 // Mutation returns the LegalDocumentMutation object of the builder.
 func (_u *LegalDocumentUpdateOne) Mutation() *LegalDocumentMutation {
 	return _u.mutation
@@ -319,6 +355,11 @@ func (_u *LegalDocumentUpdateOne) check() error {
 			return &ValidationError{Name: "version", err: fmt.Errorf(`ent: validator failed for field "LegalDocument.version": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Status(); ok {
+		if err := legaldocument.StatusValidator(v); err != nil {
+			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "LegalDocument.status": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -365,6 +406,9 @@ func (_u *LegalDocumentUpdateOne) sqlSave(ctx context.Context) (_node *LegalDocu
 	}
 	if value, ok := _u.mutation.IsCurrent(); ok {
 		_spec.SetField(legaldocument.FieldIsCurrent, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Status(); ok {
+		_spec.SetField(legaldocument.FieldStatus, field.TypeEnum, value)
 	}
 	_node = &LegalDocument{config: _u.config}
 	_spec.Assign = _node.assignValues

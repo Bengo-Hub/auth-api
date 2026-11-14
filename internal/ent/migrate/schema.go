@@ -356,6 +356,7 @@ var (
 		{Name: "effective_date", Type: field.TypeTime},
 		{Name: "is_current", Type: field.TypeBool, Default: false},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"draft", "published"}, Default: "published"},
 	}
 	// LegalDocumentsTable holds the schema information for the "legal_documents" table.
 	LegalDocumentsTable = &schema.Table{
@@ -372,6 +373,11 @@ var (
 				Name:    "legaldocument_doc_type_is_current",
 				Unique:  false,
 				Columns: []*schema.Column{LegalDocumentsColumns[1], LegalDocumentsColumns[5]},
+			},
+			{
+				Name:    "legaldocument_doc_type_status",
+				Unique:  false,
+				Columns: []*schema.Column{LegalDocumentsColumns[1], LegalDocumentsColumns[7]},
 			},
 		},
 	}

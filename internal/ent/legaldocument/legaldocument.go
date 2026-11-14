@@ -27,6 +27,8 @@ const (
 	FieldIsCurrent = "is_current"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
+	// FieldStatus holds the string denoting the status field in the database.
+	FieldStatus = "status"
 	// Table holds the table name of the legaldocument in the database.
 	Table = "legal_documents"
 )
@@ -40,6 +42,7 @@ var Columns = []string{
 	FieldEffectiveDate,
 	FieldIsCurrent,
 	FieldCreatedAt,
+	FieldStatus,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -89,6 +92,32 @@ func DocTypeValidator(dt DocType) error {
 	}
 }
 
+// Status defines the type for the "status" enum field.
+type Status string
+
+// StatusPublished is the default value of the Status enum.
+const DefaultStatus = StatusPublished
+
+// Status values.
+const (
+	StatusDraft     Status = "draft"
+	StatusPublished Status = "published"
+)
+
+func (s Status) String() string {
+	return string(s)
+}
+
+// StatusValidator is a validator for the "status" field enum values. It is called by the builders before save.
+func StatusValidator(s Status) error {
+	switch s {
+	case StatusDraft, StatusPublished:
+		return nil
+	default:
+		return fmt.Errorf("legaldocument: invalid enum value for status field: %q", s)
+	}
+}
+
 // OrderOption defines the ordering options for the LegalDocument queries.
 type OrderOption func(*sql.Selector)
 
@@ -125,4 +154,9 @@ func ByIsCurrent(opts ...sql.OrderTermOption) OrderOption {
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByStatus orders the results by the status field.
+func ByStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStatus, opts...).ToFunc()
 }
