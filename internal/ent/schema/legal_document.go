@@ -18,6 +18,12 @@ import (
 // window) terms. It is effective-dated: the version in force is the newest one whose
 // effective_date has passed, and a version with a later date is announced as upcoming, so
 // is_current is not used for it (see effectiveDatedDocTypes in the legal handler).
+//
+// Dashboard-managed platform policies (owner 2026-11-15, modelled on Hadia's legal module):
+// TERMS_OF_SERVICE and PRIVACY_POLICY are effective-dated and accepted per user (a material
+// change asks every user to accept again); COOKIE_POLICY, REFUND_POLICY and DATA_REQUESTS are
+// effective-dated notices nobody accepts. Title, change summary, the material flag and who
+// edited or published a version live in metadata rather than in their own columns.
 type LegalDocument struct {
 	ent.Schema
 }
@@ -29,8 +35,9 @@ func (LegalDocument) Fields() []ent.Field {
 			Immutable(),
 
 		field.Enum("doc_type").
-			Values("EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS").
-			Comment("Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement, RESELLER_AGREEMENT=Certified Reseller & Partner Program agreement, MARKETFLOW_AUTOPUBLISH_TERMS=MarketFlow Autopilot auto-publish terms (effective-dated)"),
+			Values("EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS",
+				"TERMS_OF_SERVICE", "PRIVACY_POLICY", "COOKIE_POLICY", "REFUND_POLICY", "DATA_REQUESTS").
+			Comment("Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement, RESELLER_AGREEMENT=Certified Reseller & Partner Program agreement, MARKETFLOW_AUTOPUBLISH_TERMS=MarketFlow Autopilot auto-publish terms; TERMS_OF_SERVICE, PRIVACY_POLICY, COOKIE_POLICY, REFUND_POLICY, DATA_REQUESTS=platform policies. All but the first four are effective-dated"),
 
 		field.String("version").
 			NotEmpty().
@@ -60,6 +67,12 @@ func (LegalDocument) Fields() []ent.Field {
 			Values("draft", "published").
 			Default("published").
 			Comment("draft: admin-only, not in force, not acceptable; published: public and follows effective_date"),
+
+		// Editorial details of a version (owner 2026-11-15): title, summary (what changed),
+		// material (a change users must accept again), updated_by, published_by, published_at.
+		field.JSON("metadata", map[string]any{}).
+			Optional().
+			Comment("title, summary, material, updated_by, published_by, published_at"),
 	}
 }
 

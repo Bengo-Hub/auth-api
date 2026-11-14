@@ -10514,6 +10514,7 @@ type LegalDocumentMutation struct {
 	is_current     *bool
 	created_at     *time.Time
 	status         *legaldocument.Status
+	metadata       *map[string]interface{}
 	clearedFields  map[string]struct{}
 	done           bool
 	oldValue       func(context.Context) (*LegalDocument, error)
@@ -10876,6 +10877,55 @@ func (m *LegalDocumentMutation) ResetStatus() {
 	m.status = nil
 }
 
+// SetMetadata sets the "metadata" field.
+func (m *LegalDocumentMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *LegalDocumentMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the LegalDocument entity.
+// If the LegalDocument object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LegalDocumentMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (m *LegalDocumentMutation) ClearMetadata() {
+	m.metadata = nil
+	m.clearedFields[legaldocument.FieldMetadata] = struct{}{}
+}
+
+// MetadataCleared returns if the "metadata" field was cleared in this mutation.
+func (m *LegalDocumentMutation) MetadataCleared() bool {
+	_, ok := m.clearedFields[legaldocument.FieldMetadata]
+	return ok
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *LegalDocumentMutation) ResetMetadata() {
+	m.metadata = nil
+	delete(m.clearedFields, legaldocument.FieldMetadata)
+}
+
 // Where appends a list predicates to the LegalDocumentMutation builder.
 func (m *LegalDocumentMutation) Where(ps ...predicate.LegalDocument) {
 	m.predicates = append(m.predicates, ps...)
@@ -10910,7 +10960,7 @@ func (m *LegalDocumentMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *LegalDocumentMutation) Fields() []string {
-	fields := make([]string, 0, 7)
+	fields := make([]string, 0, 8)
 	if m.doc_type != nil {
 		fields = append(fields, legaldocument.FieldDocType)
 	}
@@ -10931,6 +10981,9 @@ func (m *LegalDocumentMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, legaldocument.FieldStatus)
+	}
+	if m.metadata != nil {
+		fields = append(fields, legaldocument.FieldMetadata)
 	}
 	return fields
 }
@@ -10954,6 +11007,8 @@ func (m *LegalDocumentMutation) Field(name string) (ent.Value, bool) {
 		return m.CreatedAt()
 	case legaldocument.FieldStatus:
 		return m.Status()
+	case legaldocument.FieldMetadata:
+		return m.Metadata()
 	}
 	return nil, false
 }
@@ -10977,6 +11032,8 @@ func (m *LegalDocumentMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldCreatedAt(ctx)
 	case legaldocument.FieldStatus:
 		return m.OldStatus(ctx)
+	case legaldocument.FieldMetadata:
+		return m.OldMetadata(ctx)
 	}
 	return nil, fmt.Errorf("unknown LegalDocument field %s", name)
 }
@@ -11035,6 +11092,13 @@ func (m *LegalDocumentMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetStatus(v)
 		return nil
+	case legaldocument.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
+		return nil
 	}
 	return fmt.Errorf("unknown LegalDocument field %s", name)
 }
@@ -11064,7 +11128,11 @@ func (m *LegalDocumentMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *LegalDocumentMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(legaldocument.FieldMetadata) {
+		fields = append(fields, legaldocument.FieldMetadata)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -11077,6 +11145,11 @@ func (m *LegalDocumentMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *LegalDocumentMutation) ClearField(name string) error {
+	switch name {
+	case legaldocument.FieldMetadata:
+		m.ClearMetadata()
+		return nil
+	}
 	return fmt.Errorf("unknown LegalDocument nullable field %s", name)
 }
 
@@ -11104,6 +11177,9 @@ func (m *LegalDocumentMutation) ResetField(name string) error {
 		return nil
 	case legaldocument.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case legaldocument.FieldMetadata:
+		m.ResetMetadata()
 		return nil
 	}
 	return fmt.Errorf("unknown LegalDocument field %s", name)

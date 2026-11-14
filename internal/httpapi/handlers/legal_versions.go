@@ -25,14 +25,71 @@ import (
 // DocTypeMarketFlowAutoPublishTerms is the MarketFlow Autopilot auto-publish (veto window) terms.
 const DocTypeMarketFlowAutoPublishTerms = "MARKETFLOW_AUTOPUBLISH_TERMS"
 
-const invalidDocTypeMessage = "doc_type must be EPA, MSA, DPA, RESELLER_AGREEMENT or MARKETFLOW_AUTOPUBLISH_TERMS"
+// Platform policies managed from the dashboard (owner 2026-11-15).
+const (
+	DocTypeTermsOfService = "TERMS_OF_SERVICE"
+	DocTypePrivacyPolicy  = "PRIVACY_POLICY"
+	DocTypeCookiePolicy   = "COOKIE_POLICY"
+	DocTypeRefundPolicy   = "REFUND_POLICY"
+	DocTypeDataRequests   = "DATA_REQUESTS"
+)
+
+const invalidDocTypeMessage = "doc_type must be EPA, MSA, DPA, RESELLER_AGREEMENT, MARKETFLOW_AUTOPUBLISH_TERMS, " +
+	"TERMS_OF_SERVICE, PRIVACY_POLICY, COOKIE_POLICY, REFUND_POLICY or DATA_REQUESTS"
 
 // effectiveDatedDocTypes are the types whose version in force follows effective_date.
 var effectiveDatedDocTypes = map[string]bool{
 	DocTypeMarketFlowAutoPublishTerms: true,
+	DocTypeTermsOfService:             true,
+	DocTypePrivacyPolicy:              true,
+	DocTypeCookiePolicy:               true,
+	DocTypeRefundPolicy:               true,
+	DocTypeDataRequests:               true,
 }
 
 func isEffectiveDated(docType string) bool { return effectiveDatedDocTypes[docType] }
+
+// userConsentDocTypes are accepted by each user for themselves; a material version asks every
+// user to accept it again (see PendingConsents).
+var userConsentDocTypes = map[string]bool{
+	DocTypeTermsOfService: true,
+	DocTypePrivacyPolicy:  true,
+}
+
+func isUserConsent(docType string) bool { return userConsentDocTypes[docType] }
+
+// noticeOnlyDocTypes are published for information; nobody accepts them.
+var noticeOnlyDocTypes = map[string]bool{
+	DocTypeCookiePolicy: true,
+	DocTypeRefundPolicy: true,
+	DocTypeDataRequests: true,
+}
+
+// tenantProductTerms are effective-dated terms a tenant accepts for a product, which a product
+// service may record for a user it has authorised (S2SAcceptForTenant).
+var tenantProductTerms = map[string]bool{
+	DocTypeMarketFlowAutoPublishTerms: true,
+}
+
+// docTypeKind tells the admin dashboard how a type behaves.
+func docTypeKind(docType string) string {
+	switch {
+	case isUserConsent(docType):
+		return "user_consent"
+	case noticeOnlyDocTypes[docType]:
+		return "notice"
+	case tenantProductTerms[docType]:
+		return "product_terms"
+	default:
+		return "agreement"
+	}
+}
+
+// allDocTypes is every type in the order the dashboard lists them.
+var allDocTypes = []string{
+	DocTypeTermsOfService, DocTypePrivacyPolicy, DocTypeCookiePolicy, DocTypeRefundPolicy, DocTypeDataRequests,
+	DocTypeMarketFlowAutoPublishTerms, "MSA", "DPA", "EPA", "RESELLER_AGREEMENT",
+}
 
 // defaultMinNotice is the notice a new effective-dated version gives when config sets none
 // (owner 2026-11-14: 14 days).
@@ -149,10 +206,38 @@ func legalDocJSON(doc *ent.LegalDocument, now time.Time, withBody bool) map[stri
 	} else {
 		m["is_current"] = doc.IsCurrent
 	}
+	for _, k := range []string{"title", "summary", "updated_by", "published_by", "published_at"} {
+		if v, ok := doc.Metadata[k].(string); ok && v != "" {
+			m[k] = v
+		}
+	}
+	m["material"] = docMaterial(doc)
 	if withBody {
 		m["html_content"] = doc.HTMLContent
 	}
 	return m
+}
+
+// docMaterial reports whether a version is a material change users must accept again.
+func docMaterial(doc *ent.LegalDocument) bool {
+	v, _ := doc.Metadata["material"].(bool)
+	return v
+}
+
+// withMetadata returns a copy of base with the given non-empty values set, so a stored map is
+// never changed in place.
+func withMetadata(base map[string]any, set map[string]any) map[string]any {
+	out := make(map[string]any, len(base)+len(set))
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range set {
+		if s, ok := v.(string); ok && s == "" {
+			continue
+		}
+		out[k] = v
+	}
+	return out
 }
 
 // getEffectiveDated answers GET /legal/documents/{type} for an effective-dated type: the version in
@@ -247,12 +332,29 @@ type acceptanceInput struct {
 // recordAcceptance validates and stores an acceptance and writes the response: 201 when recorded,
 // 200 with the earlier row when this tenant already accepted the same version (idempotent). For
 // an effective-dated type the version must be the one in force or the upcoming one.
+//
+// Terms of Service and the Privacy Policy are accepted by the user for themselves (entity user);
+// every other acceptable type is accepted for the tenant. Cookie, refund and data request notices
+// are not accepted at all.
 func (h *LegalHandler) recordAcceptance(w http.ResponseWriter, r *http.Request, in acceptanceInput) {
 	ctx := r.Context()
 	in.Version = strings.TrimSpace(in.Version)
 	if in.Version == "" || len(in.Version) > 32 {
 		writeError(w, http.StatusBadRequest, "invalid_version", "doc_version is required, up to 32 characters", nil)
 		return
+	}
+	if noticeOnlyDocTypes[in.DocType] {
+		writeError(w, http.StatusBadRequest, "not_acceptable", "this document is a notice and is not accepted",
+			map[string]any{"doc_type": in.DocType})
+		return
+	}
+	entityID, entityType := in.TenantID, legalacceptance.EntityTypeTenant
+	if isUserConsent(in.DocType) {
+		if in.UserID == nil {
+			writeError(w, http.StatusBadRequest, "user_required", "this document is accepted by a signed-in user", nil)
+			return
+		}
+		entityID, entityType = *in.UserID, legalacceptance.EntityTypeUser
 	}
 	if isEffectiveDated(in.DocType) {
 		current, upcoming, err := docTimeline(ctx, h.ent, in.DocType, time.Now())
@@ -276,8 +378,8 @@ func (h *LegalHandler) recordAcceptance(w http.ResponseWriter, r *http.Request, 
 		}
 		prior, err := h.ent.LegalAcceptance.Query().
 			Where(
-				legalacceptance.EntityIDEQ(in.TenantID),
-				legalacceptance.EntityTypeEQ(legalacceptance.EntityTypeTenant),
+				legalacceptance.EntityIDEQ(entityID),
+				legalacceptance.EntityTypeEQ(entityType),
 				legalacceptance.DocTypeEQ(legalacceptance.DocType(in.DocType)),
 				legalacceptance.DocVersionEQ(in.Version),
 			).
@@ -295,8 +397,8 @@ func (h *LegalHandler) recordAcceptance(w http.ResponseWriter, r *http.Request, 
 	}
 
 	create := h.ent.LegalAcceptance.Create().
-		SetEntityID(in.TenantID).
-		SetEntityType(legalacceptance.EntityTypeTenant).
+		SetEntityID(entityID).
+		SetEntityType(entityType).
 		SetDocType(legalacceptance.DocType(in.DocType)).
 		SetDocVersion(in.Version).
 		SetAcceptedAt(time.Now()).
@@ -414,9 +516,9 @@ func (h *LegalHandler) S2SAcceptForTenant(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "invalid_doc_type", invalidDocTypeMessage, nil)
 		return
 	}
-	// A service records only effective-dated product terms; the platform agreements (EPA, MSA,
-	// DPA, reseller) are accepted by the signed-in user directly.
-	if !isEffectiveDated(docType) {
+	// A service records only product terms; the platform agreements (EPA, MSA, DPA, reseller) and
+	// the user's own Terms of Service and Privacy Policy consent are given by the signed-in user.
+	if !tenantProductTerms[docType] {
 		writeError(w, http.StatusForbidden, "forbidden", "this document type cannot be accepted by a service", nil)
 		return
 	}

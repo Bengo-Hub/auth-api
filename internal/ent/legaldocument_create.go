@@ -90,6 +90,12 @@ func (_c *LegalDocumentCreate) SetNillableStatus(v *legaldocument.Status) *Legal
 	return _c
 }
 
+// SetMetadata sets the "metadata" field.
+func (_c *LegalDocumentCreate) SetMetadata(v map[string]interface{}) *LegalDocumentCreate {
+	_c.mutation.SetMetadata(v)
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *LegalDocumentCreate) SetID(v uuid.UUID) *LegalDocumentCreate {
 	_c.mutation.SetID(v)
@@ -259,6 +265,10 @@ func (_c *LegalDocumentCreate) createSpec() (*LegalDocument, *sqlgraph.CreateSpe
 		_spec.SetField(legaldocument.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
 	}
+	if value, ok := _c.mutation.Metadata(); ok {
+		_spec.SetField(legaldocument.FieldMetadata, field.TypeJSON, value)
+		_node.Metadata = value
+	}
 	return _node, _spec
 }
 
@@ -380,6 +390,24 @@ func (u *LegalDocumentUpsert) SetStatus(v legaldocument.Status) *LegalDocumentUp
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *LegalDocumentUpsert) UpdateStatus() *LegalDocumentUpsert {
 	u.SetExcluded(legaldocument.FieldStatus)
+	return u
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *LegalDocumentUpsert) SetMetadata(v map[string]interface{}) *LegalDocumentUpsert {
+	u.Set(legaldocument.FieldMetadata, v)
+	return u
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *LegalDocumentUpsert) UpdateMetadata() *LegalDocumentUpsert {
+	u.SetExcluded(legaldocument.FieldMetadata)
+	return u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *LegalDocumentUpsert) ClearMetadata() *LegalDocumentUpsert {
+	u.SetNull(legaldocument.FieldMetadata)
 	return u
 }
 
@@ -515,6 +543,27 @@ func (u *LegalDocumentUpsertOne) SetStatus(v legaldocument.Status) *LegalDocumen
 func (u *LegalDocumentUpsertOne) UpdateStatus() *LegalDocumentUpsertOne {
 	return u.Update(func(s *LegalDocumentUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *LegalDocumentUpsertOne) SetMetadata(v map[string]interface{}) *LegalDocumentUpsertOne {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *LegalDocumentUpsertOne) UpdateMetadata() *LegalDocumentUpsertOne {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *LegalDocumentUpsertOne) ClearMetadata() *LegalDocumentUpsertOne {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.ClearMetadata()
 	})
 }
 
@@ -817,6 +866,27 @@ func (u *LegalDocumentUpsertBulk) SetStatus(v legaldocument.Status) *LegalDocume
 func (u *LegalDocumentUpsertBulk) UpdateStatus() *LegalDocumentUpsertBulk {
 	return u.Update(func(s *LegalDocumentUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *LegalDocumentUpsertBulk) SetMetadata(v map[string]interface{}) *LegalDocumentUpsertBulk {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *LegalDocumentUpsertBulk) UpdateMetadata() *LegalDocumentUpsertBulk {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *LegalDocumentUpsertBulk) ClearMetadata() *LegalDocumentUpsertBulk {
+	return u.Update(func(s *LegalDocumentUpsert) {
+		s.ClearMetadata()
 	})
 }
 

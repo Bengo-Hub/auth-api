@@ -29,6 +29,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldMetadata holds the string denoting the metadata field in the database.
+	FieldMetadata = "metadata"
 	// Table holds the table name of the legaldocument in the database.
 	Table = "legal_documents"
 )
@@ -43,6 +45,7 @@ var Columns = []string{
 	FieldIsCurrent,
 	FieldCreatedAt,
 	FieldStatus,
+	FieldMetadata,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -76,6 +79,11 @@ const (
 	DocTypeDPA                          DocType = "DPA"
 	DocTypeRESELLER_AGREEMENT           DocType = "RESELLER_AGREEMENT"
 	DocTypeMARKETFLOW_AUTOPUBLISH_TERMS DocType = "MARKETFLOW_AUTOPUBLISH_TERMS"
+	DocTypeTERMS_OF_SERVICE             DocType = "TERMS_OF_SERVICE"
+	DocTypePRIVACY_POLICY               DocType = "PRIVACY_POLICY"
+	DocTypeCOOKIE_POLICY                DocType = "COOKIE_POLICY"
+	DocTypeREFUND_POLICY                DocType = "REFUND_POLICY"
+	DocTypeDATA_REQUESTS                DocType = "DATA_REQUESTS"
 )
 
 func (dt DocType) String() string {
@@ -85,7 +93,7 @@ func (dt DocType) String() string {
 // DocTypeValidator is a validator for the "doc_type" field enum values. It is called by the builders before save.
 func DocTypeValidator(dt DocType) error {
 	switch dt {
-	case DocTypeEPA, DocTypeMSA, DocTypeDPA, DocTypeRESELLER_AGREEMENT, DocTypeMARKETFLOW_AUTOPUBLISH_TERMS:
+	case DocTypeEPA, DocTypeMSA, DocTypeDPA, DocTypeRESELLER_AGREEMENT, DocTypeMARKETFLOW_AUTOPUBLISH_TERMS, DocTypeTERMS_OF_SERVICE, DocTypePRIVACY_POLICY, DocTypeCOOKIE_POLICY, DocTypeREFUND_POLICY, DocTypeDATA_REQUESTS:
 		return nil
 	default:
 		return fmt.Errorf("legaldocument: invalid enum value for doc_type field: %q", dt)

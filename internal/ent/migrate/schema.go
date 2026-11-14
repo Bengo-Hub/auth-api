@@ -320,7 +320,7 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "entity_id", Type: field.TypeUUID},
 		{Name: "entity_type", Type: field.TypeEnum, Enums: []string{"tenant", "user"}},
-		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS"}},
+		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS", "TERMS_OF_SERVICE", "PRIVACY_POLICY", "COOKIE_POLICY", "REFUND_POLICY", "DATA_REQUESTS"}},
 		{Name: "doc_version", Type: field.TypeString, Size: 32},
 		{Name: "accepted_at", Type: field.TypeTime},
 		{Name: "accepted_by_user_id", Type: field.TypeUUID, Nullable: true},
@@ -350,13 +350,14 @@ var (
 	// LegalDocumentsColumns holds the columns for the "legal_documents" table.
 	LegalDocumentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
-		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS"}},
+		{Name: "doc_type", Type: field.TypeEnum, Enums: []string{"EPA", "MSA", "DPA", "RESELLER_AGREEMENT", "MARKETFLOW_AUTOPUBLISH_TERMS", "TERMS_OF_SERVICE", "PRIVACY_POLICY", "COOKIE_POLICY", "REFUND_POLICY", "DATA_REQUESTS"}},
 		{Name: "version", Type: field.TypeString, Size: 32},
 		{Name: "html_content", Type: field.TypeString, Size: 2147483647},
 		{Name: "effective_date", Type: field.TypeTime},
 		{Name: "is_current", Type: field.TypeBool, Default: false},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"draft", "published"}, Default: "published"},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
 	}
 	// LegalDocumentsTable holds the schema information for the "legal_documents" table.
 	LegalDocumentsTable = &schema.Table{

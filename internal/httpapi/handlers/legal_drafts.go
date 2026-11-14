@@ -41,20 +41,36 @@ func requireLegalAdmin(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// draftDocType reads {type} and allows only the effective-dated types, the only ones with drafts.
+// draftDocType reads {type}. Every type has drafts since the dashboard manages them all (owner
+// 2026-11-15): an effective-dated draft is published with its date, any other draft becomes the
+// current version when published.
 func draftDocType(w http.ResponseWriter, r *http.Request) (string, bool) {
 	docType := normalizeDocType(chi.URLParam(r, "type"))
 	if !isValidDocType(docType) {
 		writeError(w, http.StatusBadRequest, "invalid_doc_type", invalidDocTypeMessage, nil)
 		return "", false
 	}
-	if !isEffectiveDated(docType) {
-		writeError(w, http.StatusBadRequest, "drafts_not_supported",
-			"drafts are kept only for effective-dated documents", map[string]any{"doc_type": docType})
-		return "", false
-	}
 	return docType, true
 }
+
+// legalActor names the admin making a change for the version's record: the email in the token,
+// else the user id.
+func legalActor(r *http.Request) string {
+	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
+	if !ok {
+		return ""
+	}
+	if claims.Email != "" {
+		return claims.Email
+	}
+	return claims.Subject
+}
+
+// maxLegalTitle and maxLegalSummary bound the editorial fields kept in metadata.
+const (
+	maxLegalTitle   = 200
+	maxLegalSummary = 2000
+)
 
 func draftVersion(w http.ResponseWriter, r *http.Request) (string, bool) {
 	version := strings.TrimSpace(chi.URLParam(r, "version"))
@@ -159,9 +175,13 @@ func (h *LegalHandler) AdminGetVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 // SaveDraft creates a draft version or replaces the body (and the proposed date) of an existing
-// draft. A published version is never turned back into a draft: 409 version_published.
+// draft. A published version is never turned back into a draft: 409 version_published. A type
+// keeps one draft at a time, as in Hadia: a second version while another is a draft is 409
+// draft_exists, naming it.
 // PUT /api/v1/admin/legal/documents/{type}/drafts/{version}
-// Body: { "html_content": "...", "effective_date": "YYYY-MM-DD" (optional proposal) }
+// Body: { "html_content": "...", "effective_date": "YYYY-MM-DD" (optional proposal),
+//
+//	"title": "...", "summary": "what changed", "material": false }
 func (h *LegalHandler) SaveDraft(w http.ResponseWriter, r *http.Request) {
 	if !requireLegalAdmin(w, r) {
 		return
@@ -178,6 +198,9 @@ func (h *LegalHandler) SaveDraft(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		HtmlContent   string `json:"html_content"`
 		EffectiveDate string `json:"effective_date"`
+		Title         string `json:"title"`
+		Summary       string `json:"summary"`
+		Material      *bool  `json:"material"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", "invalid request body", nil)
@@ -190,6 +213,15 @@ func (h *LegalHandler) SaveDraft(w http.ResponseWriter, r *http.Request) {
 	if len(req.HtmlContent) > maxLegalHTMLBytes {
 		writeError(w, http.StatusRequestEntityTooLarge, "content_too_large", "html_content must be at most 1 MB", nil)
 		return
+	}
+	req.Title, req.Summary = strings.TrimSpace(req.Title), strings.TrimSpace(req.Summary)
+	if len(req.Title) > maxLegalTitle || len(req.Summary) > maxLegalSummary {
+		writeError(w, http.StatusBadRequest, "invalid_metadata", "title is up to 200 characters and summary up to 2,000", nil)
+		return
+	}
+	meta := map[string]any{"title": req.Title, "summary": req.Summary, "updated_by": legalActor(r)}
+	if req.Material != nil {
+		meta["material"] = *req.Material
 	}
 	now := time.Now()
 	effDate := proposedEffectiveDate(now, h.minNotice(docType))
@@ -226,6 +258,7 @@ func (h *LegalHandler) SaveDraft(w http.ResponseWriter, r *http.Request) {
 			Where(legaldocument.IDEQ(existing.ID), legaldocument.StatusEQ(legaldocument.StatusDraft)).
 			SetHTMLContent(req.HtmlContent).
 			SetEffectiveDate(effDate).
+			SetMetadata(withMetadata(existing.Metadata, meta)).
 			Save(ctx)
 		if uerr == nil && n == 0 {
 			writeError(w, http.StatusConflict, "version_published",
@@ -238,6 +271,20 @@ func (h *LegalHandler) SaveDraft(w http.ResponseWriter, r *http.Request) {
 		}
 		err = uerr
 	default:
+		other, oerr := h.ent.LegalDocument.Query().
+			Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), legaldocument.StatusEQ(legaldocument.StatusDraft)).
+			First(ctx)
+		if oerr != nil && !ent.IsNotFound(oerr) {
+			h.logger.Error("failed to check for an open legal document draft", zap.Error(oerr))
+			writeError(w, http.StatusInternalServerError, "server_error", "failed to save draft", nil)
+			return
+		}
+		if other != nil {
+			writeError(w, http.StatusConflict, "draft_exists",
+				"this document already has a draft; edit or discard it first",
+				map[string]any{"doc_type": docType, "draft_version": other.Version})
+			return
+		}
 		doc, err = h.ent.LegalDocument.Create().
 			SetDocType(legaldocument.DocType(docType)).
 			SetVersion(version).
@@ -245,6 +292,7 @@ func (h *LegalHandler) SaveDraft(w http.ResponseWriter, r *http.Request) {
 			SetEffectiveDate(effDate).
 			SetIsCurrent(false).
 			SetStatus(legaldocument.StatusDraft).
+			SetMetadata(withMetadata(nil, meta)).
 			Save(ctx)
 		if ent.IsConstraintError(err) {
 			writeError(w, http.StatusConflict, "version_exists", "this version was created meanwhile; try again", nil)
@@ -283,18 +331,41 @@ func (h *LegalHandler) PublishDraft(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		EffectiveDate string `json:"effective_date"`
 		SkipNotice    bool   `json:"skip_notice"`
+		Summary       string `json:"summary"`
+		Material      *bool  `json:"material"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", "invalid request body", nil)
 		return
 	}
-	effDate, err := parseEffectiveDate(req.EffectiveDate)
-	if err != nil {
+	now := time.Now()
+	dated := isEffectiveDated(docType)
+	var effDate time.Time
+	switch {
+	case strings.TrimSpace(req.EffectiveDate) != "":
+		d, perr := parseEffectiveDate(req.EffectiveDate)
+		if perr != nil {
+			writeError(w, http.StatusBadRequest, "invalid_date", "effective_date must be YYYY-MM-DD or RFC 3339", nil)
+			return
+		}
+		effDate = d
+	case !dated || req.SkipNotice:
+		// Skipping the notice with no date means "in force now" (the owner's 2026-11-15 publish
+		// stayed upcoming because the form kept the proposed date). A non-dated document is
+		// current from the moment it is published. Truncated to the second: Postgres keeps
+		// microseconds and rounds, so an untruncated now can be stored just after itself and
+		// read back as upcoming.
+		effDate = now.Truncate(time.Second)
+	default:
 		writeError(w, http.StatusBadRequest, "invalid_date", "effective_date is required, YYYY-MM-DD or RFC 3339", nil)
 		return
 	}
-	now := time.Now()
-	if !h.checkNotice(w, docType, effDate, req.SkipNotice, now) {
+	if dated && !h.checkNotice(w, docType, effDate, req.SkipNotice, now) {
+		return
+	}
+	req.Summary = strings.TrimSpace(req.Summary)
+	if len(req.Summary) > maxLegalSummary {
+		writeError(w, http.StatusBadRequest, "invalid_metadata", "summary is up to 2,000 characters", nil)
 		return
 	}
 
@@ -320,21 +391,51 @@ func (h *LegalHandler) PublishDraft(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_content", "the draft has no body", nil)
 		return
 	}
+	meta := map[string]any{"summary": req.Summary, "published_by": legalActor(r), "published_at": now.UTC().Format(time.RFC3339)}
+	if req.Material != nil {
+		meta["material"] = *req.Material
+	}
+	if !isUserConsent(docType) {
+		// Only Terms of Service and Privacy Policy changes ask users to accept again.
+		meta["material"] = false
+	}
+
+	// One transaction: the publish, and for a non-dated type the is_current switch, land together.
+	tx, err := h.ent.Tx(ctx)
+	if err != nil {
+		h.logger.Error("failed to start transaction", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to publish draft", nil)
+		return
+	}
 	// The status condition makes a second publish (a double click, two admins) a no-op 409.
-	n, err := h.ent.LegalDocument.Update().
+	n, err := tx.LegalDocument.Update().
 		Where(legaldocument.IDEQ(draft.ID), legaldocument.StatusEQ(legaldocument.StatusDraft)).
 		SetStatus(legaldocument.StatusPublished).
 		SetEffectiveDate(effDate).
-		SetIsCurrent(false).
+		SetIsCurrent(!dated).
+		SetMetadata(withMetadata(draft.Metadata, meta)).
 		Save(ctx)
+	if err == nil && n > 0 && !dated {
+		err = tx.LegalDocument.Update().
+			Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), legaldocument.IDNEQ(draft.ID)).
+			SetIsCurrent(false).
+			Exec(ctx)
+	}
 	if err != nil {
+		_ = tx.Rollback()
 		h.logger.Error("failed to publish legal document draft", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to publish draft", nil)
 		return
 	}
 	if n == 0 {
+		_ = tx.Rollback()
 		writeError(w, http.StatusConflict, "already_published", "this version was published meanwhile",
 			map[string]any{"doc_type": docType, "version": version})
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		h.logger.Error("failed to commit legal document publish", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "failed to publish draft", nil)
 		return
 	}
 	doc, err := h.ent.LegalDocument.Get(ctx, draft.ID)
@@ -346,5 +447,7 @@ func (h *LegalHandler) PublishDraft(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("legal document draft published",
 		zap.String("doc_type", docType), zap.String("version", version),
 		zap.Time("effective_date", effDate), zap.Bool("skip_notice", req.SkipNotice))
+	// A material Terms of Service or Privacy Policy version is emailed to every user.
+	h.startChangeNotice(doc)
 	writeJSON(w, http.StatusOK, legalDocJSON(doc, now, false))
 }

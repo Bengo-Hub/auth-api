@@ -112,6 +112,18 @@ func (_u *LegalDocumentUpdate) SetNillableStatus(v *legaldocument.Status) *Legal
 	return _u
 }
 
+// SetMetadata sets the "metadata" field.
+func (_u *LegalDocumentUpdate) SetMetadata(v map[string]interface{}) *LegalDocumentUpdate {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *LegalDocumentUpdate) ClearMetadata() *LegalDocumentUpdate {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
 // Mutation returns the LegalDocumentMutation object of the builder.
 func (_u *LegalDocumentUpdate) Mutation() *LegalDocumentMutation {
 	return _u.mutation
@@ -193,6 +205,12 @@ func (_u *LegalDocumentUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(legaldocument.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(legaldocument.FieldMetadata, field.TypeJSON, value)
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(legaldocument.FieldMetadata, field.TypeJSON)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -295,6 +313,18 @@ func (_u *LegalDocumentUpdateOne) SetNillableStatus(v *legaldocument.Status) *Le
 	if v != nil {
 		_u.SetStatus(*v)
 	}
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *LegalDocumentUpdateOne) SetMetadata(v map[string]interface{}) *LegalDocumentUpdateOne {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *LegalDocumentUpdateOne) ClearMetadata() *LegalDocumentUpdateOne {
+	_u.mutation.ClearMetadata()
 	return _u
 }
 
@@ -409,6 +439,12 @@ func (_u *LegalDocumentUpdateOne) sqlSave(ctx context.Context) (_node *LegalDocu
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(legaldocument.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(legaldocument.FieldMetadata, field.TypeJSON, value)
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(legaldocument.FieldMetadata, field.TypeJSON)
 	}
 	_node = &LegalDocument{config: _u.config}
 	_spec.Assign = _node.assignValues

@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -18,7 +19,7 @@ type LegalDocument struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID uuid.UUID `json:"id,omitempty"`
-	// Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement, RESELLER_AGREEMENT=Certified Reseller & Partner Program agreement, MARKETFLOW_AUTOPUBLISH_TERMS=MarketFlow Autopilot auto-publish terms (effective-dated)
+	// Document type: EPA=Equity Participation Agreement, MSA=Master Services Agreement, DPA=Data Processing Agreement, RESELLER_AGREEMENT=Certified Reseller & Partner Program agreement, MARKETFLOW_AUTOPUBLISH_TERMS=MarketFlow Autopilot auto-publish terms; TERMS_OF_SERVICE, PRIVACY_POLICY, COOKIE_POLICY, REFUND_POLICY, DATA_REQUESTS=platform policies. All but the first four are effective-dated
 	DocType legaldocument.DocType `json:"doc_type,omitempty"`
 	// Version string e.g. v1.0, v2.1
 	Version string `json:"version,omitempty"`
@@ -31,7 +32,9 @@ type LegalDocument struct {
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// draft: admin-only, not in force, not acceptable; published: public and follows effective_date
-	Status       legaldocument.Status `json:"status,omitempty"`
+	Status legaldocument.Status `json:"status,omitempty"`
+	// title, summary, material, updated_by, published_by, published_at
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 	selectValues sql.SelectValues
 }
 
@@ -40,6 +43,8 @@ func (*LegalDocument) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case legaldocument.FieldMetadata:
+			values[i] = new([]byte)
 		case legaldocument.FieldIsCurrent:
 			values[i] = new(sql.NullBool)
 		case legaldocument.FieldDocType, legaldocument.FieldVersion, legaldocument.FieldHTMLContent, legaldocument.FieldStatus:
@@ -111,6 +116,14 @@ func (_m *LegalDocument) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Status = legaldocument.Status(value.String)
 			}
+		case legaldocument.FieldMetadata:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field metadata", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
+					return fmt.Errorf("unmarshal field metadata: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -167,6 +180,9 @@ func (_m *LegalDocument) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))
+	builder.WriteString(", ")
+	builder.WriteString("metadata=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
 	builder.WriteByte(')')
 	return builder.String()
 }

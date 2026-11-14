@@ -28,6 +28,8 @@ type LegalHandler struct {
 	// (config LEGAL_MIN_NOTICE_DAYS and LEGAL_MIN_NOTICE_DAYS_BY_TYPE; 14 days unless set).
 	noticeDefault time.Duration
 	noticeByType  map[string]time.Duration
+	// publicSite is auth-ui's base URL, for the links in a legal change notice.
+	publicSite string
 }
 
 func NewLegalHandler(entClient *ent.Client, media *objectstore.Store, logger *zap.Logger) *LegalHandler {

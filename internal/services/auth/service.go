@@ -494,7 +494,11 @@ func IsNotificationBearing(roles []string) bool {
 
 // isPlaceholderEmail reports whether an address is a synthetic one we minted (not a real
 // mailbox), so the verify dialog prompts for a real address to replace it.
-func isPlaceholderEmail(email string) bool {
+func isPlaceholderEmail(email string) bool { return IsPlaceholderEmail(email) }
+
+// IsPlaceholderEmail is isPlaceholderEmail for other packages (the legal change notice skips
+// these addresses).
+func IsPlaceholderEmail(email string) bool {
 	e := strings.ToLower(email)
 	for _, suffix := range []string{"@unknown.local", "@migrating.local", "@placeholder.local", ".local", "@example.com"} {
 		if strings.HasSuffix(e, suffix) {

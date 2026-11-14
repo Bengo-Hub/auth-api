@@ -340,6 +340,16 @@ func StatusNotIn(vs ...Status) predicate.LegalDocument {
 	return predicate.LegalDocument(sql.FieldNotIn(FieldStatus, vs...))
 }
 
+// MetadataIsNil applies the IsNil predicate on the "metadata" field.
+func MetadataIsNil() predicate.LegalDocument {
+	return predicate.LegalDocument(sql.FieldIsNull(FieldMetadata))
+}
+
+// MetadataNotNil applies the NotNil predicate on the "metadata" field.
+func MetadataNotNil() predicate.LegalDocument {
+	return predicate.LegalDocument(sql.FieldNotNull(FieldMetadata))
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.LegalDocument) predicate.LegalDocument {
 	return predicate.LegalDocument(sql.AndPredicates(predicates...))

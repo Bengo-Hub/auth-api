@@ -668,6 +668,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 				}
 				r.Post("/auth/legal/accept", deps.LegalHandler.AcceptDocument)
 				r.Get("/auth/legal/acceptances", deps.LegalHandler.ListMyAcceptances)
+				// Terms of Service or Privacy Policy versions the user must accept again after a
+				// material change (owner 2026-11-15).
+				r.Get("/auth/legal/pending", deps.LegalHandler.PendingConsents)
 				r.Post("/auth/legal/sign", deps.LegalHandler.SignDocument)
 				r.Post("/auth/equity/apply", deps.LegalHandler.CreateApplication)
 			})
@@ -683,6 +686,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Get("/admin/legal/documents/{type}/versions/{version}", deps.LegalHandler.AdminGetVersion)
 				r.Put("/admin/legal/documents/{type}/drafts/{version}", deps.LegalHandler.SaveDraft)
 				r.Post("/admin/legal/documents/{type}/drafts/{version}/publish", deps.LegalHandler.PublishDraft)
+				// The dashboard's legal page (owner 2026-11-15): every document with its version in
+				// force, upcoming version, open draft and history; a draft can be discarded.
+				r.Get("/admin/legal/overview", deps.LegalHandler.AdminOverview)
+				r.Delete("/admin/legal/documents/{type}/drafts/{version}", deps.LegalHandler.DiscardDraft)
 				r.Get("/admin/equity/applications", deps.LegalHandler.ListApplications)
 				r.Put("/admin/equity/applications/{id}", deps.LegalHandler.UpdateApplication)
 			})
