@@ -17,15 +17,22 @@ import (
 var ErrRoleNotAllowed = errors.New("role cannot be self-assigned")
 
 // selfServiceRoles are the only roles a person may take on in a tenant without an invite: the
-// customer of a storefront, a learner or a learner's parent, and a rider applicant (riders are
-// not dispatchable until logistics approves their KYC). "member" is the long-standing default of
-// the auth-ui "Join organisation" signup and carries no service permissions on its own.
+// customer of a storefront, a learner or a learner's parent, a rider applicant (riders are
+// not dispatchable until logistics approves their KYC), and a firm's client in the projects
+// portal. "member" is the long-standing default of the auth-ui "Join organisation" signup and
+// carries no service permissions on its own.
+//
+// "client" is not a staff role: it is scoped to projects (seed role catalogue), carries only the
+// auth.* self-service codes here, and projects-api maps it to its portal-only role, whose single
+// code (projects.portal.view) shows nothing until the firm invites that person's email to a
+// project. Joining by self sign-up therefore grants no access to the firm's data.
 var selfServiceRoles = map[string]bool{
 	"member":   true,
 	"customer": true,
 	"student":  true,
 	"parent":   true,
 	"driver":   true,
+	"client":   true,
 }
 
 // IsSelfServiceRole reports whether role may be self-assigned at signup.
@@ -35,7 +42,8 @@ func IsSelfServiceRole(role string) bool {
 
 // clientSelfSignupRoleKey is the OAuthClient metadata key that marks a customer-facing app. Its
 // value is the role a signed-in person gets in the requested tenant when they have none yet
-// (ordering-ui: customer, rider-app: driver, codevertex-website: student). Staff apps leave it
+// (ordering-ui: customer, rider-app: driver, codevertex-website: student, projects-portal:
+// client). Staff apps leave it
 // unset, so they keep requiring an invite.
 const clientSelfSignupRoleKey = "self_signup_role"
 
@@ -138,7 +146,7 @@ func (s *Service) joinTenantWith(ctx context.Context, userEntity *ent.User, tena
 
 // selfJoinAllowed reports whether a public sign-up may join an existing tenant without an invite
 // (audit M1, owner decision 2026-11-10): only with a customer-app role (customer, student,
-// parent, driver), or into the platform tenant. A plain "member" of a business is invite only.
+// parent, driver, client), or into the platform tenant. A plain "member" of a business is invite only.
 func selfJoinAllowed(tenantSlug, requestedRole, clientRole string) bool {
 	if tenantSlug == platformTenantSlug {
 		return true

@@ -63,6 +63,18 @@ customers carry `metadata.self_signup_role` on their OAuthClient row, seeded in
 | `ordering-ui` | `customer` |
 | `rider-app` | `driver` (not dispatchable until logistics approves the rider's KYC) |
 | `codevertex-website` | `student` (Digitika, platform tenant) |
+| `projects-portal` | `client` (projects client portal, sprint 14, 2026-11-17) |
+
+`projects-portal` is a public PKCE client on the projects host. Its callbacks are
+`https://projects.codevertexafrica.com/portal/auth/callback` and
+`https://projects.codevertexafrica.com/{slug}/portal/auth/callback` (plus the localhost:3000
+forms), set by the OAuth client metadata `callback_path: /portal/auth/callback`. The tenant
+redirect sync (`SyncTenantRedirectURIs`) and the seed's backfill add a new or renamed tenant's
+callback under that path (`auth.CallbackPath`); every other client keeps `/auth/callback`. The
+`client` role is scoped to projects in the role catalogue and carries only the auth.*
+self-service codes, so a client's `user_services` is projects alone. It is not a staff role:
+projects-api maps it to its portal-only role, which shows nothing until the firm invites that
+email to a project.
 
 When a person with no membership in the requested tenant signs in through one of these apps,
 auth-api adds the membership with that role and publishes `auth.user.created`, instead of
@@ -72,7 +84,7 @@ client id travels in the OAuth state). Existing memberships are never changed. T
 `internal/services/auth/self_service_join.go`.
 
 `POST /auth/register` into an existing tenant accepts only self-service roles (`member`,
-`customer`, `student`, `parent`, `driver`) and answers `403 role_not_allowed` for anything else.
+`customer`, `student`, `parent`, `driver`, `client`) and answers `403 role_not_allowed` for anything else.
 Before this, a signup could ask for any role, including `admin`. With no role requested, a
 customer-facing app's `self_signup_role` applies.
 

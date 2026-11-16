@@ -332,6 +332,13 @@ var rolePerms = map[string][]string{
 	"marketflow_admin":    marketflowSelfService,
 	"marketflow_member":   marketflowSelfService,
 	"marketflow_reviewer": marketflowSelfService,
+	// client: the projects client portal role (scope projects). projects-api decides what a client
+	// sees (its portal-only local role); auth carries the auth.* self-service set only.
+	"client": {
+		"auth.profile.view", "auth.profile.change",
+		"auth.preferences.view", "auth.preferences.change",
+		"auth.notifications.view",
+	},
 	// viewer — read-only cross-service role for auditors, observers, and reporting users.
 	// Can view data across services but cannot create, modify, or delete anything.
 	"viewer": {

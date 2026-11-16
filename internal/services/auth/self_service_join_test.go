@@ -7,7 +7,7 @@ import (
 )
 
 func TestIsSelfServiceRole(t *testing.T) {
-	for _, role := range []string{"member", "customer", "student", "parent", "driver", " customer "} {
+	for _, role := range []string{"member", "customer", "student", "parent", "driver", "client", " customer "} {
 		if !IsSelfServiceRole(role) {
 			t.Errorf("%q should be self-service", role)
 		}

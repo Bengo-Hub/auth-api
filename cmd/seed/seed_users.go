@@ -592,6 +592,9 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		// SingleHost: the client serves one tenant on its own domain, so it never takes other
 		// tenants' /{slug}/auth/callback URIs (metadata tenant_paths false).
 		SingleHost bool
+		// CallbackPath, when set, is the client's callback path under each tenant slug (metadata
+		// callback_path, see auth.CallbackPath); empty means /auth/callback.
+		CallbackPath string
 	}
 
 	// clientProductionHosts maps each OAuth client to its production hostname.
@@ -606,6 +609,9 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		// RedirectURIs, when set, replace the generated list: for an app on its own domain with
 		// no per-tenant paths (hadia-ui).
 		RedirectURIs []string
+		// CallbackPath replaces /auth/callback in the generated list, for an app sharing its host
+		// with another (projects-portal beside projects-ui).
+		CallbackPath string
 	}
 	// Which tenants sign in to which app comes from usecase.Catalogue (Apps), not from here.
 	clients := []clientDef{
@@ -626,6 +632,10 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		{ID: "isp-billing-ui", Name: "Codevertex ISP Billing UI", ProductionHost: "ispbilling.codevertexafrica.com", Public: true},
 		{ID: "hospital-ui", Name: "Codevertex Hospital UI (Afya)", ProductionHost: "afya.codevertexafrica.com", Public: true},
 		{ID: "projects-ui", Name: "Codevertex Projects UI", ProductionHost: "projects.codevertexafrica.com", Public: true},
+		// Projects client portal (sprint 14): a firm's clients sign in to the firm's tenant and join
+		// it as client (projects portal only), on the projects host under /{slug}/portal.
+		{ID: "projects-portal", Name: "Codevertex Projects Client Portal", ProductionHost: "projects.codevertexafrica.com", Public: true,
+			SelfSignupRole: "client", CallbackPath: "/portal/auth/callback"},
 		{ID: "maskani-ui", Name: "Maskani Property Platform", ProductionHost: "maskaniapp.codevertexafrica.com", Public: true},
 		// Hadia gift registry (platform task A3): public PKCE client for owners and staff. Owners
 		// sign up by phone code into the hadia tenant (tenant metadata phone_self_signup), so the
@@ -640,8 +650,10 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 
 	// buildRedirects generates the full redirect URI list for a client.
 	// Each client gets: base production callback, base localhost callback,
-	// plus per-tenant-slug variants of both for the seed tenants whose use cases it serves.
-	buildRedirects := func(productionHost, clientID string) []string {
+	// plus per-tenant-slug variants of both for the seed tenants whose use cases it serves, all
+	// under callbackPath ("" means /auth/callback).
+	buildRedirects := func(productionHost, clientID, callbackPath string) []string {
+		path := auth.CallbackPath(map[string]any{auth.CallbackPathKey: callbackPath})
 		var allSlugs []string
 		for _, te := range tenantEntities {
 			if te.SignsInEverywhere || auth.ServesUseCases(clientID, nil, te.UseCases) {
@@ -657,12 +669,12 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 			}
 		}
 		// Non-tenant (base) callbacks
-		add("https://" + productionHost + "/auth/callback")
-		add("http://localhost:3000/auth/callback")
+		add("https://" + productionHost + path)
+		add("http://localhost:3000" + path)
 		// Per-tenant callbacks
 		for _, slug := range allSlugs {
-			add("https://" + productionHost + "/" + slug + "/auth/callback")
-			add("http://localhost:3000/" + slug + "/auth/callback")
+			add("https://" + productionHost + "/" + slug + path)
+			add("http://localhost:3000/" + slug + path)
 		}
 		return uris
 	}
@@ -683,7 +695,7 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 
 	oauthClients := make([]oauthClientSpec, 0, len(clients))
 	for _, c := range clients {
-		uris := buildRedirects(c.ProductionHost, c.ID)
+		uris := buildRedirects(c.ProductionHost, c.ID, c.CallbackPath)
 		if len(c.RedirectURIs) > 0 {
 			uris = append([]string(nil), c.RedirectURIs...)
 		}
@@ -699,13 +711,13 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		// erp-ui is served on both the codevertex host (above) and the masterspace
 		// tenant host — add the masterspace base + per-tenant callbacks too.
 		if c.ID == "erp-ui" {
-			uris = append(uris, buildRedirects("erp.masterspace.co.ke", c.ID)...)
+			uris = append(uris, buildRedirects("erp.masterspace.co.ke", c.ID, c.CallbackPath)...)
 		}
 		// ordering-frontend also serves tenants' own domains (alphachinamarket.co.ke, ...).
 		if c.ID == "ordering-ui" {
 			for _, h := range tenantAppHosts {
 				if h = strings.TrimSpace(h); h != "" {
-					uris = append(uris, buildRedirects(h, c.ID)...)
+					uris = append(uris, buildRedirects(h, c.ID, c.CallbackPath)...)
 				}
 			}
 		}
@@ -716,6 +728,7 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 			Public:         c.Public,
 			SelfSignupRole: c.SelfSignupRole,
 			SingleHost:     len(c.RedirectURIs) > 0,
+			CallbackPath:   c.CallbackPath,
 		})
 	}
 
@@ -742,6 +755,11 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 			} else {
 				delete(meta, auth.TenantPathsKey)
 			}
+			if c.CallbackPath != "" {
+				meta[auth.CallbackPathKey] = c.CallbackPath
+			} else {
+				delete(meta, auth.CallbackPathKey)
+			}
 			// use_cases was briefly written here (6de7a41); the catalogue replaced it.
 			delete(meta, "use_cases")
 			_, err := existing.Update().
@@ -765,6 +783,9 @@ func seedOAuthClients(ctx context.Context, client *ent.Client, tenantEntities []
 		}
 		if c.SingleHost {
 			createMeta[auth.TenantPathsKey] = false
+		}
+		if c.CallbackPath != "" {
+			createMeta[auth.CallbackPathKey] = c.CallbackPath
 		}
 		_, err := client.OAuthClient.Create().
 			SetMetadata(createMeta).

@@ -27,6 +27,26 @@ func metadataUsesTenantPaths(meta map[string]any) bool {
 	return !ok || v
 }
 
+// CallbackPathKey is the OAuth client metadata key for the callback path an app serves under the
+// tenant slug, when it is not /auth/callback. The projects client portal (projects-portal) shares
+// the projects host with projects-ui and takes /{slug}/portal/auth/callback, so its own callback
+// page exchanges the code with its own client id.
+const CallbackPathKey = "callback_path"
+
+// defaultCallbackPath is the per-tenant callback path of every app that sets no callback_path.
+const defaultCallbackPath = "/auth/callback"
+
+// CallbackPath returns the client's callback path: its callback_path metadata when that is a path
+// ending in /auth/callback, else /auth/callback.
+func CallbackPath(meta map[string]any) string {
+	p, _ := meta[CallbackPathKey].(string)
+	p = strings.TrimSpace(p)
+	if !strings.HasPrefix(p, "/") || !strings.HasSuffix(p, defaultCallbackPath) || strings.Contains(p, "//") {
+		return defaultCallbackPath
+	}
+	return p
+}
+
 // ServesUseCases reports whether the app takes /{slug}/auth/callback for a tenant with these use
 // cases. Which app serves which use case comes from the one catalogue, usecase.Catalogue.
 func ServesUseCases(clientID string, meta map[string]any, tenantUseCases []string) bool {
@@ -94,9 +114,10 @@ func RenameTenantRedirectURIs(ctx context.Context, entClient *ent.Client, oldSlu
 	return SyncTenantRedirectURIs(ctx, entClient, t, oldSlug)
 }
 
-// tenantRedirectURIs are the callback URIs one tenant slug owns on a client with production host.
-func tenantRedirectURIs(prodHost, slug string) (prod, local string) {
-	return "https://" + prodHost + "/" + slug + "/auth/callback", "http://localhost:3000/" + slug + "/auth/callback"
+// tenantRedirectURIs are the callback URIs one tenant slug owns on a client with production host
+// and callback path (CallbackPath).
+func tenantRedirectURIs(prodHost, slug, path string) (prod, local string) {
+	return "https://" + prodHost + "/" + slug + path, "http://localhost:3000/" + slug + path
 }
 
 // SyncTenantRedirectURIs makes every OAuth client match the tenant: its callbacks present on the
@@ -115,7 +136,7 @@ func SyncTenantRedirectURIs(ctx context.Context, entClient *ent.Client, t *ent.T
 			// A single-domain client never got tenant paths from us; leave its list alone.
 			continue
 		}
-		uris, changed := nextRedirectURIs(c.RedirectUris, t.Slug, removeSlug, serves)
+		uris, changed := nextRedirectURIs(c.RedirectUris, t.Slug, removeSlug, serves, CallbackPath(c.Metadata))
 		if !changed {
 			continue
 		}
@@ -126,10 +147,10 @@ func SyncTenantRedirectURIs(ctx context.Context, entClient *ent.Client, t *ent.T
 	return nil
 }
 
-// nextRedirectURIs returns a client's redirect URIs with slug's callbacks present (keep true) or
-// absent (keep false), removeSlug's gone, and whether anything changed. Clients without a
-// production callback host (no https .../auth/callback URI) are left alone.
-func nextRedirectURIs(current []string, slug, removeSlug string, keep bool) ([]string, bool) {
+// nextRedirectURIs returns a client's redirect URIs with slug's callbacks (under path) present
+// (keep true) or absent (keep false), removeSlug's gone, and whether anything changed. Clients
+// without a production callback host (no https .../auth/callback URI) are left alone.
+func nextRedirectURIs(current []string, slug, removeSlug string, keep bool, path string) ([]string, bool) {
 	prodHost := inferProductionHost(current)
 	if prodHost == "" {
 		return current, false
@@ -137,7 +158,7 @@ func nextRedirectURIs(current []string, slug, removeSlug string, keep bool) ([]s
 	changed := false
 	uris := append([]string(nil), current...)
 	drop := map[string]bool{}
-	slugProd, slugLocal := tenantRedirectURIs(prodHost, slug)
+	slugProd, slugLocal := tenantRedirectURIs(prodHost, slug, path)
 	if keep {
 		for _, u := range []string{slugProd, slugLocal} {
 			if !containsURI(uris, u) {
@@ -150,7 +171,7 @@ func nextRedirectURIs(current []string, slug, removeSlug string, keep bool) ([]s
 		drop[strings.ToLower(slugLocal)] = true
 	}
 	if removeSlug != "" && !strings.EqualFold(removeSlug, slug) {
-		oldProd, oldLocal := tenantRedirectURIs(prodHost, removeSlug)
+		oldProd, oldLocal := tenantRedirectURIs(prodHost, removeSlug, path)
 		drop[strings.ToLower(oldProd)] = true
 		drop[strings.ToLower(oldLocal)] = true
 	}

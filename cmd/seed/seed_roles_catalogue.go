@@ -105,9 +105,19 @@ var marketflowRoles = map[string]string{
 	"marketflow_reviewer": "MarketFlow app reviewer",
 }
 
+// projectsRoles are the projects service's SSO roles (scope = projects). client is the client
+// portal role: people a firm invites to follow its projects, who sign in through the
+// projects-portal OAuth client (self_signup_role client). projects-api maps it to its portal-only
+// local role. Scoped to projects, so access gives a client the projects service and nothing else.
+var projectsRoles = map[string]string{
+	"client": "Projects client",
+}
+
 // roleScope infers a coarse scope grouping for a role code.
 func roleScope(code string) string {
 	switch {
+	case projectsRoles[code] != "":
+		return "projects"
 	case marketflowRoles[code] != "":
 		return "marketflow"
 	case erpRoles[code]:
@@ -135,6 +145,9 @@ func roleDisplayName(code string) string {
 		return name
 	}
 	if name := marketflowRoles[code]; name != "" {
+		return name
+	}
+	if name := projectsRoles[code]; name != "" {
 		return name
 	}
 	parts := strings.Split(code, "_")

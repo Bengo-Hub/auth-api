@@ -32,7 +32,7 @@ func TestNextRedirectURIsRename(t *testing.T) {
 		"http://localhost:3000/old-shop/auth/callback",
 		"https://pos.example.com/other/auth/callback",
 	}
-	got, changed := nextRedirectURIs(current, "new-shop", "old-shop", true)
+	got, changed := nextRedirectURIs(current, "new-shop", "old-shop", true, defaultCallbackPath)
 	want := []string{
 		"https://pos.example.com/auth/callback",
 		"https://pos.example.com/other/auth/callback",
@@ -43,14 +43,14 @@ func TestNextRedirectURIsRename(t *testing.T) {
 		t.Fatalf("rename: changed=%v got=%v", changed, got)
 	}
 	// Running it again changes nothing.
-	if again, changed := nextRedirectURIs(got, "new-shop", "old-shop", true); changed || !reflect.DeepEqual(again, got) {
+	if again, changed := nextRedirectURIs(got, "new-shop", "old-shop", true, defaultCallbackPath); changed || !reflect.DeepEqual(again, got) {
 		t.Fatalf("not idempotent: changed=%v %v", changed, again)
 	}
 }
 
 func TestNextRedirectURIsAppendKeepsExisting(t *testing.T) {
 	current := []string{"https://pos.example.com/auth/callback", "https://pos.example.com/shop/auth/callback"}
-	got, changed := nextRedirectURIs(current, "shop", "", true)
+	got, changed := nextRedirectURIs(current, "shop", "", true, defaultCallbackPath)
 	if !changed || len(got) != 3 || got[2] != "http://localhost:3000/shop/auth/callback" {
 		t.Fatalf("append: changed=%v got=%v", changed, got)
 	}
@@ -58,7 +58,7 @@ func TestNextRedirectURIsAppendKeepsExisting(t *testing.T) {
 
 func TestNextRedirectURIsSkipsClientsWithoutProductionHost(t *testing.T) {
 	current := []string{"http://localhost:3000/auth/callback"}
-	if got, changed := nextRedirectURIs(current, "shop", "old", true); changed || !reflect.DeepEqual(got, current) {
+	if got, changed := nextRedirectURIs(current, "shop", "old", true, defaultCallbackPath); changed || !reflect.DeepEqual(got, current) {
 		t.Fatalf("local-only client must be untouched: changed=%v %v", changed, got)
 	}
 }
@@ -92,8 +92,32 @@ func TestNextRedirectURIsDropsUnservedTenant(t *testing.T) {
 		"https://pos.example.com/estate/auth/callback",
 		"http://localhost:3000/estate/auth/callback",
 	}
-	got, changed := nextRedirectURIs(current, "estate", "", false)
+	got, changed := nextRedirectURIs(current, "estate", "", false, defaultCallbackPath)
 	if !changed || !reflect.DeepEqual(got, []string{"https://pos.example.com/auth/callback"}) {
 		t.Fatalf("unserved tenant paths must be removed: changed=%v %v", changed, got)
+	}
+}
+
+// The projects client portal takes /{slug}/portal/auth/callback on the projects host; a new or
+// renamed tenant gets that path, never the staff app's /{slug}/auth/callback.
+func TestNextRedirectURIsCallbackPath(t *testing.T) {
+	path := CallbackPath(map[string]any{CallbackPathKey: "/portal/auth/callback"})
+	if path != "/portal/auth/callback" {
+		t.Fatalf("callback path = %q", path)
+	}
+	current := []string{"https://projects.example.com/portal/auth/callback", "https://projects.example.com/old/portal/auth/callback"}
+	got, changed := nextRedirectURIs(current, "acme", "old", true, path)
+	want := []string{
+		"https://projects.example.com/portal/auth/callback",
+		"https://projects.example.com/acme/portal/auth/callback",
+		"http://localhost:3000/acme/portal/auth/callback",
+	}
+	if !changed || !reflect.DeepEqual(got, want) {
+		t.Fatalf("portal callbacks: changed=%v %v", changed, got)
+	}
+	for _, bad := range []any{nil, "", "portal/auth/callback", "/portal/callback", "//evil/auth/callback", 7} {
+		if p := CallbackPath(map[string]any{CallbackPathKey: bad}); p != defaultCallbackPath {
+			t.Errorf("callback_path %v -> %q, want the default", bad, p)
+		}
 	}
 }

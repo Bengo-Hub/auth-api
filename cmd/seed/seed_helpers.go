@@ -388,8 +388,9 @@ func backfillTenantRedirectURIs(ctx context.Context, client *ent.Client, seedSlu
 			if prodHost == "" {
 				continue
 			}
-			prodURI := "https://" + prodHost + "/" + slug + "/auth/callback"
-			localURI := "http://localhost:3000/" + slug + "/auth/callback"
+			path := auth.CallbackPath(c.Metadata)
+			prodURI := "https://" + prodHost + "/" + slug + path
+			localURI := "http://localhost:3000/" + slug + path
 
 			var changed bool
 			uris := c.RedirectUris

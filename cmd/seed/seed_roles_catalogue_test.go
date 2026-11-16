@@ -17,6 +17,7 @@ func TestRoleScopes(t *testing.T) {
 		"marketflow_admin":    "marketflow",
 		"marketflow_member":   "marketflow",
 		"marketflow_reviewer": "marketflow",
+		"client":              "projects",
 	} {
 		if got := roleScope(code); got != want {
 			t.Errorf("roleScope(%q) = %q, want %q", code, got, want)
