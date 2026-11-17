@@ -335,6 +335,10 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 		create.SetScopes(req.Scopes)
 	}
 	if len(req.AllowedIPs) > 0 {
+		if err := validateAllowedIPs(req.AllowedIPs); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error(), nil)
+			return
+		}
 		create.SetAllowedIps(req.AllowedIPs)
 	}
 	if req.ExpiresIn > 0 {
@@ -512,6 +516,10 @@ func (h *AppHandler) UpdateApp(w http.ResponseWriter, r *http.Request) {
 		update.SetScopes(req.Scopes)
 	}
 	if req.AllowedIPs != nil {
+		if err := validateAllowedIPs(req.AllowedIPs); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error(), nil)
+			return
+		}
 		update.SetAllowedIps(req.AllowedIPs)
 	}
 

@@ -73,6 +73,15 @@ func TestIPAllowedAndSecretMatches(t *testing.T) {
 	if ipAllowed([]string{"5.6.7.8"}, "1.2.3.4") {
 		t.Fatal("expected refused")
 	}
+	if !ipAllowed([]string{"10.0.0.0/8"}, "10.4.5.6") || ipAllowed([]string{"10.0.0.0/8"}, "11.0.0.1") {
+		t.Fatal("CIDR range not honoured")
+	}
+	if ipAllowed([]string{"10.0.0.0/8"}, "not-an-ip") {
+		t.Fatal("an unparseable caller IP must not match a range")
+	}
+	if validateAllowedIPs([]string{"*", "1.2.3.4", "10.0.0.0/8"}) != nil || validateAllowedIPs([]string{"10.0.0/8"}) == nil || validateAllowedIPs([]string{"abc"}) == nil {
+		t.Fatal("validateAllowedIPs gave a wrong answer")
+	}
 	secret, hash, err := generateConsumerSecret()
 	if err != nil || !strings.HasPrefix(secret, consumerSecretPrefix) {
 		t.Fatalf("generateConsumerSecret: %q %v", secret, err)

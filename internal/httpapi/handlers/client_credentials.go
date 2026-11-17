@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -162,17 +164,53 @@ func secretMatches(stored *string, presented string) bool {
 	return subtle.ConstantTimeCompare([]byte(*stored), []byte(hashAPIKey(presented))) == 1
 }
 
-// ipAllowed reports whether ip may use an app with this allowlist. An empty list allows all.
+// ipAllowed reports whether ip may use a credential with this allowlist. An empty list allows
+// all. Entries are "*", a single address or a CIDR range (the console suggests ranges, which
+// an exact string compare would silently never match).
 func ipAllowed(allowlist []string, ip string) bool {
 	if len(allowlist) == 0 {
 		return true
 	}
-	for _, a := range allowlist {
-		if a == "*" || a == ip {
+	addr := net.ParseIP(strings.TrimSpace(ip))
+	for _, entry := range allowlist {
+		entry = strings.TrimSpace(entry)
+		switch {
+		case entry == "*":
 			return true
+		case addr == nil:
+			continue
+		case strings.Contains(entry, "/"):
+			if _, network, err := net.ParseCIDR(entry); err == nil && network.Contains(addr) {
+				return true
+			}
+		default:
+			if allowedIP := net.ParseIP(entry); allowedIP != nil && allowedIP.Equal(addr) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// validateAllowedIPs rejects allowlist entries that could never match, so a typo cannot lock an
+// app out without anyone noticing.
+func validateAllowedIPs(entries []string) error {
+	for _, e := range entries {
+		e = strings.TrimSpace(e)
+		if e == "*" {
+			continue
+		}
+		if strings.Contains(e, "/") {
+			if _, _, err := net.ParseCIDR(e); err != nil {
+				return fmt.Errorf("allowed IP %q is not a valid CIDR range", e)
+			}
+			continue
+		}
+		if net.ParseIP(e) == nil {
+			return fmt.Errorf("allowed IP %q is not a valid IP address", e)
+		}
+	}
+	return nil
 }
 
 // grantedScopes resolves the space-separated scope parameter against the app's scopes. An

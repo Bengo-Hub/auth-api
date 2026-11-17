@@ -171,6 +171,10 @@ func (h *APIKeyHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 		create.SetScopes(req.Scopes)
 	}
 	if len(req.AllowedIPs) > 0 {
+		if err := validateAllowedIPs(req.AllowedIPs); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error(), nil)
+			return
+		}
 		create.SetAllowedIps(req.AllowedIPs)
 	}
 	if req.ExpiresIn > 0 {
@@ -266,15 +270,7 @@ func (h *APIKeyHandler) resolveAPIKeyToken(ctx context.Context, r *http.Request,
 	}
 
 	if len(key.AllowedIps) > 0 && r != nil {
-		clientIP := h.allowlistIP(r)
-		allowed := false
-		for _, ip := range key.AllowedIps {
-			if ip == clientIP || ip == "*" {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
+		if !ipAllowed(key.AllowedIps, h.allowlistIP(r)) {
 			return nil, http.StatusForbidden, "forbidden", "IP not allowed", fmt.Errorf("ip not allowed")
 		}
 	}
@@ -352,15 +348,7 @@ func (h *APIKeyHandler) ResolveAppToken(ctx context.Context, r *http.Request, to
 	}
 
 	if len(a.AllowedIps) > 0 && r != nil {
-		clientIP := h.allowlistIP(r)
-		allowed := false
-		for _, ip := range a.AllowedIps {
-			if ip == clientIP || ip == "*" {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
+		if !ipAllowed(a.AllowedIps, h.allowlistIP(r)) {
 			return nil, http.StatusForbidden, "forbidden", "IP not allowed", fmt.Errorf("ip not allowed")
 		}
 	}
