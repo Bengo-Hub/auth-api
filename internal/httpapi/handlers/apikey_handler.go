@@ -84,18 +84,17 @@ func (h *APIKeyHandler) ResolveAnyToken(ctx context.Context, r *http.Request, to
 }
 
 // ResolveAppToken looks an App up by its secret's hash, whatever the secret's prefix, and checks
-// status, expiry and the IP allowlist.
+// status, expiry and the IP allowlist. A key replaced by a rotation is accepted until its grace
+// period ends (see findActiveAppByKeyHash).
 func (h *APIKeyHandler) ResolveAppToken(ctx context.Context, r *http.Request, tokenHeader string) (resp *ValidateAPIKeyResponse, statusCode int, errCode string, errMsg string, err error) {
-	a, lookupErr := h.ent.App.Query().
-		Where(entapp.KeyHashEQ(hashAPIKey(tokenHeader)), entapp.StatusEQ(entapp.StatusActive)).
-		Only(ctx)
+	a, found, lookupErr := findActiveAppByKeyHash(ctx, h.ent, hashAPIKey(tokenHeader), time.Now())
 	if lookupErr != nil {
-		if ent.IsNotFound(lookupErr) {
-			h.logger.Warn("invalid app secret", zap.String("prefix", getKeyPrefix(tokenHeader)))
-			return nil, http.StatusUnauthorized, "unauthorized", "invalid token", lookupErr
-		}
 		h.logger.Error("app secret lookup", zap.Error(lookupErr))
 		return nil, http.StatusInternalServerError, "server_error", "validation failed", lookupErr
+	}
+	if !found {
+		h.logger.Warn("invalid app secret", zap.String("prefix", getKeyPrefix(tokenHeader)))
+		return nil, http.StatusUnauthorized, "unauthorized", "invalid token", fmt.Errorf("invalid token")
 	}
 
 	if a.ExpiresAt != nil && !a.ExpiresAt.IsZero() && time.Now().After(*a.ExpiresAt) {

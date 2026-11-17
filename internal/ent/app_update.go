@@ -370,6 +370,18 @@ func (_u *AppUpdate) ClearRevokedReason() *AppUpdate {
 	return _u
 }
 
+// SetMetadata sets the "metadata" field.
+func (_u *AppUpdate) SetMetadata(v map[string]interface{}) *AppUpdate {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *AppUpdate) ClearMetadata() *AppUpdate {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
 // Mutation returns the AppMutation object of the builder.
 func (_u *AppUpdate) Mutation() *AppMutation {
 	return _u.mutation
@@ -568,6 +580,12 @@ func (_u *AppUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.RevokedReasonCleared() {
 		_spec.ClearField(app.FieldRevokedReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(app.FieldMetadata, field.TypeJSON, value)
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(app.FieldMetadata, field.TypeJSON)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -929,6 +947,18 @@ func (_u *AppUpdateOne) ClearRevokedReason() *AppUpdateOne {
 	return _u
 }
 
+// SetMetadata sets the "metadata" field.
+func (_u *AppUpdateOne) SetMetadata(v map[string]interface{}) *AppUpdateOne {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *AppUpdateOne) ClearMetadata() *AppUpdateOne {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
 // Mutation returns the AppMutation object of the builder.
 func (_u *AppUpdateOne) Mutation() *AppMutation {
 	return _u.mutation
@@ -1157,6 +1187,12 @@ func (_u *AppUpdateOne) sqlSave(ctx context.Context) (_node *App, err error) {
 	}
 	if _u.mutation.RevokedReasonCleared() {
 		_spec.ClearField(app.FieldRevokedReason, field.TypeString)
+	}
+	if value, ok := _u.mutation.Metadata(); ok {
+		_spec.SetField(app.FieldMetadata, field.TypeJSON, value)
+	}
+	if _u.mutation.MetadataCleared() {
+		_spec.ClearField(app.FieldMetadata, field.TypeJSON)
 	}
 	_node = &App{config: _u.config}
 	_spec.Assign = _node.assignValues

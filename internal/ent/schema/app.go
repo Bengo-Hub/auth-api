@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
@@ -109,6 +111,14 @@ func (App) Fields() []ent.Field {
 			Nillable(),
 		field.String("revoked_reason").
 			Optional(),
+
+		// General per-app details that do not earn their own column. Today it holds the
+		// rotation grace entries: previous_client_secret and previous_key, each
+		// {hash, prefix, expires_at}, so the credential replaced by a rotation keeps working
+		// until expires_at.
+		field.JSON("metadata", map[string]any{}).
+			Optional().
+			Comment("previous_client_secret, previous_key: {hash, prefix, expires_at} kept during a rotation grace period"),
 	}
 }
 
@@ -120,5 +130,13 @@ func (App) Indexes() []ent.Index {
 		index.Fields("tenant_id", "status"),
 		index.Fields("app_type", "status"),
 		index.Fields("status", "expires_at"),
+		// Lets an X-API-Key that missed key_hash be found by the previous key it was rotated
+		// from (metadata @> {"previous_key":{"hash":...}}). jsonb_path_ops keeps the index
+		// small and serves exactly that containment query.
+		index.Fields("metadata").
+			Annotations(
+				entsql.IndexTypes(map[string]string{dialect.Postgres: "GIN"}),
+				entsql.OpClass("jsonb_path_ops"),
+			),
 	}
 }

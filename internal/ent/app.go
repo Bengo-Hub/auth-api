@@ -61,7 +61,9 @@ type App struct {
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 	// RevokedReason holds the value of the "revoked_reason" field.
 	RevokedReason string `json:"revoked_reason,omitempty"`
-	selectValues  sql.SelectValues
+	// previous_client_secret, previous_key: {hash, prefix, expires_at} kept during a rotation grace period
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	selectValues sql.SelectValues
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -71,7 +73,7 @@ func (*App) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case app.FieldTenantID, app.FieldCreatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case app.FieldScopes, app.FieldAllowedIps:
+		case app.FieldScopes, app.FieldAllowedIps, app.FieldMetadata:
 			values[i] = new([]byte)
 		case app.FieldName, app.FieldDescription, app.FieldAppType, app.FieldEnvironment, app.FieldClientID, app.FieldKeyHash, app.FieldKeyPrefix, app.FieldClientSecretHash, app.FieldStatus, app.FieldLastUsedIP, app.FieldRevokedReason:
 			values[i] = new(sql.NullString)
@@ -237,6 +239,14 @@ func (_m *App) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.RevokedReason = value.String
 			}
+		case app.FieldMetadata:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field metadata", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
+					return fmt.Errorf("unmarshal field metadata: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -345,6 +355,9 @@ func (_m *App) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("revoked_reason=")
 	builder.WriteString(_m.RevokedReason)
+	builder.WriteString(", ")
+	builder.WriteString("metadata=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
 	builder.WriteByte(')')
 	return builder.String()
 }

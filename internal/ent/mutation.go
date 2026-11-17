@@ -125,6 +125,7 @@ type AppMutation struct {
 	updated_at               *time.Time
 	revoked_at               *time.Time
 	revoked_reason           *string
+	metadata                 *map[string]interface{}
 	clearedFields            map[string]struct{}
 	done                     bool
 	oldValue                 func(context.Context) (*App, error)
@@ -1179,6 +1180,55 @@ func (m *AppMutation) ResetRevokedReason() {
 	delete(m.clearedFields, app.FieldRevokedReason)
 }
 
+// SetMetadata sets the "metadata" field.
+func (m *AppMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *AppMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the App entity.
+// If the App object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AppMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (m *AppMutation) ClearMetadata() {
+	m.metadata = nil
+	m.clearedFields[app.FieldMetadata] = struct{}{}
+}
+
+// MetadataCleared returns if the "metadata" field was cleared in this mutation.
+func (m *AppMutation) MetadataCleared() bool {
+	_, ok := m.clearedFields[app.FieldMetadata]
+	return ok
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *AppMutation) ResetMetadata() {
+	m.metadata = nil
+	delete(m.clearedFields, app.FieldMetadata)
+}
+
 // Where appends a list predicates to the AppMutation builder.
 func (m *AppMutation) Where(ps ...predicate.App) {
 	m.predicates = append(m.predicates, ps...)
@@ -1213,7 +1263,7 @@ func (m *AppMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AppMutation) Fields() []string {
-	fields := make([]string, 0, 21)
+	fields := make([]string, 0, 22)
 	if m.name != nil {
 		fields = append(fields, app.FieldName)
 	}
@@ -1277,6 +1327,9 @@ func (m *AppMutation) Fields() []string {
 	if m.revoked_reason != nil {
 		fields = append(fields, app.FieldRevokedReason)
 	}
+	if m.metadata != nil {
+		fields = append(fields, app.FieldMetadata)
+	}
 	return fields
 }
 
@@ -1327,6 +1380,8 @@ func (m *AppMutation) Field(name string) (ent.Value, bool) {
 		return m.RevokedAt()
 	case app.FieldRevokedReason:
 		return m.RevokedReason()
+	case app.FieldMetadata:
+		return m.Metadata()
 	}
 	return nil, false
 }
@@ -1378,6 +1433,8 @@ func (m *AppMutation) OldField(ctx context.Context, name string) (ent.Value, err
 		return m.OldRevokedAt(ctx)
 	case app.FieldRevokedReason:
 		return m.OldRevokedReason(ctx)
+	case app.FieldMetadata:
+		return m.OldMetadata(ctx)
 	}
 	return nil, fmt.Errorf("unknown App field %s", name)
 }
@@ -1534,6 +1591,13 @@ func (m *AppMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRevokedReason(v)
 		return nil
+	case app.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
+		return nil
 	}
 	return fmt.Errorf("unknown App field %s", name)
 }
@@ -1600,6 +1664,9 @@ func (m *AppMutation) ClearedFields() []string {
 	if m.FieldCleared(app.FieldRevokedReason) {
 		fields = append(fields, app.FieldRevokedReason)
 	}
+	if m.FieldCleared(app.FieldMetadata) {
+		fields = append(fields, app.FieldMetadata)
+	}
 	return fields
 }
 
@@ -1649,6 +1716,9 @@ func (m *AppMutation) ClearField(name string) error {
 		return nil
 	case app.FieldRevokedReason:
 		m.ClearRevokedReason()
+		return nil
+	case app.FieldMetadata:
+		m.ClearMetadata()
 		return nil
 	}
 	return fmt.Errorf("unknown App nullable field %s", name)
@@ -1720,6 +1790,9 @@ func (m *AppMutation) ResetField(name string) error {
 		return nil
 	case app.FieldRevokedReason:
 		m.ResetRevokedReason()
+		return nil
+	case app.FieldMetadata:
+		m.ResetMetadata()
 		return nil
 	}
 	return fmt.Errorf("unknown App field %s", name)

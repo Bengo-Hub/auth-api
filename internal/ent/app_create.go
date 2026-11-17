@@ -270,6 +270,12 @@ func (_c *AppCreate) SetNillableRevokedReason(v *string) *AppCreate {
 	return _c
 }
 
+// SetMetadata sets the "metadata" field.
+func (_c *AppCreate) SetMetadata(v map[string]interface{}) *AppCreate {
+	_c.mutation.SetMetadata(v)
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *AppCreate) SetID(v uuid.UUID) *AppCreate {
 	_c.mutation.SetID(v)
@@ -528,6 +534,10 @@ func (_c *AppCreate) createSpec() (*App, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RevokedReason(); ok {
 		_spec.SetField(app.FieldRevokedReason, field.TypeString, value)
 		_node.RevokedReason = value
+	}
+	if value, ok := _c.mutation.Metadata(); ok {
+		_spec.SetField(app.FieldMetadata, field.TypeJSON, value)
+		_node.Metadata = value
 	}
 	return _node, _spec
 }
@@ -890,6 +900,24 @@ func (u *AppUpsert) UpdateRevokedReason() *AppUpsert {
 // ClearRevokedReason clears the value of the "revoked_reason" field.
 func (u *AppUpsert) ClearRevokedReason() *AppUpsert {
 	u.SetNull(app.FieldRevokedReason)
+	return u
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *AppUpsert) SetMetadata(v map[string]interface{}) *AppUpsert {
+	u.Set(app.FieldMetadata, v)
+	return u
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *AppUpsert) UpdateMetadata() *AppUpsert {
+	u.SetExcluded(app.FieldMetadata)
+	return u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *AppUpsert) ClearMetadata() *AppUpsert {
+	u.SetNull(app.FieldMetadata)
 	return u
 }
 
@@ -1305,6 +1333,27 @@ func (u *AppUpsertOne) UpdateRevokedReason() *AppUpsertOne {
 func (u *AppUpsertOne) ClearRevokedReason() *AppUpsertOne {
 	return u.Update(func(s *AppUpsert) {
 		s.ClearRevokedReason()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *AppUpsertOne) SetMetadata(v map[string]interface{}) *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *AppUpsertOne) UpdateMetadata() *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *AppUpsertOne) ClearMetadata() *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.ClearMetadata()
 	})
 }
 
@@ -1887,6 +1936,27 @@ func (u *AppUpsertBulk) UpdateRevokedReason() *AppUpsertBulk {
 func (u *AppUpsertBulk) ClearRevokedReason() *AppUpsertBulk {
 	return u.Update(func(s *AppUpsert) {
 		s.ClearRevokedReason()
+	})
+}
+
+// SetMetadata sets the "metadata" field.
+func (u *AppUpsertBulk) SetMetadata(v map[string]interface{}) *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.SetMetadata(v)
+	})
+}
+
+// UpdateMetadata sets the "metadata" field to the value that was provided on create.
+func (u *AppUpsertBulk) UpdateMetadata() *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.UpdateMetadata()
+	})
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (u *AppUpsertBulk) ClearMetadata() *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.ClearMetadata()
 	})
 }
 

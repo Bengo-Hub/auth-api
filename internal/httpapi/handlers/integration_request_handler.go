@@ -379,7 +379,7 @@ func (h *IntegrationRequestHandler) autoProvisionExternalDeveloper(ctx context.C
 
 	// The key is never shown or sent anywhere: the developer signs in to the console and
 	// issues their own key and consumer secret there, so no credential travels by email.
-	_, prefix, hash, err := generateAppToken()
+	_, prefix, hash, err := generateAppToken(false) // a sandbox app, so a test key
 	if err != nil {
 		log.Error("auto-provision: generate app token failed", zap.Error(err))
 		return

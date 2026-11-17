@@ -27,14 +27,16 @@ const ClientChangedPrefix = "client:"
 const consumerSecretPrefix = "bng_cs_"
 
 // generateConsumerSecret creates a consumer secret for the client_credentials grant:
-// bng_cs_<base64url(32 random bytes)>. 256 bits of randomness make an unsalted SHA-256 hash
-// safe to store, the same reasoning as generateAppToken.
-func generateConsumerSecret() (secret, hash string, err error) {
+// bng_cs_live_<base64url(32 random bytes)> for production apps and bng_cs_test_<...> for
+// sandbox ones. 256 bits of randomness make an unsalted SHA-256 hash safe to store, the same
+// reasoning as generateAppToken. Secrets issued before the environment marker existed
+// (bng_cs_<...>) keep working, since the grant compares hashes only.
+func generateConsumerSecret(live bool) (secret, hash string, err error) {
 	b := make([]byte, 32)
 	if _, err = rand.Read(b); err != nil {
 		return "", "", fmt.Errorf("generate random bytes: %w", err)
 	}
-	secret = consumerSecretPrefix + base64.RawURLEncoding.EncodeToString(b)
+	secret = consumerSecretPrefix + credentialEnvPart(live) + base64.RawURLEncoding.EncodeToString(b)
 	return secret, hashAPIKey(secret), nil
 }
 
@@ -88,9 +90,11 @@ func addedScopes(current, next []string) []string {
 	return added
 }
 
-// RotateSecret issues a new consumer secret for an app and returns it once. Tokens minted
-// with the previous secret stop working: the new client_secret_rotated_at is announced to
-// every consumer, which refuses tokens issued before it. Apps created before the
+// RotateSecret issues a new consumer secret for an app and returns it once. The optional body
+// {"grace_hours": n} keeps the previous secret working for n hours (default
+// AUTH_TOKEN_CLIENT_SECRET_GRACE, at most AUTH_TOKEN_CLIENT_SECRET_MAX_GRACE). With 0 the
+// previous secret stops at once and so do access tokens minted with it: the rotation is
+// announced to every consumer, which refuses tokens issued before it. Apps created before the
 // client_credentials grant existed use this same call to get their first secret.
 func (h *AppHandler) RotateSecret(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
@@ -127,25 +131,49 @@ func (h *AppHandler) RotateSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secret, hash, err := generateConsumerSecret()
+	grace, err := h.parseRotationGrace(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error(), nil)
+		return
+	}
+
+	secret, hash, err := generateConsumerSecret(credentialIsLive(existing))
 	if err != nil {
 		h.logger.Error("generate consumer secret", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "secret generation failed", nil)
 		return
 	}
+
+	// With a grace period the replaced secret can still obtain tokens until it ends. An app
+	// that had no secret yet has nothing to keep. A secret still in an earlier grace period is
+	// dropped either way, since only one previous secret is kept.
+	now := time.Now()
+	var previous *previousCredential
+	hadSecret := existing.ClientSecretHash != nil && *existing.ClientSecretHash != ""
+	if grace > 0 && hadSecret {
+		previous = &previousCredential{Hash: *existing.ClientSecretHash, ExpiresAt: now.Add(grace)}
+	}
 	updated, err := h.ent.App.UpdateOneID(appID).
 		SetClientSecretHash(hash).
-		SetClientSecretRotatedAt(time.Now()).
+		SetClientSecretRotatedAt(now).
+		SetMetadata(withPreviousCredential(existing.Metadata, metaPreviousClientSecret, previous)).
 		Save(r.Context())
 	if err != nil {
 		h.logger.Error("save consumer secret", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to rotate secret", nil)
 		return
 	}
-	announceKeyChanged(tenantIDOf(existing), ClientChangedPrefix+existing.ClientID)
+	// Immediate rotation also cuts access tokens already minted: consumers refuse tokens for
+	// this client issued before the broadcast. With a grace period they are left alone, since
+	// they expire within the client_credentials TTL (15 minutes) anyway and cutting them would
+	// defeat a no-downtime rollover.
+	if grace == 0 {
+		announceKeyChanged(tenantIDOf(existing), ClientChangedPrefix+existing.ClientID)
+	}
 	h.logger.Info("app consumer secret rotated",
 		zap.String("app_id", appID.String()),
 		zap.String("rotated_by", claims.Subject),
+		zap.Duration("grace", grace),
 	)
 	writeJSON(w, http.StatusOK, CreateAppResponse{
 		AppResponse:  appToResponse(updated),

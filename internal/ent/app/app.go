@@ -57,6 +57,8 @@ const (
 	FieldRevokedAt = "revoked_at"
 	// FieldRevokedReason holds the string denoting the revoked_reason field in the database.
 	FieldRevokedReason = "revoked_reason"
+	// FieldMetadata holds the string denoting the metadata field in the database.
+	FieldMetadata = "metadata"
 	// Table holds the table name of the app in the database.
 	Table = "apps"
 )
@@ -85,6 +87,7 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldRevokedAt,
 	FieldRevokedReason,
+	FieldMetadata,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).

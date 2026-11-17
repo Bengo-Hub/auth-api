@@ -453,7 +453,8 @@
         "tags": [
           "Admin apps and keys"
         ],
-        "summary": "Rotate app token",
+        "summary": "Rotate app API key",
+        "description": "Issues a new API key (bng_app_test_ for sandbox apps, bng_app_live_ for production and platform apps), shown once. The old key keeps working for grace_hours (default 24, at most 168); 0 stops it now.",
         "parameters": [
           {
             "name": "id",
@@ -464,15 +465,80 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "grace_hours": { "type": "number", "minimum": 0, "maximum": 168 }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "400": {
+            "description": "grace_hours out of range"
           },
           "401": {
             "description": "Missing or invalid access token"
           },
           "403": {
             "description": "Not allowed for this account"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/apps/{id}/rotate-secret": {
+      "post": {
+        "tags": [
+          "Admin apps and keys"
+        ],
+        "summary": "Rotate app consumer secret",
+        "description": "Issues a new consumer secret for the client_credentials grant (bng_cs_test_ for sandbox apps, bng_cs_live_ for production apps), shown once. The old secret keeps working for grace_hours (default 24, at most 168) and tokens it already obtained are left to expire. With 0 the old secret and every token it obtained stop now.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "grace_hours": { "type": "number", "minimum": 0, "maximum": 168 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "grace_hours out of range"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Not allowed for this account"
+          },
+          "409": {
+            "description": "The app is revoked"
           }
         }
       }

@@ -188,6 +188,11 @@ type TokenConfig struct {
 	// ClientCredentialsTTL is the lifetime of a client_credentials access token. Kept short
 	// because the token is a bearer credential that is not checked against the database again.
 	ClientCredentialsTTL time.Duration `env:"CLIENT_CREDENTIALS_TTL" envDefault:"15m"`
+	// ClientSecretGrace is how long a rotated App credential (consumer secret or API key) keeps
+	// working when the rotation request does not say otherwise. Zero makes rotation immediate.
+	ClientSecretGrace time.Duration `env:"CLIENT_SECRET_GRACE" envDefault:"24h"`
+	// ClientSecretMaxGrace caps the grace period a rotation request may ask for.
+	ClientSecretMaxGrace time.Duration `env:"CLIENT_SECRET_MAX_GRACE" envDefault:"168h"`
 }
 
 // RefreshTTLFor is the session lifetime for an app.

@@ -258,6 +258,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
 	apiKeyHandler.SetInternalServiceKey(cfg.InternalServiceKey) // trust X-Original-Client-IP from S2S callers only
 	appHandler := handlers.NewAppHandler(entClient, logger)
+	appHandler.SetRotationGrace(cfg.Token.ClientSecretGrace, cfg.Token.ClientSecretMaxGrace)
 	etimsNotifier := handlers.NewEtimsSupportNotifier(integrationSvc, cfg.Notifications.BaseURL, cfg.InternalServiceKey, logger)
 	integrationRequestHandler := handlers.NewIntegrationRequestHandler(entClient, etimsNotifier, hasher, authService, logger)
 	integrationRequestHandler.SetAuthUIURL(cfg.App.AuthUIURL)

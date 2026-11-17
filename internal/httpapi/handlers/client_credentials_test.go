@@ -82,7 +82,7 @@ func TestIPAllowedAndSecretMatches(t *testing.T) {
 	if validateAllowedIPs([]string{"*", "1.2.3.4", "10.0.0.0/8"}) != nil || validateAllowedIPs([]string{"10.0.0/8"}) == nil || validateAllowedIPs([]string{"abc"}) == nil {
 		t.Fatal("validateAllowedIPs gave a wrong answer")
 	}
-	secret, hash, err := generateConsumerSecret()
+	secret, hash, err := generateConsumerSecret(false)
 	if err != nil || !strings.HasPrefix(secret, consumerSecretPrefix) {
 		t.Fatalf("generateConsumerSecret: %q %v", secret, err)
 	}
@@ -133,8 +133,8 @@ func TestClientCredentialsGrant(t *testing.T) {
 
 	sfx := uuid.NewString()[:8]
 	tn := client.Tenant.Create().SetName("Dev").SetSlug("dev-" + sfx).SetStatus("active").SaveX(ctx)
-	secret, secretHash, _ := generateConsumerSecret()
-	_, _, keyHash, _ := generateAppToken()
+	secret, secretHash, _ := generateConsumerSecret(false)
+	_, _, keyHash, _ := generateAppToken(false)
 	a := client.App.Create().SetName("Sandbox").SetAppType(entapp.AppTypeTenant).SetTenantID(tn.ID).
 		SetClientID("app_" + sfx).SetKeyHash(keyHash).SetKeyPrefix("bng_app_x").
 		SetClientSecretHash(secretHash).SetScopes([]string{"etims:read", "etims:write"}).SaveX(ctx)

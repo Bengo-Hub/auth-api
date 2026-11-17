@@ -3,6 +3,7 @@
 package migrate
 
 import (
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/dialect/sql/schema"
 	"entgo.io/ent/schema/field"
 )
@@ -32,6 +33,7 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
 		{Name: "revoked_reason", Type: field.TypeString, Nullable: true},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
 	}
 	// AppsTable holds the schema information for the "apps" table.
 	AppsTable = &schema.Table{
@@ -63,6 +65,17 @@ var (
 				Name:    "app_status_expires_at",
 				Unique:  false,
 				Columns: []*schema.Column{AppsColumns[14], AppsColumns[15]},
+			},
+			{
+				Name:    "app_metadata",
+				Unique:  false,
+				Columns: []*schema.Column{AppsColumns[22]},
+				Annotation: &entsql.IndexAnnotation{
+					OpClass: "jsonb_path_ops",
+					Types: map[string]string{
+						"postgres": "GIN",
+					},
+				},
 			},
 		},
 	}

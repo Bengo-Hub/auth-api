@@ -16,14 +16,19 @@ var keyBroadcaster *eventslib.Broadcaster
 // SetKeyBroadcaster wires the broadcaster used to announce key changes (nil disables it).
 func SetKeyBroadcaster(b *eventslib.Broadcaster) { keyBroadcaster = b }
 
-// announceKeyChanged tells every service to drop cached validation results for these hashes.
-func announceKeyChanged(tenantID string, hashes ...string) {
+// publishKeyChanged sends one apikey.changed message. Tests replace it to see what was announced.
+var publishKeyChanged = func(tenantID, payload string) {
 	if keyBroadcaster == nil {
 		return
 	}
+	_ = keyBroadcaster.Publish(APIKeyChangedTopic, tenantID, "", []byte(payload))
+}
+
+// announceKeyChanged tells every service to drop cached validation results for these hashes.
+func announceKeyChanged(tenantID string, hashes ...string) {
 	for _, h := range hashes {
 		if h != "" {
-			_ = keyBroadcaster.Publish(APIKeyChangedTopic, tenantID, "", []byte(h))
+			publishKeyChanged(tenantID, h)
 		}
 	}
 }

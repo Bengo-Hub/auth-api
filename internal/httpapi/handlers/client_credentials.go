@@ -74,7 +74,11 @@ func (h *OIDCHandler) clientCredentialsToken(w http.ResponseWriter, r *http.Requ
 		oauthError(w, http.StatusUnauthorized, "invalid_client", "invalid client credentials")
 		return
 	}
-	if !secretMatches(a.ClientSecretHash, secret) {
+	// The current secret, or the one it replaced while that rotation's grace period lasts.
+	// Both compares always run so the answer takes the same time either way.
+	current := secretMatches(a.ClientSecretHash, secret)
+	previous := previousSecretMatches(a.Metadata, secret, time.Now())
+	if !current && !previous {
 		h.logger.Warn("client_credentials: bad secret", zap.String("client_id", clientID))
 		oauthError(w, http.StatusUnauthorized, "invalid_client", "invalid client credentials")
 		return

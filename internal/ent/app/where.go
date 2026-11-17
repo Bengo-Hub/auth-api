@@ -1155,6 +1155,16 @@ func RevokedReasonContainsFold(v string) predicate.App {
 	return predicate.App(sql.FieldContainsFold(FieldRevokedReason, v))
 }
 
+// MetadataIsNil applies the IsNil predicate on the "metadata" field.
+func MetadataIsNil() predicate.App {
+	return predicate.App(sql.FieldIsNull(FieldMetadata))
+}
+
+// MetadataNotNil applies the NotNil predicate on the "metadata" field.
+func MetadataNotNil() predicate.App {
+	return predicate.App(sql.FieldNotNull(FieldMetadata))
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.App) predicate.App {
 	return predicate.App(sql.AndPredicates(predicates...))

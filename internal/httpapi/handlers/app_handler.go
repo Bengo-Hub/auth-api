@@ -30,6 +30,10 @@ const InternalServiceKeyScope = "internal_service_key"
 type AppHandler struct {
 	ent    *ent.Client
 	logger *zap.Logger
+	// Rotation grace periods, see SetRotationGrace.
+	rotationGrace    time.Duration
+	maxRotationGrace time.Duration
+	rotationGraceSet bool
 }
 
 // NewAppHandler creates a new AppHandler.
@@ -75,6 +79,11 @@ type AppResponse struct {
 	// grant. The secret itself is never returned after the response that issued it.
 	HasClientSecret       bool    `json:"has_client_secret"`
 	ClientSecretRotatedAt *string `json:"client_secret_rotated_at,omitempty"`
+	// PreviousClientSecretExpiresAt and PreviousKeyExpiresAt are set while a credential
+	// replaced by a rotation still works, and say when it stops.
+	PreviousClientSecretExpiresAt *string `json:"previous_client_secret_expires_at,omitempty"`
+	PreviousKeyExpiresAt          *string `json:"previous_key_expires_at,omitempty"`
+	PreviousKeyPrefix             string  `json:"previous_key_prefix,omitempty"`
 }
 
 type CreateAppResponse struct {
@@ -87,16 +96,45 @@ type CreateAppResponse struct {
 
 // ── Token generation helpers ─────────────────────────────────────────────────
 
-// generateAppToken creates a GitHub-style app token: bng_app_<base64url(32 bytes)>
-// Returns: fullToken, prefix (first 16 chars), sha256Hash
-func generateAppToken() (token, prefix, hash string, err error) {
+// appKeyPrefix starts every App API key. New keys add an environment part after it (see
+// credentialEnvPart); older keys without one keep working because lookups go by hash.
+const appKeyPrefix = "bng_app_"
+
+// keyPrefixLen is how much of a key is kept in key_prefix to tell keys apart in lists. It
+// matches the column's MaxLen and leaves 7 random characters after bng_app_live_.
+const keyPrefixLen = 20
+
+// credentialIsLive reports whether an app's new credentials carry the live marker rather than
+// the test one. Production apps do. Platform apps do too: they are the fleet's own production
+// credentials and never go through the developer sandbox.
+func credentialIsLive(a *ent.App) bool {
+	if a == nil {
+		return false
+	}
+	return a.AppType == app.AppTypePlatform || a.Environment == app.EnvironmentProduction
+}
+
+// credentialEnvPart is the Stripe-style environment marker inside a new key or secret:
+// "live_" for production credentials and "test_" for sandbox ones. A leaked value then tells
+// anyone at a glance how much it can do, and a secret scanner can rate it.
+func credentialEnvPart(live bool) string {
+	if live {
+		return "live_"
+	}
+	return "test_"
+}
+
+// generateAppToken creates an app API key: bng_app_live_<base64url(32 bytes)> for production
+// and bng_app_test_<...> for sandbox. Returns the full key, its first keyPrefixLen characters
+// for display, and its SHA-256 hash.
+func generateAppToken(live bool) (token, prefix, hash string, err error) {
 	b := make([]byte, 32)
 	if _, err = rand.Read(b); err != nil {
 		return "", "", "", fmt.Errorf("generate random bytes: %w", err)
 	}
-	token = "bng_app_" + base64.URLEncoding.EncodeToString(b)
-	if len(token) >= 16 {
-		prefix = token[:16]
+	token = appKeyPrefix + credentialEnvPart(live) + base64.URLEncoding.EncodeToString(b)
+	if len(token) >= keyPrefixLen {
+		prefix = token[:keyPrefixLen]
 	} else {
 		prefix = token
 	}
@@ -241,6 +279,16 @@ func appToResponse(a *ent.App) AppResponse {
 		s := a.ClientSecretRotatedAt.Format(time.RFC3339)
 		resp.ClientSecretRotatedAt = &s
 	}
+	now := time.Now()
+	if p, ok := activePreviousCredential(a.Metadata, metaPreviousClientSecret, now); ok {
+		s := p.ExpiresAt.UTC().Format(time.RFC3339)
+		resp.PreviousClientSecretExpiresAt = &s
+	}
+	if p, ok := activePreviousCredential(a.Metadata, metaPreviousKey, now); ok {
+		s := p.ExpiresAt.UTC().Format(time.RFC3339)
+		resp.PreviousKeyExpiresAt = &s
+		resp.PreviousKeyPrefix = p.Prefix
+	}
 	return resp
 }
 
@@ -281,7 +329,9 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	token, prefix, hash, err := generateAppToken()
+	// Every new app starts in sandbox, so only platform apps get live credentials here.
+	live := credentialIsLive(&ent.App{AppType: appType, Environment: app.EnvironmentSandbox})
+	token, prefix, hash, err := generateAppToken(live)
 	if err != nil {
 		h.logger.Error("generate app token", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "token generation failed", nil)
@@ -294,7 +344,7 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secret, secretHash, err := generateConsumerSecret()
+	secret, secretHash, err := generateConsumerSecret(live)
 	if err != nil {
 		h.logger.Error("generate consumer secret", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "token generation failed", nil)
@@ -533,8 +583,9 @@ func (h *AppHandler) UpdateApp(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, appToResponse(updated))
 }
 
-// RotateToken generates a new token for an app, invalidating the old one.
-// Returns the new full token — shown once.
+// RotateToken generates a new API key for an app and returns it once. The optional body
+// {"grace_hours": n} keeps the old key working for n hours (default
+// AUTH_TOKEN_CLIENT_SECRET_GRACE); 0 stops it immediately.
 func (h *AppHandler) RotateToken(w http.ResponseWriter, r *http.Request) {
 	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
@@ -568,16 +619,38 @@ func (h *AppHandler) RotateToken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	newToken, newPrefix, newHash, err := generateAppToken()
+	grace, err := h.parseRotationGrace(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error(), nil)
+		return
+	}
+
+	newToken, newPrefix, newHash, err := generateAppToken(credentialIsLive(existing))
 	if err != nil {
 		h.logger.Error("rotate app token", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "token generation failed", nil)
 		return
 	}
 
+	// With a grace period the replaced key stays valid until it ends (ResolveAppToken falls
+	// back to metadata.previous_key). Without one it stops now. Either way a key that was
+	// still in an earlier grace period stops now, since only one previous key is kept.
+	now := time.Now()
+	var stopped []string
+	if older, ok := activePreviousCredential(existing.Metadata, metaPreviousKey, now); ok {
+		stopped = append(stopped, older.Hash)
+	}
+	var previous *previousCredential
+	if grace > 0 {
+		previous = &previousCredential{Hash: existing.KeyHash, Prefix: existing.KeyPrefix, ExpiresAt: now.Add(grace)}
+	} else {
+		stopped = append(stopped, existing.KeyHash)
+	}
+
 	updated, err := h.ent.App.UpdateOneID(appID).
 		SetKeyHash(newHash).
 		SetKeyPrefix(newPrefix).
+		SetMetadata(withPreviousCredential(existing.Metadata, metaPreviousKey, previous)).
 		SetStatus(app.StatusActive).
 		Save(r.Context())
 	if err != nil {
@@ -586,10 +659,14 @@ func (h *AppHandler) RotateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
+	// Drop cached validations of every key that stopped working. A key in its grace period is
+	// not announced: it is still valid, and consumer caches (about a minute) lapse on their own
+	// once the grace period ends.
+	announceKeyChanged(tenantIDOf(existing), stopped...)
 	h.logger.Info("app token rotated",
 		zap.String("app_id", appID.String()),
 		zap.String("rotated_by", claims.Subject),
+		zap.Duration("grace", grace),
 	)
 
 	writeJSON(w, http.StatusOK, CreateAppResponse{
@@ -836,6 +913,10 @@ func (h *AppHandler) PromoteToProduction(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusConflict, "invalid_state", "only an active app can be promoted", nil)
 		return
 	}
+	// The app keeps its existing key and secret (test-marked if they were issued in sandbox):
+	// promotion is done by a platform admin, and a credential generated here would be shown to
+	// that admin rather than the developer. The developer rotates from the console, with the
+	// grace period, to get live-marked values without downtime.
 	updated, err := h.ent.App.UpdateOneID(appID).SetEnvironment(app.EnvironmentProduction).Save(r.Context())
 	if err != nil {
 		h.logger.Error("promote app to production", zap.Error(err))
@@ -875,10 +956,10 @@ func (h *AppHandler) IsValidInternalServiceToken(ctx context.Context, tokenStr s
 	if tokenStr == "" {
 		return false
 	}
-	a, err := h.ent.App.Query().
-		Where(app.KeyHashEQ(hashAPIKey(tokenStr)), app.StatusEQ(app.StatusActive)).
-		Only(ctx)
-	if err != nil {
+	// The previous key of a rotation still in its grace period counts, so the fleet can roll
+	// a new INTERNAL_SERVICE_KEY out without a gap.
+	a, found, err := findActiveAppByKeyHash(ctx, h.ent, hashAPIKey(tokenStr), time.Now())
+	if err != nil || !found {
 		return false
 	}
 	if a.ExpiresAt != nil && !a.ExpiresAt.IsZero() && time.Now().After(*a.ExpiresAt) {
