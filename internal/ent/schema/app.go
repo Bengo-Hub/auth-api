@@ -61,6 +61,18 @@ func (App) Fields() []ent.Field {
 		field.String("key_prefix").
 			MaxLen(20).
 			Comment("First 16 chars of token for identification in lists, e.g. 'bng_app_AbCdEf12'"),
+		// Consumer secret for the OAuth2 client_credentials grant. client_id is the consumer
+		// key; this secret is shown once and only its SHA-256 hash is kept. Null means the app
+		// predates the grant and has not generated a secret yet.
+		field.String("client_secret_hash").
+			Optional().
+			Nillable().
+			Sensitive().
+			Comment("SHA-256 hash of the consumer secret (client_credentials grant); null = none issued"),
+		field.Time("client_secret_rotated_at").
+			Optional().
+			Nillable().
+			Comment("When the consumer secret was last issued; tokens minted before it are refused"),
 
 		// Permissions
 		field.Strings("scopes").

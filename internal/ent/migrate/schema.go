@@ -68,6 +68,8 @@ var (
 		{Name: "client_id", Type: field.TypeString, Unique: true},
 		{Name: "key_hash", Type: field.TypeString},
 		{Name: "key_prefix", Type: field.TypeString, Size: 20},
+		{Name: "client_secret_hash", Type: field.TypeString, Nullable: true},
+		{Name: "client_secret_rotated_at", Type: field.TypeTime, Nullable: true},
 		{Name: "scopes", Type: field.TypeJSON, Nullable: true},
 		{Name: "allowed_ips", Type: field.TypeJSON, Nullable: true},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "revoked", "expired", "suspended"}, Default: "active"},
@@ -98,17 +100,17 @@ var (
 			{
 				Name:    "app_tenant_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{AppsColumns[5], AppsColumns[12]},
+				Columns: []*schema.Column{AppsColumns[5], AppsColumns[14]},
 			},
 			{
 				Name:    "app_app_type_status",
 				Unique:  false,
-				Columns: []*schema.Column{AppsColumns[3], AppsColumns[12]},
+				Columns: []*schema.Column{AppsColumns[3], AppsColumns[14]},
 			},
 			{
 				Name:    "app_status_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{AppsColumns[12], AppsColumns[13]},
+				Columns: []*schema.Column{AppsColumns[14], AppsColumns[15]},
 			},
 		},
 	}

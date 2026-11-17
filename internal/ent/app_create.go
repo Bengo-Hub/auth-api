@@ -118,6 +118,34 @@ func (_c *AppCreate) SetKeyPrefix(v string) *AppCreate {
 	return _c
 }
 
+// SetClientSecretHash sets the "client_secret_hash" field.
+func (_c *AppCreate) SetClientSecretHash(v string) *AppCreate {
+	_c.mutation.SetClientSecretHash(v)
+	return _c
+}
+
+// SetNillableClientSecretHash sets the "client_secret_hash" field if the given value is not nil.
+func (_c *AppCreate) SetNillableClientSecretHash(v *string) *AppCreate {
+	if v != nil {
+		_c.SetClientSecretHash(*v)
+	}
+	return _c
+}
+
+// SetClientSecretRotatedAt sets the "client_secret_rotated_at" field.
+func (_c *AppCreate) SetClientSecretRotatedAt(v time.Time) *AppCreate {
+	_c.mutation.SetClientSecretRotatedAt(v)
+	return _c
+}
+
+// SetNillableClientSecretRotatedAt sets the "client_secret_rotated_at" field if the given value is not nil.
+func (_c *AppCreate) SetNillableClientSecretRotatedAt(v *time.Time) *AppCreate {
+	if v != nil {
+		_c.SetClientSecretRotatedAt(*v)
+	}
+	return _c
+}
+
 // SetScopes sets the "scopes" field.
 func (_c *AppCreate) SetScopes(v []string) *AppCreate {
 	_c.mutation.SetScopes(v)
@@ -453,6 +481,14 @@ func (_c *AppCreate) createSpec() (*App, *sqlgraph.CreateSpec) {
 		_spec.SetField(app.FieldKeyPrefix, field.TypeString, value)
 		_node.KeyPrefix = value
 	}
+	if value, ok := _c.mutation.ClientSecretHash(); ok {
+		_spec.SetField(app.FieldClientSecretHash, field.TypeString, value)
+		_node.ClientSecretHash = &value
+	}
+	if value, ok := _c.mutation.ClientSecretRotatedAt(); ok {
+		_spec.SetField(app.FieldClientSecretRotatedAt, field.TypeTime, value)
+		_node.ClientSecretRotatedAt = &value
+	}
 	if value, ok := _c.mutation.Scopes(); ok {
 		_spec.SetField(app.FieldScopes, field.TypeJSON, value)
 		_node.Scopes = value
@@ -668,6 +704,42 @@ func (u *AppUpsert) SetKeyPrefix(v string) *AppUpsert {
 // UpdateKeyPrefix sets the "key_prefix" field to the value that was provided on create.
 func (u *AppUpsert) UpdateKeyPrefix() *AppUpsert {
 	u.SetExcluded(app.FieldKeyPrefix)
+	return u
+}
+
+// SetClientSecretHash sets the "client_secret_hash" field.
+func (u *AppUpsert) SetClientSecretHash(v string) *AppUpsert {
+	u.Set(app.FieldClientSecretHash, v)
+	return u
+}
+
+// UpdateClientSecretHash sets the "client_secret_hash" field to the value that was provided on create.
+func (u *AppUpsert) UpdateClientSecretHash() *AppUpsert {
+	u.SetExcluded(app.FieldClientSecretHash)
+	return u
+}
+
+// ClearClientSecretHash clears the value of the "client_secret_hash" field.
+func (u *AppUpsert) ClearClientSecretHash() *AppUpsert {
+	u.SetNull(app.FieldClientSecretHash)
+	return u
+}
+
+// SetClientSecretRotatedAt sets the "client_secret_rotated_at" field.
+func (u *AppUpsert) SetClientSecretRotatedAt(v time.Time) *AppUpsert {
+	u.Set(app.FieldClientSecretRotatedAt, v)
+	return u
+}
+
+// UpdateClientSecretRotatedAt sets the "client_secret_rotated_at" field to the value that was provided on create.
+func (u *AppUpsert) UpdateClientSecretRotatedAt() *AppUpsert {
+	u.SetExcluded(app.FieldClientSecretRotatedAt)
+	return u
+}
+
+// ClearClientSecretRotatedAt clears the value of the "client_secret_rotated_at" field.
+func (u *AppUpsert) ClearClientSecretRotatedAt() *AppUpsert {
+	u.SetNull(app.FieldClientSecretRotatedAt)
 	return u
 }
 
@@ -1016,6 +1088,48 @@ func (u *AppUpsertOne) SetKeyPrefix(v string) *AppUpsertOne {
 func (u *AppUpsertOne) UpdateKeyPrefix() *AppUpsertOne {
 	return u.Update(func(s *AppUpsert) {
 		s.UpdateKeyPrefix()
+	})
+}
+
+// SetClientSecretHash sets the "client_secret_hash" field.
+func (u *AppUpsertOne) SetClientSecretHash(v string) *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.SetClientSecretHash(v)
+	})
+}
+
+// UpdateClientSecretHash sets the "client_secret_hash" field to the value that was provided on create.
+func (u *AppUpsertOne) UpdateClientSecretHash() *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.UpdateClientSecretHash()
+	})
+}
+
+// ClearClientSecretHash clears the value of the "client_secret_hash" field.
+func (u *AppUpsertOne) ClearClientSecretHash() *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.ClearClientSecretHash()
+	})
+}
+
+// SetClientSecretRotatedAt sets the "client_secret_rotated_at" field.
+func (u *AppUpsertOne) SetClientSecretRotatedAt(v time.Time) *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.SetClientSecretRotatedAt(v)
+	})
+}
+
+// UpdateClientSecretRotatedAt sets the "client_secret_rotated_at" field to the value that was provided on create.
+func (u *AppUpsertOne) UpdateClientSecretRotatedAt() *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.UpdateClientSecretRotatedAt()
+	})
+}
+
+// ClearClientSecretRotatedAt clears the value of the "client_secret_rotated_at" field.
+func (u *AppUpsertOne) ClearClientSecretRotatedAt() *AppUpsertOne {
+	return u.Update(func(s *AppUpsert) {
+		s.ClearClientSecretRotatedAt()
 	})
 }
 
@@ -1556,6 +1670,48 @@ func (u *AppUpsertBulk) SetKeyPrefix(v string) *AppUpsertBulk {
 func (u *AppUpsertBulk) UpdateKeyPrefix() *AppUpsertBulk {
 	return u.Update(func(s *AppUpsert) {
 		s.UpdateKeyPrefix()
+	})
+}
+
+// SetClientSecretHash sets the "client_secret_hash" field.
+func (u *AppUpsertBulk) SetClientSecretHash(v string) *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.SetClientSecretHash(v)
+	})
+}
+
+// UpdateClientSecretHash sets the "client_secret_hash" field to the value that was provided on create.
+func (u *AppUpsertBulk) UpdateClientSecretHash() *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.UpdateClientSecretHash()
+	})
+}
+
+// ClearClientSecretHash clears the value of the "client_secret_hash" field.
+func (u *AppUpsertBulk) ClearClientSecretHash() *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.ClearClientSecretHash()
+	})
+}
+
+// SetClientSecretRotatedAt sets the "client_secret_rotated_at" field.
+func (u *AppUpsertBulk) SetClientSecretRotatedAt(v time.Time) *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.SetClientSecretRotatedAt(v)
+	})
+}
+
+// UpdateClientSecretRotatedAt sets the "client_secret_rotated_at" field to the value that was provided on create.
+func (u *AppUpsertBulk) UpdateClientSecretRotatedAt() *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.UpdateClientSecretRotatedAt()
+	})
+}
+
+// ClearClientSecretRotatedAt clears the value of the "client_secret_rotated_at" field.
+func (u *AppUpsertBulk) ClearClientSecretRotatedAt() *AppUpsertBulk {
+	return u.Update(func(s *AppUpsert) {
+		s.ClearClientSecretRotatedAt()
 	})
 }
 

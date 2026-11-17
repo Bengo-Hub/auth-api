@@ -71,63 +71,63 @@ type RouterDeps struct {
 
 // AuthHandlers groups the HTTP handlers for auth routes.
 type AuthHandlers struct {
-	Register                           http.HandlerFunc
-	SessionStart                       http.HandlerFunc
-	SessionRefresh                     http.HandlerFunc
-	SessionEnd                         http.HandlerFunc
-	RegisterOAuth                      http.HandlerFunc
-	SendEmailCode                      http.HandlerFunc
-	VerifyEmailCode                    http.HandlerFunc
-	SendMyEmailCode                    http.HandlerFunc
-	RequestPhoneOTP                    http.HandlerFunc
-	VerifyPhoneOTP                     http.HandlerFunc
-	VerifyMyEmailCode                  http.HandlerFunc
-	ListMyEmails                       http.HandlerFunc
-	SendAddEmailCode                   http.HandlerFunc
-	VerifyAddEmailCode                 http.HandlerFunc
-	SetPrimaryMyEmail                  http.HandlerFunc
-	DeleteMyEmail                      http.HandlerFunc
-	ListMyPhones                       http.HandlerFunc
-	AddMyPhone                         http.HandlerFunc
-	SendMyPhoneCode                    http.HandlerFunc
-	VerifyMyPhoneCode                  http.HandlerFunc
-	SetPrimaryMyPhone                  http.HandlerFunc
-	DeleteMyPhone                      http.HandlerFunc
-	Login                              http.HandlerFunc
-	Refresh                            http.HandlerFunc
-	RequestPasswordReset               http.HandlerFunc
-	ConfirmPasswordReset               http.HandlerFunc
-	Me                                 http.HandlerFunc
-	MyMemberships                      http.HandlerFunc
+	Register             http.HandlerFunc
+	SessionStart         http.HandlerFunc
+	SessionRefresh       http.HandlerFunc
+	SessionEnd           http.HandlerFunc
+	RegisterOAuth        http.HandlerFunc
+	SendEmailCode        http.HandlerFunc
+	VerifyEmailCode      http.HandlerFunc
+	SendMyEmailCode      http.HandlerFunc
+	RequestPhoneOTP      http.HandlerFunc
+	VerifyPhoneOTP       http.HandlerFunc
+	VerifyMyEmailCode    http.HandlerFunc
+	ListMyEmails         http.HandlerFunc
+	SendAddEmailCode     http.HandlerFunc
+	VerifyAddEmailCode   http.HandlerFunc
+	SetPrimaryMyEmail    http.HandlerFunc
+	DeleteMyEmail        http.HandlerFunc
+	ListMyPhones         http.HandlerFunc
+	AddMyPhone           http.HandlerFunc
+	SendMyPhoneCode      http.HandlerFunc
+	VerifyMyPhoneCode    http.HandlerFunc
+	SetPrimaryMyPhone    http.HandlerFunc
+	DeleteMyPhone        http.HandlerFunc
+	Login                http.HandlerFunc
+	Refresh              http.HandlerFunc
+	RequestPasswordReset http.HandlerFunc
+	ConfirmPasswordReset http.HandlerFunc
+	Me                   http.HandlerFunc
+	MyMemberships        http.HandlerFunc
 	// Invitations waiting for the signed-in person (audit H4).
 	MyInvitations, AcceptInvitation, DeclineInvitation http.HandlerFunc
-	Logout                             http.HandlerFunc
-	LogoutGet                          http.HandlerFunc
-	GoogleOAuthStart                   http.HandlerFunc
-	GoogleOAuthCallback                http.HandlerFunc
-	GitHubOAuthStart                   http.HandlerFunc
-	GitHubOAuthCallback                http.HandlerFunc
-	MicrosoftOAuthStart                http.HandlerFunc
-	SocialMFAVerify                    http.HandlerFunc
-	MicrosoftOAuthCallback             http.HandlerFunc
-	WellKnownConfig                    http.HandlerFunc
-	JWKS                               http.HandlerFunc
-	Authorize                          http.HandlerFunc
-	Token                              http.HandlerFunc
-	UserInfo                           http.HandlerFunc
-	MFAStartTOTP                       http.HandlerFunc
-	MFAConfirmTOTP                     http.HandlerFunc
-	MFARegenerateBackupCodes           http.HandlerFunc
-	MFAConsumeBackupCode               http.HandlerFunc
-	AdminCreateTenant                  http.HandlerFunc
-	AdminListTenants                   http.HandlerFunc
-	AdminUpdateTenant                  http.HandlerFunc
-	GetTenantPrivate                   http.HandlerFunc // signed-in tenant read with the tax PIN (members only)
-	AdminDeleteTenant                  http.HandlerFunc
-	AdminApproveTenant                 http.HandlerFunc
-	AdminInviteBusiness                http.HandlerFunc
-	AdminRejectTenant                  http.HandlerFunc
-	AdminProvisionTenantOAuthRedirects http.HandlerFunc
+	Logout                                             http.HandlerFunc
+	LogoutGet                                          http.HandlerFunc
+	GoogleOAuthStart                                   http.HandlerFunc
+	GoogleOAuthCallback                                http.HandlerFunc
+	GitHubOAuthStart                                   http.HandlerFunc
+	GitHubOAuthCallback                                http.HandlerFunc
+	MicrosoftOAuthStart                                http.HandlerFunc
+	SocialMFAVerify                                    http.HandlerFunc
+	MicrosoftOAuthCallback                             http.HandlerFunc
+	WellKnownConfig                                    http.HandlerFunc
+	JWKS                                               http.HandlerFunc
+	Authorize                                          http.HandlerFunc
+	Token                                              http.HandlerFunc
+	UserInfo                                           http.HandlerFunc
+	MFAStartTOTP                                       http.HandlerFunc
+	MFAConfirmTOTP                                     http.HandlerFunc
+	MFARegenerateBackupCodes                           http.HandlerFunc
+	MFAConsumeBackupCode                               http.HandlerFunc
+	AdminCreateTenant                                  http.HandlerFunc
+	AdminListTenants                                   http.HandlerFunc
+	AdminUpdateTenant                                  http.HandlerFunc
+	GetTenantPrivate                                   http.HandlerFunc // signed-in tenant read with the tax PIN (members only)
+	AdminDeleteTenant                                  http.HandlerFunc
+	AdminApproveTenant                                 http.HandlerFunc
+	AdminInviteBusiness                                http.HandlerFunc
+	AdminRejectTenant                                  http.HandlerFunc
+	AdminProvisionTenantOAuthRedirects                 http.HandlerFunc
 	// Tenant backups (SSO client area): newest backup + download link, and start a new one.
 	AdminGetTenantBackup         http.HandlerFunc
 	AdminStartTenantBackup       http.HandlerFunc
@@ -173,9 +173,11 @@ type AuthHandlers struct {
 	AdminRevokeApp      http.HandlerFunc
 	AdminDeleteApp      http.HandlerFunc
 	AdminRotateAppToken http.HandlerFunc
-	AdminSuspendApp     http.HandlerFunc
-	AdminResumeApp      http.HandlerFunc
-	AdminPromoteApp     http.HandlerFunc
+	// AdminRotateAppSecret issues a new consumer secret for the client_credentials grant.
+	AdminRotateAppSecret http.HandlerFunc
+	AdminSuspendApp      http.HandlerFunc
+	AdminResumeApp       http.HandlerFunc
+	AdminPromoteApp      http.HandlerFunc
 	// Note: app token validation reuses ValidateAPIKey (detects bng_app_* prefix)
 	// Session management
 	ListSessions      http.HandlerFunc
@@ -582,6 +584,9 @@ func NewRouter(deps RouterDeps) http.Handler {
 						r.Put("/", deps.AuthHandlers.AdminUpdateApp)
 						r.Delete("/", deps.AuthHandlers.AdminDeleteApp)
 						r.Post("/rotate", deps.AuthHandlers.AdminRotateAppToken)
+						if deps.AuthHandlers.AdminRotateAppSecret != nil {
+							r.Post("/rotate-secret", deps.AuthHandlers.AdminRotateAppSecret)
+						}
 						r.Post("/revoke", deps.AuthHandlers.AdminRevokeApp)
 						if deps.AuthHandlers.AdminSuspendApp != nil {
 							r.Post("/suspend", deps.AuthHandlers.AdminSuspendApp)

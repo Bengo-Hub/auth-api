@@ -168,6 +168,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	rateLimits := httpmiddleware.NewRateLimits(redisClient, logger, cfg.Redis.Namespace)
 	oidcService := oidc.New(entClient, tokenSvc, cfg)
 	oidcHandler := handlers.NewOIDCHandlerWithRolesPermissions(cfg, oidcService, authMiddleware, tokenSvc, authService, logger)
+	oidcHandler.SetAppStore(entClient) // enables grant_type=client_credentials for developer Apps
 	mfaService := mfa.New(entClient, cfg.Token.Issuer)
 	mfaHandler := handlers.NewMFAHandler(mfaService, logger)
 
@@ -255,9 +256,11 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	backupHandler := handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled)
 	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, subClient, authService, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
+	apiKeyHandler.SetInternalServiceKey(cfg.Subscription.APIKey) // trust X-Original-Client-IP from S2S callers only
 	appHandler := handlers.NewAppHandler(entClient, logger)
 	etimsNotifier := handlers.NewEtimsSupportNotifier(integrationSvc, cfg.Notifications.BaseURL, cfg.Subscription.APIKey, logger)
 	integrationRequestHandler := handlers.NewIntegrationRequestHandler(entClient, etimsNotifier, hasher, authService, logger)
+	integrationRequestHandler.SetAuthUIURL(cfg.App.AuthUIURL)
 	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger).
 		WithSetPasswordLinks(authService)
 	// Profile pictures still inline as data: URIs move to object storage once (no-op after).
@@ -443,16 +446,17 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			AdminRevokeAPIKey: apiKeyHandler.RevokeAPIKey,
 			ValidateAPIKey:    apiKeyHandler.ValidateAPIKey,
 			// App management (GitHub-style S2S tokens; validation merged into ValidateAPIKey)
-			AdminCreateApp:      appHandler.CreateApp,
-			AdminListApps:       appHandler.ListApps,
-			AdminGetApp:         appHandler.GetApp,
-			AdminUpdateApp:      appHandler.UpdateApp,
-			AdminRevokeApp:      appHandler.RevokeApp,
-			AdminDeleteApp:      appHandler.DeleteApp,
-			AdminRotateAppToken: appHandler.RotateToken,
-			AdminSuspendApp:     appHandler.SuspendApp,
-			AdminResumeApp:      appHandler.ResumeApp,
-			AdminPromoteApp:     appHandler.PromoteToProduction,
+			AdminCreateApp:       appHandler.CreateApp,
+			AdminListApps:        appHandler.ListApps,
+			AdminGetApp:          appHandler.GetApp,
+			AdminUpdateApp:       appHandler.UpdateApp,
+			AdminRevokeApp:       appHandler.RevokeApp,
+			AdminDeleteApp:       appHandler.DeleteApp,
+			AdminRotateAppToken:  appHandler.RotateToken,
+			AdminRotateAppSecret: appHandler.RotateSecret,
+			AdminSuspendApp:      appHandler.SuspendApp,
+			AdminResumeApp:       appHandler.ResumeApp,
+			AdminPromoteApp:      appHandler.PromoteToProduction,
 			// Integration requests (eTIMS + future integrations)
 			CreateIntegrationRequest:      integrationRequestHandler.CreateIntegrationRequest,
 			ListMyIntegrationRequests:     integrationRequestHandler.ListMyIntegrationRequests,

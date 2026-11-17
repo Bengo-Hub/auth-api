@@ -37,6 +37,10 @@ type App struct {
 	KeyHash string `json:"-"`
 	// First 16 chars of token for identification in lists, e.g. 'bng_app_AbCdEf12'
 	KeyPrefix string `json:"key_prefix,omitempty"`
+	// SHA-256 hash of the consumer secret (client_credentials grant); null = none issued
+	ClientSecretHash *string `json:"-"`
+	// When the consumer secret was last issued; tokens minted before it are refused
+	ClientSecretRotatedAt *time.Time `json:"client_secret_rotated_at,omitempty"`
 	// Allowed scopes, e.g. ['s2s:*', 'treasury:read']
 	Scopes []string `json:"scopes,omitempty"`
 	// IP whitelist (empty = all IPs allowed)
@@ -69,9 +73,9 @@ func (*App) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case app.FieldScopes, app.FieldAllowedIps:
 			values[i] = new([]byte)
-		case app.FieldName, app.FieldDescription, app.FieldAppType, app.FieldEnvironment, app.FieldClientID, app.FieldKeyHash, app.FieldKeyPrefix, app.FieldStatus, app.FieldLastUsedIP, app.FieldRevokedReason:
+		case app.FieldName, app.FieldDescription, app.FieldAppType, app.FieldEnvironment, app.FieldClientID, app.FieldKeyHash, app.FieldKeyPrefix, app.FieldClientSecretHash, app.FieldStatus, app.FieldLastUsedIP, app.FieldRevokedReason:
 			values[i] = new(sql.NullString)
-		case app.FieldExpiresAt, app.FieldLastUsedAt, app.FieldCreatedAt, app.FieldUpdatedAt, app.FieldRevokedAt:
+		case app.FieldClientSecretRotatedAt, app.FieldExpiresAt, app.FieldLastUsedAt, app.FieldCreatedAt, app.FieldUpdatedAt, app.FieldRevokedAt:
 			values[i] = new(sql.NullTime)
 		case app.FieldID:
 			values[i] = new(uuid.UUID)
@@ -151,6 +155,20 @@ func (_m *App) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field key_prefix", values[i])
 			} else if value.Valid {
 				_m.KeyPrefix = value.String
+			}
+		case app.FieldClientSecretHash:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field client_secret_hash", values[i])
+			} else if value.Valid {
+				_m.ClientSecretHash = new(string)
+				*_m.ClientSecretHash = value.String
+			}
+		case app.FieldClientSecretRotatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field client_secret_rotated_at", values[i])
+			} else if value.Valid {
+				_m.ClientSecretRotatedAt = new(time.Time)
+				*_m.ClientSecretRotatedAt = value.Time
 			}
 		case app.FieldScopes:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -284,6 +302,13 @@ func (_m *App) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("key_prefix=")
 	builder.WriteString(_m.KeyPrefix)
+	builder.WriteString(", ")
+	builder.WriteString("client_secret_hash=<sensitive>")
+	builder.WriteString(", ")
+	if v := _m.ClientSecretRotatedAt; v != nil {
+		builder.WriteString("client_secret_rotated_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("scopes=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Scopes))

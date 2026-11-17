@@ -33,6 +33,10 @@ const (
 	FieldKeyHash = "key_hash"
 	// FieldKeyPrefix holds the string denoting the key_prefix field in the database.
 	FieldKeyPrefix = "key_prefix"
+	// FieldClientSecretHash holds the string denoting the client_secret_hash field in the database.
+	FieldClientSecretHash = "client_secret_hash"
+	// FieldClientSecretRotatedAt holds the string denoting the client_secret_rotated_at field in the database.
+	FieldClientSecretRotatedAt = "client_secret_rotated_at"
 	// FieldScopes holds the string denoting the scopes field in the database.
 	FieldScopes = "scopes"
 	// FieldAllowedIps holds the string denoting the allowed_ips field in the database.
@@ -69,6 +73,8 @@ var Columns = []string{
 	FieldClientID,
 	FieldKeyHash,
 	FieldKeyPrefix,
+	FieldClientSecretHash,
+	FieldClientSecretRotatedAt,
 	FieldScopes,
 	FieldAllowedIps,
 	FieldStatus,
@@ -241,6 +247,16 @@ func ByKeyHash(opts ...sql.OrderTermOption) OrderOption {
 // ByKeyPrefix orders the results by the key_prefix field.
 func ByKeyPrefix(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldKeyPrefix, opts...).ToFunc()
+}
+
+// ByClientSecretHash orders the results by the client_secret_hash field.
+func ByClientSecretHash(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldClientSecretHash, opts...).ToFunc()
+}
+
+// ByClientSecretRotatedAt orders the results by the client_secret_rotated_at field.
+func ByClientSecretRotatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldClientSecretRotatedAt, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

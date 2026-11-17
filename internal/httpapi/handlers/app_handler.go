@@ -71,11 +71,18 @@ type AppResponse struct {
 	LastUsedAt  *string   `json:"last_used_at,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	// HasClientSecret reports whether a consumer secret exists for the client_credentials
+	// grant. The secret itself is never returned after the response that issued it.
+	HasClientSecret       bool    `json:"has_client_secret"`
+	ClientSecretRotatedAt *string `json:"client_secret_rotated_at,omitempty"`
 }
 
 type CreateAppResponse struct {
 	AppResponse
-	Token string `json:"token"` // Full token — shown ONCE on creation
+	Token string `json:"token,omitempty"` // Full API key, shown once on creation or key rotation
+	// ClientSecret is the consumer secret, shown once on creation or secret rotation. Pair it
+	// with client_id at POST /api/v1/token (grant_type=client_credentials).
+	ClientSecret string `json:"client_secret,omitempty"`
 }
 
 // ── Token generation helpers ─────────────────────────────────────────────────
@@ -229,6 +236,11 @@ func appToResponse(a *ent.App) AppResponse {
 		s := a.LastUsedAt.Format(time.RFC3339)
 		resp.LastUsedAt = &s
 	}
+	resp.HasClientSecret = a.ClientSecretHash != nil && *a.ClientSecretHash != ""
+	if a.ClientSecretRotatedAt != nil && !a.ClientSecretRotatedAt.IsZero() {
+		s := a.ClientSecretRotatedAt.Format(time.RFC3339)
+		resp.ClientSecretRotatedAt = &s
+	}
 	return resp
 }
 
@@ -262,6 +274,7 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "forbidden", "admin, owner, superuser, or developer role required to create tenant apps", nil)
 			return
 		}
+		req.Scopes = normalizeTenantScopes(req.Scopes)
 		if err := validateTenantAppScopes(req.Scopes); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_scope", err.Error(), nil)
 			return
@@ -281,6 +294,13 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	secret, secretHash, err := generateConsumerSecret()
+	if err != nil {
+		h.logger.Error("generate consumer secret", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "server_error", "token generation failed", nil)
+		return
+	}
+
 	createdBy, _ := uuid.Parse(claims.Subject)
 
 	create := h.ent.App.Create().
@@ -290,6 +310,8 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 		SetClientID(clientID).
 		SetKeyHash(hash).
 		SetKeyPrefix(prefix).
+		SetClientSecretHash(secretHash).
+		SetClientSecretRotatedAt(time.Now()).
 		SetCreatedBy(createdBy).
 		SetStatus(app.StatusActive)
 
@@ -334,8 +356,9 @@ func (h *AppHandler) CreateApp(w http.ResponseWriter, r *http.Request) {
 	)
 
 	writeJSON(w, http.StatusCreated, CreateAppResponse{
-		AppResponse: appToResponse(created),
-		Token:       token,
+		AppResponse:  appToResponse(created),
+		Token:        token,
+		ClientSecret: secret,
 	})
 }
 
@@ -461,9 +484,20 @@ func (h *AppHandler) UpdateApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if existing.AppType == app.AppTypeTenant && req.Scopes != nil {
+		req.Scopes = normalizeTenantScopes(req.Scopes)
 		if err := validateTenantAppScopes(req.Scopes); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_scope", err.Error(), nil)
 			return
+		}
+		// A sandbox app is free to widen its own scopes for testing. A production app is
+		// not: a developer may drop scopes, but gaining one (such as etims:write) needs a
+		// platform admin, the same review that promoted the app in the first place.
+		if existing.Environment == app.EnvironmentProduction && !requirePlatformAdmin(claims) {
+			if added := addedScopes(existing.Scopes, req.Scopes); len(added) > 0 {
+				writeError(w, http.StatusForbidden, "scope_review_required",
+					fmt.Sprintf("adding %s to a production app needs platform review; request it from the developer console", strings.Join(added, ", ")), nil)
+				return
+			}
 		}
 	}
 
@@ -487,7 +521,7 @@ func (h *AppHandler) UpdateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to update app", nil)
 		return
 	}
-	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
+	announceAppChanged(existing)
 	writeJSON(w, http.StatusOK, appToResponse(updated))
 }
 
@@ -607,7 +641,7 @@ func (h *AppHandler) RevokeApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
+	announceAppChanged(existing)
 	h.logger.Info("app revoked",
 		zap.String("app_id", appID.String()),
 		zap.String("revoked_by", claims.Subject),
@@ -659,7 +693,7 @@ func (h *AppHandler) DeleteApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to delete app", nil)
 		return
 	}
-	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
+	announceAppChanged(existing)
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -706,7 +740,7 @@ func (h *AppHandler) SuspendApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to suspend app", nil)
 		return
 	}
-	announceKeyChanged(tenantIDOf(existing), existing.KeyHash)
+	announceAppChanged(existing)
 	h.logger.Info("app suspended", zap.String("app_id", appID.String()), zap.String("suspended_by", claims.Subject))
 	writeJSON(w, http.StatusOK, appToResponse(updated))
 }
@@ -801,6 +835,9 @@ func (h *AppHandler) PromoteToProduction(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	h.logger.Info("app promoted to production", zap.String("app_id", appID.String()), zap.String("promoted_by", claims.Subject))
+	// Cached validations still say "sandbox", and sandbox-issued access tokens carry env=sandbox.
+	// Drop both so the very next call is treated as production.
+	announceAppChanged(existing)
 	// Publish auth.app.promoted_to_production so subscriptions-api can auto-provision a zero-
 	// balance ApiTokenWallet for this tenant+service (see subscriptions-api's app_promotion
 	// consumer) — closes the "nothing wires an approved integrator into billing" gap: without

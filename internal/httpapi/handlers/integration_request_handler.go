@@ -29,11 +29,23 @@ const developerDocsURL = "https://accounts.codevertexafrica.com/docs"
 // integration (starting with eTIMS) for a tenant or an external lead, and fires the Slack/email
 // support notification on every new request.
 type IntegrationRequestHandler struct {
-	ent      *ent.Client
-	notifier *EtimsSupportNotifier
-	logger   *zap.Logger
-	hasher   *password.Hasher
-	authSvc  *auth.Service
+	ent       *ent.Client
+	notifier  *EtimsSupportNotifier
+	logger    *zap.Logger
+	hasher    *password.Hasher
+	authSvc   *auth.Service
+	authUIURL string // see SetAuthUIURL
+}
+
+// SetAuthUIURL sets the accounts UI base URL (config AUTH_UI_URL) used to link a newly
+// provisioned developer to the Apps & Keys console.
+func (h *IntegrationRequestHandler) SetAuthUIURL(u string) { h.authUIURL = strings.TrimRight(u, "/") }
+
+func (h *IntegrationRequestHandler) developerConsoleURL() string {
+	if h.authUIURL == "" {
+		return ""
+	}
+	return h.authUIURL + "/dashboard/developer/apps"
 }
 
 func NewIntegrationRequestHandler(entClient *ent.Client, notifier *EtimsSupportNotifier, hasher *password.Hasher, authSvc *auth.Service, logger *zap.Logger) *IntegrationRequestHandler {
@@ -364,7 +376,9 @@ func (h *IntegrationRequestHandler) autoProvisionExternalDeveloper(ctx context.C
 		return
 	}
 
-	token, prefix, hash, err := generateAppToken()
+	// The key is never shown or sent anywhere: the developer signs in to the console and
+	// issues their own key and consumer secret there, so no credential travels by email.
+	_, prefix, hash, err := generateAppToken()
 	if err != nil {
 		log.Error("auto-provision: generate app token failed", zap.Error(err))
 		return
@@ -439,7 +453,8 @@ func (h *IntegrationRequestHandler) autoProvisionExternalDeveloper(ctx context.C
 			RequesterName:  rec.RequesterName,
 			RequesterEmail: rec.RequesterEmail,
 			TenantSlug:     tenantRec.Slug,
-			SandboxKey:     token,
+			ClientID:       clientID,
+			ConsoleURL:     h.developerConsoleURL(),
 			DocsURL:        developerDocsURL,
 		})
 	}

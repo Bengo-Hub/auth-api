@@ -90,6 +90,16 @@ func KeyPrefix(v string) predicate.App {
 	return predicate.App(sql.FieldEQ(FieldKeyPrefix, v))
 }
 
+// ClientSecretHash applies equality check predicate on the "client_secret_hash" field. It's identical to ClientSecretHashEQ.
+func ClientSecretHash(v string) predicate.App {
+	return predicate.App(sql.FieldEQ(FieldClientSecretHash, v))
+}
+
+// ClientSecretRotatedAt applies equality check predicate on the "client_secret_rotated_at" field. It's identical to ClientSecretRotatedAtEQ.
+func ClientSecretRotatedAt(v time.Time) predicate.App {
+	return predicate.App(sql.FieldEQ(FieldClientSecretRotatedAt, v))
+}
+
 // ExpiresAt applies equality check predicate on the "expires_at" field. It's identical to ExpiresAtEQ.
 func ExpiresAt(v time.Time) predicate.App {
 	return predicate.App(sql.FieldEQ(FieldExpiresAt, v))
@@ -598,6 +608,131 @@ func KeyPrefixEqualFold(v string) predicate.App {
 // KeyPrefixContainsFold applies the ContainsFold predicate on the "key_prefix" field.
 func KeyPrefixContainsFold(v string) predicate.App {
 	return predicate.App(sql.FieldContainsFold(FieldKeyPrefix, v))
+}
+
+// ClientSecretHashEQ applies the EQ predicate on the "client_secret_hash" field.
+func ClientSecretHashEQ(v string) predicate.App {
+	return predicate.App(sql.FieldEQ(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashNEQ applies the NEQ predicate on the "client_secret_hash" field.
+func ClientSecretHashNEQ(v string) predicate.App {
+	return predicate.App(sql.FieldNEQ(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashIn applies the In predicate on the "client_secret_hash" field.
+func ClientSecretHashIn(vs ...string) predicate.App {
+	return predicate.App(sql.FieldIn(FieldClientSecretHash, vs...))
+}
+
+// ClientSecretHashNotIn applies the NotIn predicate on the "client_secret_hash" field.
+func ClientSecretHashNotIn(vs ...string) predicate.App {
+	return predicate.App(sql.FieldNotIn(FieldClientSecretHash, vs...))
+}
+
+// ClientSecretHashGT applies the GT predicate on the "client_secret_hash" field.
+func ClientSecretHashGT(v string) predicate.App {
+	return predicate.App(sql.FieldGT(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashGTE applies the GTE predicate on the "client_secret_hash" field.
+func ClientSecretHashGTE(v string) predicate.App {
+	return predicate.App(sql.FieldGTE(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashLT applies the LT predicate on the "client_secret_hash" field.
+func ClientSecretHashLT(v string) predicate.App {
+	return predicate.App(sql.FieldLT(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashLTE applies the LTE predicate on the "client_secret_hash" field.
+func ClientSecretHashLTE(v string) predicate.App {
+	return predicate.App(sql.FieldLTE(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashContains applies the Contains predicate on the "client_secret_hash" field.
+func ClientSecretHashContains(v string) predicate.App {
+	return predicate.App(sql.FieldContains(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashHasPrefix applies the HasPrefix predicate on the "client_secret_hash" field.
+func ClientSecretHashHasPrefix(v string) predicate.App {
+	return predicate.App(sql.FieldHasPrefix(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashHasSuffix applies the HasSuffix predicate on the "client_secret_hash" field.
+func ClientSecretHashHasSuffix(v string) predicate.App {
+	return predicate.App(sql.FieldHasSuffix(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashIsNil applies the IsNil predicate on the "client_secret_hash" field.
+func ClientSecretHashIsNil() predicate.App {
+	return predicate.App(sql.FieldIsNull(FieldClientSecretHash))
+}
+
+// ClientSecretHashNotNil applies the NotNil predicate on the "client_secret_hash" field.
+func ClientSecretHashNotNil() predicate.App {
+	return predicate.App(sql.FieldNotNull(FieldClientSecretHash))
+}
+
+// ClientSecretHashEqualFold applies the EqualFold predicate on the "client_secret_hash" field.
+func ClientSecretHashEqualFold(v string) predicate.App {
+	return predicate.App(sql.FieldEqualFold(FieldClientSecretHash, v))
+}
+
+// ClientSecretHashContainsFold applies the ContainsFold predicate on the "client_secret_hash" field.
+func ClientSecretHashContainsFold(v string) predicate.App {
+	return predicate.App(sql.FieldContainsFold(FieldClientSecretHash, v))
+}
+
+// ClientSecretRotatedAtEQ applies the EQ predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtEQ(v time.Time) predicate.App {
+	return predicate.App(sql.FieldEQ(FieldClientSecretRotatedAt, v))
+}
+
+// ClientSecretRotatedAtNEQ applies the NEQ predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtNEQ(v time.Time) predicate.App {
+	return predicate.App(sql.FieldNEQ(FieldClientSecretRotatedAt, v))
+}
+
+// ClientSecretRotatedAtIn applies the In predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtIn(vs ...time.Time) predicate.App {
+	return predicate.App(sql.FieldIn(FieldClientSecretRotatedAt, vs...))
+}
+
+// ClientSecretRotatedAtNotIn applies the NotIn predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtNotIn(vs ...time.Time) predicate.App {
+	return predicate.App(sql.FieldNotIn(FieldClientSecretRotatedAt, vs...))
+}
+
+// ClientSecretRotatedAtGT applies the GT predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtGT(v time.Time) predicate.App {
+	return predicate.App(sql.FieldGT(FieldClientSecretRotatedAt, v))
+}
+
+// ClientSecretRotatedAtGTE applies the GTE predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtGTE(v time.Time) predicate.App {
+	return predicate.App(sql.FieldGTE(FieldClientSecretRotatedAt, v))
+}
+
+// ClientSecretRotatedAtLT applies the LT predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtLT(v time.Time) predicate.App {
+	return predicate.App(sql.FieldLT(FieldClientSecretRotatedAt, v))
+}
+
+// ClientSecretRotatedAtLTE applies the LTE predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtLTE(v time.Time) predicate.App {
+	return predicate.App(sql.FieldLTE(FieldClientSecretRotatedAt, v))
+}
+
+// ClientSecretRotatedAtIsNil applies the IsNil predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtIsNil() predicate.App {
+	return predicate.App(sql.FieldIsNull(FieldClientSecretRotatedAt))
+}
+
+// ClientSecretRotatedAtNotNil applies the NotNil predicate on the "client_secret_rotated_at" field.
+func ClientSecretRotatedAtNotNil() predicate.App {
+	return predicate.App(sql.FieldNotNull(FieldClientSecretRotatedAt))
 }
 
 // ScopesIsNil applies the IsNil predicate on the "scopes" field.

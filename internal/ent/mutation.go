@@ -1451,34 +1451,36 @@ func (m *APIKeyMutation) ResetEdge(name string) error {
 // AppMutation represents an operation that mutates the App nodes in the graph.
 type AppMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *uuid.UUID
-	name              *string
-	description       *string
-	app_type          *app.AppType
-	environment       *app.Environment
-	tenant_id         *uuid.UUID
-	created_by        *uuid.UUID
-	client_id         *string
-	key_hash          *string
-	key_prefix        *string
-	scopes            *[]string
-	appendscopes      []string
-	allowed_ips       *[]string
-	appendallowed_ips []string
-	status            *app.Status
-	expires_at        *time.Time
-	last_used_at      *time.Time
-	last_used_ip      *string
-	created_at        *time.Time
-	updated_at        *time.Time
-	revoked_at        *time.Time
-	revoked_reason    *string
-	clearedFields     map[string]struct{}
-	done              bool
-	oldValue          func(context.Context) (*App, error)
-	predicates        []predicate.App
+	op                       Op
+	typ                      string
+	id                       *uuid.UUID
+	name                     *string
+	description              *string
+	app_type                 *app.AppType
+	environment              *app.Environment
+	tenant_id                *uuid.UUID
+	created_by               *uuid.UUID
+	client_id                *string
+	key_hash                 *string
+	key_prefix               *string
+	client_secret_hash       *string
+	client_secret_rotated_at *time.Time
+	scopes                   *[]string
+	appendscopes             []string
+	allowed_ips              *[]string
+	appendallowed_ips        []string
+	status                   *app.Status
+	expires_at               *time.Time
+	last_used_at             *time.Time
+	last_used_ip             *string
+	created_at               *time.Time
+	updated_at               *time.Time
+	revoked_at               *time.Time
+	revoked_reason           *string
+	clearedFields            map[string]struct{}
+	done                     bool
+	oldValue                 func(context.Context) (*App, error)
+	predicates               []predicate.App
 }
 
 var _ ent.Mutation = (*AppMutation)(nil)
@@ -1946,6 +1948,104 @@ func (m *AppMutation) OldKeyPrefix(ctx context.Context) (v string, err error) {
 // ResetKeyPrefix resets all changes to the "key_prefix" field.
 func (m *AppMutation) ResetKeyPrefix() {
 	m.key_prefix = nil
+}
+
+// SetClientSecretHash sets the "client_secret_hash" field.
+func (m *AppMutation) SetClientSecretHash(s string) {
+	m.client_secret_hash = &s
+}
+
+// ClientSecretHash returns the value of the "client_secret_hash" field in the mutation.
+func (m *AppMutation) ClientSecretHash() (r string, exists bool) {
+	v := m.client_secret_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClientSecretHash returns the old "client_secret_hash" field's value of the App entity.
+// If the App object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AppMutation) OldClientSecretHash(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClientSecretHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClientSecretHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClientSecretHash: %w", err)
+	}
+	return oldValue.ClientSecretHash, nil
+}
+
+// ClearClientSecretHash clears the value of the "client_secret_hash" field.
+func (m *AppMutation) ClearClientSecretHash() {
+	m.client_secret_hash = nil
+	m.clearedFields[app.FieldClientSecretHash] = struct{}{}
+}
+
+// ClientSecretHashCleared returns if the "client_secret_hash" field was cleared in this mutation.
+func (m *AppMutation) ClientSecretHashCleared() bool {
+	_, ok := m.clearedFields[app.FieldClientSecretHash]
+	return ok
+}
+
+// ResetClientSecretHash resets all changes to the "client_secret_hash" field.
+func (m *AppMutation) ResetClientSecretHash() {
+	m.client_secret_hash = nil
+	delete(m.clearedFields, app.FieldClientSecretHash)
+}
+
+// SetClientSecretRotatedAt sets the "client_secret_rotated_at" field.
+func (m *AppMutation) SetClientSecretRotatedAt(t time.Time) {
+	m.client_secret_rotated_at = &t
+}
+
+// ClientSecretRotatedAt returns the value of the "client_secret_rotated_at" field in the mutation.
+func (m *AppMutation) ClientSecretRotatedAt() (r time.Time, exists bool) {
+	v := m.client_secret_rotated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClientSecretRotatedAt returns the old "client_secret_rotated_at" field's value of the App entity.
+// If the App object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AppMutation) OldClientSecretRotatedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClientSecretRotatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClientSecretRotatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClientSecretRotatedAt: %w", err)
+	}
+	return oldValue.ClientSecretRotatedAt, nil
+}
+
+// ClearClientSecretRotatedAt clears the value of the "client_secret_rotated_at" field.
+func (m *AppMutation) ClearClientSecretRotatedAt() {
+	m.client_secret_rotated_at = nil
+	m.clearedFields[app.FieldClientSecretRotatedAt] = struct{}{}
+}
+
+// ClientSecretRotatedAtCleared returns if the "client_secret_rotated_at" field was cleared in this mutation.
+func (m *AppMutation) ClientSecretRotatedAtCleared() bool {
+	_, ok := m.clearedFields[app.FieldClientSecretRotatedAt]
+	return ok
+}
+
+// ResetClientSecretRotatedAt resets all changes to the "client_secret_rotated_at" field.
+func (m *AppMutation) ResetClientSecretRotatedAt() {
+	m.client_secret_rotated_at = nil
+	delete(m.clearedFields, app.FieldClientSecretRotatedAt)
 }
 
 // SetScopes sets the "scopes" field.
@@ -2465,7 +2565,7 @@ func (m *AppMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AppMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 21)
 	if m.name != nil {
 		fields = append(fields, app.FieldName)
 	}
@@ -2492,6 +2592,12 @@ func (m *AppMutation) Fields() []string {
 	}
 	if m.key_prefix != nil {
 		fields = append(fields, app.FieldKeyPrefix)
+	}
+	if m.client_secret_hash != nil {
+		fields = append(fields, app.FieldClientSecretHash)
+	}
+	if m.client_secret_rotated_at != nil {
+		fields = append(fields, app.FieldClientSecretRotatedAt)
 	}
 	if m.scopes != nil {
 		fields = append(fields, app.FieldScopes)
@@ -2549,6 +2655,10 @@ func (m *AppMutation) Field(name string) (ent.Value, bool) {
 		return m.KeyHash()
 	case app.FieldKeyPrefix:
 		return m.KeyPrefix()
+	case app.FieldClientSecretHash:
+		return m.ClientSecretHash()
+	case app.FieldClientSecretRotatedAt:
+		return m.ClientSecretRotatedAt()
 	case app.FieldScopes:
 		return m.Scopes()
 	case app.FieldAllowedIps:
@@ -2596,6 +2706,10 @@ func (m *AppMutation) OldField(ctx context.Context, name string) (ent.Value, err
 		return m.OldKeyHash(ctx)
 	case app.FieldKeyPrefix:
 		return m.OldKeyPrefix(ctx)
+	case app.FieldClientSecretHash:
+		return m.OldClientSecretHash(ctx)
+	case app.FieldClientSecretRotatedAt:
+		return m.OldClientSecretRotatedAt(ctx)
 	case app.FieldScopes:
 		return m.OldScopes(ctx)
 	case app.FieldAllowedIps:
@@ -2687,6 +2801,20 @@ func (m *AppMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetKeyPrefix(v)
+		return nil
+	case app.FieldClientSecretHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClientSecretHash(v)
+		return nil
+	case app.FieldClientSecretRotatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClientSecretRotatedAt(v)
 		return nil
 	case app.FieldScopes:
 		v, ok := value.([]string)
@@ -2797,6 +2925,12 @@ func (m *AppMutation) ClearedFields() []string {
 	if m.FieldCleared(app.FieldCreatedBy) {
 		fields = append(fields, app.FieldCreatedBy)
 	}
+	if m.FieldCleared(app.FieldClientSecretHash) {
+		fields = append(fields, app.FieldClientSecretHash)
+	}
+	if m.FieldCleared(app.FieldClientSecretRotatedAt) {
+		fields = append(fields, app.FieldClientSecretRotatedAt)
+	}
 	if m.FieldCleared(app.FieldScopes) {
 		fields = append(fields, app.FieldScopes)
 	}
@@ -2840,6 +2974,12 @@ func (m *AppMutation) ClearField(name string) error {
 		return nil
 	case app.FieldCreatedBy:
 		m.ClearCreatedBy()
+		return nil
+	case app.FieldClientSecretHash:
+		m.ClearClientSecretHash()
+		return nil
+	case app.FieldClientSecretRotatedAt:
+		m.ClearClientSecretRotatedAt()
 		return nil
 	case app.FieldScopes:
 		m.ClearScopes()
@@ -2896,6 +3036,12 @@ func (m *AppMutation) ResetField(name string) error {
 		return nil
 	case app.FieldKeyPrefix:
 		m.ResetKeyPrefix()
+		return nil
+	case app.FieldClientSecretHash:
+		m.ResetClientSecretHash()
+		return nil
+	case app.FieldClientSecretRotatedAt:
+		m.ResetClientSecretRotatedAt()
 		return nil
 	case app.FieldScopes:
 		m.ResetScopes()

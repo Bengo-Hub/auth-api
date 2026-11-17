@@ -78,6 +78,7 @@ type OIDCHandler struct {
 	subEnricher SubscriptionEnricher     // optional: for subscription claims in access token
 	joiner      SelfServiceJoiner        // optional: customer-facing apps join people as customers
 	mfa         MFAStepUpPolicy          // optional: the MFA policy (nil leaves it unapplied, tests only)
+	apps        *ent.Client              // optional: enables the client_credentials grant (SetAppStore)
 	logger      *zap.Logger
 }
 
@@ -159,8 +160,8 @@ func (h *OIDCHandler) WellKnownConfig(w http.ResponseWriter, r *http.Request) {
 		"id_token_signing_alg_values_supported": []string{"RS256"},
 		"scopes_supported":                      []string{"openid", "profile", "email", "offline_access"},
 		"response_types_supported":              []string{"code"},
-		"grant_types_supported":                 []string{"authorization_code", "refresh_token"},
-		"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "none"},
+		"grant_types_supported":                 []string{"authorization_code", "refresh_token", GrantClientCredentials},
+		"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "client_secret_post", "none"},
 		"code_challenge_methods_supported":      []string{"S256"},
 	}
 	writeJSON(w, http.StatusOK, j)
@@ -368,6 +369,10 @@ func (h *OIDCHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 func (h *OIDCHandler) Token(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "invalid form", nil)
+		return
+	}
+	if r.FormValue("grant_type") == GrantClientCredentials {
+		h.clientCredentialsToken(w, r)
 		return
 	}
 	code := r.FormValue("code")

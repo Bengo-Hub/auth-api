@@ -178,6 +178,13 @@ type TokenConfig struct {
 	MaxSessionsPerClient int      `env:"MAX_SESSIONS_PER_CLIENT" envDefault:"5"`
 	RotateRefreshTokens  bool     `env:"ROTATE_REFRESH" envDefault:"true"`
 	DefaultScopes        []string `env:"DEFAULT_SCOPES" envSeparator:"," envDefault:"profile,email,offline_access"`
+	// ClientCredentialsAudience is the only audience of a token minted by the client_credentials
+	// grant. It must differ from Audience so services that accept user sessions reject these
+	// machine tokens; external API routes validate against this value instead.
+	ClientCredentialsAudience string `env:"CLIENT_CREDENTIALS_AUDIENCE" envDefault:"codevertex-api"`
+	// ClientCredentialsTTL is the lifetime of a client_credentials access token. Kept short
+	// because the token is a bearer credential that is not checked against the database again.
+	ClientCredentialsTTL time.Duration `env:"CLIENT_CREDENTIALS_TTL" envDefault:"15m"`
 }
 
 // RefreshTTLFor is the session lifetime for an app.

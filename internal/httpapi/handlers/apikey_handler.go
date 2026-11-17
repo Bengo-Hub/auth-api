@@ -40,8 +40,9 @@ func isPlatformOrS2SAdmin(claims *token.Claims) bool {
 
 // APIKeyHandler handles API key management and validation.
 type APIKeyHandler struct {
-	ent    *ent.Client
-	logger *zap.Logger
+	ent         *ent.Client
+	logger      *zap.Logger
+	internalKey string // see SetInternalServiceKey
 }
 
 // NewAPIKeyHandler creates a new API key handler.
@@ -265,7 +266,7 @@ func (h *APIKeyHandler) resolveAPIKeyToken(ctx context.Context, r *http.Request,
 	}
 
 	if len(key.AllowedIps) > 0 && r != nil {
-		clientIP := getClientIP(r)
+		clientIP := h.allowlistIP(r)
 		allowed := false
 		for _, ip := range key.AllowedIps {
 			if ip == clientIP || ip == "*" {
@@ -281,7 +282,7 @@ func (h *APIKeyHandler) resolveAPIKeyToken(ctx context.Context, r *http.Request,
 	go func() {
 		clientIP := ""
 		if r != nil {
-			clientIP = getClientIP(r)
+			clientIP = h.allowlistIP(r)
 		}
 		_, _ = h.ent.APIKey.UpdateOneID(key.ID).
 			SetLastUsedAt(time.Now()).
@@ -351,7 +352,7 @@ func (h *APIKeyHandler) ResolveAppToken(ctx context.Context, r *http.Request, to
 	}
 
 	if len(a.AllowedIps) > 0 && r != nil {
-		clientIP := getClientIP(r)
+		clientIP := h.allowlistIP(r)
 		allowed := false
 		for _, ip := range a.AllowedIps {
 			if ip == clientIP || ip == "*" {
@@ -367,7 +368,7 @@ func (h *APIKeyHandler) ResolveAppToken(ctx context.Context, r *http.Request, to
 	go func() {
 		clientIP := ""
 		if r != nil {
-			clientIP = getClientIP(r)
+			clientIP = h.allowlistIP(r)
 		}
 		_, _ = h.ent.App.UpdateOneID(a.ID).
 			SetLastUsedAt(time.Now()).

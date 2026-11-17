@@ -174,6 +174,46 @@ func (_u *AppUpdate) SetNillableKeyPrefix(v *string) *AppUpdate {
 	return _u
 }
 
+// SetClientSecretHash sets the "client_secret_hash" field.
+func (_u *AppUpdate) SetClientSecretHash(v string) *AppUpdate {
+	_u.mutation.SetClientSecretHash(v)
+	return _u
+}
+
+// SetNillableClientSecretHash sets the "client_secret_hash" field if the given value is not nil.
+func (_u *AppUpdate) SetNillableClientSecretHash(v *string) *AppUpdate {
+	if v != nil {
+		_u.SetClientSecretHash(*v)
+	}
+	return _u
+}
+
+// ClearClientSecretHash clears the value of the "client_secret_hash" field.
+func (_u *AppUpdate) ClearClientSecretHash() *AppUpdate {
+	_u.mutation.ClearClientSecretHash()
+	return _u
+}
+
+// SetClientSecretRotatedAt sets the "client_secret_rotated_at" field.
+func (_u *AppUpdate) SetClientSecretRotatedAt(v time.Time) *AppUpdate {
+	_u.mutation.SetClientSecretRotatedAt(v)
+	return _u
+}
+
+// SetNillableClientSecretRotatedAt sets the "client_secret_rotated_at" field if the given value is not nil.
+func (_u *AppUpdate) SetNillableClientSecretRotatedAt(v *time.Time) *AppUpdate {
+	if v != nil {
+		_u.SetClientSecretRotatedAt(*v)
+	}
+	return _u
+}
+
+// ClearClientSecretRotatedAt clears the value of the "client_secret_rotated_at" field.
+func (_u *AppUpdate) ClearClientSecretRotatedAt() *AppUpdate {
+	_u.mutation.ClearClientSecretRotatedAt()
+	return _u
+}
+
 // SetScopes sets the "scopes" field.
 func (_u *AppUpdate) SetScopes(v []string) *AppUpdate {
 	_u.mutation.SetScopes(v)
@@ -459,6 +499,18 @@ func (_u *AppUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.KeyPrefix(); ok {
 		_spec.SetField(app.FieldKeyPrefix, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.ClientSecretHash(); ok {
+		_spec.SetField(app.FieldClientSecretHash, field.TypeString, value)
+	}
+	if _u.mutation.ClientSecretHashCleared() {
+		_spec.ClearField(app.FieldClientSecretHash, field.TypeString)
+	}
+	if value, ok := _u.mutation.ClientSecretRotatedAt(); ok {
+		_spec.SetField(app.FieldClientSecretRotatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ClientSecretRotatedAtCleared() {
+		_spec.ClearField(app.FieldClientSecretRotatedAt, field.TypeTime)
+	}
 	if value, ok := _u.mutation.Scopes(); ok {
 		_spec.SetField(app.FieldScopes, field.TypeJSON, value)
 	}
@@ -678,6 +730,46 @@ func (_u *AppUpdateOne) SetNillableKeyPrefix(v *string) *AppUpdateOne {
 	if v != nil {
 		_u.SetKeyPrefix(*v)
 	}
+	return _u
+}
+
+// SetClientSecretHash sets the "client_secret_hash" field.
+func (_u *AppUpdateOne) SetClientSecretHash(v string) *AppUpdateOne {
+	_u.mutation.SetClientSecretHash(v)
+	return _u
+}
+
+// SetNillableClientSecretHash sets the "client_secret_hash" field if the given value is not nil.
+func (_u *AppUpdateOne) SetNillableClientSecretHash(v *string) *AppUpdateOne {
+	if v != nil {
+		_u.SetClientSecretHash(*v)
+	}
+	return _u
+}
+
+// ClearClientSecretHash clears the value of the "client_secret_hash" field.
+func (_u *AppUpdateOne) ClearClientSecretHash() *AppUpdateOne {
+	_u.mutation.ClearClientSecretHash()
+	return _u
+}
+
+// SetClientSecretRotatedAt sets the "client_secret_rotated_at" field.
+func (_u *AppUpdateOne) SetClientSecretRotatedAt(v time.Time) *AppUpdateOne {
+	_u.mutation.SetClientSecretRotatedAt(v)
+	return _u
+}
+
+// SetNillableClientSecretRotatedAt sets the "client_secret_rotated_at" field if the given value is not nil.
+func (_u *AppUpdateOne) SetNillableClientSecretRotatedAt(v *time.Time) *AppUpdateOne {
+	if v != nil {
+		_u.SetClientSecretRotatedAt(*v)
+	}
+	return _u
+}
+
+// ClearClientSecretRotatedAt clears the value of the "client_secret_rotated_at" field.
+func (_u *AppUpdateOne) ClearClientSecretRotatedAt() *AppUpdateOne {
+	_u.mutation.ClearClientSecretRotatedAt()
 	return _u
 }
 
@@ -995,6 +1087,18 @@ func (_u *AppUpdateOne) sqlSave(ctx context.Context) (_node *App, err error) {
 	}
 	if value, ok := _u.mutation.KeyPrefix(); ok {
 		_spec.SetField(app.FieldKeyPrefix, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ClientSecretHash(); ok {
+		_spec.SetField(app.FieldClientSecretHash, field.TypeString, value)
+	}
+	if _u.mutation.ClientSecretHashCleared() {
+		_spec.ClearField(app.FieldClientSecretHash, field.TypeString)
+	}
+	if value, ok := _u.mutation.ClientSecretRotatedAt(); ok {
+		_spec.SetField(app.FieldClientSecretRotatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ClientSecretRotatedAtCleared() {
+		_spec.ClearField(app.FieldClientSecretRotatedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.Scopes(); ok {
 		_spec.SetField(app.FieldScopes, field.TypeJSON, value)

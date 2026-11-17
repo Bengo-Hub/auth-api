@@ -96,11 +96,11 @@ func init() {
 	// app.KeyPrefixValidator is a validator for the "key_prefix" field. It is called by the builders before save.
 	app.KeyPrefixValidator = appDescKeyPrefix.Validators[0].(func(string) error)
 	// appDescCreatedAt is the schema descriptor for created_at field.
-	appDescCreatedAt := appFields[16].Descriptor()
+	appDescCreatedAt := appFields[18].Descriptor()
 	// app.DefaultCreatedAt holds the default value on creation for the created_at field.
 	app.DefaultCreatedAt = appDescCreatedAt.Default.(func() time.Time)
 	// appDescUpdatedAt is the schema descriptor for updated_at field.
-	appDescUpdatedAt := appFields[17].Descriptor()
+	appDescUpdatedAt := appFields[19].Descriptor()
 	// app.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	app.DefaultUpdatedAt = appDescUpdatedAt.Default.(func() time.Time)
 	// app.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
