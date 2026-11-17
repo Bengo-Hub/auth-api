@@ -213,6 +213,25 @@ POST /api/v1/auth/sessions/revoke        # Revoke a session: { "session_id": "..
 POST /api/v1/auth/sessions/revoke-all    # Revoke all except current
 ```
 
+### Cookie session for browser apps
+
+Added 2026-11-17 for the plan to move login tokens out of browser storage. The refresh token lives in a host-only cookie on the auth host, so page scripts never read it. The access token comes back in the body and the app keeps it in memory. No app uses these routes yet.
+
+```
+POST /api/v1/session/start     # body {refresh_token, client_id} from the code exchange; one refresh, then the cookie is set
+POST /api/v1/session/refresh   # reads the cookie, rotates it, returns a new access token
+POST /api/v1/session/end       # revokes the cookie's session and clears the cookie (200 even with no cookie)
+```
+
+- Cookie: `__Host-cv_refresh`, Secure, HttpOnly, Path=/, SameSite=Lax, no Domain. It expires with the refresh token.
+- Reply body (start and refresh): `access_token`, `token_type`, `expires_in`, `refresh_expires_in`, `user`, `tenant`, `roles`, `permissions`, `amr`. It never carries `refresh_token` or `session_id`.
+- CSRF: every call carries `X-Requested-With: codevertex` and an `Origin` on the CORS allowlist, or it gets 403 before any session is read. The custom header forces a CORS preflight, and SameSite alone is not enough because every `*.codevertexafrica.com` host (webmail included) is the same site.
+- Calls use `credentials: 'include'`. The routes share the `/api/v1/auth/refresh` rate limit.
+- Rotation and reuse follow `/api/v1/auth/refresh`: an old cookie value replayed within 60s is refused, after that the session is revoked. A failed refresh leaves the cookie alone, because another tab may already have stored the rotated value.
+- `/session/end` also blocklists the access token when the call sends that session's token as `Authorization: Bearer`. Otherwise the access token runs out on its own short expiry.
+- `/session/start` rotates the posted token, so the copy the page saw at the code exchange stops working.
+- Only `*.codevertexafrica.com` apps use this. Cross-site hosts (tenant custom domains) keep their stored tokens, since browsers drop third-party cookies. The `bb_session` SSO cookie is unchanged.
+
 ## Admin APIs
 
 Require `Authorization: Bearer <platform_admin_jwt>`:

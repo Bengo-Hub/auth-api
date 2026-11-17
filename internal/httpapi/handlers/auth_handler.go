@@ -51,6 +51,7 @@ type AuthService interface {
 	SocialMFAChallengeNonce(challenge string) (nonce string, ttl time.Duration, err error)
 	ListSessions(ctx context.Context, userID uuid.UUID) ([]*ent.Session, error)
 	RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error
+	SessionIDForRefreshToken(ctx context.Context, refreshToken string) (uuid.UUID, error)
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error
 	IsMFAEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
 	FindPhoneLoginTarget(ctx context.Context, tenantSlug, phone string) (*auth.PhoneLoginTarget, error)

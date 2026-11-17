@@ -90,6 +90,7 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 | POST   | `/api/v1/auth/register`           | Create user + tenant membership |
 | POST   | `/api/v1/auth/login`              | Email/password login            |
 | POST   | `/api/v1/auth/refresh`            | Rotate refresh token + JWT      |
+| POST   | `/api/v1/session/{start,refresh,end}` | Cookie session for browser apps (see docs/developer-api.md) |
 | POST   | `/api/v1/auth/password-reset/*`   | Request/confirm reset tokens    |
 | POST   | `/api/v1/auth/oauth/google/start` | Generate Google OAuth URL       |
 | GET    | `/api/v1/auth/oauth/google/callback` | Finish Google OAuth login    |

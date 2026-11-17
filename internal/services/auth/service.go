@@ -1993,6 +1993,26 @@ func (s *Service) ListSessions(ctx context.Context, userID uuid.UUID) ([]*ent.Se
 		All(ctx)
 }
 
+// SessionIDForRefreshToken returns the active session a refresh token belongs to, without
+// rotating it. The cookie sign-out (POST /api/v1/session/end) uses it to find the session to
+// revoke when the caller holds only the refresh cookie. An unknown, rotated or revoked token
+// answers ErrInvalidCredentials.
+func (s *Service) SessionIDForRefreshToken(ctx context.Context, refreshToken string) (uuid.UUID, error) {
+	if refreshToken == "" {
+		return uuid.Nil, ErrInvalidCredentials
+	}
+	sess, err := s.entClient.Session.Query().
+		Where(session.RefreshTokenHashEQ(hashToken(refreshToken)), session.StatusEQ("active")).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return uuid.Nil, ErrInvalidCredentials
+		}
+		return uuid.Nil, fmt.Errorf("query session: %w", err)
+	}
+	return sess.ID, nil
+}
+
 // RevokeSession revokes a specific session owned by the user.
 func (s *Service) RevokeSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error {
 	// Ensure the session belongs to this user

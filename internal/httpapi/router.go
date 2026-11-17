@@ -72,6 +72,9 @@ type RouterDeps struct {
 // AuthHandlers groups the HTTP handlers for auth routes.
 type AuthHandlers struct {
 	Register                           http.HandlerFunc
+	SessionStart                       http.HandlerFunc
+	SessionRefresh                     http.HandlerFunc
+	SessionEnd                         http.HandlerFunc
 	RegisterOAuth                      http.HandlerFunc
 	SendEmailCode                      http.HandlerFunc
 	VerifyEmailCode                    http.HandlerFunc
@@ -255,7 +258,8 @@ func NewRouter(deps RouterDeps) http.Handler {
 	r.Use(ratelimit.TrustedRealIP)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
-	r.Use(httpware.CORS(corsPolicy(deps.Development, deps.TenantAppHosts...)))
+	cors := corsPolicy(deps.Development, deps.TenantAppHosts...)
+	r.Use(httpware.CORS(cors))
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/v1/docs/", http.StatusMovedPermanently)
@@ -288,6 +292,24 @@ func NewRouter(deps RouterDeps) http.Handler {
 			}
 			r.With(deps.RequireAuthHandler).Get("/userinfo", deps.AuthHandlers.UserInfo)
 		})
+		// Cookie session for browser apps (fleet plan G11): the refresh token stays in a host-only
+		// HttpOnly cookie. Same limiter as /auth/refresh, then the CSRF check (custom header plus
+		// an Origin on the CORS allowlist) before any session is touched.
+		if deps.AuthHandlers.SessionRefresh != nil {
+			r.Route("/session", func(r chi.Router) {
+				if deps.RateLimitToken != nil {
+					r.Use(deps.RateLimitToken)
+				}
+				r.Use(handlers.RequireSessionCSRF(corsOriginAllowed(cors)))
+				r.Post("/start", deps.AuthHandlers.SessionStart)
+				r.Post("/refresh", deps.AuthHandlers.SessionRefresh)
+				tryAuth := passThrough
+				if deps.TryAuthHandler != nil {
+					tryAuth = deps.TryAuthHandler
+				}
+				r.With(tryAuth).Post("/end", deps.AuthHandlers.SessionEnd)
+			})
+		}
 		r.Route("/auth", func(r chi.Router) {
 			r.Get("/integrations/active", deps.AuthHandlers.ListActiveIntegrations)
 			r.Get("/use-case/config", deps.AuthHandlers.GetUseCaseConfig)
@@ -927,6 +949,33 @@ func corsPolicy(development bool, tenantHosts ...string) httpware.CORSConfig {
 	cfg.ExposedHeaders = append(cfg.ExposedHeaders, "X-WebAuthn-Session")
 	return cfg
 }
+
+// corsOriginAllowed answers whether the CORS policy allows an origin, by running the shared
+// httpware CORS middleware on a probe request. The cookie session CSRF check uses it so it shares
+// the exact allowlist and matching rules, with no second copy.
+func corsOriginAllowed(cfg httpware.CORSConfig) func(origin string) bool {
+	probe := httpware.CORS(cfg)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	return func(origin string) bool {
+		if origin == "" {
+			return false
+		}
+		req, err := http.NewRequest(http.MethodGet, "/", nil)
+		if err != nil {
+			return false
+		}
+		req.Header.Set("Origin", origin)
+		w := &headerRecorder{header: http.Header{}}
+		probe.ServeHTTP(w, req)
+		return w.header.Get("Access-Control-Allow-Origin") == origin
+	}
+}
+
+// headerRecorder is the minimal ResponseWriter the origin probe needs.
+type headerRecorder struct{ header http.Header }
+
+func (h *headerRecorder) Header() http.Header         { return h.header }
+func (h *headerRecorder) Write(b []byte) (int, error) { return len(b), nil }
+func (h *headerRecorder) WriteHeader(int)             {}
 
 // requireInternalKey returns middleware that validates the X-API-Key header
 // against the static env-configured key OR, when provided, a live rotatable
