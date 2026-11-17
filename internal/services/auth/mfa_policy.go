@@ -291,9 +291,13 @@ func (s *Service) mfaPolicyCovers(ctx context.Context, userID uuid.UUID, t *ent.
 		return true, fmt.Errorf("load memberships: %w", err)
 	}
 	var platformDefault *MFAPolicy
+	always := s.alwaysRequiredMFAPolicy()
 	for _, m := range memberships {
 		if isDemoTenant(m.Edges.Tenant) {
 			continue
+		}
+		if always.Covers(m.Roles) {
+			return true, nil
 		}
 		p := policy
 		if t == nil || m.TenantID != t.ID {
@@ -321,6 +325,15 @@ func (s *Service) mfaPolicyCovers(ctx context.Context, userID uuid.UUID, t *ent.
 		return true, fmt.Errorf("load mfa enforcement: %w", err)
 	}
 	return enforced, nil
+}
+
+// alwaysRequiredMFAPolicy is the platform floor from config (AUTH_SECURITY_MFA_ALWAYS_REQUIRED_ROLES):
+// roles that need a second factor in every tenant, which no tenant policy can switch off.
+func (s *Service) alwaysRequiredMFAPolicy() MFAPolicy {
+	if s.cfg == nil {
+		return MFAPolicy{}
+	}
+	return MFAPolicy{RequiredRoles: s.cfg.Security.MFAAlwaysRequiredRoles}.Normalized()
 }
 
 // MFACovered reports, for callers outside this package, whether the policy covers the member in

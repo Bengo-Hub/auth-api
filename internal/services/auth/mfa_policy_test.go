@@ -227,6 +227,35 @@ func TestEffectiveMFAPolicy(t *testing.T) {
 	}
 }
 
+// TestDevelopersAlwaysNeedMFA covers the platform floor: a developer must use a second factor even
+// in a tenant whose own policy requires nothing, while other roles there still sign in without.
+func TestDevelopersAlwaysNeedMFA(t *testing.T) {
+	w := newMFATestWorld(t)
+	w.s.cfg.Security.MFAAlwaysRequiredRoles = []string{"developer"}
+
+	dev, _ := w.member(t, w.plain, []string{"developer"}, false)
+	res, err := w.login(dev, w.plain, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEnrollmentOnly(t, w, res, "pwd")
+
+	devTOTP, secret := w.member(t, w.plain, []string{"developer"}, true)
+	var owed *MFARequiredError
+	if _, err := w.login(devTOTP, w.plain, ""); !errors.As(err, &owed) {
+		t.Fatalf("a developer with an authenticator must owe the code: %v", err)
+	}
+	code, _ := totp.GenerateCode(secret, time.Now())
+	if res, err := w.login(devTOTP, w.plain, code); err != nil || res.MFAEnrollmentRequired {
+		t.Fatalf("with the code: %v %+v", err, res)
+	}
+
+	cashier, _ := w.member(t, w.plain, []string{"cashier"}, false)
+	if res, err := w.login(cashier, w.plain, ""); err != nil || res.MFAEnrollmentRequired {
+		t.Fatalf("a role outside the floor is not covered: %v", err)
+	}
+}
+
 func TestPasswordLoginMFA(t *testing.T) {
 	w := newMFATestWorld(t)
 

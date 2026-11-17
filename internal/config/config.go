@@ -210,6 +210,9 @@ type SecurityConfig struct {
 	// sign-in return-to check and the logout redirect allowlist. Keep it in step with the
 	// ordering-frontend ingress hosts and its TENANT_DOMAINS map.
 	TenantAppHosts []string `env:"TENANT_APP_HOSTS" envSeparator:"," envDefault:"alphachinamarket.co.ke,www.alphachinamarket.co.ke,urbaneats.theurbanloftcafe.com"`
+	// MFAAlwaysRequiredRoles must sign in with a second factor in every tenant, whatever that
+	// tenant's own MFA policy says. Developers hold API credentials, so they are on it by default.
+	MFAAlwaysRequiredRoles []string `env:"MFA_ALWAYS_REQUIRED_ROLES" envSeparator:"," envDefault:"developer"`
 }
 
 type ProvidersConfig struct {
