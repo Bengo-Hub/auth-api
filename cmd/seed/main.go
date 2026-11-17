@@ -158,7 +158,7 @@ func main() {
 
 	// 14. Seed legacy platform API key
 	log.Println("Seeding platform API key (legacy)...")
-	if err := seedPlatformAPIKey(ctx, client, tenantEntities[0].ID); err != nil {
+	if err := seedInternalServiceApp(ctx, client, tenantEntities[0].ID); err != nil {
 		log.Printf("⚠️  Failed to seed platform API key: %v", err)
 	}
 

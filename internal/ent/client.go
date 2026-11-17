@@ -16,7 +16,6 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"github.com/bengobox/auth-api/internal/ent/apikey"
 	"github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/auditlog"
 	"github.com/bengobox/auth-api/internal/ent/authorizationcode"
@@ -59,8 +58,6 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
-	// APIKey is the client for interacting with the APIKey builders.
-	APIKey *APIKeyClient
 	// App is the client for interacting with the App builders.
 	App *AppClient
 	// AuditLog is the client for interacting with the AuditLog builders.
@@ -142,7 +139,6 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
-	c.APIKey = NewAPIKeyClient(c.config)
 	c.App = NewAppClient(c.config)
 	c.AuditLog = NewAuditLogClient(c.config)
 	c.AuthorizationCode = NewAuthorizationCodeClient(c.config)
@@ -270,7 +266,6 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:                     ctx,
 		config:                  cfg,
-		APIKey:                  NewAPIKeyClient(cfg),
 		App:                     NewAppClient(cfg),
 		AuditLog:                NewAuditLogClient(cfg),
 		AuthorizationCode:       NewAuthorizationCodeClient(cfg),
@@ -325,7 +320,6 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:                     ctx,
 		config:                  cfg,
-		APIKey:                  NewAPIKeyClient(cfg),
 		App:                     NewAppClient(cfg),
 		AuditLog:                NewAuditLogClient(cfg),
 		AuthorizationCode:       NewAuthorizationCodeClient(cfg),
@@ -367,7 +361,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		APIKey.
+//		App.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -390,7 +384,7 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.App, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
+		c.App, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
 		c.IntegrationRequest, c.LegalAcceptance, c.LegalDocument, c.LoginAttempt,
 		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
@@ -408,7 +402,7 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.App, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
+		c.App, c.AuditLog, c.AuthorizationCode, c.ConsentSession,
 		c.EquityHolderApplication, c.FeatureEntitlement, c.IntegrationConfig,
 		c.IntegrationRequest, c.LegalAcceptance, c.LegalDocument, c.LoginAttempt,
 		c.MFABackupCode, c.MFASettings, c.MFATOTPSecret, c.OAuthClient, c.OutboxEvent,
@@ -425,8 +419,6 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
-	case *APIKeyMutation:
-		return c.APIKey.mutate(ctx, m)
 	case *AppMutation:
 		return c.App.mutate(ctx, m)
 	case *AuditLogMutation:
@@ -499,139 +491,6 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.WebAuthnCredential.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
-	}
-}
-
-// APIKeyClient is a client for the APIKey schema.
-type APIKeyClient struct {
-	config
-}
-
-// NewAPIKeyClient returns a client for the APIKey from the given config.
-func NewAPIKeyClient(c config) *APIKeyClient {
-	return &APIKeyClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `apikey.Hooks(f(g(h())))`.
-func (c *APIKeyClient) Use(hooks ...Hook) {
-	c.hooks.APIKey = append(c.hooks.APIKey, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `apikey.Intercept(f(g(h())))`.
-func (c *APIKeyClient) Intercept(interceptors ...Interceptor) {
-	c.inters.APIKey = append(c.inters.APIKey, interceptors...)
-}
-
-// Create returns a builder for creating a APIKey entity.
-func (c *APIKeyClient) Create() *APIKeyCreate {
-	mutation := newAPIKeyMutation(c.config, OpCreate)
-	return &APIKeyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of APIKey entities.
-func (c *APIKeyClient) CreateBulk(builders ...*APIKeyCreate) *APIKeyCreateBulk {
-	return &APIKeyCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *APIKeyClient) MapCreateBulk(slice any, setFunc func(*APIKeyCreate, int)) *APIKeyCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &APIKeyCreateBulk{err: fmt.Errorf("calling to APIKeyClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*APIKeyCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &APIKeyCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for APIKey.
-func (c *APIKeyClient) Update() *APIKeyUpdate {
-	mutation := newAPIKeyMutation(c.config, OpUpdate)
-	return &APIKeyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *APIKeyClient) UpdateOne(_m *APIKey) *APIKeyUpdateOne {
-	mutation := newAPIKeyMutation(c.config, OpUpdateOne, withAPIKey(_m))
-	return &APIKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *APIKeyClient) UpdateOneID(id uuid.UUID) *APIKeyUpdateOne {
-	mutation := newAPIKeyMutation(c.config, OpUpdateOne, withAPIKeyID(id))
-	return &APIKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for APIKey.
-func (c *APIKeyClient) Delete() *APIKeyDelete {
-	mutation := newAPIKeyMutation(c.config, OpDelete)
-	return &APIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *APIKeyClient) DeleteOne(_m *APIKey) *APIKeyDeleteOne {
-	return c.DeleteOneID(_m.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *APIKeyClient) DeleteOneID(id uuid.UUID) *APIKeyDeleteOne {
-	builder := c.Delete().Where(apikey.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &APIKeyDeleteOne{builder}
-}
-
-// Query returns a query builder for APIKey.
-func (c *APIKeyClient) Query() *APIKeyQuery {
-	return &APIKeyQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypeAPIKey},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a APIKey entity by its id.
-func (c *APIKeyClient) Get(ctx context.Context, id uuid.UUID) (*APIKey, error) {
-	return c.Query().Where(apikey.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *APIKeyClient) GetX(ctx context.Context, id uuid.UUID) *APIKey {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// Hooks returns the client hooks.
-func (c *APIKeyClient) Hooks() []Hook {
-	return c.hooks.APIKey
-}
-
-// Interceptors returns the client interceptors.
-func (c *APIKeyClient) Interceptors() []Interceptor {
-	return c.inters.APIKey
-}
-
-func (c *APIKeyClient) mutate(ctx context.Context, m *APIKeyMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&APIKeyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&APIKeyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&APIKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&APIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown APIKey mutation op: %q", m.Op())
 	}
 }
 
@@ -5693,23 +5552,21 @@ func (c *WebAuthnCredentialClient) mutate(ctx context.Context, m *WebAuthnCreden
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
-		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
-		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
-		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
-		PasswordPolicy, PasswordResetToken, Permission, PortalShortLink, ReferralLink,
-		ResellerApplication, Role, RolePermission, Session, Tenant, TenantDomain,
-		TenantMembership, UsageMetric, User, UserEmail, UserIdentity, UserPhone,
-		WebAuthnCredential []ent.Hook
+		App, AuditLog, AuthorizationCode, ConsentSession, EquityHolderApplication,
+		FeatureEntitlement, IntegrationConfig, IntegrationRequest, LegalAcceptance,
+		LegalDocument, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
+		OAuthClient, OutboxEvent, Outlet, PasswordPolicy, PasswordResetToken,
+		Permission, PortalShortLink, ReferralLink, ResellerApplication, Role,
+		RolePermission, Session, Tenant, TenantDomain, TenantMembership, UsageMetric,
+		User, UserEmail, UserIdentity, UserPhone, WebAuthnCredential []ent.Hook
 	}
 	inters struct {
-		APIKey, App, AuditLog, AuthorizationCode, ConsentSession,
-		EquityHolderApplication, FeatureEntitlement, IntegrationConfig,
-		IntegrationRequest, LegalAcceptance, LegalDocument, LoginAttempt,
-		MFABackupCode, MFASettings, MFATOTPSecret, OAuthClient, OutboxEvent, Outlet,
-		PasswordPolicy, PasswordResetToken, Permission, PortalShortLink, ReferralLink,
-		ResellerApplication, Role, RolePermission, Session, Tenant, TenantDomain,
-		TenantMembership, UsageMetric, User, UserEmail, UserIdentity, UserPhone,
-		WebAuthnCredential []ent.Interceptor
+		App, AuditLog, AuthorizationCode, ConsentSession, EquityHolderApplication,
+		FeatureEntitlement, IntegrationConfig, IntegrationRequest, LegalAcceptance,
+		LegalDocument, LoginAttempt, MFABackupCode, MFASettings, MFATOTPSecret,
+		OAuthClient, OutboxEvent, Outlet, PasswordPolicy, PasswordResetToken,
+		Permission, PortalShortLink, ReferralLink, ResellerApplication, Role,
+		RolePermission, Session, Tenant, TenantDomain, TenantMembership, UsageMetric,
+		User, UserEmail, UserIdentity, UserPhone, WebAuthnCredential []ent.Interceptor
 	}
 )

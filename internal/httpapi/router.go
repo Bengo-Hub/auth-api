@@ -160,11 +160,8 @@ type AuthHandlers struct {
 	AdminListIntegrationRequests  http.HandlerFunc
 	AdminUpdateIntegrationRequest http.HandlerFunc
 	S2SNotifyIntegrationRequest   http.HandlerFunc
-	// API Key management and validation
-	AdminCreateAPIKey http.HandlerFunc
-	AdminListAPIKeys  http.HandlerFunc
-	AdminRevokeAPIKey http.HandlerFunc
-	ValidateAPIKey    http.HandlerFunc // Public endpoint for service-to-service validation
+	// ValidateAPIKey validates an App secret for other services (shared auth-client).
+	ValidateAPIKey http.HandlerFunc
 	// App management (GitHub-style S2S tokens)
 	AdminCreateApp      http.HandlerFunc
 	AdminListApps       http.HandlerFunc
@@ -571,11 +568,7 @@ func NewRouter(deps RouterDeps) http.Handler {
 				r.Get("/integrations", deps.AuthHandlers.AdminListIntegrationConfigs)
 				r.Put("/integrations/{id}/status", deps.AuthHandlers.AdminUpdateIntegrationStatus)
 				r.Delete("/integrations/{id}", deps.AuthHandlers.AdminDeleteIntegrationConfig)
-				// API Key management (requires auth)
-				r.Post("/api-keys", deps.AuthHandlers.AdminCreateAPIKey)
-				r.Get("/api-keys", deps.AuthHandlers.AdminListAPIKeys)
-				r.Delete("/api-keys/{id}", deps.AuthHandlers.AdminRevokeAPIKey)
-				// App management (GitHub-style S2S tokens)
+				// App management (every credential is an App)
 				if deps.AuthHandlers.AdminCreateApp != nil {
 					r.Post("/apps", deps.AuthHandlers.AdminCreateApp)
 					r.Get("/apps", deps.AuthHandlers.AdminListApps)

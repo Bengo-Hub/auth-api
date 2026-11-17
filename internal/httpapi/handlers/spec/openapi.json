@@ -228,81 +228,16 @@
         }
       }
     },
-    "/api/v1/admin/api-keys": {
-      "post": {
-        "tags": [
-          "Admin apps and keys"
-        ],
-        "summary": "Create API key",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Missing or invalid access token"
-          },
-          "403": {
-            "description": "Not allowed for this account"
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "Admin apps and keys"
-        ],
-        "summary": "List API keys",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Missing or invalid access token"
-          },
-          "403": {
-            "description": "Not allowed for this account"
-          }
-        }
-      }
-    },
     "/api/v1/admin/api-keys/validate": {
       "get": {
         "tags": [
           "Admin apps and keys"
         ],
-        "summary": "Validate API key",
+        "summary": "Validate an App secret",
         "security": [],
         "responses": {
           "200": {
             "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/v1/admin/api-keys/{id}": {
-      "delete": {
-        "tags": [
-          "Admin apps and keys"
-        ],
-        "summary": "Revoke API key",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Missing or invalid access token"
-          },
-          "403": {
-            "description": "Not allowed for this account"
           }
         }
       }

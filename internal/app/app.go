@@ -108,7 +108,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	hasher := password.NewHasher(cfg.Security)
 	auditor := audit.New(entClient, logger)
 
-	subClient := NewSubscriptionClient(cfg, integrationSvc, logger)
+	subClient := NewSubscriptionClient(cfg, logger)
 
 	// Initialize NATS event publishing (optional)
 	var natsConn *nats.Conn
@@ -201,7 +201,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	// Tenant backups on demand from the SSO client area: each listed service's tenant export,
 	// one zip per tenant on the private bucket, only the newest kept.
 	adminHandler.SetTenantBackups(tenantbackup.New(sqlDB, mediaStore,
-		tenantbackup.ParseServices(cfg.Backup.TenantServices), subClient, cfg.Subscription.APIKey, logger))
+		tenantbackup.ParseServices(cfg.Backup.TenantServices), subClient, cfg.InternalServiceKey, logger))
 	go func() {
 		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
@@ -256,9 +256,9 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	backupHandler := handlers.NewBackupHandler(cfg.Backup.ServiceURL, cfg.Backup.Enabled)
 	outletHandler := handlers.NewOutletHandler(entClient, tokenSvc, subClient, authService, logger)
 	apiKeyHandler := handlers.NewAPIKeyHandler(entClient, logger)
-	apiKeyHandler.SetInternalServiceKey(cfg.Subscription.APIKey) // trust X-Original-Client-IP from S2S callers only
+	apiKeyHandler.SetInternalServiceKey(cfg.InternalServiceKey) // trust X-Original-Client-IP from S2S callers only
 	appHandler := handlers.NewAppHandler(entClient, logger)
-	etimsNotifier := handlers.NewEtimsSupportNotifier(integrationSvc, cfg.Notifications.BaseURL, cfg.Subscription.APIKey, logger)
+	etimsNotifier := handlers.NewEtimsSupportNotifier(integrationSvc, cfg.Notifications.BaseURL, cfg.InternalServiceKey, logger)
 	integrationRequestHandler := handlers.NewIntegrationRequestHandler(entClient, etimsNotifier, hasher, authService, logger)
 	integrationRequestHandler.SetAuthUIURL(cfg.App.AuthUIURL)
 	userHandler := handlers.NewUserHandler(entClient, hasher, authService, redisClient, cfg.Redis.Namespace, cfg.App.AuthUIURL, logger).
@@ -298,7 +298,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		k8sMonitorClient.SetDependencyPing("redis", func(ctx context.Context) error {
 			return redisClient.Ping(ctx).Err()
 		})
-		k8sMonitorClient.SetServiceKey(cfg.Subscription.APIKey)
+		k8sMonitorClient.SetServiceKey(cfg.InternalServiceKey)
 	}
 	k8sMonitorHandler := handlers.NewK8sMonitorHandler(k8sMonitorClient, logger)
 
@@ -317,7 +317,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		Development:            cfg.App.Environment == "development" || cfg.App.Environment == "local",
 		DomainHandler:          domainHandler,
 		OutletHandler:          outletHandler,
-		InternalServiceKey:     cfg.Subscription.APIKey,
+		InternalServiceKey:     cfg.InternalServiceKey,
 		ValidateInternalAppKey: appHandler.IsValidInternalServiceToken,
 		SwaggerHandler:         swaggerHandler,
 		HealthHandler:          handlers.Health,
@@ -440,12 +440,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			S2SMFAStatus:             adminHandler.S2SMFAStatus,
 			S2SMFAVerify:             adminHandler.S2SMFAVerify,
 			SetUserServicePIN:        adminHandler.SetUserServicePIN,
-			// API Key management (service accounts)
-			AdminCreateAPIKey: apiKeyHandler.CreateAPIKey,
-			AdminListAPIKeys:  apiKeyHandler.ListAPIKeys,
-			AdminRevokeAPIKey: apiKeyHandler.RevokeAPIKey,
-			ValidateAPIKey:    apiKeyHandler.ValidateAPIKey,
-			// App management (GitHub-style S2S tokens; validation merged into ValidateAPIKey)
+			ValidateAPIKey: apiKeyHandler.ValidateAPIKey,
+			// App management
 			AdminCreateApp:       appHandler.CreateApp,
 			AdminListApps:        appHandler.ListApps,
 			AdminGetApp:          appHandler.GetApp,
@@ -681,35 +677,18 @@ func DomainDowngradeNotifier(client *ent.Client, authUIURL string, logger *zap.L
 
 // NewSubscriptionClient builds the subscription-service client for JWT enrichment and member
 // services, or nil when subscriptions are off. Shared by the server and cmd/member-services.
-func NewSubscriptionClient(cfg *config.Config, integrationSvc *integrations.Service, logger *zap.Logger) *subscriptionclient.Client {
+func NewSubscriptionClient(cfg *config.Config, logger *zap.Logger) *subscriptionclient.Client {
 	var subClient *subscriptionclient.Client
-	// Initialize subscription client for JWT enrichment (optional).
-	// The API key is resolved dynamically from integration_configs (DB, cached 5 min)
-	// so superusers can rotate it via auth-ui without restarting the pod.
-	// Falls back to AUTH_SUBSCRIPTION_API_KEY env var if not found in DB.
+	// Subscription client for JWT enrichment (optional), authenticated with the shared
+	// internal service key. Rotating the key means rotating the platform App's secret and the
+	// INTERNAL_SERVICE_KEY secret of every service, so there is no second copy in the database.
 	if cfg.Subscription.Enabled && cfg.Subscription.BaseURL != "" {
-		keyProvider := subscriptionclient.KeyProviderFunc(func(ctx context.Context) string {
-			creds, err := integrationSvc.GetDecryptedConfig(ctx, nil, "subscription_api_key")
-			if err != nil {
-				// Not yet in DB, decryption failed (seeder stores plain JSON until
-				// superuser saves via auth-ui which re-encrypts), or other error.
-				// Fall through to env var fallback.
-				return ""
-			}
-			return creds["key"]
-		})
-		// Warm the cache on startup: if the key isn't in DB yet (seeder not run),
-		// we'll fall back to env var — logged below at first use, not here.
 		subClient = subscriptionclient.NewClient(subscriptionclient.Config{
-			BaseURL:     cfg.Subscription.BaseURL,
-			APIKey:      cfg.Subscription.APIKey, // static fallback from env
-			KeyProvider: keyProvider,
-			Timeout:     cfg.Subscription.Timeout,
+			BaseURL: cfg.Subscription.BaseURL,
+			APIKey:  cfg.InternalServiceKey,
+			Timeout: cfg.Subscription.Timeout,
 		}, logger)
-		logger.Info("subscription client initialized",
-			zap.String("base_url", cfg.Subscription.BaseURL),
-			zap.Bool("dynamic_key", true),
-		)
+		logger.Info("subscription client initialized", zap.String("base_url", cfg.Subscription.BaseURL))
 	}
 	return subClient
 }

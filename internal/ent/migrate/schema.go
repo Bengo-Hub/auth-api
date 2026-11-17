@@ -8,54 +8,6 @@ import (
 )
 
 var (
-	// APIKeysColumns holds the columns for the "api_keys" table.
-	APIKeysColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeUUID},
-		{Name: "name", Type: field.TypeString},
-		{Name: "key_hash", Type: field.TypeString},
-		{Name: "key_prefix", Type: field.TypeString, Size: 8},
-		{Name: "tenant_id", Type: field.TypeUUID},
-		{Name: "service", Type: field.TypeString, Nullable: true},
-		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "scopes", Type: field.TypeJSON, Nullable: true},
-		{Name: "allowed_ips", Type: field.TypeJSON, Nullable: true},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "revoked", "expired"}, Default: "active"},
-		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
-		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
-		{Name: "last_used_ip", Type: field.TypeString, Nullable: true},
-		{Name: "created_at", Type: field.TypeTime},
-		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
-		{Name: "revoked_reason", Type: field.TypeString, Nullable: true},
-	}
-	// APIKeysTable holds the schema information for the "api_keys" table.
-	APIKeysTable = &schema.Table{
-		Name:       "api_keys",
-		Columns:    APIKeysColumns,
-		PrimaryKey: []*schema.Column{APIKeysColumns[0]},
-		Indexes: []*schema.Index{
-			{
-				Name:    "apikey_key_hash",
-				Unique:  true,
-				Columns: []*schema.Column{APIKeysColumns[2]},
-			},
-			{
-				Name:    "apikey_tenant_id_status",
-				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[4], APIKeysColumns[9]},
-			},
-			{
-				Name:    "apikey_service_status",
-				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[5], APIKeysColumns[9]},
-			},
-			{
-				Name:    "apikey_status_expires_at",
-				Unique:  false,
-				Columns: []*schema.Column{APIKeysColumns[9], APIKeysColumns[10]},
-			},
-		},
-	}
 	// AppsColumns holds the columns for the "apps" table.
 	AppsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1178,7 +1130,6 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
-		APIKeysTable,
 		AppsTable,
 		AuditLogsTable,
 		AuthorizationCodesTable,

@@ -2,30 +2,22 @@ package handlers
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/bengobox/auth-api/internal/ent"
-	"github.com/bengobox/auth-api/internal/ent/apikey"
 	entapp "github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/tenant"
-	authmiddleware "github.com/bengobox/auth-api/internal/httpapi/middleware"
 	"github.com/bengobox/auth-api/internal/token"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
-// isPlatformOrS2SAdmin reports whether claims belong to a platform owner
-// (admin-tier role within the "codevertex" tenant) or an admin-scoped S2S
-// token. Deliberately does NOT accept a bare "admin"/"superuser" role string,
-// since TenantMembership roles are tenant-scoped, not global.
+// isPlatformOrS2SAdmin reports whether claims belong to a platform owner (admin-tier role within
+// the "codevertex" tenant) or an admin-scoped S2S token. A bare "admin" or "superuser" role string
+// does not count, since TenantMembership roles are tenant-scoped, not global.
 func isPlatformOrS2SAdmin(claims *token.Claims) bool {
 	if claims.IsPlatformOwner {
 		return true
@@ -38,188 +30,39 @@ func isPlatformOrS2SAdmin(claims *token.Claims) bool {
 	return false
 }
 
-// APIKeyHandler handles API key management and validation.
+// APIKeyHandler validates App secrets (the X-API-Key value) for other services. Every credential
+// is an App; the retired api_keys table is gone.
 type APIKeyHandler struct {
 	ent         *ent.Client
 	logger      *zap.Logger
 	internalKey string // see SetInternalServiceKey
 }
 
-// NewAPIKeyHandler creates a new API key handler.
+// NewAPIKeyHandler creates the validation handler.
 func NewAPIKeyHandler(entClient *ent.Client, logger *zap.Logger) *APIKeyHandler {
-	return &APIKeyHandler{
-		ent:    entClient,
-		logger: logger,
-	}
+	return &APIKeyHandler{ent: entClient, logger: logger}
 }
 
-// CreateAPIKeyRequest represents a request to create an API key.
-type CreateAPIKeyRequest struct {
-	Name       string   `json:"name"`
-	Service    string   `json:"service,omitempty"`     // Service name for service accounts
-	Scopes     []string `json:"scopes,omitempty"`      // Allowed scopes
-	AllowedIPs []string `json:"allowed_ips,omitempty"` // IP whitelist
-	ExpiresIn  int      `json:"expires_in,omitempty"`  // Expiration in days (0 = never)
-}
-
-// CreateAPIKeyResponse returns the created API key (only shown once).
-type CreateAPIKeyResponse struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Key       string    `json:"key"`        // Plain text key - only returned on creation
-	KeyPrefix string    `json:"key_prefix"` // Prefix for identification
-	Service   string    `json:"service,omitempty"`
-	Scopes    []string  `json:"scopes,omitempty"`
-	ExpiresAt *string   `json:"expires_at,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-// ValidateAPIKeyResponse returns information about a valid API key.
+// ValidateAPIKeyResponse is the caller identity behind a valid App secret.
 type ValidateAPIKeyResponse struct {
-	ClientID   string   `json:"client_id"` // API key ID
-	TenantID   string   `json:"tenant_id"`
-	TenantSlug string   `json:"tenant_slug"`
-	Scopes     []string `json:"scopes"`
-	Roles      []string `json:"roles"`
-	Service    string   `json:"service,omitempty"`
-	// Environment is only meaningful for bng_app_* tokens (Apps have a real
-	// sandbox/production distinction); always "production" for a plain bng_* API key,
-	// since APIKey has no environment field of its own — those are treated as
-	// already-live credentials from the moment they're issued.
-	Environment string `json:"environment"`
+	ClientID    string   `json:"client_id"`
+	TenantID    string   `json:"tenant_id"`
+	TenantSlug  string   `json:"tenant_slug"`
+	Scopes      []string `json:"scopes"`
+	Roles       []string `json:"roles"`
+	Service     string   `json:"service,omitempty"`
+	Environment string   `json:"environment"` // sandbox or production
 }
 
-// generateAPIKey generates a cryptographically secure API key.
-func generateAPIKey() (key string, prefix string, hash string, err error) {
-	// Generate 32 bytes of random data
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", "", "", err
-	}
-
-	// Create the key with prefix for identification
-	key = "bng_" + base64.URLEncoding.EncodeToString(b)
-	prefix = key[:8]
-
-	// Hash the key for storage
-	hashBytes := sha256.Sum256([]byte(key))
-	hash = hex.EncodeToString(hashBytes[:])
-
-	return key, prefix, hash, nil
-}
-
-// hashAPIKey hashes an API key for lookup.
+// hashAPIKey is the SHA-256 hex digest stored for every App secret (256-bit random secrets need
+// no salt).
 func hashAPIKey(key string) string {
 	hashBytes := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(hashBytes[:])
 }
 
-// CreateAPIKey creates a new API key.
-func (h *APIKeyHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
-	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
-		return
-	}
-
-	// "Apps & Keys" is a platform-owner-only surface (see dashboard/layout.tsx
-	// PLATFORM_OWNER_ROUTES) — a bare "admin"/"superuser" role string from an
-	// ordinary tenant must NOT qualify, since that role name is tenant-scoped,
-	// not global.
-	if !isPlatformOrS2SAdmin(claims) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
-
-	var req CreateAPIKeyRequest
-	if err := decodeJSON(r, &req); err != nil || req.Name == "" {
-		writeError(w, http.StatusBadRequest, "invalid_request", "name is required", nil)
-		return
-	}
-
-	// Generate the API key
-	key, prefix, keyHash, err := generateAPIKey()
-	if err != nil {
-		h.logger.Error("failed to generate API key", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to generate key", nil)
-		return
-	}
-
-	// Parse tenant ID from claims
-	tenantID, err := uuid.Parse(claims.TenantID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id in token", nil)
-		return
-	}
-
-	// Parse user ID for created_by
-	userID, _ := uuid.Parse(claims.Subject)
-
-	// Build the API key record
-	create := h.ent.APIKey.Create().
-		SetName(req.Name).
-		SetKeyHash(keyHash).
-		SetKeyPrefix(prefix).
-		SetTenantID(tenantID).
-		SetCreatedBy(userID).
-		SetStatus(apikey.StatusActive)
-
-	if req.Service != "" {
-		create.SetService(req.Service)
-	}
-	if len(req.Scopes) > 0 {
-		create.SetScopes(req.Scopes)
-	}
-	if len(req.AllowedIPs) > 0 {
-		if err := validateAllowedIPs(req.AllowedIPs); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error(), nil)
-			return
-		}
-		create.SetAllowedIps(req.AllowedIPs)
-	}
-	if req.ExpiresIn > 0 {
-		expiresAt := time.Now().AddDate(0, 0, req.ExpiresIn)
-		create.SetExpiresAt(expiresAt)
-	}
-
-	apiKey, err := create.Save(r.Context())
-	if err != nil {
-		h.logger.Error("failed to save API key", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to create API key", nil)
-		return
-	}
-
-	// Log the creation
-	h.logger.Info("API key created",
-		zap.String("key_id", apiKey.ID.String()),
-		zap.String("name", req.Name),
-		zap.String("tenant_id", tenantID.String()),
-		zap.String("created_by", userID.String()),
-	)
-
-	// Build response with plain text key (only shown once)
-	resp := CreateAPIKeyResponse{
-		ID:        apiKey.ID.String(),
-		Name:      apiKey.Name,
-		Key:       key, // Plain text - only returned on creation
-		KeyPrefix: prefix,
-		Service:   apiKey.Service,
-		Scopes:    apiKey.Scopes,
-		CreatedAt: apiKey.CreatedAt,
-	}
-	if apiKey.ExpiresAt != nil && !apiKey.ExpiresAt.IsZero() {
-		exp := apiKey.ExpiresAt.Format(time.RFC3339)
-		resp.ExpiresAt = &exp
-	}
-
-	writeJSON(w, http.StatusCreated, resp)
-}
-
-// ValidateAPIKey validates an API key or App token and returns caller identity.
-// Accepts: X-API-Key header (or Authorization: Bearer <token>).
-// Routes automatically:
-//   - bng_app_* prefix → apps table (platform/tenant S2S apps)
-//   - bng_* prefix     → api_keys table (developer keys)
+// ValidateAPIKey validates the App secret in X-API-Key and returns the caller identity. Shared
+// auth-client calls it from every service (GET /api/v1/admin/api-keys/validate).
 func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 	tokenHeader := r.Header.Get("X-API-Key")
 	if tokenHeader == "" {
@@ -234,119 +77,30 @@ func (h *APIKeyHandler) ValidateAPIKey(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, *resp)
 }
 
-// ResolveAnyToken routes tokenHeader to whichever table it belongs to (bng_app_* → apps, bng_* →
-// api_keys) and resolves it in-process. See ResolveAppToken's doc comment for why this exists as a
-// context-taking, non-HTTP-writing function: it's shared between the public ValidateAPIKey HTTP
-// endpoint and auth-api's own Swagger docs handler.
+// ResolveAnyToken resolves an App secret in-process. Kept as the shared entry point for the
+// validate endpoint and the Swagger docs handler.
 func (h *APIKeyHandler) ResolveAnyToken(ctx context.Context, r *http.Request, tokenHeader string) (resp *ValidateAPIKeyResponse, statusCode int, errCode string, errMsg string, err error) {
-	if strings.HasPrefix(tokenHeader, "bng_app_") {
-		return h.ResolveAppToken(ctx, r, tokenHeader)
-	}
-	return h.resolveAPIKeyToken(ctx, r, tokenHeader)
+	return h.ResolveAppToken(ctx, r, tokenHeader)
 }
 
-// resolveAPIKeyToken validates a plain bng_* developer key against the api_keys table.
-func (h *APIKeyHandler) resolveAPIKeyToken(ctx context.Context, r *http.Request, tokenHeader string) (resp *ValidateAPIKeyResponse, statusCode int, errCode string, errMsg string, err error) {
-	keyHash := hashAPIKey(tokenHeader)
-	key, lookupErr := h.ent.APIKey.Query().
-		Where(
-			apikey.KeyHashEQ(keyHash),
-			apikey.StatusEQ(apikey.StatusActive),
-		).
-		Only(ctx)
-	if lookupErr != nil {
-		if ent.IsNotFound(lookupErr) {
-			h.logger.Warn("invalid API key attempted",
-				zap.String("key_prefix", getKeyPrefix(tokenHeader)),
-			)
-			return nil, http.StatusUnauthorized, "unauthorized", "invalid API key", lookupErr
-		}
-		h.logger.Error("failed to lookup API key", zap.Error(lookupErr))
-		return nil, http.StatusInternalServerError, "server_error", "validation failed", lookupErr
-	}
-
-	if key.ExpiresAt != nil && !key.ExpiresAt.IsZero() && time.Now().After(*key.ExpiresAt) {
-		return nil, http.StatusUnauthorized, "unauthorized", "API key expired", fmt.Errorf("api key expired")
-	}
-
-	if len(key.AllowedIps) > 0 && r != nil {
-		if !ipAllowed(key.AllowedIps, h.allowlistIP(r)) {
-			return nil, http.StatusForbidden, "forbidden", "IP not allowed", fmt.Errorf("ip not allowed")
-		}
-	}
-
-	go func() {
-		clientIP := ""
-		if r != nil {
-			clientIP = h.allowlistIP(r)
-		}
-		_, _ = h.ent.APIKey.UpdateOneID(key.ID).
-			SetLastUsedAt(time.Now()).
-			SetLastUsedIP(clientIP).
-			Save(context.Background())
-	}()
-
-	tenantSlug := ""
-	if t, err := h.ent.Tenant.Query().
-		Where(tenant.IDEQ(key.TenantID)).
-		Only(ctx); err == nil {
-		tenantSlug = t.Slug
-	}
-
-	roles := []string{}
-	if key.Service != "" {
-		roles = []string{"superuser"}
-	}
-
-	return &ValidateAPIKeyResponse{
-		ClientID:    key.ID.String(),
-		TenantID:    key.TenantID.String(),
-		TenantSlug:  tenantSlug,
-		Scopes:      key.Scopes,
-		Roles:       roles,
-		Service:     key.Service,
-		Environment: "production",
-	}, http.StatusOK, "", "", nil
-}
-
-// validateAppToken handles validation of bng_app_* tokens from the apps table.
-func (h *APIKeyHandler) validateAppToken(w http.ResponseWriter, r *http.Request, tokenHeader string) {
-	resp, statusCode, errCode, errMsg, err := h.ResolveAppToken(r.Context(), r, tokenHeader)
-	if err != nil {
-		writeError(w, statusCode, errCode, errMsg, nil)
-		return
-	}
-	writeJSON(w, http.StatusOK, *resp)
-}
-
-// ResolveAppToken validates a bng_app_* token in-process (no HTTP round-trip) and returns the same
-// response shape the /admin/api-keys/validate endpoint would over the wire. Extracted so callers
-// running in this same process -- currently auth-api's own Swagger docs handler, which needs to
-// resolve a pasted app secret to decide internal-vs-external doc visibility -- can reuse this
-// exact validation logic (App lookup, expiry, IP allowlist, role derivation) instead of either
-// duplicating it or making an unnecessary HTTP call to itself.
+// ResolveAppToken looks an App up by its secret's hash, whatever the secret's prefix, and checks
+// status, expiry and the IP allowlist.
 func (h *APIKeyHandler) ResolveAppToken(ctx context.Context, r *http.Request, tokenHeader string) (resp *ValidateAPIKeyResponse, statusCode int, errCode string, errMsg string, err error) {
-	keyHash := hashAPIKey(tokenHeader)
-
 	a, lookupErr := h.ent.App.Query().
-		Where(
-			entapp.KeyHashEQ(keyHash),
-			entapp.StatusEQ(entapp.StatusActive),
-		).
+		Where(entapp.KeyHashEQ(hashAPIKey(tokenHeader)), entapp.StatusEQ(entapp.StatusActive)).
 		Only(ctx)
 	if lookupErr != nil {
 		if ent.IsNotFound(lookupErr) {
-			h.logger.Warn("invalid app token", zap.String("prefix", getKeyPrefix(tokenHeader)))
+			h.logger.Warn("invalid app secret", zap.String("prefix", getKeyPrefix(tokenHeader)))
 			return nil, http.StatusUnauthorized, "unauthorized", "invalid token", lookupErr
 		}
-		h.logger.Error("app token lookup", zap.Error(lookupErr))
+		h.logger.Error("app secret lookup", zap.Error(lookupErr))
 		return nil, http.StatusInternalServerError, "server_error", "validation failed", lookupErr
 	}
 
 	if a.ExpiresAt != nil && !a.ExpiresAt.IsZero() && time.Now().After(*a.ExpiresAt) {
 		return nil, http.StatusUnauthorized, "unauthorized", "token expired", fmt.Errorf("token expired")
 	}
-
 	if len(a.AllowedIps) > 0 && r != nil {
 		if !ipAllowed(a.AllowedIps, h.allowlistIP(r)) {
 			return nil, http.StatusForbidden, "forbidden", "IP not allowed", fmt.Errorf("ip not allowed")
@@ -358,19 +112,13 @@ func (h *APIKeyHandler) ResolveAppToken(ctx context.Context, r *http.Request, to
 		if r != nil {
 			clientIP = h.allowlistIP(r)
 		}
-		_, _ = h.ent.App.UpdateOneID(a.ID).
-			SetLastUsedAt(time.Now()).
-			SetLastUsedIP(clientIP).
-			Save(context.Background())
+		_, _ = h.ent.App.UpdateOneID(a.ID).SetLastUsedAt(time.Now()).SetLastUsedIP(clientIP).Save(context.Background())
 	}()
 
-	tenantSlug := ""
-	tenantIDStr := ""
+	tenantSlug, tenantIDStr := "", ""
 	if a.TenantID != nil {
 		tenantIDStr = a.TenantID.String()
-		if t, err := h.ent.Tenant.Query().
-			Where(tenant.IDEQ(*a.TenantID)).
-			Only(ctx); err == nil {
+		if t, err := h.ent.Tenant.Query().Where(tenant.IDEQ(*a.TenantID)).Only(ctx); err == nil {
 			tenantSlug = t.Slug
 		}
 	}
@@ -391,148 +139,7 @@ func (h *APIKeyHandler) ResolveAppToken(ctx context.Context, r *http.Request, to
 	}, http.StatusOK, "", "", nil
 }
 
-// ListAPIKeys lists all API keys for the current tenant.
-func (h *APIKeyHandler) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
-	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
-		return
-	}
-	// "Apps & Keys" is a platform-owner-only surface (see dashboard/layout.tsx
-	// PLATFORM_OWNER_ROUTES) — match that here instead of letting any
-	// authenticated tenant user list service-account keys.
-	if !isPlatformOrS2SAdmin(claims) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
-
-	tenantID, err := uuid.Parse(claims.TenantID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
-		return
-	}
-
-	keys, err := h.ent.APIKey.Query().
-		Where(apikey.TenantIDEQ(tenantID)).
-		All(r.Context())
-	if err != nil {
-		h.logger.Error("failed to list API keys", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to list keys", nil)
-		return
-	}
-
-	// Return sanitized list (no key hashes)
-	type keyInfo struct {
-		ID         string    `json:"id"`
-		Name       string    `json:"name"`
-		KeyPrefix  string    `json:"key_prefix"`
-		Service    string    `json:"service,omitempty"`
-		Scopes     []string  `json:"scopes,omitempty"`
-		Status     string    `json:"status"`
-		LastUsedAt *string   `json:"last_used_at,omitempty"`
-		ExpiresAt  *string   `json:"expires_at,omitempty"`
-		CreatedAt  time.Time `json:"created_at"`
-	}
-
-	var result []keyInfo
-	for _, k := range keys {
-		info := keyInfo{
-			ID:        k.ID.String(),
-			Name:      k.Name,
-			KeyPrefix: k.KeyPrefix,
-			Service:   k.Service,
-			Scopes:    k.Scopes,
-			Status:    string(k.Status),
-			CreatedAt: k.CreatedAt,
-		}
-		if k.LastUsedAt != nil && !k.LastUsedAt.IsZero() {
-			t := k.LastUsedAt.Format(time.RFC3339)
-			info.LastUsedAt = &t
-		}
-		if k.ExpiresAt != nil && !k.ExpiresAt.IsZero() {
-			t := k.ExpiresAt.Format(time.RFC3339)
-			info.ExpiresAt = &t
-		}
-		result = append(result, info)
-	}
-
-	writeJSON(w, http.StatusOK, result)
-}
-
-// RevokeAPIKey revokes an API key.
-func (h *APIKeyHandler) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
-	claims, ok := authmiddleware.ClaimsFromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "missing auth", nil)
-		return
-	}
-	// "Apps & Keys" is a platform-owner-only surface (see dashboard/layout.tsx
-	// PLATFORM_OWNER_ROUTES) — match that here instead of letting any
-	// authenticated tenant user revoke service-account keys.
-	if !isPlatformOrS2SAdmin(claims) {
-		writeError(w, http.StatusForbidden, "forbidden", "admin scope required", nil)
-		return
-	}
-
-	keyID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "invalid key ID", nil)
-		return
-	}
-
-	tenantID, err := uuid.Parse(claims.TenantID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "invalid tenant_id", nil)
-		return
-	}
-
-	// Get the key and verify ownership
-	key, err := h.ent.APIKey.Query().
-		Where(
-			apikey.IDEQ(keyID),
-			apikey.TenantIDEQ(tenantID),
-		).
-		Only(r.Context())
-	if err != nil {
-		if ent.IsNotFound(err) {
-			writeError(w, http.StatusNotFound, "not_found", "API key not found", nil)
-			return
-		}
-		h.logger.Error("failed to get API key", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to get key", nil)
-		return
-	}
-
-	// Parse reason from body
-	var req struct {
-		Reason string `json:"reason"`
-	}
-	_ = decodeJSON(r, &req)
-
-	// Revoke the key
-	now := time.Now()
-	_, err = h.ent.APIKey.UpdateOneID(key.ID).
-		SetStatus(apikey.StatusRevoked).
-		SetRevokedAt(now).
-		SetRevokedReason(req.Reason).
-		Save(r.Context())
-	if err != nil {
-		h.logger.Error("failed to revoke API key", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to revoke key", nil)
-		return
-	}
-
-	announceKeyChanged(tenantID.String(), key.KeyHash)
-	h.logger.Info("API key revoked",
-		zap.String("key_id", keyID.String()),
-		zap.String("revoked_by", claims.Subject),
-		zap.String("reason", req.Reason),
-	)
-
-	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
-}
-
-// getKeyPrefix extracts the prefix from an API key for logging.
+// getKeyPrefix extracts the prefix from a secret for logging.
 func getKeyPrefix(key string) string {
 	if len(key) > 8 {
 		return key[:8]
@@ -540,9 +147,9 @@ func getKeyPrefix(key string) string {
 	return key
 }
 
-// getClientIP is the caller's address as the ingress established it. The API key IP allowlist is
-// checked against it, so it must never come from X-Forwarded-For: a caller holding a leaked key could
-// otherwise name an allowed address in that header and pass the allowlist.
+// getClientIP is the caller's address as the ingress established it. The IP allowlist is checked
+// against it, so it never comes from X-Forwarded-For: a caller holding a leaked secret could
+// otherwise name an allowed address in that header.
 func getClientIP(r *http.Request) string {
 	return clientIP(r)
 }

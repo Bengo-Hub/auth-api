@@ -35,7 +35,6 @@ import (
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
-	sharedcache "github.com/Bengo-Hub/cache"
 
 	"github.com/bengobox/auth-api/internal/app"
 	"github.com/bengobox/auth-api/internal/config"
@@ -45,7 +44,6 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/platform/outbox"
 	"github.com/bengobox/auth-api/internal/services/access"
-	"github.com/bengobox/auth-api/internal/services/integrations"
 )
 
 func main() {
@@ -68,14 +66,7 @@ func main() {
 		log.Fatalf("db: %v", err)
 	}
 	defer client.Close()
-	redisClient, err := sharedcache.NewRedis(ctx, sharedcache.RedisConfig{
-		Addr: cfg.Redis.Addr, Password: cfg.Redis.Password, DB: cfg.Redis.DB, TLS: cfg.Redis.EnableTLS,
-	})
-	if err != nil {
-		log.Fatalf("redis: %v", err)
-	}
-	integrationSvc := integrations.New(client, redisClient, cfg.Security.EncryptionKey, cfg.Token.Issuer)
-	resolver := access.New(client, app.MemberPlanLookup(app.NewSubscriptionClient(cfg, integrationSvc, zap.NewNop())))
+	resolver := access.New(client, app.MemberPlanLookup(app.NewSubscriptionClient(cfg, zap.NewNop())))
 	outbox.SetUserServices(resolver.MemberServices)
 
 	q := client.TenantMembership.Query().Where(tenantmembership.StatusEQ("active")).WithTenant().WithUser()

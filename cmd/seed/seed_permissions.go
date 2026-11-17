@@ -87,7 +87,6 @@ var servicePerms = map[string][]string{
 		"auth.entitlements.manage",
 		"auth.backups.manage",
 		"auth.apps.manage",
-		"auth.apikeys.manage",
 	},
 }
 

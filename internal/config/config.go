@@ -26,6 +26,10 @@ type Config struct {
 	DevOps        DevOpsConfig        `envPrefix:"DEVOPS_"`
 	Domains       DomainsConfig       `envPrefix:""`
 	Legal         LegalConfig         `envPrefix:"LEGAL_"`
+	// InternalServiceKey is the shared platform service key: auth-api sends it on calls to other
+	// services and accepts it on its internal routes. It is the secret of the platform App that
+	// carries the internal_service_key scope.
+	InternalServiceKey string `env:"INTERNAL_SERVICE_KEY"`
 }
 
 // LegalConfig drives the effective-dated legal documents (owner 2026-11-14): how much notice a
@@ -112,7 +116,6 @@ type EventsConfig struct {
 // cross-service inconsistency that caused the DNS-hostname regression.
 type SubscriptionConfig struct {
 	BaseURL string        `env:"SUBSCRIPTION_BASE_URL" envDefault:"http://localhost:4008"`
-	APIKey  string        `env:"AUTH_SUBSCRIPTION_API_KEY"`
 	Timeout time.Duration `env:"AUTH_SUBSCRIPTION_TIMEOUT" envDefault:"5s"`
 	Enabled bool          `env:"AUTH_SUBSCRIPTION_ENABLED" envDefault:"true"`
 }
@@ -278,10 +281,6 @@ func Load() (*Config, error) {
 	// Standardized NATS URL: accept EVENTS_NATS_URL when AUTH_EVENTS_NATS_URL is not set
 	if cfg.Events.NATSURL == "" {
 		cfg.Events.NATSURL = os.Getenv("EVENTS_NATS_URL")
-	}
-	// Standardized S2S key: AUTH_SUBSCRIPTION_API_KEY → INTERNAL_SERVICE_KEY (uniform across all services)
-	if cfg.Subscription.APIKey == "" {
-		cfg.Subscription.APIKey = os.Getenv("INTERNAL_SERVICE_KEY")
 	}
 	return cfg, nil
 }

@@ -6,9 +6,6 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// APIKey is the predicate function for apikey builders.
-type APIKey func(*sql.Selector)
-
 // App is the predicate function for app builders.
 type App func(*sql.Selector)
 

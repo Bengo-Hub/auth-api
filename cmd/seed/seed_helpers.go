@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/bengobox/auth-api/internal/ent"
-	"github.com/bengobox/auth-api/internal/ent/apikey"
 	entapp "github.com/bengobox/auth-api/internal/ent/app"
 	"github.com/bengobox/auth-api/internal/ent/integrationconfig"
 	"github.com/bengobox/auth-api/internal/platform/outbox"
@@ -22,26 +21,25 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// seedPlatformAPIKey seeds the legacy platform-internal-service-key.
-// Kept for backward compatibility with services not yet migrated to the App token.
-func seedPlatformAPIKey(ctx context.Context, client *ent.Client, platformTenantID uuid.UUID) error {
+// seedInternalServiceApp seeds the shared internal service key as a platform App carrying the
+// internal_service_key scope (the legacy api_keys table is retired). When INTERNAL_SERVICE_KEY
+// is set, the App is created under that exact secret, so every service keeps working.
+func seedInternalServiceApp(ctx context.Context, client *ent.Client, platformTenantID uuid.UUID) error {
 	const keyName = "platform-internal-service-key"
 
-	// Check if platform API key already exists
-	existingCount, err := client.APIKey.Query().
-		Where(
-			apikey.TenantIDEQ(platformTenantID),
-			apikey.ServiceEQ("platform"),
-			apikey.StatusEQ(apikey.StatusActive),
-		).
-		Count(ctx)
+	platformApps, err := client.App.Query().
+		Where(entapp.AppTypeEQ(entapp.AppTypePlatform), entapp.StatusEQ(entapp.StatusActive)).
+		All(ctx)
 	if err != nil {
-		return fmt.Errorf("check existing keys: %w", err)
+		return fmt.Errorf("check existing internal service app: %w", err)
 	}
-
-	if existingCount > 0 {
-		log.Printf("  ✓ Platform API key already exists")
-		return nil
+	for _, a := range platformApps {
+		for _, s := range a.Scopes {
+			if s == "internal_service_key" {
+				log.Printf("  ✓ Internal service key App already exists")
+				return nil
+			}
+		}
 	}
 
 	// Generate a new API key or use one provided via env
@@ -64,55 +62,37 @@ func seedPlatformAPIKey(ctx context.Context, client *ent.Client, platformTenantI
 		if _, err := rand.Read(b); err != nil {
 			return fmt.Errorf("generate random bytes: %w", err)
 		}
-		plainKey = "bng_" + base64.URLEncoding.EncodeToString(b)
-		keyPrefix = plainKey[:8]
+		plainKey = "bng_app_" + base64.URLEncoding.EncodeToString(b)
+		keyPrefix = plainKey[:16]
 		hashBytes := sha256.Sum256([]byte(plainKey))
 		keyHash = hex.EncodeToString(hashBytes[:])
 	}
 
-	_, err = client.APIKey.Create().
+	clientSum := sha256.Sum256([]byte("internal-service-key:" + platformTenantID.String()))
+	_, err = client.App.Create().
 		SetName(keyName).
+		SetDescription("Shared key services use to call each other.").
+		SetAppType(entapp.AppTypePlatform).
+		SetEnvironment(entapp.EnvironmentProduction).
+		SetTenantID(platformTenantID).
+		SetClientID("app_" + hex.EncodeToString(clientSum[:6])).
 		SetKeyHash(keyHash).
 		SetKeyPrefix(keyPrefix).
-		SetTenantID(platformTenantID).
-		SetService("platform").
-		SetScopes([]string{"*"}).
-		SetStatus(apikey.StatusActive).
+		SetScopes([]string{"*", "internal_service_key"}).
+		SetStatus(entapp.StatusActive).
 		Save(ctx)
 	if err != nil {
-		return fmt.Errorf("create platform API key: %w", err)
+		return fmt.Errorf("create internal service key app: %w", err)
 	}
 
-	// Also store the plain key in integration_configs so auth-api can resolve it
-	// dynamically at runtime without a pod restart (superusers rotate via auth-ui).
-	// Stored as plain JSON here; the running app's integrations.Service will
-	// re-encrypt it on first SaveConfig call from auth-ui.
-	credsJSON, _ := json.Marshal(map[string]string{"key": plainKey})
-	icExists, _ := client.IntegrationConfig.Query().
-		Where(integrationconfig.Name("subscription_api_key"), integrationconfig.TenantIDIsNil()).
-		Exist(ctx)
-	var icErr error
-	if !icExists {
-		icErr = client.IntegrationConfig.Create().
-			SetName("subscription_api_key").
-			SetDisplayName("Subscription Service API Key").
-			SetDescription("Platform API key for auth-api → subscriptions-api S2S JWT enrichment. Rotate via auth-ui without pod restart.").
-			SetEncryptedCredentials(string(credsJSON)).
-			SetIsActive(true).
-			SetStatus("active").
-			Exec(ctx)
+	if os.Getenv("INTERNAL_SERVICE_KEY") != "" {
+		log.Printf("  ✓ Internal service key App created from INTERNAL_SERVICE_KEY")
+		return nil
 	}
-	if icErr != nil {
-		// Non-fatal: app falls back to AUTH_SUBSCRIPTION_API_KEY env var
-		log.Printf("  ⚠️  Could not store key in integration_configs (app will use env fallback): %v", icErr)
-	} else {
-		log.Printf("  ✓ Platform API key stored in integration_configs as 'subscription_api_key'")
-	}
-
-	log.Printf("  ✅ Platform API key created!")
-	log.Printf("  ⚠️  IMPORTANT: Save this key — it will NOT be shown again:")
+	// A brand-new environment with no key yet: print the generated secret once so it can be put
+	// in every service's INTERNAL_SERVICE_KEY secret. It is never stored in plain text.
+	log.Printf("  ✓ Internal service key App created. Save this secret now; it is not shown again:")
 	log.Printf("  INTERNAL_SERVICE_KEY=%s", plainKey)
-	log.Printf("  Set this in auth-api-secrets (and all other service secrets) as INTERNAL_SERVICE_KEY.")
 	return nil
 }
 

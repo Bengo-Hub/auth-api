@@ -1704,7 +1704,6 @@ var platformOnlyIntegrations = map[string]bool{
 	"github":    true,
 	// System keys must also stay platform-wide.
 	"system_encryption_key":              true,
-	"subscription_api_key":               true,
 	platformAlertChannelsIntegrationName: true,
 }
 
