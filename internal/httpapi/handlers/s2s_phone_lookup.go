@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/nyaruka/phonenumbers"
 	"go.uber.org/zap"
 
@@ -59,4 +61,27 @@ func (h *AuthHandler) S2SUserByPhone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, u)
+}
+
+// S2SUserVerifiedPhone answers the verified phone of one user, for a platform service that must
+// send that person a one-time code (marketflow-api's boost confirmation). 404 when the user holds
+// no verified phone or cannot sign in. Internal service key only.
+// GET /api/v1/s2s/users/{user_id}/phone
+func (h *AuthHandler) S2SUserVerifiedPhone(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(chi.URLParam(r, "user_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_user_id", "user_id must be a UUID", nil)
+		return
+	}
+	phone, err := h.service.VerifiedPhoneOf(r.Context(), userID)
+	if errors.Is(err, auth.ErrPhoneNotFound) {
+		writeError(w, http.StatusNotFound, "not_found", "this user has no verified phone", nil)
+		return
+	}
+	if err != nil {
+		h.logger.Error("s2s user phone failed", zap.Error(err))
+		writeError(w, http.StatusInternalServerError, "lookup_failed", "phone lookup failed", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user_id": userID, "phone": phone, "phone_verified": true})
 }

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
@@ -45,6 +47,36 @@ func (f *phoneLookupFake) LookupVerifiedPhone(_ context.Context, e164 string) (*
 		return nil, auth.ErrPhoneNotFound
 	}
 	return f.user, nil
+}
+
+func (f *phoneLookupFake) VerifiedPhoneOf(_ context.Context, id uuid.UUID) (string, error) {
+	if f.user == nil || f.user.UserID != id {
+		return "", auth.ErrPhoneNotFound
+	}
+	return "+254712345678", nil
+}
+
+func TestS2SUserVerifiedPhone(t *testing.T) {
+	uid := uuid.New()
+	h := &AuthHandler{service: &phoneLookupFake{user: &auth.PhoneUser{UserID: uid}}, logger: zap.NewNop()}
+	call := func(id string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/s2s/users/"+id+"/phone", nil)
+		rc := chi.NewRouteContext()
+		rc.URLParams.Add("user_id", id)
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rc))
+		rec := httptest.NewRecorder()
+		h.S2SUserVerifiedPhone(rec, req)
+		return rec
+	}
+	if rec := call(uid.String()); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"phone":"+254712345678"`) {
+		t.Fatalf("known user: %d %s", rec.Code, rec.Body)
+	}
+	if rec := call(uuid.NewString()); rec.Code != http.StatusNotFound {
+		t.Fatalf("user without a verified phone: %d", rec.Code)
+	}
+	if rec := call("not-a-uuid"); rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad id: %d", rec.Code)
+	}
 }
 
 func TestS2SUserByPhone(t *testing.T) {

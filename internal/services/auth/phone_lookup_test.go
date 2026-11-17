@@ -68,4 +68,26 @@ func TestLookupVerifiedPhone(t *testing.T) {
 	if _, err := s.LookupVerifiedPhone(ctx, "+254733000999"); !errors.Is(err, ErrPhoneNotFound) {
 		t.Fatalf("unknown phone: %v", err)
 	}
+
+	// VerifiedPhoneOf: the verified phone of one user, never an unverified one, never for an
+	// account that cannot sign in.
+	if p, err := s.VerifiedPhoneOf(ctx, known.ID); err != nil || p != "+254733000001" {
+		t.Fatalf("VerifiedPhoneOf(known) = %q, %v", p, err)
+	}
+	if _, err := s.VerifiedPhoneOf(ctx, squatter.ID); !errors.Is(err, ErrPhoneNotFound) {
+		t.Fatalf("an unverified phone was returned: %v", err)
+	}
+	if _, err := s.VerifiedPhoneOf(ctx, blocked.ID); !errors.Is(err, ErrPhoneNotFound) {
+		t.Fatalf("a suspended account's phone was returned: %v", err)
+	}
+	if _, err := s.VerifiedPhoneOf(ctx, uuid.New()); !errors.Is(err, ErrPhoneNotFound) {
+		t.Fatalf("an unknown user: %v", err)
+	}
+	// The primary verified phone wins over a second verified one.
+	if _, err := client.UserPhone.Create().SetUserID(known.ID).SetPhone("+254733000004").SetIsVerified(true).Save(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := s.VerifiedPhoneOf(ctx, known.ID); p != "+254733000001" {
+		t.Fatalf("primary phone not preferred: %q", p)
+	}
 }

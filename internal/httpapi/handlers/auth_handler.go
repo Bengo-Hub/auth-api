@@ -57,6 +57,7 @@ type AuthService interface {
 	SendPhoneOTP(ctx context.Context, target *auth.PhoneLoginTarget, otp string, ttl time.Duration, channel string)
 	LoginWithPhoneOTP(ctx context.Context, target *auth.PhoneLoginTarget, clientID, ip, ua string) (*auth.AuthResult, error)
 	LookupVerifiedPhone(ctx context.Context, e164 string) (*auth.PhoneUser, error)
+	VerifiedPhoneOf(ctx context.Context, userID uuid.UUID) (string, error)
 	ListUserTenantMemberships(ctx context.Context, userID uuid.UUID) ([]*ent.TenantMembership, error)
 	IsPlatformOwner(ctx context.Context, userID uuid.UUID) bool
 	AcceptTerms(ctx context.Context, userID uuid.UUID) error
