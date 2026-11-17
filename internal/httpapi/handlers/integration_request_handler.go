@@ -45,7 +45,8 @@ func (h *IntegrationRequestHandler) developerConsoleURL() string {
 	if h.authUIURL == "" {
 		return ""
 	}
-	return h.authUIURL + "/dashboard/developer/apps"
+	// The developer sign-in (no business sign-up on it), returning to the Apps console.
+	return h.authUIURL + "/developer/login?return_to=%2Fdashboard%2Fdeveloper%2Fapps"
 }
 
 func NewIntegrationRequestHandler(entClient *ent.Client, notifier *EtimsSupportNotifier, hasher *password.Hasher, authSvc *auth.Service, logger *zap.Logger) *IntegrationRequestHandler {

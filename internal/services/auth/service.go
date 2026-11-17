@@ -1667,7 +1667,7 @@ func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequ
 
 	// Build per-tenant reset link. Prefer app_url from tenant metadata (set when tenant has
 	// a dedicated deployed app, e.g. kuraweigh.kura.go.ke for KURA). Fall back to auth-ui.
-	resetLink := buildResetLink(tenantEntity.Metadata, tenantEntity.Slug, in.ServiceID, userEntity.Email, tokenPlain)
+	resetLink := forDeveloperTenant(tenantEntity, buildResetLink(tenantEntity.Metadata, tenantEntity.Slug, in.ServiceID, userEntity.Email, tokenPlain))
 
 	resetPayload := map[string]any{
 		"user_id":    userEntity.ID.String(),
@@ -1717,7 +1717,22 @@ func (s *Service) IssueSetPasswordLink(ctx context.Context, userID uuid.UUID, te
 		Resource:   "user",
 		ResourceID: userEntity.ID.String(),
 	})
-	return buildResetLink(tenantEntity.Metadata, tenantEntity.Slug, serviceID, userEntity.Email, tokenPlain), nil
+	return forDeveloperTenant(tenantEntity, buildResetLink(tenantEntity.Metadata, tenantEntity.Slug, serviceID, userEntity.Email, tokenPlain)), nil
+}
+
+// developerTenantUseCase marks a developer / API partner tenant (created on integration request
+// approval).
+const developerTenantUseCase = "developer_external"
+
+// forDeveloperTenant adds for=developer to an accounts reset link of a developer tenant, so the
+// reset page sends the person to the developer sign-in instead of the business one. Links to a
+// tenant's own app are left alone.
+func forDeveloperTenant(t *ent.Tenant, link string) string {
+	if t == nil || t.UseCase == nil || *t.UseCase != developerTenantUseCase ||
+		!strings.HasPrefix(link, "https://accounts.codevertexafrica.com/reset-password?") {
+		return link
+	}
+	return link + "&for=developer"
 }
 
 // passwordResetTenant picks the tenant a reset email is sent under: the requested one when the
