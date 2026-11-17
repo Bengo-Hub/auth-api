@@ -177,8 +177,11 @@ func TestClientCredentialsGrant(t *testing.T) {
 		t.Fatalf("audience = %v, want only codevertex-api", aud)
 	}
 	if claims["token_use"] != TokenUseClientCredentials || claims["tenant_id"] != tn.ID.String() ||
-		claims["env"] != "sandbox" || claims["sub"] != a.ClientID || claims["scope"] != "etims:read" {
+		claims["env"] != "sandbox" || claims["sub"] != a.ClientID {
 		t.Fatalf("unexpected claims %v", claims)
+	}
+	if sc, _ := claims["scope"].([]any); len(sc) != 1 || sc[0] != "etims:read" {
+		t.Fatalf("scope claim = %v, want [etims:read]", claims["scope"])
 	}
 	if _, has := claims["roles"]; has {
 		t.Fatal("a client_credentials token must not carry roles")

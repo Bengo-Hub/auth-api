@@ -120,8 +120,9 @@ func (h *OIDCHandler) clientCredentialsToken(w http.ResponseWriter, r *http.Requ
 		"azp":         a.ClientID,
 		"tenant_id":   a.TenantID.String(),
 		"tenant_slug": tenantSlug,
-		"scope":       strings.Join(scopes, " "),
-		"scopes":      scopes,
+		// An array, as in every Codevertex access token (shared auth-client Claims.Scope). The
+		// response body's scope stays the RFC 6749 space-separated string.
+		"scope": scopes,
 		"env":         string(a.Environment),
 		"token_use":   TokenUseClientCredentials,
 		"jti":         uuid.NewString(),
