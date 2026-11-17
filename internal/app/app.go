@@ -295,6 +295,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		k8sMonitorClient.SetDependencyPing("redis", func(ctx context.Context) error {
 			return redisClient.Ping(ctx).Err()
 		})
+		k8sMonitorClient.SetServiceKey(cfg.Subscription.APIKey)
 	}
 	k8sMonitorHandler := handlers.NewK8sMonitorHandler(k8sMonitorClient, logger)
 

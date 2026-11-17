@@ -341,7 +341,7 @@ func (c *Client) Overview(ctx context.Context) (*Overview, error) {
 		}
 	}
 
-	ov.Mail = fetchMailStats(ctx)
+	ov.Mail = fetchMailStats(ctx, c.serviceKey)
 
 	for _, dp := range c.dependencyPingers {
 		status := DependencyStatus{Name: dp.name, OK: true}
@@ -355,16 +355,16 @@ func (c *Client) Overview(ctx context.Context) (*Overview, error) {
 	return ov, nil
 }
 
-// fetchMailStats calls email-provisioner's internal endpoint directly (plain
-// cluster-network HTTP, no auth needed — matches the endpoint's own
-// internal-only, no-Ingress design). Best-effort like every other Overview
-// section: a mid-rollout or not-yet-deployed email-provisioner degrades to
+// fetchMailStats calls email-provisioner's internal endpoint over the cluster network with the
+// shared INTERNAL_SERVICE_KEY as X-API-Key (its internal routes require it). Best-effort like every
+// other Overview section: a refused, mid-rollout or missing email-provisioner degrades to
 // Available: false rather than failing the whole dashboard.
-func fetchMailStats(ctx context.Context) MailStats {
+func fetchMailStats(ctx context.Context, serviceKey string) MailStats {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, emailProvisionerMailStatsURL, nil)
 	if err != nil {
 		return MailStats{}
 	}
+	req.Header.Set("X-API-Key", serviceKey)
 	client := http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {

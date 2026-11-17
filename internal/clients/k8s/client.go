@@ -24,7 +24,14 @@ type Client struct {
 	// Kept as plain closures rather than importing e.g. go-redis directly, so
 	// this package stays dependency-agnostic. Populated via SetDependencyPing.
 	dependencyPingers []dependencyPinger
+
+	// serviceKey is the shared INTERNAL_SERVICE_KEY sent as X-API-Key to other services' internal
+	// routes (email-provisioner's mail stats). Set with SetServiceKey.
+	serviceKey string
 }
+
+// SetServiceKey sets the INTERNAL_SERVICE_KEY used for internal service calls.
+func (c *Client) SetServiceKey(key string) { c.serviceKey = key }
 
 type dependencyPinger struct {
 	name string
