@@ -42,7 +42,7 @@ docker run -d --name redis -p 6379:6379 redis:7
 
 ```bash
 go run ./cmd/migrate
-SEED_ADMIN_PASSWORD=ChangeMe123! go run ./cmd/seed
+SEED_ADMIN_PASSWORD='<choose one>' go run ./cmd/seed
 ```
 
 The seed creates user `admin@codevertexafrica.com` with role `superuser` in tenant `codevertex`.
@@ -59,7 +59,7 @@ You should see it listening on `http://localhost:4101`.
 
 - Health: `curl http://localhost:4101/healthz`
 - JWKS: `curl http://localhost:4101/api/v1/.well-known/jwks.json`
-- Login: `POST /api/v1/auth/login` with `{ "email":"admin@codevertexafrica.com","password":"ChangeMe123!","tenant_slug":"codevertex" }`
+- Login: `POST /api/v1/auth/login` with `{ "email":"admin@codevertexafrica.com","password":"<your SEED_ADMIN_PASSWORD>","tenant_slug":"codevertex" }`
 
 Note on Redis: If you see a warning like “maint_notifications disabled due to handshake error,” it’s a harmless client fallback and safe to ignore locally. Upgrading Redis to 7.2+ removes it.
 

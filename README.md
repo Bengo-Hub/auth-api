@@ -80,7 +80,7 @@ Endpoints default to `http://localhost:4101`. Adjust via `AUTH_HTTP_PORT`. In pr
 - Interactive Swagger UI: `GET /v1/docs/` (loads `openapi.json` from `/api/v1/openapi.json`)
   - Default admin for quick testing:
     - Email: `admin@codevertexafrica.com`
-    - Password: `ChangeMe123!`
+    - Password: `<set SEED_ADMIN_PASSWORD>`
     - Tenant: `codevertex` 
 
 ### HTTP Surface (Sprint 4)

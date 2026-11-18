@@ -153,8 +153,7 @@ function Invoke-DataSeed {
 
   $password = $env:SEED_ADMIN_PASSWORD
   if ([string]::IsNullOrWhiteSpace($password)) {
-    $password = "ChangeMe123!"
-    Log "SEED_ADMIN_PASSWORD not set; using default admin password $password for seeding."
+    throw "Set SEED_ADMIN_PASSWORD (in .env or the environment) before seeding; there is no default."
   } else {
     Log "Seeding data with provided admin password."
   }
@@ -283,7 +282,7 @@ Commands:
   help         Show this help
 
 Examples:
-  $env:SEED_ADMIN_PASSWORD = 'ChangeMe123!'; .\local-deploy.ps1 seed
+  $env:SEED_ADMIN_PASSWORD = '<choose one>'; .\local-deploy.ps1 seed
   .\local-deploy.ps1 up
   .\local-deploy.ps1 up-docker
 "@ | Write-Host

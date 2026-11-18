@@ -30,8 +30,10 @@ func seedAdminUser(ctx context.Context, client *ent.Client, hasher *password.Has
 		adminPassword = os.Getenv("SEED_ADMIN_PASSWORD")
 	}
 	if adminPassword == "" {
-		log.Println("⚠️  No SEED_SUPER_ADMIN_PASSWORD or SEED_ADMIN_PASSWORD set — using default seed password")
-		adminPassword = "ChangeMe123!" // default for local dev; override via env in production
+		// No built-in default: a published default password let anyone sign in to every account
+		// seeded with it (removed 2026-11-18). Set SEED_ADMIN_PASSWORD, locally too.
+		log.Println("⚠️  SEED_ADMIN_PASSWORD not set: skipping the platform admin user")
+		return nil
 	}
 
 	if adminEmail == "" || adminPassword == "" {

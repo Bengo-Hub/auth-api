@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
@@ -46,9 +48,16 @@ func seedMasterspaceUsers(ctx context.Context, client *ent.Client, hasher *passw
 		return fmt.Errorf("mss tenant not found among seeded tenants")
 	}
 
+	// New accounts get SEED_MSS_PASSWORD when set, otherwise a random password nobody knows, and
+	// sign in after the password-reset email. Existing accounts keep their password: this seed runs
+	// on every auth-api start and used to reset all of them to a published default (2026-11-18).
 	pw := os.Getenv("SEED_MSS_PASSWORD")
 	if pw == "" {
-		pw = "ChangeMe123!" // documented temp default; overridden via env, reset on first login
+		buf := make([]byte, 32)
+		if _, err := rand.Read(buf); err != nil {
+			return fmt.Errorf("random mss password: %w", err)
+		}
+		pw = base64.RawURLEncoding.EncodeToString(buf)
 	}
 	hash, err := hasher.Hash(pw)
 	if err != nil {
@@ -76,17 +85,18 @@ func seedMasterspaceUsers(ctx context.Context, client *ent.Client, hasher *passw
 			SetProfile(profile).
 			Save(ctx)
 		if err != nil {
-			// Exists — reset to the temp password + must_change so they can log in.
+			// Exists: keep the person's own password; only the profile and primary tenant follow
+			// the seed.
 			u, err = client.User.Query().Where(user.EmailEQ(s.Email)).Only(ctx)
 			if err != nil {
 				log.Printf("  ⚠️  %s: %v", s.Email, err)
 				continue
 			}
-			if _, err := u.Update().SetPasswordHash(hash).SetProfile(profile).
+			if _, err := u.Update().SetProfile(profile).
 				SetPrimaryTenantID(mss.ID.String()).Save(ctx); err != nil {
 				log.Printf("  ⚠️  update %s: %v", s.Email, err)
 			}
-			log.Printf("  ✓ Reset existing user: %s (%s)", s.Email, s.Role)
+			log.Printf("  ✓ Existing user kept: %s (%s)", s.Email, s.Role)
 		} else {
 			log.Printf("  ✓ Created user: %s (%s)", s.Email, s.Role)
 		}

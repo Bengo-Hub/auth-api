@@ -170,7 +170,7 @@ Commands:
   help         Show this help
 
 Examples:
-  SEED_ADMIN_PASSWORD='ChangeMe123!' ./local-deploy.sh seed
+  SEED_ADMIN_PASSWORD='<choose one>' ./local-deploy.sh seed
   ./local-deploy.sh up
   ./local-deploy.sh up-docker
 USAGE
