@@ -153,6 +153,37 @@ func (h *AuthHandler) toSessionResponse(result *auth.AuthResult) map[string]any 
 	return out
 }
 
+// cookieOnlyOrigin reports whether the request comes from a first-party page that keeps its
+// session in cookies only (the accounts UI, config AUTH_UI_URL). Such a page never reads
+// refresh_token or session_id, so leaving them out of the body keeps them away from page scripts.
+// Every other caller (in-app passkey sign-in that hands refresh_token to /session/start,
+// custom-domain hosts, PIN terminals, mobile apps) still gets them.
+func cookieOnlyOrigin(r *http.Request, origins []string) bool {
+	origin := strings.TrimRight(r.Header.Get("Origin"), "/")
+	if origin == "" {
+		return false
+	}
+	for _, o := range origins {
+		if o != "" && strings.EqualFold(origin, strings.TrimRight(o, "/")) {
+			return true
+		}
+	}
+	return false
+}
+
+// browserAuthBody drops refresh_token and session_id from a sign-in reply sent to a cookie-only
+// origin (see cookieOnlyOrigin).
+func browserAuthBody(r *http.Request, origins []string, out map[string]any) map[string]any {
+	if cookieOnlyOrigin(r, origins) {
+		delete(out, "refresh_token")
+		delete(out, "session_id")
+	}
+	return out
+}
+
+// SetCookieOnlyOrigins sets the origins whose sign-in replies carry no refresh_token or session_id.
+func (h *AuthHandler) SetCookieOnlyOrigins(origins []string) { h.cookieOnlyOrigins = origins }
+
 func setSessionRefreshCookie(w http.ResponseWriter, value string, expires time.Time) {
 	c := &http.Cookie{
 		Name:     SessionRefreshCookie,

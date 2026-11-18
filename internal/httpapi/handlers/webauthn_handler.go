@@ -22,11 +22,17 @@ type WebAuthnHandler struct {
 	logger         *zap.Logger
 	redis          *redis.Client
 	redisNamespace string
+	// cookieOnlyOrigins get sign-in replies without refresh_token and session_id (see cookieOnlyOrigin).
+	cookieOnlyOrigins []string
 }
 
 func NewWebAuthnHandler(webAuthn *webauthnSvc.Service, authSvc *auth.Service, logger *zap.Logger, rdb *redis.Client, redisNS string) *WebAuthnHandler {
 	return &WebAuthnHandler{webAuthn: webAuthn, authSvc: authSvc, logger: logger, redis: rdb, redisNamespace: redisNS}
 }
+
+// SetCookieOnlyOrigins sets the origins whose passkey sign-in replies carry no refresh_token or
+// session_id.
+func (h *WebAuthnHandler) SetCookieOnlyOrigins(origins []string) { h.cookieOnlyOrigins = origins }
 
 // BeginRegistration starts the WebAuthn registration ceremony.
 // Requires an authenticated user (JWT in Authorization header).
@@ -205,7 +211,7 @@ func (h *WebAuthnHandler) FinishAuthentication(w http.ResponseWriter, r *http.Re
 	}
 	http.SetCookie(w, cookie)
 
-	writeJSON(w, http.StatusOK, webAuthnAuthResponse(result))
+	writeJSON(w, http.StatusOK, browserAuthBody(r, h.cookieOnlyOrigins, webAuthnAuthResponse(result)))
 }
 
 // webAuthnAuthResponse builds the authentication response for WebAuthn logins,

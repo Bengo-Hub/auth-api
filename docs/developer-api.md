@@ -231,6 +231,7 @@ POST /api/v1/session/end       # revokes the cookie's session and clears the coo
 - `/session/end` also blocklists the access token when the call sends that session's token as `Authorization: Bearer`. Otherwise the access token runs out on its own short expiry.
 - `/session/start` rotates the posted token, so the copy the page saw at the code exchange stops working.
 - Only `*.codevertexafrica.com` apps use this. Cross-site hosts (tenant custom domains) keep their stored tokens, since browsers drop third-party cookies. The `bb_session` SSO cookie is unchanged.
+- Sign-ins from the accounts UI (`Origin` equal to `AUTH_UI_URL`) get no `refresh_token` or `session_id` in the body of `/auth/login`, `/auth/register`, `/auth/register/oauth`, `/auth/phone/otp/verify` and `/auth/webauthn/authenticate/finish` (2026-11-18). That page keeps its session in `bb_session` and never read them. Every other origin still gets both, because in-app passkey sign-in hands `refresh_token` to `/session/start` and custom domains, terminals and mobile apps store it. `/auth/refresh` and `/token` are unchanged.
 
 ## Admin APIs
 

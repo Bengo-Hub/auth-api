@@ -183,7 +183,11 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	var webAuthnHandler *handlers.WebAuthnHandler
 	if webAuthnService != nil {
 		webAuthnHandler = handlers.NewWebAuthnHandler(webAuthnService, authService, logger, redisClient, cfg.Redis.Namespace)
+		webAuthnHandler.SetCookieOnlyOrigins([]string{cfg.App.AuthUIURL})
 	}
+	// The accounts UI keeps its session in cookies only, so its sign-in replies leave out
+	// refresh_token and session_id. Every other client still receives them.
+	authHandler.SetCookieOnlyOrigins([]string{cfg.App.AuthUIURL})
 
 	adminHandler := handlers.NewAdminHandler(entClient, tokenSvc, integrationSvc, subClient, hasher, cfg.App.AuthUIURL, logger).
 		WithSetPasswordLinks(authService).

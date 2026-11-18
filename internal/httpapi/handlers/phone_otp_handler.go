@@ -126,5 +126,5 @@ func (h *AuthHandler) VerifyPhoneOTP(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
+	writeJSON(w, http.StatusOK, browserAuthBody(r, h.cookieOnlyOrigins, h.toAuthResponse(result)))
 }

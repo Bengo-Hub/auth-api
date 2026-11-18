@@ -276,6 +276,8 @@ type AuthHandler struct {
 	logoutRedirectHosts []string
 	// extraLogoutHosts adds active tenant domains to the logout redirect allowlist.
 	extraLogoutHosts func(context.Context) []string
+	// cookieOnlyOrigins get sign-in replies without refresh_token and session_id (see cookieOnlyOrigin).
+	cookieOnlyOrigins []string
 }
 
 // NewAuthHandler constructs a handler. redis and redisNamespace are optional; when set, GET /auth/me responses are cached with TTL = token expiry.
@@ -347,7 +349,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if h.redis != nil && h.redisNamespace != "" {
 		_ = h.redis.Del(r.Context(), h.signupVerifiedKey(req.Email)).Err()
 	}
-	writeJSON(w, http.StatusCreated, h.toAuthResponse(result))
+	writeJSON(w, http.StatusCreated, browserAuthBody(r, h.cookieOnlyOrigins, h.toAuthResponse(result)))
 }
 
 // RegisterOAuth completes registration for a new user arriving via OAuth2 flow.
@@ -390,7 +392,7 @@ func (h *AuthHandler) RegisterOAuth(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, h.toAuthResponse(result))
+	writeJSON(w, http.StatusCreated, browserAuthBody(r, h.cookieOnlyOrigins, h.toAuthResponse(result)))
 }
 
 // Login authenticates a user and issues tokens.
@@ -519,7 +521,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, cookie)
 
-	writeJSON(w, http.StatusOK, h.toAuthResponse(result))
+	writeJSON(w, http.StatusOK, browserAuthBody(r, h.cookieOnlyOrigins, h.toAuthResponse(result)))
 }
 
 // Refresh exchanges refresh tokens for a new pair.
