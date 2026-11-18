@@ -429,6 +429,13 @@ var (
 				OnDelete:   schema.NoAction,
 			},
 		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "mfatotpsecret_user_id",
+				Unique:  true,
+				Columns: []*schema.Column{MfatotpSecretsColumns[7]},
+			},
+		},
 	}
 	// OauthClientsColumns holds the columns for the "oauth_clients" table.
 	OauthClientsColumns = []*schema.Column{

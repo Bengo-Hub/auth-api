@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 )
 
@@ -46,5 +47,13 @@ func (MFATOTPSecret) Edges() []ent.Edge {
 			Field("user_id").
 			Unique().
 			Required(),
+	}
+}
+
+// Indexes of the MFATOTPSecret. One authenticator row per account: two concurrent setup starts
+// once created two rows and every Only() lookup failed (2026-11-18).
+func (MFATOTPSecret) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("user_id").Unique(),
 	}
 }

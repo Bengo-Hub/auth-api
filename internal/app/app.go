@@ -165,7 +165,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	// Enable session cookie resolution: bb_session cookies now contain a session
 	// UUID instead of the full JWT (admin tokens exceed browser 4KB cookie limit).
 	authMiddleware.SetSessionResolver(httpmiddleware.NewRedisSessionResolver(redisClient, cfg.Redis.Namespace))
-	rateLimits := httpmiddleware.NewRateLimits(redisClient, logger, cfg.Redis.Namespace)
+	rateLimits := httpmiddleware.NewRateLimits(redisClient, logger, cfg.Redis.Namespace).WithServiceKey(cfg.InternalServiceKey)
 	oidcService := oidc.New(entClient, tokenSvc, cfg)
 	oidcHandler := handlers.NewOIDCHandlerWithRolesPermissions(cfg, oidcService, authMiddleware, tokenSvc, authService, logger)
 	oidcHandler.SetAppStore(entClient) // enables grant_type=client_credentials for developer Apps

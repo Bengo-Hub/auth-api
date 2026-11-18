@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -19,6 +20,21 @@ import (
 // every window edge and returned 429 for every login whenever Redis hiccuped.
 type RateLimits struct {
 	l *ratelimit.Limiter
+	// serviceKey is the platform INTERNAL_SERVICE_KEY. A caller presenting it (ordering-backend
+	// registering a guest after checkout) sends every guest from its own pod IP, so the sensitive
+	// limit keys it per target account instead of per IP.
+	serviceKey string
+}
+
+// WithServiceKey sets the internal service key the sensitive limit recognises.
+func (rl *RateLimits) WithServiceKey(key string) *RateLimits {
+	rl.serviceKey = strings.TrimSpace(key)
+	return rl
+}
+
+func (rl *RateLimits) isService(r *http.Request) bool {
+	got := r.Header.Get("X-API-Key")
+	return rl.serviceKey != "" && got != "" && subtle.ConstantTimeCompare([]byte(got), []byte(rl.serviceKey)) == 1
 }
 
 // NewRateLimits creates the limiter set. namespace keeps keys apart from other services.
@@ -51,7 +67,20 @@ func (rl *RateLimits) Token() func(http.Handler) http.Handler {
 // Sensitive limits unauthenticated code and account flows (send/verify email code, password
 // reset, registration) per client IP. The handlers also cap sends and wrong guesses per code.
 func (rl *RateLimits) Sensitive() func(http.Handler) http.Handler {
-	return rl.l.MiddlewareWith(ratelimit.IPKey, ratelimit.Options{Name: "sensitive", Limit: 20, Window: time.Minute})
+	perIP := rl.l.MiddlewareWith(ratelimit.IPKey, ratelimit.Options{Name: "sensitive", Limit: 20, Window: time.Minute})
+	// A service caller is limited per target account (10 a minute per email), so one busy
+	// storefront never exhausts the bucket every guest shares; without an email it stays per IP.
+	perAccount := rl.l.MiddlewareWith(accountKey, ratelimit.Options{Name: "sensitive-svc-acct", Limit: 10, Window: time.Minute})
+	return func(next http.Handler) http.Handler {
+		ip, acct := perIP(next), perAccount(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if rl.isService(r) && accountKey(r) != "" {
+				acct.ServeHTTP(w, r)
+				return
+			}
+			ip.ServeHTTP(w, r)
+		})
+	}
 }
 
 // accountKey reads the login identifier from a JSON body without consuming it. Returns "" (no
