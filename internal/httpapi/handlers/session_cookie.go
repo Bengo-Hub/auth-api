@@ -20,8 +20,15 @@ import (
 // The bb_session cookie is a separate thing: it stays as it is for SSO on the login page and
 // /authorize.
 const (
-	// SessionRefreshCookie holds the refresh token. The __Host- prefix makes the browser insist on
-	// Secure, Path=/ and no Domain, so no other *.codevertexafrica.com host can set or read it.
+	// SessionRefreshCookie is the prefix of each app's refresh cookie; the app's part comes from the
+	// request's Origin (sessionCookieName), so every app keeps its own session. The __Host- prefix
+	// makes the browser insist on Secure, Path=/ and no Domain, so no other *.codevertexafrica.com
+	// host can set or read it.
+	//
+	// It was one shared cookie until 2026-11-18. Apps on different subdomains cannot share a
+	// tab lock, so two apps refreshing at once spent the same rotated token and one of them was
+	// refused and signed out. The shared cookie is still read once (legacySessionCookie) and then
+	// cleared.
 	SessionRefreshCookie = "__Host-cv_refresh"
 	// SessionCSRFHeader and SessionCSRFValue are the custom header every /session call carries.
 	// A cross-origin request with it always needs a CORS preflight, which a foreign origin fails.
@@ -70,12 +77,55 @@ func (h *AuthHandler) SessionStart(w http.ResponseWriter, r *http.Request) {
 // SessionRefresh trades the refresh cookie for a new access token. Rotation and the reuse rules
 // are the service's (refresh_reuse.go), the same as POST /api/v1/auth/refresh.
 func (h *AuthHandler) SessionRefresh(w http.ResponseWriter, r *http.Request) {
-	c, err := r.Cookie(SessionRefreshCookie)
-	if err != nil || c.Value == "" {
-		writeError(w, http.StatusUnauthorized, "no_session", "no session cookie", nil)
+	if c, err := r.Cookie(sessionCookieName(r)); err == nil && c.Value != "" {
+		h.refreshIntoCookie(w, r, c.Value, "")
 		return
 	}
-	h.refreshIntoCookie(w, r, c.Value, "")
+	// One-time move off the shared cookie: the first app to refresh after the change takes it
+	// over and clears it, so no other app replays the value it is about to rotate (a late replay
+	// would revoke the session). The other apps then find no cookie and sign in again through
+	// SSO, which bb_session answers without a password.
+	if c, err := r.Cookie(SessionRefreshCookie); err == nil && c.Value != "" {
+		clearCookieNamed(w, SessionRefreshCookie)
+		h.refreshIntoCookie(w, r, c.Value, "")
+		return
+	}
+	writeError(w, http.StatusUnauthorized, "no_session", "no session cookie", nil)
+}
+
+// sessionCookieName is this app's refresh cookie: the shared prefix plus the app's part of the
+// Origin, which RequireSessionCSRF has already checked against the CORS list. An app on
+// codevertexafrica.com is named by its subdomain (marketflow, books, pos); any other allowed
+// origin by its whole host. Only letters, digits and underscores go into the name.
+func sessionCookieName(r *http.Request) string {
+	return cookieNameForOrigin(r.Header.Get("Origin"))
+}
+
+func cookieNameForOrigin(origin string) string {
+	host := strings.ToLower(strings.TrimSpace(origin))
+	if i := strings.Index(host, "://"); i >= 0 {
+		host = host[i+3:]
+	}
+	if i := strings.IndexAny(host, ":/"); i >= 0 {
+		host = host[:i]
+	}
+	host = strings.TrimSuffix(host, ".codevertexafrica.com")
+	var b strings.Builder
+	for _, ch := range host {
+		switch {
+		case ch >= 'a' && ch <= 'z', ch >= '0' && ch <= '9':
+			b.WriteRune(ch)
+		default:
+			b.WriteByte('_')
+		}
+		if b.Len() >= 48 {
+			break
+		}
+	}
+	if b.Len() == 0 {
+		return SessionRefreshCookie
+	}
+	return SessionRefreshCookie + "_" + b.String()
 }
 
 func (h *AuthHandler) refreshIntoCookie(w http.ResponseWriter, r *http.Request, refreshToken, clientID string) {
@@ -96,7 +146,7 @@ func (h *AuthHandler) refreshIntoCookie(w http.ResponseWriter, r *http.Request, 
 		h.handleError(w, r, err)
 		return
 	}
-	setSessionRefreshCookie(w, result.RefreshToken, result.RefreshTokenExpiresAt)
+	setSessionRefreshCookie(w, sessionCookieName(r), result.RefreshToken, result.RefreshTokenExpiresAt)
 	writeJSON(w, http.StatusOK, h.toSessionResponse(result))
 }
 
@@ -104,10 +154,17 @@ func (h *AuthHandler) refreshIntoCookie(w http.ResponseWriter, r *http.Request, 
 // cleared. A missing or already dead cookie still answers 200, so sign-out is idempotent. When the
 // call also carries that session's access token, its jti is blocklisted as POST /auth/logout does.
 func (h *AuthHandler) SessionEnd(w http.ResponseWriter, r *http.Request) {
-	// Set before any body is written: a header added after WriteHeader is dropped.
-	clearSessionRefreshCookie(w)
-
-	c, err := r.Cookie(SessionRefreshCookie)
+	// Set before any body is written: a header added after WriteHeader is dropped. The shared
+	// cookie of the old layout goes too, if this browser still has it.
+	name := sessionCookieName(r)
+	clearCookieNamed(w, name)
+	c, err := r.Cookie(name)
+	if err != nil || c.Value == "" {
+		if legacy, lerr := r.Cookie(SessionRefreshCookie); lerr == nil && legacy.Value != "" {
+			clearCookieNamed(w, SessionRefreshCookie)
+			c, err = legacy, nil
+		}
+	}
 	if err != nil || c.Value == "" {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
 		return
@@ -184,9 +241,9 @@ func browserAuthBody(r *http.Request, origins []string, out map[string]any) map[
 // SetCookieOnlyOrigins sets the origins whose sign-in replies carry no refresh_token or session_id.
 func (h *AuthHandler) SetCookieOnlyOrigins(origins []string) { h.cookieOnlyOrigins = origins }
 
-func setSessionRefreshCookie(w http.ResponseWriter, value string, expires time.Time) {
+func setSessionRefreshCookie(w http.ResponseWriter, name, value string, expires time.Time) {
 	c := &http.Cookie{
-		Name:     SessionRefreshCookie,
+		Name:     name,
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
@@ -202,9 +259,9 @@ func setSessionRefreshCookie(w http.ResponseWriter, value string, expires time.T
 	http.SetCookie(w, c)
 }
 
-func clearSessionRefreshCookie(w http.ResponseWriter) {
+func clearCookieNamed(w http.ResponseWriter, name string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionRefreshCookie,
+		Name:     name,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,

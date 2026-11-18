@@ -112,6 +112,8 @@ type sessionReq struct {
 	cookie string
 	body   string
 	claims *token.Claims
+	// legacyCookie is the shared pre-2026-11-18 cookie, sent under its old name.
+	legacyCookie string
 }
 
 func (q sessionReq) do(t *testing.T, h http.Handler) *httptest.ResponseRecorder {
@@ -124,7 +126,10 @@ func (q sessionReq) do(t *testing.T, h http.Handler) *httptest.ResponseRecorder 
 		req.Header.Set("Origin", q.origin)
 	}
 	if q.cookie != "" {
-		req.AddCookie(&http.Cookie{Name: SessionRefreshCookie, Value: q.cookie})
+		req.AddCookie(&http.Cookie{Name: cookieNameForOrigin(q.origin), Value: q.cookie})
+	}
+	if q.legacyCookie != "" {
+		req.AddCookie(&http.Cookie{Name: SessionRefreshCookie, Value: q.legacyCookie})
 	}
 	if q.claims != nil {
 		req = req.WithContext(authmiddleware.ContextWithClaims(req.Context(), q.claims))
@@ -141,8 +146,12 @@ func okReq(path, cookie, body string) sessionReq {
 
 func refreshCookieOf(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
+	return cookieNamed(rec, cookieNameForOrigin(testAppOrigin))
+}
+
+func cookieNamed(rec *httptest.ResponseRecorder, name string) *http.Cookie {
 	for _, c := range rec.Result().Cookies() {
-		if c.Name == SessionRefreshCookie {
+		if c.Name == name {
 			return c
 		}
 	}
@@ -327,5 +336,49 @@ func TestSessionCookieEnd(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Each app gets its own refresh cookie, named from its Origin, so two apps never spend the same
+// rotated token (2026-11-18).
+func TestSessionCookieNamePerApp(t *testing.T) {
+	cases := map[string]string{
+		"https://pos.codevertexafrica.com":        "__Host-cv_refresh_pos",
+		"https://books.codevertexafrica.com:443/": "__Host-cv_refresh_books",
+		"https://erp.masterspace.co.ke":           "__Host-cv_refresh_erp_masterspace_co_ke",
+		"":                                        "__Host-cv_refresh",
+	}
+	for origin, want := range cases {
+		if got := cookieNameForOrigin(origin); got != want {
+			t.Errorf("%q: got %q, want %q", origin, got, want)
+		}
+	}
+	if cookieNameForOrigin("https://pos.codevertexafrica.com") == cookieNameForOrigin("https://marketflow.codevertexafrica.com") {
+		t.Fatal("two apps must not share a cookie")
+	}
+}
+
+// The first refresh after the change takes over the shared cookie: it rotates it into this app's
+// own cookie and clears the shared one, so no other app replays the rotated value.
+func TestSessionRefreshMovesTheSharedCookie(t *testing.T) {
+	svc, _ := newSessionCookieFake("rt-0")
+	h := sessionRouter(&AuthHandler{service: svc, logger: zap.NewNop()})
+	req := okReq("/session/refresh", "", "")
+	req.legacyCookie = "rt-0" // secret-scan:allow
+	rec := req.do(t, h)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("refresh with the shared cookie %d %s", rec.Code, rec.Body.String())
+	}
+	own := refreshCookieOf(t, rec)
+	if own == nil || own.Value == "" || own.Value == "rt-0" {
+		t.Fatalf("the app's own cookie holds the rotated token: %+v", own)
+	}
+	shared := cookieNamed(rec, SessionRefreshCookie)
+	if shared == nil || shared.Value != "" || shared.MaxAge >= 0 {
+		t.Fatalf("the shared cookie is cleared: %+v", shared)
+	}
+	// From now on the app's own cookie is used.
+	if next := okReq("/session/refresh", own.Value, "").do(t, h); next.Code != http.StatusOK {
+		t.Fatalf("refresh with the app's own cookie %d %s", next.Code, next.Body.String())
 	}
 }
