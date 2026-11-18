@@ -3,6 +3,7 @@ package mfa
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base32"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -48,26 +49,40 @@ const sessionMetadataMFAEnrollment = "mfa_enrollment_required"
 // enrolment-only session), must never be able to swap the second factor of an account that has
 // one. A replacement clears enabled_at until the new code is confirmed.
 func (s *Service) StartTOTP(ctx context.Context, userID uuid.UUID, email, currentCode string) (*StartTOTPResponse, error) {
-	existing, err := s.entClient.MFATOTPSecret.Query().Where(mfatotpsecret.UserID(userID)).Only(ctx)
-	switch {
-	case err == nil && !existing.EnabledAt.IsZero():
-		if strings.TrimSpace(currentCode) == "" {
-			return nil, ErrAuthenticatorExists
-		}
-		if !totp.Validate(strings.TrimSpace(currentCode), existing.Secret) {
-			return nil, ErrInvalidCode
-		}
-	case err != nil && !ent.IsNotFound(err):
+	existing, err := s.loadTOTP(ctx, userID)
+	if err != nil && !ent.IsNotFound(err) {
 		return nil, fmt.Errorf("load totp: %w", err)
 	}
-	key, err := totp.Generate(totp.GenerateOpts{
+	opts := totp.GenerateOpts{
 		Issuer:      s.issuer,
 		AccountName: email,
 		Period:      30,
 		SecretSize:  20,
 		Digits:      otp.DigitsSix,
 		Algorithm:   otp.AlgorithmSHA1,
-	})
+	}
+	switch {
+	case existing != nil && !existing.EnabledAt.IsZero():
+		if strings.TrimSpace(currentCode) == "" {
+			return nil, ErrAuthenticatorExists
+		}
+		if !totp.Validate(strings.TrimSpace(currentCode), existing.Secret) {
+			return nil, ErrInvalidCode
+		}
+	case existing != nil:
+		// Setup already started and not confirmed: hand back the same secret. A second start (the
+		// page rendering twice, a double tap, a refresh) used to replace it, so the QR the person
+		// scanned no longer matched and every code failed; they were sent to scan again at sign-in.
+		if raw, decErr := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ToUpper(existing.Secret)); decErr == nil {
+			opts.Secret = raw
+			key, genErr := totp.Generate(opts)
+			if genErr == nil && key.Secret() == existing.Secret {
+				return &StartTOTPResponse{Secret: existing.Secret, Provisioning: key.URL()}, nil
+			}
+		}
+		opts.Secret = nil // unreadable pending secret: replace it below
+	}
+	key, err := totp.Generate(opts)
 	if err != nil {
 		return nil, fmt.Errorf("generate totp: %w", err)
 	}
@@ -82,10 +97,38 @@ func (s *Service) StartTOTP(ctx context.Context, userID uuid.UUID, email, curren
 	}, nil
 }
 
-func (s *Service) saveOrUpdateTOTP(ctx context.Context, userID uuid.UUID, secret string) error {
-	existing, err := s.entClient.MFATOTPSecret.Query().
+// loadTOTP returns the account's authenticator row. Two concurrent first starts could create two
+// rows (user_id has no unique index), and every Only() lookup then failed for good; the extra rows
+// are removed here, keeping an enabled one first, else the newest.
+func (s *Service) loadTOTP(ctx context.Context, userID uuid.UUID) (*ent.MFATOTPSecret, error) {
+	rows, err := s.entClient.MFATOTPSecret.Query().
 		Where(mfatotpsecret.UserID(userID)).
-		Only(ctx)
+		Order(ent.Desc(mfatotpsecret.FieldEnabledAt), ent.Desc(mfatotpsecret.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, &ent.NotFoundError{}
+	}
+	keep := rows[0]
+	for _, r := range rows {
+		if !r.EnabledAt.IsZero() && (keep.EnabledAt.IsZero() || r.EnabledAt.After(keep.EnabledAt)) {
+			keep = r
+		}
+	}
+	if len(rows) > 1 {
+		if _, delErr := s.entClient.MFATOTPSecret.Delete().
+			Where(mfatotpsecret.UserID(userID), mfatotpsecret.IDNEQ(keep.ID)).
+			Exec(ctx); delErr != nil {
+			return nil, fmt.Errorf("remove duplicate totp rows: %w", delErr)
+		}
+	}
+	return keep, nil
+}
+
+func (s *Service) saveOrUpdateTOTP(ctx context.Context, userID uuid.UUID, secret string) error {
+	existing, err := s.loadTOTP(ctx, userID)
 	if err == nil {
 		return s.entClient.MFATOTPSecret.UpdateOneID(existing.ID).
 			SetSecret(secret).
@@ -107,13 +150,11 @@ func (s *Service) saveOrUpdateTOTP(ctx context.Context, userID uuid.UUID, secret
 }
 
 func (s *Service) ConfirmTOTP(ctx context.Context, userID uuid.UUID, code string) error {
-	rec, err := s.entClient.MFATOTPSecret.Query().
-		Where(mfatotpsecret.UserID(userID)).
-		Only(ctx)
+	rec, err := s.loadTOTP(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("load totp: %w", err)
 	}
-	ok := totp.Validate(code, rec.Secret)
+	ok := totp.Validate(strings.TrimSpace(code), rec.Secret)
 	if !ok {
 		return ErrInvalidCode
 	}
@@ -159,9 +200,7 @@ func (s *Service) HasUnusedBackupCodes(ctx context.Context, userID uuid.UUID) (b
 }
 
 func (s *Service) VerifyTOTP(ctx context.Context, userID uuid.UUID, code string) (bool, error) {
-	rec, err := s.entClient.MFATOTPSecret.Query().
-		Where(mfatotpsecret.UserID(userID)).
-		Only(ctx)
+	rec, err := s.loadTOTP(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("load totp: %w", err)
 	}

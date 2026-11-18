@@ -11,7 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql/sqljson"
 	"github.com/Bengo-Hub/httpware/objectstore"
 	"github.com/Bengo-Hub/pagination"
+	"github.com/bengobox/auth-api/internal/ent/mfabackupcode"
 	"github.com/bengobox/auth-api/internal/ent/mfasettings"
+	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
 	"github.com/bengobox/auth-api/internal/ent/predicate"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
@@ -799,6 +801,9 @@ func (h *UserHandler) AdminSendPasswordResetEmail(w http.ResponseWriter, r *http
 
 type adminMfaEnforcementRequest struct {
 	Enforced bool `json:"enforced"`
+	// KeepAuthenticator leaves the person's authenticator app in place when enforcement is turned
+	// off (they keep using it by choice). Default false: turning it off stops the code prompts.
+	KeepAuthenticator bool `json:"keep_authenticator"`
 }
 
 // AdminSetMfaEnforcement records whether 2FA is enforced for a user (platform
@@ -845,7 +850,35 @@ func (h *UserHandler) AdminSetMfaEnforcement(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"id": userID, "mfa_enforced": req.Enforced})
+	// Turning enforcement off used to leave the authenticator in place, and sign-in asks for a code
+	// whenever an account has one, so the person kept being asked. Now, unless a tenant policy still
+	// covers one of their roles, their authenticator and backup codes are removed too (sessions stay
+	// signed in). When a policy still covers them, nothing else changes and the reply says so.
+	resp := map[string]any{"id": userID, "mfa_enforced": req.Enforced}
+	if !req.Enforced {
+		stillRequired := false
+		if cov, ok := h.auth.(interface {
+			MFACovered(ctx context.Context, userID uuid.UUID, t *ent.Tenant) (bool, bool)
+		}); ok {
+			stillRequired, _ = cov.MFACovered(r.Context(), userID, nil)
+		}
+		resp["still_required_by_policy"] = stillRequired
+		if !stillRequired && !req.KeepAuthenticator {
+			removed, err := h.ent.MFATOTPSecret.Delete().Where(mfatotpsecret.UserID(userID)).Exec(r.Context())
+			if err != nil {
+				h.logger.Error("remove authenticator after un-enforce", zap.Error(err))
+				writeError(w, http.StatusInternalServerError, "server_error", "enforcement cleared but the authenticator could not be removed", nil)
+				return
+			}
+			if _, err := h.ent.MFABackupCode.Delete().Where(mfabackupcode.UserID(userID)).Exec(r.Context()); err != nil {
+				h.logger.Error("remove backup codes after un-enforce", zap.Error(err))
+			}
+			resp["authenticator_removed"] = removed > 0
+		}
+	}
+	h.invalidateMeCache(r.Context(), userID)
+	h.logger.Info("admin mfa enforcement changed", zap.String("user_id", userID.String()), zap.Bool("enforced", req.Enforced))
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // invalidateMeCache deletes any cached /me responses for a user so a subsequent
