@@ -2765,18 +2765,12 @@ func (s *Service) updateIdentityTokens(ctx context.Context, identityID uuid.UUID
 		SetEmailVerified(profile.EmailVerified).
 		SetTokenExpiry(tokenExpiry(token)).
 		SetProfile(googleProfileMap(profile)).
-		SetScope(scopeFromToken(token))
-
-	if token.AccessToken != "" {
-		update.SetAccessToken(token.AccessToken)
-	} else {
-		update.ClearAccessToken()
-	}
-	if token.RefreshToken != "" {
-		update.SetRefreshToken(token.RefreshToken)
-	} else {
-		update.ClearRefreshToken()
-	}
+		SetScope(scopeFromToken(token)).
+		// The provider's access and refresh tokens are never kept: sign-in needs them only for
+		// the profile call, nothing reads them later, and the privacy policy (section 5A) says
+		// they are not stored. Clearing them also removes any left from before this change.
+		ClearAccessToken().
+		ClearRefreshToken()
 
 	if err := update.Exec(ctx); err != nil {
 		return fmt.Errorf("update identity tokens: %w", err)
@@ -2794,15 +2788,7 @@ func (s *Service) createIdentity(ctx context.Context, userID uuid.UUID, profile 
 		SetTokenExpiry(tokenExpiry(token)).
 		SetScope(scopeFromToken(token)).
 		SetProfile(googleProfileMap(profile))
-
-	if token != nil {
-		if token.AccessToken != "" {
-			identityCreate.SetAccessToken(token.AccessToken)
-		}
-		if token.RefreshToken != "" {
-			identityCreate.SetRefreshToken(token.RefreshToken)
-		}
-	}
+	// The provider's access and refresh tokens are not stored (see updateIdentityTokens).
 
 	if _, err := identityCreate.Save(ctx); err != nil {
 		return fmt.Errorf("create user identity: %w", err)

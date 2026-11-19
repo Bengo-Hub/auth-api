@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"regexp"
 	"strings"
@@ -285,15 +286,7 @@ func (h *LegalHandler) SaveDraft(w http.ResponseWriter, r *http.Request) {
 				map[string]any{"doc_type": docType, "draft_version": other.Version})
 			return
 		}
-		doc, err = h.ent.LegalDocument.Create().
-			SetDocType(legaldocument.DocType(docType)).
-			SetVersion(version).
-			SetHTMLContent(req.HtmlContent).
-			SetEffectiveDate(effDate).
-			SetIsCurrent(false).
-			SetStatus(legaldocument.StatusDraft).
-			SetMetadata(withMetadata(nil, meta)).
-			Save(ctx)
+		doc, err = insertDraft(ctx, h.ent, docType, version, req.HtmlContent, effDate, meta)
 		if ent.IsConstraintError(err) {
 			writeError(w, http.StatusConflict, "version_exists", "this version was created meanwhile; try again", nil)
 			return
@@ -400,42 +393,15 @@ func (h *LegalHandler) PublishDraft(w http.ResponseWriter, r *http.Request) {
 		meta["material"] = false
 	}
 
-	// One transaction: the publish, and for a non-dated type the is_current switch, land together.
-	tx, err := h.ent.Tx(ctx)
+	published, err := publishDraftRow(ctx, h.ent, draft, effDate, meta)
 	if err != nil {
-		h.logger.Error("failed to start transaction", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to publish draft", nil)
-		return
-	}
-	// The status condition makes a second publish (a double click, two admins) a no-op 409.
-	n, err := tx.LegalDocument.Update().
-		Where(legaldocument.IDEQ(draft.ID), legaldocument.StatusEQ(legaldocument.StatusDraft)).
-		SetStatus(legaldocument.StatusPublished).
-		SetEffectiveDate(effDate).
-		SetIsCurrent(!dated).
-		SetMetadata(withMetadata(draft.Metadata, meta)).
-		Save(ctx)
-	if err == nil && n > 0 && !dated {
-		err = tx.LegalDocument.Update().
-			Where(legaldocument.DocTypeEQ(legaldocument.DocType(docType)), legaldocument.IDNEQ(draft.ID)).
-			SetIsCurrent(false).
-			Exec(ctx)
-	}
-	if err != nil {
-		_ = tx.Rollback()
 		h.logger.Error("failed to publish legal document draft", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "server_error", "failed to publish draft", nil)
 		return
 	}
-	if n == 0 {
-		_ = tx.Rollback()
+	if !published {
 		writeError(w, http.StatusConflict, "already_published", "this version was published meanwhile",
 			map[string]any{"doc_type": docType, "version": version})
-		return
-	}
-	if err := tx.Commit(); err != nil {
-		h.logger.Error("failed to commit legal document publish", zap.Error(err))
-		writeError(w, http.StatusInternalServerError, "server_error", "failed to publish draft", nil)
 		return
 	}
 	doc, err := h.ent.LegalDocument.Get(ctx, draft.ID)
@@ -450,4 +416,54 @@ func (h *LegalHandler) PublishDraft(w http.ResponseWriter, r *http.Request) {
 	// A material Terms of Service or Privacy Policy version is emailed to every user.
 	h.startChangeNotice(doc)
 	writeJSON(w, http.StatusOK, legalDocJSON(doc, now, false))
+}
+
+// insertDraft creates a new draft row. SaveDraft and the seeder (SeedFirstVersion) both create
+// versions through it.
+func insertDraft(ctx context.Context, client *ent.Client, docType, version, html string, effDate time.Time, meta map[string]any) (*ent.LegalDocument, error) {
+	return client.LegalDocument.Create().
+		SetDocType(legaldocument.DocType(docType)).
+		SetVersion(version).
+		SetHTMLContent(html).
+		SetEffectiveDate(effDate).
+		SetIsCurrent(false).
+		SetStatus(legaldocument.StatusDraft).
+		SetMetadata(withMetadata(nil, meta)).
+		Save(ctx)
+}
+
+// publishDraftRow publishes a draft with its effective date in one transaction, together with the
+// is_current switch for a type that is not effective-dated. It reports false, with no change, when
+// the row is no longer a draft (a double click, two admins). PublishDraft and the seeder share it.
+func publishDraftRow(ctx context.Context, client *ent.Client, draft *ent.LegalDocument, effDate time.Time, meta map[string]any) (bool, error) {
+	dated := isEffectiveDated(string(draft.DocType))
+	tx, err := client.Tx(ctx)
+	if err != nil {
+		return false, err
+	}
+	n, err := tx.LegalDocument.Update().
+		Where(legaldocument.IDEQ(draft.ID), legaldocument.StatusEQ(legaldocument.StatusDraft)).
+		SetStatus(legaldocument.StatusPublished).
+		SetEffectiveDate(effDate).
+		SetIsCurrent(!dated).
+		SetMetadata(withMetadata(draft.Metadata, meta)).
+		Save(ctx)
+	if err == nil && n > 0 && !dated {
+		err = tx.LegalDocument.Update().
+			Where(legaldocument.DocTypeEQ(draft.DocType), legaldocument.IDNEQ(draft.ID)).
+			SetIsCurrent(false).
+			Exec(ctx)
+	}
+	if err != nil {
+		_ = tx.Rollback()
+		return false, err
+	}
+	if n == 0 {
+		_ = tx.Rollback()
+		return false, nil
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
 }

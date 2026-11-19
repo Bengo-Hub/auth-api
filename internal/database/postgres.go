@@ -37,9 +37,14 @@ func NewClient(ctx context.Context, cfg config.DatabaseConfig) (*ent.Client, *sq
 	return client, db, nil
 }
 
-// RunMigrations executes Atlas versioned migrations.
+// RunMigrations brings the schema up to date, then runs the data fixups. Schema.Create diffs
+// against the live database and does not execute the versioned .sql files, so a data change in
+// one of them is also run here (see fixups.go).
 func RunMigrations(ctx context.Context, client *ent.Client) error {
-	return client.Schema.Create(ctx,
+	if err := client.Schema.Create(ctx,
 		schema.WithDir(migrate.Dir),
-	)
+	); err != nil {
+		return err
+	}
+	return runFixups(ctx, client)
 }

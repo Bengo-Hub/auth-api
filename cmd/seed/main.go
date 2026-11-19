@@ -33,6 +33,16 @@ func main() {
 		log.Fatalf("migrate: %v", err)
 	}
 
+	// Targeted run: publish version 1 of each legal document that has no version yet, then exit.
+	// Touches nothing else. Used in-cluster: `SEED_ONLY=legal /app/seed`.
+	if os.Getenv("SEED_ONLY") == "legal" {
+		if err := seedLegalDocuments(ctx, client); err != nil {
+			log.Fatalf("seed legal documents: %v", err)
+		}
+		log.Println("✅ Legal documents seeded.")
+		return
+	}
+
 	log.Println("Starting seed process...")
 
 	// 1. Seed tenants
@@ -166,6 +176,11 @@ func main() {
 	log.Println("Seeding platform App token...")
 	if err := seedPlatformApp(ctx, client); err != nil {
 		log.Printf("⚠️  Failed to seed platform App: %v", err)
+	}
+
+	// 16. Publish version 1 of each legal document that has none yet.
+	if err := seedLegalDocuments(ctx, client); err != nil {
+		log.Printf("⚠️  seed legal documents: %v", err)
 	}
 
 	log.Println("✅ Seeding completed successfully!")

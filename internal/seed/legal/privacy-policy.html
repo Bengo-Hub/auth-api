@@ -1,0 +1,267 @@
+<p>Codevertex Africa Limited ("Codevertex", "we", "us", or "our") is committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services, including the Codevertex SSO platform at <a href="https://accounts.codevertexafrica.com">accounts.codevertexafrica.com</a> and any other application within our ecosystem.</p>
+<p><strong>Important:</strong> By accessing or using any Codevertex service, you acknowledge that you have read, understood, and agree to this Privacy Policy. If you disagree, please do not use our services.</p>
+
+<h2 id="overview">1. Overview &amp; Scope</h2>
+<p>This Privacy Policy applies to all services operated by <strong>Codevertex Africa Limited</strong> (also trading as Bengo Hub), a technology company registered in Kenya with its principal office at Pioneer House, 2nd Floor, Oginga Street, Kisumu, Kenya.</p>
+<p>The services covered include, but are not limited to:</p>
+<ul>
+<li><strong>Codevertex SSO:</strong> accounts.codevertexafrica.com (identity and authentication gateway)</li>
+<li><strong>MarketFlow CRM:</strong> marketflow.codevertexafrica.com (AI marketing automation)</li>
+<li><strong>Codevertex ERP, POS, ISP Billing, TruLoad, Books, Projects, Ordering App:</strong> all *.codevertexafrica.com subdomains</li>
+<li>Any mobile application, API endpoint, or service that links to this Privacy Policy</li>
+</ul>
+<p>Where a specific product has its own supplementary privacy notice, that notice should be read alongside this policy.</p>
+
+<h2 id="collection">2. Data We Collect</h2>
+<p>We collect information that you provide directly, information collected automatically when you use our services, and information from third-party sources where you have authorised it.</p>
+<h3>2.1 Information You Provide</h3>
+<ul>
+<li><strong>Account Registration:</strong> Name, email address, and password (hashed; we never store plaintext passwords).</li>
+<li><strong>Business Information:</strong> Business or organisation name, website URL, and industry, collected during onboarding for multi-tenant services such as MarketFlow.</li>
+<li><strong>Contact &amp; Support:</strong> Any information you send us via email, support tickets, or feedback forms.</li>
+<li><strong>Billing &amp; Payment:</strong> Payment method details (processed by PCI-DSS certified third parties; we do not store raw card numbers), billing address, and transaction history.</li>
+<li><strong>Profile Data:</strong> Profile photo and display name you optionally provide.</li>
+</ul>
+<h3>2.2 Information Collected Automatically</h3>
+<ul>
+<li><strong>Usage Data:</strong> Pages visited, features used, timestamps, session duration, and click-through events within our platform.</li>
+<li><strong>Device &amp; Browser Information:</strong> IP address, browser type and version, operating system, screen resolution, and preferred language.</li>
+<li><strong>Authentication Logs:</strong> Login timestamps, IP addresses, device identifiers, and OAuth provider used (Google, Microsoft, or GitHub), retained for security and fraud prevention.</li>
+<li><strong>API Usage Metrics:</strong> API call counts, response times, and error rates for monitoring and quota management purposes.</li>
+</ul>
+<h3>2.3 Information from Third-Party OAuth Providers</h3>
+<p>When you sign in via Google, Microsoft, or GitHub, we receive only the basic profile information you have permitted: your <strong>name</strong>, <strong>email address</strong>, and <strong>profile photo</strong>. We do not request access to your contacts, calendar, drive, or any other resource beyond identity verification. Connecting a Google Calendar, a YouTube channel or a Google Ads account to MarketFlow is a separate step, described in Sections 5, 5C and 5D.</p>
+<h3>2.4 Information from Third-Party Advertising APIs (MarketFlow Tenants)</h3>
+<p>MarketFlow tenants who voluntarily connect their advertising accounts grant us access to campaign performance metrics (impressions, clicks, cost, conversions) for reporting purposes only. See Section 5 for the Google Ads API data policy.</p>
+<h3>2.5 Information from Publishing Platforms (MarketFlow Tenants)</h3>
+<p>MarketFlow tenants who connect a Facebook Page, Instagram account, Threads profile, YouTube channel or TikTok account to publish their posts give us the account details and access tokens described in Sections 5B, 5D and 5E.</p>
+
+<h2 id="usage">3. How We Use Your Data</h2>
+<p>We use personal data only for the purposes disclosed to you at the time of collection:</p>
+<ul>
+<li><strong>Service Delivery:</strong> Authenticating your identity across the Codevertex ecosystem; providing access to the applications you subscribe to.</li>
+<li><strong>Security &amp; Fraud Prevention:</strong> Detecting and preventing unauthorised access, credential stuffing, brute-force attacks, and abuse.</li>
+<li><strong>Product Improvement:</strong> Understanding feature usage patterns (in aggregate or pseudonymous form) to prioritise development.</li>
+<li><strong>Customer Support:</strong> Resolving technical issues, responding to enquiries, and maintaining audit trails for dispute resolution.</li>
+<li><strong>Billing &amp; Subscription Management:</strong> Processing payments, issuing invoices, and managing subscription lifecycle events.</li>
+<li><strong>Marketing Communications:</strong> Sending product updates, security notices, and (where you have opted in) promotional content. You may opt out at any time.</li>
+<li><strong>Legal Compliance:</strong> Complying with Kenyan law, responding to lawful requests from government authorities, and enforcing our Terms of Service.</li>
+</ul>
+<p>We do <strong>not</strong> use your data to build profiles for sale to third parties, for political advertising, or for any purpose that has not been disclosed in this policy.</p>
+
+<h2 id="sharing">4. Third-Party Sharing &amp; Disclosure</h2>
+<p><strong>We do not sell, rent, or trade your personal data.</strong> We may share data only in the following limited circumstances:</p>
+<h3>4.1 Service Providers (Data Processors)</h3>
+<p>We engage trusted third-party vendors who process data on our behalf under strict data processing agreements:</p>
+<ul>
+<li><strong>Infrastructure Hosting:</strong> Our services run on a self-managed Kubernetes cluster hosted on a dedicated server from Contabo GmbH in its data centre in Nuremberg, Germany (EU). No customer data is shared with the hosting provider beyond what is inherent in running workloads on their hardware. Data is encrypted in transit (TLS 1.2+), and credentials, tokens and API secrets are encrypted at rest (AES-256-GCM).</li>
+<li><strong>Payment Processing:</strong> Paystack and other PCI-DSS certified payment gateways process card transactions. We receive only a tokenized reference, not raw card data.</li>
+<li><strong>Email Delivery:</strong> Transactional emails (password resets, security alerts) are sent via our Notifications Engine, which may relay to an SMTP provider.</li>
+<li><strong>Error Monitoring:</strong> Aggregated, anonymised crash reports may be sent to internal monitoring tools (Prometheus, Grafana Loki) with PII stripped at log time.</li>
+<li><strong>AI and media generation (MarketFlow):</strong> To answer chats and make ads, MarketFlow sends the text and images a tenant provides (questions, product details, brand descriptions, product photos) to AI providers acting as processors: Groq, OpenAI, Anthropic and TypeSafe for language, and fal.ai, Higgsfield, ElevenLabs and Creatomate for images, video and voice. We send only what the task needs, never passwords or payment data, and we choose providers whose API terms do not use customer data to train their models.</li>
+</ul>
+<h3>4.2 Advertising and Publishing APIs (MarketFlow Only)</h3>
+<p>For MarketFlow tenants who connect their accounts, data is shared with advertising and publishing platforms solely to fulfil the features the tenant has requested:</p>
+<ul>
+<li><strong>Google Ads API:</strong> Campaign metrics are fetched for the tenant's own account. Offline conversion events are uploaded with the tenant's Google Click ID (gclid), monetary value, and conversion timestamp. No personal data is attached.</li>
+<li><strong>Meta Graph API:</strong> Lead and ad performance data for the tenant's own Meta Business account, and the posts and ads the tenant chooses to publish. No cross-tenant data sharing occurs. See Section 5B.</li>
+<li><strong>Meta Conversions API:</strong> When a tenant turns it on, conversion events from that tenant's own customers (for example a purchase) are sent to the tenant's own Meta dataset to measure their ads. Email addresses and phone numbers are hashed (SHA-256) before they leave our servers.</li>
+<li><strong>YouTube Data API:</strong> The videos, titles and descriptions the tenant approves are uploaded to the tenant's own YouTube channel. See Section 5D.</li>
+<li><strong>TikTok Content Posting API:</strong> The videos and captions the tenant approves are posted to the tenant's own TikTok account. See Section 5E.</li>
+</ul>
+<h3>4.3 Legal Disclosures</h3>
+<p>We may disclose your information where required by law, court order, or government authority, or where necessary to protect the rights, property, or safety of Codevertex, our users, or the public.</p>
+<h3>4.4 Business Transfers</h3>
+<p>In the event of a merger, acquisition, or sale of all or part of our assets, user data may be transferred. We will notify you by email and/or a prominent notice on our website at least 30 days before any such transfer and before your data becomes subject to a different privacy policy.</p>
+<h3 id="sub-processors">4.5 Sub-processors</h3>
+<p>These are the companies that process personal data for us, what each one does and where:</p>
+<table>
+<thead>
+<tr><th>Sub-processor</th><th>What it does for us</th><th>Data it receives</th></tr>
+</thead>
+<tbody>
+<tr><td>Contabo GmbH (Nuremberg, Germany, EU)</td><td>Hosts the servers all Codevertex services run on</td><td>All service data, stored on our servers and encrypted in transit; credentials, tokens and secrets encrypted at rest</td></tr>
+<tr><td>Cloudflare, Inc.</td><td>DNS, TLS and protection of our websites, and R2 storage for media files</td><td>Website traffic passing through its network, and the images and videos tenants upload or generate</td></tr>
+<tr><td>Paystack and M-Pesa (Safaricom)</td><td>Payment processing</td><td>Payment details you enter on their payment pages, and the amount and reference</td></tr>
+<tr><td>Groq, OpenAI and TypeSafe</td><td>Language AI for MarketFlow chats, scripts and replies</td><td>Text only: the questions, product details and brand descriptions the business provides</td></tr>
+<tr><td>Anthropic</td><td>Language AI, only when it is configured as a provider</td><td>Text only, as for the providers above</td></tr>
+<tr><td>fal.ai, ElevenLabs and Higgsfield</td><td>Images, video and voice for MarketFlow ads</td><td>The business's own scripts and images</td></tr>
+<tr><td>Creatomate</td><td>Video assembly, only when it is configured as a provider</td><td>The business's own scripts, images and generated clips</td></tr>
+</tbody>
+</table>
+<p>None of these providers may use the data for its own purposes, and we choose AI providers whose API terms do not use customer data to train their models. We update this list before we add a new sub-processor.</p>
+
+<h2 id="google-ads">5. Google Ads API Data</h2>
+<p>This section supplements the Google API Services User Data Policy. MarketFlow uses the Google Ads API exclusively on behalf of tenants who explicitly authorise access via Google OAuth 2.0. The following principles govern how we handle Google Ads data:</p>
+<ul>
+<li><strong>Authorisation is explicit and tenant-initiated.</strong> We never silently link or access a Google Ads account. The tenant must complete a Google OAuth consent screen that clearly lists the requested scope (<code>https://www.googleapis.com/auth/adwords</code>).</li>
+<li><strong>Data is used only for tenant-facing features.</strong> Campaign metrics, conversion data, and ad performance are displayed only in the connecting tenant's own MarketFlow dashboard. We never combine data across tenants' accounts.</li>
+<li><strong>We do not sell Google Ads data.</strong> Data retrieved via the Google Ads API is never shared with third parties for advertising or any commercial purpose beyond providing the contracted MarketFlow features.</li>
+<li><strong>Refresh tokens are encrypted.</strong> Google OAuth refresh tokens are encrypted with AES-256-GCM and stored in a private PostgreSQL database with no public ingress. They are never logged and never accessible to Codevertex staff.</li>
+<li><strong>Revocation is immediate.</strong> When a tenant disconnects their Google Ads account, the refresh token is deleted and the row is marked inactive within the same request. No further API calls are made.</li>
+<li><strong>Conversion Uploads contain no PII.</strong> Offline conversion uploads include only the Google Click ID (gclid), a conversion timestamp, a monetary value, and a currency code, all provided or approved by the tenant.</li>
+</ul>
+<p>MarketFlow's use of Google Ads API data conforms to the <strong>Google API Services User Data Policy</strong> and the <strong>Google Ads API Terms of Service</strong>. We do not use Google Ads data for profiling, remarketing outside the tenant's account, or any secondary purpose.</p>
+
+<h2 id="google-signin">5A. Google Sign-In Data</h2>
+<p>Codevertex accounts (accounts.codevertexafrica.com) lets you sign in to Codevertex apps with your Google account. This section describes exactly what Google user data we access, why, and what we do with it.</p>
+<ul>
+<li><strong>What we request.</strong> Only the basic Sign-In scopes: <code>openid</code>, <code>email</code> and <code>profile</code>. We never request access to Gmail, Drive, Calendar, Contacts or any other Google service.</li>
+<li><strong>What we receive.</strong> Your Google account identifier, your email address and whether Google has verified it, your name, and your profile picture URL.</li>
+<li><strong>Why we use it.</strong> To identify you, create or find your Codevertex account, show your name and picture in the apps you use, and sign you in. Nothing else.</li>
+<li><strong>What we store.</strong> The identifier, email, name and picture URL, linked to your Codevertex account. We do not store your Google access token or refresh token after sign-in completes, and we never read your Google data again in the background.</li>
+<li><strong>Sharing.</strong> We do not sell your Google user data, we do not use it for advertising, and we do not share it with third parties. It is available only to the organisation whose app you sign in to, as the account holder details for your login, and to our service providers acting on our instructions to run the platform.</li>
+<li><strong>No humans read it.</strong> Staff do not read Google user data except where you ask for support, where required for security, or where the law requires it.</li>
+<li><strong>Deletion and revocation.</strong> You can remove the Google link or delete your account from your account settings, or email <a href="mailto:legal@codevertexafrica.com">legal@codevertexafrica.com</a>, and we delete the stored Google data. You can also revoke access any time at <a href="https://myaccount.google.com/permissions" rel="noopener noreferrer">myaccount.google.com/permissions</a>.</li>
+</ul>
+<p>Codevertex's use and transfer of information received from Google APIs to any other app adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" rel="noopener noreferrer"><strong>Google API Services User Data Policy</strong></a>, including the Limited Use requirements.</p>
+
+<h2 id="meta-data">5B. Meta Platform Data (Facebook, Instagram, Threads, WhatsApp)</h2>
+<p>MarketFlow lets a business connect its own Facebook Page, Instagram business account, ad account and, where offered, Threads profile and WhatsApp Business number, through Facebook Login for Business. This section describes what Meta Platform Data we receive and how we use it.</p>
+<ul>
+<li><strong>Who connects.</strong> Only a person who manages the business's Page or ad account, after Meta's consent screen lists each permission. We never connect anything silently.</li>
+<li><strong>What we receive.</strong> The connecting person's app-scoped user ID; the Pages, Instagram accounts and ad accounts they choose, with access tokens for them; leads submitted to the business's Lead Ads forms; comments and messages sent to the business's Page or Instagram account where the business turns on the inbox; and ad performance figures.</li>
+<li><strong>Why we use it.</strong> To show the business its leads, messages and ad results; to publish the posts and ads the business approves; to reply on the business's behalf where it asks us to; and to send its own conversion events to its own Meta dataset. Nothing else.</li>
+<li><strong>What we never do.</strong> We do not sell Meta Platform Data, use it to build profiles of people, share it with other businesses on MarketFlow, use it to train AI models, or use it for any purpose other than the features the business uses.</li>
+<li><strong>Storage and security.</strong> Access tokens are encrypted with AES-256-GCM and are never logged or shown to staff. Data is kept in the business's own account and isolated from every other business.</li>
+<li><strong>Retention.</strong> Tokens are kept while the connection is active and deleted when the business disconnects or the person removes the app. Leads and messages become the business's customer records and follow the retention in Section 8.</li>
+<li><strong>Deletion.</strong> Removing MarketFlow in your Facebook settings (Settings, Apps and websites) deletes the tokens you granted automatically, through our data deletion callback, and gives you a confirmation code you can check at <a href="https://marketflow.codevertexafrica.com/data-deletion" rel="noopener noreferrer">marketflow.codevertexafrica.com/data-deletion</a>. You can also email <a href="mailto:legal@codevertexafrica.com">legal@codevertexafrica.com</a>. See <a href="/data-requests">Your data and your rights</a>.</li>
+</ul>
+<p>Our use of Meta Platform Data follows the <strong>Meta Platform Terms</strong> and the <strong>Meta Developer Policies</strong>.</p>
+
+<h2 id="google-calendar">5C. Google Calendar Data (MarketFlow)</h2>
+<p>Separately from signing in (Section 5A), a MarketFlow business can connect its Google Calendar so customers can book meetings with it.</p>
+<ul>
+<li><strong>What we request.</strong> Access to the connected calendar's free and busy times and to create, update and cancel the meetings booked through MarketFlow. The consent screen lists the exact scopes.</li>
+<li><strong>Why we use it.</strong> To offer only free times on the business's booking page, add booked meetings with a video link to its calendar, and keep them in step when a meeting changes. We do not read event details that MarketFlow did not create.</li>
+<li><strong>Storage, sharing and deletion.</strong> The refresh token is encrypted with AES-256-GCM. We do not sell, share or use Google Calendar data for advertising or AI training. Disconnecting the calendar deletes the token at once; you can also revoke access at <a href="https://myaccount.google.com/permissions" rel="noopener noreferrer">myaccount.google.com/permissions</a>.</li>
+</ul>
+<p>This use adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" rel="noopener noreferrer"><strong>Google API Services User Data Policy</strong></a>, including the Limited Use requirements.</p>
+
+<h2 id="youtube">5D. YouTube API Services Data (MarketFlow)</h2>
+<p>A MarketFlow business can connect its YouTube channel so that MarketFlow uploads the videos the business approves. MarketFlow uses the YouTube API Services to do this.</p>
+<ul>
+<li><strong>Terms that apply.</strong> By connecting a YouTube channel you agree to be bound by the <a href="https://www.youtube.com/t/terms" rel="noopener noreferrer">YouTube Terms of Service</a>. Google's handling of your data is described in the <a href="https://policies.google.com/privacy" rel="noopener noreferrer">Google Privacy Policy</a>.</li>
+<li><strong>What we request.</strong> Permission to upload videos to the channel and to manage the videos MarketFlow uploaded. The consent screen lists the exact scopes.</li>
+<li><strong>What we store.</strong> The channel ID and channel title, the OAuth access and refresh tokens (encrypted with AES-256-GCM), and the IDs and status of the videos MarketFlow uploaded, so the business can see and manage them in the Studio.</li>
+<li><strong>Why we use it.</strong> To show which channel is connected, upload the videos the business approves with their titles and descriptions, and show the business what was posted. We do not read other videos, comments or analytics from the channel.</li>
+<li><strong>What we never do.</strong> We do not sell YouTube data, share it with other businesses on MarketFlow, use it for advertising or use it to train AI models.</li>
+<li><strong>Retention.</strong> We keep this data while the channel is connected. When the business disconnects the channel, revokes access, or asks us to delete it, we delete the tokens at once and the channel details and upload records within 7 days. Videos already published stay on YouTube until the business removes them.</li>
+<li><strong>Revoking access.</strong> You can disconnect the channel in MarketFlow, or revoke MarketFlow's access at any time on the <a href="https://security.google.com/settings/security/permissions" rel="noopener noreferrer">Google security settings page</a>.</li>
+</ul>
+
+<h2 id="tiktok">5E. TikTok Data (MarketFlow)</h2>
+<p>A MarketFlow business can connect its TikTok account through TikTok Login Kit so that MarketFlow posts the videos the business approves, using the TikTok Content Posting API.</p>
+<ul>
+<li><strong>What we receive and store.</strong> The account's open ID, display name and avatar, the access and refresh tokens (encrypted with AES-256-GCM), and the IDs and status of the videos MarketFlow posted.</li>
+<li><strong>Why we use it.</strong> To show which TikTok account is connected, post the videos and captions the business approves, and show the business what was posted. Nothing else.</li>
+<li><strong>What we never do.</strong> We do not sell TikTok data, share it with other businesses on MarketFlow, use it for advertising or use it to train AI models.</li>
+<li><strong>Retention.</strong> We keep this data while the account is connected. When the business disconnects the account, removes MarketFlow's access in TikTok, or asks us to delete it, we delete the tokens at once and the account details and post records within 7 days. TikTok does not let apps delete posts, so videos already posted stay on TikTok until the business deletes them there.</li>
+<li><strong>Terms that apply.</strong> Our use of TikTok data follows the TikTok Developer Terms of Service, and your use of TikTok follows TikTok's own terms and privacy policy.</li>
+</ul>
+
+<h2 id="google-limited-use">5F. Google API Services: Limited Use</h2>
+<p>Codevertex's use and transfer to any other app of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements. This covers every Google scope we request: Google Sign-In (Section 5A), Google Calendar (Section 5C), YouTube (Section 5D) and Google Ads (Section 5). In particular:</p>
+<ul>
+<li>We use Google user data only to provide and improve the features the user or business can see and asked for.</li>
+<li>We do not transfer it to others, except as needed to provide those features, to comply with the law, for security, or as part of a merger or sale with notice to users.</li>
+<li>We do not use it for advertising, sell it, or use it to decide creditworthiness or for lending.</li>
+<li>We do not use it to train or improve general AI or machine learning models.</li>
+<li>No person at Codevertex reads it unless the user agrees for a specific message or file, it is needed for security or to investigate abuse, the law requires it, or it is aggregated and anonymised for internal operations.</li>
+</ul>
+
+<h2 id="cookies">6. Cookies &amp; Tracking Technologies</h2>
+<p>We use the following types of cookies and similar technologies:</p>
+<table>
+<thead>
+<tr><th>Type</th><th>Purpose</th><th>Duration</th></tr>
+</thead>
+<tbody>
+<tr><td>Strictly necessary: bb_session</td><td>Your signed-in session across Codevertex apps (secure, not readable by scripts).</td><td>24 hours</td></tr>
+<tr><td>Strictly necessary: cv_cookie_consent</td><td>Remembers your cookie choice.</td><td>1 year</td></tr>
+<tr><td>Browser storage</td><td>Sign-in tokens, selected organisation and branch, theme, offline data.</td><td>Until you sign out or clear it</td></tr>
+<tr><td>Optional (functional, analytics)</td><td>Off unless you turn them on. We run no analytics or advertising tracking today.</td><td>Only with your consent</td></tr>
+</tbody>
+</table>
+<p>We do <strong>not</strong> use third-party tracking pixels, social media tracking widgets, or behavioural advertising cookies. Full details and your settings are in our <a href="/cookies">Cookie Policy</a>; blocking the strictly necessary cookies in your browser stops sign-in from working.</p>
+
+<h2 id="security">7. Security Measures</h2>
+<p>We implement a security-first architecture. Our key technical and organisational measures include:</p>
+<ul>
+<li><strong>Encryption at Rest:</strong> All sensitive fields (OAuth tokens, API keys, secrets) are encrypted with AES-256-GCM using a 32-byte key managed via Kubernetes SealedSecrets.</li>
+<li><strong>Encryption in Transit:</strong> All communication between your browser and our services uses TLS 1.2+ (enforced; HTTP is redirected to HTTPS). Inter-service communication uses TLS with API key authentication.</li>
+<li><strong>Authentication Standards:</strong> Our SSO gateway implements OAuth 2.0, OpenID Connect, and optional WebAuthn (passkey) multi-factor authentication.</li>
+<li><strong>Access Controls:</strong> Role-based access control (RBAC) with a <code>platform_owner</code> claim required for all administrative operations. Tenant users cannot access other tenants' data by design.</li>
+<li><strong>Audit Logging:</strong> All administrative actions, authentication events, and provider setting changes are recorded in an append-only <code>audit_logs</code> table. Audit entries cannot be modified or deleted by users.</li>
+<li><strong>Vulnerability Management:</strong> Regular dependency scanning and security reviews. We have a documented incident response procedure.</li>
+<li><strong>No-Log Policy for Secrets:</strong> Bearer tokens, refresh tokens, and passwords are never written to application logs, and we are reducing contact details in operational logs to masked forms.</li>
+</ul>
+<p>While we apply industry-leading security practices, no system is 100% secure. If you discover a security vulnerability, please disclose it responsibly to <a href="mailto:security@codevertexafrica.com">security@codevertexafrica.com</a>.</p>
+
+<h2 id="retention">8. Data Retention</h2>
+<p>We retain your data only as long as necessary for the purpose it was collected:</p>
+<table>
+<thead>
+<tr><th>Data Category</th><th>Retention Period</th></tr>
+</thead>
+<tbody>
+<tr><td>Account profile data</td><td>Until account deletion request + 30-day grace period</td></tr>
+<tr><td>Authentication / security logs</td><td>90 days (rolling)</td></tr>
+<tr><td>Audit trail logs</td><td>2 years (legal obligation)</td></tr>
+<tr><td>Billing and transaction records</td><td>7 years (Kenya Tax Act compliance)</td></tr>
+<tr><td>Google Ads OAuth refresh tokens</td><td>Until tenant disconnects or account is deleted; immediately purged on revocation</td></tr>
+<tr><td>YouTube and TikTok tokens</td><td>Until the business disconnects the account or revokes access; deleted at once</td></tr>
+<tr><td>YouTube channel and TikTok account details, upload and post records</td><td>While the account is connected; deleted within 7 days of disconnection, revocation or a deletion request</td></tr>
+<tr><td>Campaign performance metrics (MarketFlow)</td><td>90 days in PostgreSQL; then aggregated anonymised summaries retained indefinitely</td></tr>
+<tr><td>Support ticket content</td><td>2 years after ticket closure</td></tr>
+<tr><td>Application crash / error logs</td><td>30 days (automatic rotation)</td></tr>
+</tbody>
+</table>
+
+<h2 id="rights">9. Your Rights</h2>
+<p>Depending on your jurisdiction, you may have the following rights regarding your personal data. We honour all reasonable requests within 30 days:</p>
+<ul>
+<li><strong>Right of Access:</strong> Request a copy of the personal data we hold about you.</li>
+<li><strong>Right to Rectification:</strong> Request correction of inaccurate or incomplete data. You can update most information directly in your account settings.</li>
+<li><strong>Right to Erasure ("Right to be Forgotten"):</strong> Request deletion of your personal data. Note that some data may be retained for legal compliance (see Section 8).</li>
+<li><strong>Right to Restriction:</strong> Request that we restrict processing of your data while a dispute is resolved.</li>
+<li><strong>Right to Data Portability:</strong> Request an export of your account data in a machine-readable format (JSON or CSV).</li>
+<li><strong>Right to Object:</strong> Object to processing based on legitimate interests, including any direct marketing.</li>
+<li><strong>Right to Withdraw Consent:</strong> Where processing is based on your consent, you may withdraw it at any time without affecting prior processing.</li>
+<li><strong>Right to Disconnect Integrations:</strong> You may revoke access to any third-party integration (Google Ads, Google Calendar, YouTube, Meta, TikTok, GitHub) at any time from your account settings. Revocation takes effect immediately.</li>
+</ul>
+<p>How to exercise these rights, and what deletion means, is explained on <a href="/data-requests">Your data and your rights</a>. You can also email <a href="mailto:legal@codevertexafrica.com">legal@codevertexafrica.com</a> with the subject line <strong>"Data Rights Request: [Your Name]"</strong>. You may also complain to the Office of the Data Protection Commissioner (odpc.go.ke).</p>
+
+<h2 id="international">10. International Data Transfers</h2>
+<p>Codevertex is headquartered in Kisumu, Kenya. Our production infrastructure runs on a dedicated server from Contabo GmbH physically located in the <strong>European Union (Nuremberg, Germany)</strong>, which means your data at rest is stored within EU jurisdiction and is subject to EU data protection standards, including GDPR-compliant practices enforced by Contabo GmbH as the infrastructure provider. Where data is transmitted to or from Kenya for operational purposes, we apply appropriate contractual and technical safeguards. Some of the sub-processors in Section 4.5 process data outside Kenya and the EU; we transfer data to them only where the Kenya Data Protection Act, 2019 allows it, with appropriate safeguards. We do not knowingly transfer personal data to jurisdictions without an adequate level of data protection without appropriate safeguards.</p>
+
+<h2 id="children">11. Children's Privacy</h2>
+<p>Our services are not directed to individuals under the age of 18. We do not knowingly collect personal data from children. If you believe we have inadvertently collected information from a minor, please contact us immediately at <a href="mailto:legal@codevertexafrica.com">legal@codevertexafrica.com</a> and we will delete it promptly.</p>
+
+<h2 id="changes">12. Policy Changes</h2>
+<p>We may update this Privacy Policy from time to time to reflect changes in our practices, legal requirements, or service features. Material changes will be:</p>
+<ul>
+<li>Posted on this page with an updated version and effective date.</li>
+<li>Communicated to active account holders by email at least 14 days before the changes take effect.</li>
+<li>Presented as an in-product notice requiring acknowledgement where the change significantly affects how we process your data.</li>
+</ul>
+<p>Your continued use of our services after the effective date constitutes acceptance of the revised policy.</p>
+
+<h2 id="contact">13. Contact &amp; Data Protection</h2>
+<p>If you have questions about this Privacy Policy, wish to exercise your rights, or wish to report a concern, please contact us:</p>
+<ul>
+<li><strong>Privacy &amp; Data Protection:</strong> <a href="mailto:legal@codevertexafrica.com">legal@codevertexafrica.com</a></li>
+<li><strong>General Enquiries:</strong> <a href="mailto:info@codevertexafrica.com">info@codevertexafrica.com</a></li>
+<li><strong>Developer / API Support:</strong> <a href="mailto:support@codevertexafrica.com">support@codevertexafrica.com</a></li>
+<li><strong>Registered Office:</strong> Pioneer House, 2nd Floor, Oginga Street, Kisumu, Kenya</li>
+</ul>
+<h3>Compliance Standards</h3>
+<ul>
+<li>Google API Services User Data Policy</li>
+<li>Google Ads API Required Minimum Functionality</li>
+<li>YouTube API Services Terms of Service and Developer Policies</li>
+<li>OAuth 2.0 / OpenID Connect Security Standards</li>
+<li>Kenya Data Protection Act, 2019</li>
+<li>AES-256-GCM encryption of stored credentials and secrets</li>
+<li>TLS 1.2+ Encryption in Transit</li>
+</ul>
