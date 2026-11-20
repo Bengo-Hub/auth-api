@@ -30,6 +30,7 @@ import (
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
 	googleprovider "github.com/bengobox/auth-api/internal/providers/google"
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
+	tiktokprovider "github.com/bengobox/auth-api/internal/providers/tiktok"
 	"github.com/bengobox/auth-api/internal/revocation"
 	"github.com/bengobox/auth-api/internal/services/access"
 	"github.com/bengobox/auth-api/internal/services/auth"
@@ -104,6 +105,10 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 	if err != nil {
 		return nil, err
 	}
+	tiktokProvider, err := tiktokprovider.New(integrationSvc)
+	if err != nil {
+		return nil, err
+	}
 
 	hasher := password.NewHasher(cfg.Security)
 	auditor := audit.New(entClient, logger)
@@ -146,6 +151,7 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 		Revoker:            revocation.New(redisClient, cfg.Redis.Namespace),
 		GitHub:             githubProvider,
 		Microsoft:          microsoftProvider,
+		TikTok:             tiktokProvider,
 		SubscriptionClient: subClient,
 		Integrations:       integrationSvc,
 	})
@@ -380,6 +386,8 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			MicrosoftOAuthStart:                authHandler.MicrosoftOAuthStart,
 			SocialMFAVerify:                    authHandler.SocialMFAVerify,
 			MicrosoftOAuthCallback:             authHandler.MicrosoftOAuthCallback,
+			TikTokOAuthStart:                   authHandler.TikTokOAuthStart,
+			TikTokOAuthCallback:                authHandler.TikTokOAuthCallback,
 			WellKnownConfig:                    oidcHandler.WellKnownConfig,
 			JWKS:                               oidcHandler.JWKS,
 			Authorize:                          oidcHandler.Authorize,

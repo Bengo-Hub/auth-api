@@ -46,6 +46,8 @@ type AuthService interface {
 	CompleteGitHubOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
 	StartMicrosoftOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
 	CompleteMicrosoftOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
+	StartTikTokOAuth(ctx context.Context, in auth.OAuthStartInput) (string, error)
+	CompleteTikTokOAuth(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error)
 	CompleteSocialMFA(ctx context.Context, in auth.SocialMFAInput) (*auth.AuthResult, error)
 	PhoneMFAChallenge(target *auth.PhoneLoginTarget, clientID string) (string, error)
 	SocialMFAChallengeNonce(challenge string) (nonce string, ttl time.Duration, err error)
@@ -213,6 +215,7 @@ var integrationMeta = map[string]struct {
 	"google":    {Category: "oauth", LogoSlug: "google", BrandHex: "#4285F4"},
 	"microsoft": {Category: "oauth", LogoSlug: "microsoft", BrandHex: "#2F2F2F"},
 	"github":    {Category: "oauth", LogoSlug: "github", BrandHex: "#181717"},
+	"tiktok":    {Category: "oauth", LogoSlug: "tiktok", BrandHex: "#000000"},
 }
 
 func (h *AuthHandler) ListActiveIntegrations(w http.ResponseWriter, r *http.Request) {
@@ -804,6 +807,37 @@ func (h *AuthHandler) MicrosoftOAuthStart(w http.ResponseWriter, r *http.Request
 func (h *AuthHandler) MicrosoftOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	h.handleOAuthCallback(w, r, "microsoft", func(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error) {
 		return h.service.CompleteMicrosoftOAuth(ctx, in)
+	})
+}
+
+// TikTokOAuthStart initiates "Login with TikTok".
+func (h *AuthHandler) TikTokOAuthStart(w http.ResponseWriter, r *http.Request) {
+	var req googleOAuthStartRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "invalid JSON payload", nil)
+		return
+	}
+	authURL, err := h.service.StartTikTokOAuth(r.Context(), auth.OAuthStartInput{
+		TenantSlug:  req.TenantSlug,
+		ClientID:    req.ClientID,
+		Origin:      r.Header.Get("Origin"),
+		Flow:        req.Flow,
+		RedirectURI: req.RedirectURI,
+		ReturnTo:    req.ReturnTo,
+		IPAddress:   clientIP(r),
+		UserAgent:   userAgent(r),
+	})
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"authorization_url": authURL})
+}
+
+// TikTokOAuthCallback is the redirect URI registered in the TikTok developer portal.
+func (h *AuthHandler) TikTokOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	h.handleOAuthCallback(w, r, "tiktok", func(ctx context.Context, in auth.OAuthCallbackInput) (*auth.AuthResult, error) {
+		return h.service.CompleteTikTokOAuth(ctx, in)
 	})
 }
 

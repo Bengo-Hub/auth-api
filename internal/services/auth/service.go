@@ -30,6 +30,7 @@ import (
 	githubprovider "github.com/bengobox/auth-api/internal/providers/github"
 	googleprovider "github.com/bengobox/auth-api/internal/providers/google"
 	microsoftprovider "github.com/bengobox/auth-api/internal/providers/microsoft"
+	tiktokprovider "github.com/bengobox/auth-api/internal/providers/tiktok"
 	"github.com/bengobox/auth-api/internal/services/access"
 	"github.com/bengobox/auth-api/internal/services/integrations"
 	"github.com/bengobox/auth-api/internal/services/sessionlimit"
@@ -105,6 +106,7 @@ const (
 	googleProviderName    = "google"
 	githubProviderName    = "github"
 	microsoftProviderName = "microsoft"
+	tiktokProviderName    = "tiktok"
 )
 
 // Service encapsulates core authentication flows.
@@ -121,6 +123,7 @@ type Service struct {
 	revoker           JTIRevoker
 	github            *githubprovider.Provider
 	microsoft         *microsoftprovider.Provider
+	tiktok            tiktokOAuth
 	subscriptionCl    *subscription.Client
 	// access decides each member's services (user_services claim); nil leaves the claim out.
 	access       *access.Resolver
@@ -139,13 +142,20 @@ type Dependencies struct {
 	Revoker            JTIRevoker
 	GitHub             *githubprovider.Provider
 	Microsoft          *microsoftprovider.Provider
+	TikTok             *tiktokprovider.Provider
 	SubscriptionClient *subscription.Client
 	Integrations       *integrations.Service
 }
 
 // New initialises the auth service.
 func New(deps Dependencies) *Service {
+	var tiktok tiktokOAuth
+	if deps.TikTok != nil {
+		// A nil *Provider in the interface would not compare equal to nil.
+		tiktok = deps.TikTok
+	}
 	return &Service{
+		tiktok:         tiktok,
 		entClient:      deps.EntClient,
 		tokenSvc:       deps.TokenSvc,
 		hasher:         deps.Hasher,
@@ -2586,7 +2596,7 @@ func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity
 		return userEntity, err
 	}
 
-	if err := s.createIdentity(ctx, userEntity.ID, profile, token); err != nil {
+	if err := s.createIdentity(ctx, googleProviderName, userEntity.ID, profile, token); err != nil {
 		return nil, err
 	}
 
@@ -2663,7 +2673,7 @@ func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity
 	if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
 		return userEntity, err
 	}
-	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.Name}, token); err != nil {
+	if err := s.createIdentity(ctx, githubProviderName, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.Name}, token); err != nil {
 		return nil, err
 	}
 	if isNewUser {
@@ -2742,7 +2752,7 @@ func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEnt
 	if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
 		return userEntity, err
 	}
-	if err := s.createIdentity(ctx, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.DisplayName}, token); err != nil {
+	if err := s.createIdentity(ctx, microsoftProviderName, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.DisplayName}, token); err != nil {
 		return nil, err
 	}
 	if isNewUser {
@@ -2778,10 +2788,13 @@ func (s *Service) updateIdentityTokens(ctx context.Context, identityID uuid.UUID
 	return nil
 }
 
-func (s *Service) createIdentity(ctx context.Context, userID uuid.UUID, profile *googleprovider.Profile, token *oauth2.Token) error {
+// createIdentity links a provider account to the user. The provider name must be the one the
+// lookup queries by: an identity saved under another name is never found again, so the next
+// sign-in would try to insert it a second time.
+func (s *Service) createIdentity(ctx context.Context, provider string, userID uuid.UUID, profile *googleprovider.Profile, token *oauth2.Token) error {
 	identityCreate := s.entClient.UserIdentity.Create().
 		SetUserID(userID).
-		SetProvider(googleProviderName).
+		SetProvider(provider).
 		SetProviderSubject(profile.Subject).
 		SetProviderEmail(normalizeEmail(profile.Email)).
 		SetEmailVerified(profile.EmailVerified).

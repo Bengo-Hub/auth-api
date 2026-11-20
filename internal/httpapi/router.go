@@ -107,6 +107,8 @@ type AuthHandlers struct {
 	GoogleOAuthCallback                                http.HandlerFunc
 	GitHubOAuthStart                                   http.HandlerFunc
 	GitHubOAuthCallback                                http.HandlerFunc
+	TikTokOAuthStart                                   http.HandlerFunc
+	TikTokOAuthCallback                                http.HandlerFunc
 	MicrosoftOAuthStart                                http.HandlerFunc
 	SocialMFAVerify                                    http.HandlerFunc
 	MicrosoftOAuthCallback                             http.HandlerFunc
@@ -356,6 +358,10 @@ func NewRouter(deps RouterDeps) http.Handler {
 			r.Post("/oauth/microsoft/start", deps.AuthHandlers.MicrosoftOAuthStart)
 			r.With(sensitive).Post("/oauth/mfa/verify", deps.AuthHandlers.SocialMFAVerify)
 			r.Get("/oauth/microsoft/callback", deps.AuthHandlers.MicrosoftOAuthCallback)
+			if deps.AuthHandlers.TikTokOAuthStart != nil {
+				r.Post("/oauth/tiktok/start", deps.AuthHandlers.TikTokOAuthStart)
+				r.Get("/oauth/tiktok/callback", deps.AuthHandlers.TikTokOAuthCallback)
+			}
 
 			// GET /logout is public: for redirect-based logout (post_logout_redirect_uri from clients)
 			r.Get("/logout", deps.AuthHandlers.LogoutGet)

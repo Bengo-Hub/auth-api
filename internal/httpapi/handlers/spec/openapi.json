@@ -4076,6 +4076,8 @@
     "/api/v1/auth/oauth/github/callback": { "get": { "tags": ["OAuth"], "summary": "GitHub OAuth callback", "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/oauth/microsoft/start": { "post": { "tags": ["OAuth"], "summary": "Microsoft OAuth start", "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/oauth/microsoft/callback": { "get": { "tags": ["OAuth"], "summary": "Microsoft OAuth callback", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/oauth/tiktok/start": { "post": { "tags": ["OAuth"], "summary": "TikTok OAuth start", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/auth/oauth/tiktok/callback": { "get": { "tags": ["OAuth"], "summary": "TikTok OAuth callback", "responses": { "200": { "description": "OK" } } } },
     "/api/v1/auth/integrations/active": {
       "get": {
         "tags": ["Auth"],

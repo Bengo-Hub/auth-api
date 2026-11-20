@@ -1,6 +1,6 @@
 # OAuth Provider Setup Guide
 
-This guide covers registering OAuth applications with Google, Microsoft, and GitHub, and wiring them into the Codevertex auth-service.
+This guide covers registering OAuth applications with Google, Microsoft, GitHub and TikTok, and wiring them into the Codevertex auth-service.
 
 ---
 
@@ -12,10 +12,11 @@ This guide covers registering OAuth applications with Google, Microsoft, and Git
 4. [Google OAuth Setup](#google-oauth-setup)
 5. [Microsoft OAuth Setup](#microsoft-oauth-setup)
 6. [GitHub OAuth Setup](#github-oauth-setup)
-7. [Storing Credentials in auth-api](#storing-credentials-in-auth-api)
-8. [End-to-end OAuth Flow](#end-to-end-oauth-flow)
-9. [Multi-tenancy & Tenant Resolution](#multi-tenancy--tenant-resolution)
-10. [Troubleshooting](#troubleshooting)
+7. [TikTok Login Kit Setup](#tiktok-login-kit-setup)
+8. [Storing Credentials in auth-api](#storing-credentials-in-auth-api)
+9. [End-to-end OAuth Flow](#end-to-end-oauth-flow)
+10. [Multi-tenancy & Tenant Resolution](#multi-tenancy--tenant-resolution)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -43,6 +44,7 @@ Register **exactly these** URLs (plus the local-dev variant) in each provider's 
 | Google | `https://sso.codevertexafrica.com/api/v1/auth/oauth/google/callback` |
 | Microsoft | `https://sso.codevertexafrica.com/api/v1/auth/oauth/microsoft/callback` |
 | GitHub | `https://sso.codevertexafrica.com/api/v1/auth/oauth/github/callback` |
+| TikTok | `https://sso.codevertexafrica.com/api/v1/auth/oauth/tiktok/callback` |
 
 ### Local Development
 
@@ -51,6 +53,8 @@ Register **exactly these** URLs (plus the local-dev variant) in each provider's 
 | Google | `http://localhost:8080/api/v1/auth/oauth/google/callback` |
 | Microsoft | `http://localhost:8080/api/v1/auth/oauth/microsoft/callback` |
 | GitHub | `http://localhost:8080/api/v1/auth/oauth/github/callback` |
+
+TikTok accepts only HTTPS redirect URIs, so local TikTok sign-in needs an HTTPS tunnel registered as a second Web redirect URI.
 
 > Port `8080` is the default auth-api port. Adjust if you run auth-api on a different port.
 
@@ -146,6 +150,32 @@ Google (and optionally Microsoft) also require JavaScript origins. These are the
 
 ---
 
+## TikTok Login Kit Setup
+
+The TikTok app is "Markeflow by Codevertex" in [TikTok for Developers](https://developers.tiktok.com/apps), with the Login Kit product added.
+
+1. Under **Login Kit**, set the **Web** redirect URI to `https://sso.codevertexafrica.com/api/v1/auth/oauth/tiktok/callback`.
+2. Make sure the app has the `user.info.basic` scope. Sign-in asks for nothing else.
+3. Copy the **Client key** and **Client secret** from the app's **Credentials** section.
+4. Open [Identity Providers](https://accounts.codevertexafrica.com/dashboard/developer/integrations) in auth-ui, fill in the TikTok card (Client Key, Client Secret, Redirect URI) and enable it. The button appears on the login and sign-up pages once the provider is active.
+
+How TikTok differs from the other providers:
+
+- The app id is sent as `client_key`, not `client_id`, on both the authorize URL (`https://www.tiktok.com/v2/auth/authorize/`) and the token call (`POST https://open.tiktokapis.com/v2/oauth/token/`, form encoded). The stored credentials use the key `client_key` for the same reason.
+- Web apps do not use PKCE. TikTok requires `code_verifier` only for mobile and desktop apps.
+- The profile comes from `GET https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name` and has no email address.
+- The person is identified by `open_id` (TikTok scopes it to this app). The identity row is `provider=tiktok`, `provider_subject=<open_id>`, and its profile keeps `union_id`, the display name and the avatar.
+
+Accounts without an email:
+
+- A TikTok account already linked to a Codevertex account signs in to that account.
+- A TikTok account seen for the first time gets a new account with a placeholder address `tiktok-<hash>@placeholder.local`, the same approach as phone-only accounts. The verify-email dialog then asks the person for a real address and replaces the placeholder once it is proven.
+- The usual social sign-up rules decide whether the new account may join the tenant (`ensureMembership`): a customer-facing app gives its self-signup role, the platform tenant lets a new person register as a member, and any other organisation needs an existing membership. A refused sign-up leaves no account behind.
+- Because there is no email to match on, an existing Codevertex account is not linked automatically. A person who signs in with TikTok first gets a separate account.
+- Access and refresh tokens are not stored, as with the other providers. The 2FA rule is the same: an account with an authenticator app finishes on `/auth/mfa`.
+
+---
+
 ## Storing Credentials in auth-api
 
 Once you have the three `(client_id, client_secret)` pairs, there are two ways to load them.
@@ -180,6 +210,8 @@ The seeder ([cmd/seed/main.go `seedIntegrations()`](../cmd/seed/main.go)) upsert
 ```
 
 The `redirect_url` is computed from `cfg.Token.Issuer`. The blob is encrypted at rest with AES-256-GCM using `AUTH_SECURITY_INTEGRATION_ENCRYPTION_KEY`.
+
+The seeder does not create a TikTok row. TikTok is configured only through auth-ui (Option B), and its blob holds `client_key`, `client_secret` and `redirect_url`.
 
 ### Option B — Configure via auth-ui admin
 
@@ -222,8 +254,9 @@ After deploying auth-api with dummy placeholder seeds, any platform admin can op
 
 Handler locations:
 
-- `POST /api/v1/auth/oauth/{provider}/start` → [internal/httpapi/handlers/auth_handler.go:378](../internal/httpapi/handlers/auth_handler.go) (Google), `:426` (GitHub), `:468` (Microsoft)
-- `GET /api/v1/auth/oauth/{provider}/callback` → [internal/httpapi/handlers/auth_handler.go:402](../internal/httpapi/handlers/auth_handler.go) (Google), `:447` (GitHub), `:489` (Microsoft)
+- `POST /api/v1/auth/oauth/{provider}/start` → [internal/httpapi/handlers/auth_handler.go:378](../internal/httpapi/handlers/auth_handler.go) (Google), `:426` (GitHub), `:468` (Microsoft), `TikTokOAuthStart` (TikTok)
+- `GET /api/v1/auth/oauth/{provider}/callback` → [internal/httpapi/handlers/auth_handler.go:402](../internal/httpapi/handlers/auth_handler.go) (Google), `:447` (GitHub), `:489` (Microsoft), `TikTokOAuthCallback` (TikTok)
+- TikTok provider client: [internal/providers/tiktok/provider.go](../internal/providers/tiktok/provider.go). Sign-in flow: [internal/services/auth/oauth_tiktok.go](../internal/services/auth/oauth_tiktok.go).
 - State JWT: [internal/oauth/state/state.go](../internal/oauth/state/state.go), signed HS256 with `AUTH_SECURITY_OAUTH_STATE_SECRET`, 10-minute TTL, carries `{tenant_slug, client_id, redirect_uri, nonce}`.
 - JIT user creation: `resolveUserFromGoogleProfile`, `resolveUserFromGitHubProfile`, `resolveUserFromMicrosoftProfile` in [internal/httpapi/service.go](../internal/httpapi/service.go).
 
@@ -231,7 +264,7 @@ Handler locations:
 
 ## Scope: platform-only
 
-**OAuth provider credentials (`google`, `microsoft`, `github`) are stored at
+**OAuth provider credentials (`google`, `microsoft`, `github`, `tiktok`) are stored at
 platform scope only — `tenant_id` is always `NULL`.** Every tenant in the
 Codevertex ecosystem authenticates through the same OAuth app; per-tenant
 isolation is provided by the signed OAuth state JWT (`tenant_slug` claim), not
@@ -239,7 +272,7 @@ by separate credentials per tenant.
 
 Enforcement is server-side in `admin_handler.go` via the
 `platformOnlyIntegrations` map — any create request for `google`, `microsoft`,
-or `github` silently drops the `tenant_id` field. The
+`github` or `tiktok` silently drops the `tenant_id` field. The
 `GET /api/v1/auth/integrations/active?category=oauth` endpoint ignores the
 `tenant_slug` query param for the same reason.
 
@@ -273,6 +306,8 @@ In auth-ui, the `OAuthButton` component reads the active tenant from the subdoma
 | Google: *"Invalid Redirect: URI must not be empty"* at console creation | Redirect URI field left blank | Paste `https://sso.codevertexafrica.com/api/v1/auth/oauth/google/callback`. |
 | Microsoft: *"AADSTS50011: reply URL doesn't match"* | Same as Google redirect_uri_mismatch | Check Azure App registration → Authentication → Redirect URIs. |
 | GitHub: callback URL mismatch | GitHub only allows one callback per app | Register separate prod + dev OAuth Apps. |
+| TikTok: *"Redirect_uri is not matched with the uri when requesting code."* | The Redirect URI saved in auth-ui differs from the Login Kit Web redirect URI | Make both exactly `https://sso.codevertexafrica.com/api/v1/auth/oauth/tiktok/callback`. |
+| TikTok: *"client_key"* error on the authorize page | Client Key missing or pasted with spaces, or the app is not yet approved for Login Kit | Re-save the key in auth-ui and check the app status in TikTok for Developers. |
 | State JWT expired | User took >10 min between start and callback | User retries from scratch; adjust TTL via `AUTH_SECURITY_OAUTH_STATE_TTL` if needed. |
 | `integration config not found` on callback | `IntegrationConfig` row missing or `is_active=false` | Run seeder with the env vars set, or enable the provider in auth-ui admin. |
 | User signs in but lands on wrong tenant | `tenant_slug` not propagated to `/oauth/start` | Check that the frontend reads the active tenant from subdomain/path and sends it in the start request. |

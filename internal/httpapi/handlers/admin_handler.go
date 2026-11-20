@@ -1702,6 +1702,7 @@ var platformOnlyIntegrations = map[string]bool{
 	"google":    true,
 	"microsoft": true,
 	"github":    true,
+	"tiktok":    true,
 	// System keys must also stay platform-wide.
 	"system_encryption_key":              true,
 	platformAlertChannelsIntegrationName: true,

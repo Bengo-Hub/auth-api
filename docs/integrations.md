@@ -79,7 +79,7 @@ email to a project.
 When a person with no membership in the requested tenant signs in through one of these apps,
 auth-api adds the membership with that role and publishes `auth.user.created`, instead of
 showing the organisation picker. This happens on `POST /auth/login` (the UI sends `client_id`),
-on `/authorize` for an existing session, and on Google, GitHub and Microsoft sign-in (the
+on `/authorize` for an existing session, and on Google, GitHub, Microsoft and TikTok sign-in (the
 client id travels in the OAuth state). Existing memberships are never changed. The code is
 `internal/services/auth/self_service_join.go`.
 
@@ -552,6 +552,17 @@ r.Use(authMiddleware.RequireAuth)
 - Local dev redirect URI: `http://localhost:8080/api/v1/auth/oauth/github/callback`
 
 **Flow**: Similar to Google OAuth
+
+### TikTok Login Kit
+
+**Purpose**: "Login with TikTok" for customers and creators (TikTok for Developers app "Markeflow by Codevertex", Login Kit for Web)
+
+**Configuration**:
+- Client Key and Client Secret: stored encrypted in `IntegrationConfig.encrypted_credentials` under `client_key`, `client_secret` and `redirect_url`, platform scope only, entered in auth-ui Identity Providers
+- Production redirect URI: `https://sso.codevertexafrica.com/api/v1/auth/oauth/tiktok/callback`
+- Scope: `user.info.basic`
+
+**Flow**: Same state, membership, 2FA and session rules as Google. TikTok returns no email, so the account is found by `open_id`. A first-time TikTok sign-in creates an account with a `tiktok-<hash>@placeholder.local` address, and the verify-email dialog asks for a real one. Setup details are in [oauth-setup.md](./oauth-setup.md#tiktok-login-kit-setup).
 
 ### Apple Sign In
 

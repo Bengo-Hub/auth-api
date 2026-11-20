@@ -122,7 +122,7 @@ Auth-api owns the canonical outlet/branch registry. All downstream services mirr
 
 - User registration, login, password reset
 - MFA (TOTP with backup codes)
-- Social login (Google, GitHub, Microsoft)
+- Social login (Google, GitHub, Microsoft, TikTok)
 - User-tenant memberships with global roles
 - Permission-based RBAC enforcement
 - Which services keep each member (see Member services below)
