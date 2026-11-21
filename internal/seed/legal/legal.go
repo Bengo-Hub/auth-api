@@ -30,6 +30,34 @@ var Documents = []Document{
 	{DocType: "MARKETFLOW_AUTOPUBLISH_TERMS", Title: "MarketFlow Autopilot Terms", File: "marketflow-autopublish-terms.html"},
 }
 
+// Revision is a later version written in the repository instead of the dashboard, for a change
+// that must ship with the code that needs it (Login with TikTok in the privacy policy). cmd/seed
+// publishes it once, only while After is still the newest version of the type and no draft is
+// open; a type that has moved on in the dashboard is left alone. A published version is never
+// edited: a revision is always a new version.
+type Revision struct {
+	Document
+	// Version is the new version label; After is the version it follows.
+	Version string
+	After   string
+	// Summary is the change summary shown in the dashboard and on the version page.
+	Summary string
+}
+
+// A revision is always published as a non-material change, in force from the day it is seeded:
+// the seeder sends no email and asks nobody to accept again. A material change goes through the
+// dashboard, which gives notice and emails every user.
+
+// Revisions are the repository revisions, oldest first.
+var Revisions = []Revision{
+	{
+		Document: Document{DocType: "PRIVACY_POLICY", Title: "Privacy Policy", File: "privacy-policy-v2.html"},
+		Version:  "2",
+		After:    "1",
+		Summary:  "Adds Section 5G, Login with TikTok: the open ID, display name and avatar we receive, no email, and how to unlink. Deletion requests for Google and TikTok sign-in data go through the Data Requests page.",
+	},
+}
+
 // HTML returns the document's body.
 func (d Document) HTML() (string, error) {
 	b, err := files.ReadFile(d.File)

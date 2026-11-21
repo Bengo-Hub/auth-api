@@ -70,6 +70,18 @@ The full seed runs this as its last step. `SEED_ONLY=legal /app/seed` runs only 
 
 Every `<h2>` in these files has a stable `id` that matches the anchors of the built-in pages (`#google-signin`, `#meta-data`, `#youtube`, `#tiktok`, `#sub-processors` and so on). auth-ui builds the Contents list from those ids. The built-in TSX pages in auth-ui carry the same text as the fallback, so both read the same. Any later change is a new version from the dashboard, not an edit of these files; editing a file after it was seeded has no effect on a database that already has version 1.
 
+## Repository revisions
+
+A change that has to ship with the code that needs it is written in the repository as a new version, never as an edit of a seeded file. `legal.Revisions` in `internal/seed/legal/legal.go` lists them, each with its own HTML file, the version it follows and a change summary. After the first versions, `cmd/seed` publishes each revision through `SeedRevision` in `legal_seed.go`, with the same insert and publish steps as the dashboard:
+
+- only while the version it follows is still the newest version of the type and no draft is open, so a type I have changed in the dashboard is left alone;
+- once: a second run finds the revision published and skips it, and a run stopped between the two steps publishes the draft it left;
+- as a non-material change in force from the day it is seeded, so nobody is asked to accept again and no email goes out. A material change goes through the dashboard, which gives notice and emails every user.
+
+| File | Type | Version | Change |
+|---|---|---|---|
+| `privacy-policy-v2.html` | PRIVACY_POLICY | 2 (after 1) | Section 5G, Login with TikTok |
+
 ## Social sign-in tokens
 
-Social sign-in (Google, GitHub, Microsoft) no longer keeps the provider's access token or refresh token on `user_identities`. Sign-in uses them only for the profile call and nothing reads them later, as the privacy policy (section 5A) says. The provider subject, email, scope, expiry and profile are still stored. Migration `20261119120000_clear_identity_oauth_tokens.sql` records the change that nulls the tokens already stored. Because auth-api migrates with `Schema.Create`, which does not execute the versioned files, `database.ClearIdentityOAuthTokens` runs the same idempotent update after every migrate.
+Social sign-in (Google, GitHub, Microsoft, TikTok) no longer keeps the provider's access token or refresh token on `user_identities`. Sign-in uses them only for the profile call and nothing reads them later, as the privacy policy (section 5A) says. The provider subject, email, scope, expiry and profile are still stored. Migration `20261119120000_clear_identity_oauth_tokens.sql` records the change that nulls the tokens already stored. Because auth-api migrates with `Schema.Create`, which does not execute the versioned files, `database.ClearIdentityOAuthTokens` runs the same idempotent update after every migrate.
