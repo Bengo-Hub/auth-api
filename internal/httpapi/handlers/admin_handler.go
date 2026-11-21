@@ -271,6 +271,7 @@ func (h *AdminHandler) publishTenantLifecycleEvent(ctx context.Context, t *ent.T
 		"contact_email":     t.ContactEmail,
 		"contact_phone":     t.ContactPhone,
 		"support":           tenantSupportPayload(t.Metadata),
+		"opening_hours":     tenantOpeningHoursPayload(t.Metadata),
 	})
 }
 
@@ -381,6 +382,12 @@ func (h *AdminHandler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	if v, ok := metadata[MetadataKeySupport]; ok {
 		if err := applyTenantSupportMetadata(metadata, v); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_support_contact", err.Error(), nil)
+			return
+		}
+	}
+	if v, ok := metadata[MetadataKeyOpeningHours]; ok {
+		if err := applyTenantOpeningHoursMetadata(metadata, v); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_opening_hours", err.Error(), nil)
 			return
 		}
 	}
@@ -538,6 +545,12 @@ func (h *AdminHandler) CreateTenantPublic(w http.ResponseWriter, r *http.Request
 	if v, ok := metadata[MetadataKeySupport]; ok {
 		if err := applyTenantSupportMetadata(metadata, v); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_support_contact", err.Error(), nil)
+			return
+		}
+	}
+	if v, ok := metadata[MetadataKeyOpeningHours]; ok {
+		if err := applyTenantOpeningHoursMetadata(metadata, v); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_opening_hours", err.Error(), nil)
 			return
 		}
 	}
@@ -1043,6 +1056,13 @@ func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 				if k == MetadataKeySupport {
 					if err := applyTenantSupportMetadata(metadata, v); err != nil {
 						writeError(w, http.StatusBadRequest, "invalid_support_contact", err.Error(), nil)
+						return
+					}
+					continue
+				}
+				if k == MetadataKeyOpeningHours {
+					if err := applyTenantOpeningHoursMetadata(metadata, v); err != nil {
+						writeError(w, http.StatusBadRequest, "invalid_opening_hours", err.Error(), nil)
 						return
 					}
 					continue

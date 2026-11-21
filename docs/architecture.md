@@ -220,6 +220,31 @@ All Go backends (ordering-backend, notifications-api, subscriptions-api, treasur
 
 ---
 
+## Tenant opening hours
+
+auth-api owns each tenant's trading hours in tenant metadata `opening_hours`, next to the tenant's
+`timezone`:
+
+```json
+"opening_hours": {
+  "monday": {"open": "07:30", "close": "22:30"},
+  "saturday": [{"open": "08:00", "close": "14:00"}, {"open": "17:00", "close": "23:00"}]
+}
+```
+
+A day left out is closed, a close earlier than the open runs past midnight, and no key means the
+hours are not set (readers treat that as always open). Tenant admins edit it with the rest of the
+profile through `PUT /api/v1/tenants/{tenant_id}`; `tenant_opening_hours.go` validates it (400
+`invalid_opening_hours`) and stores clocks zero padded. It is returned by the public
+`GET /api/v1/tenants/by-slug/{slug}` inside `metadata` and published on `auth.tenant.created` and
+`auth.tenant.updated` as `opening_hours`.
+
+Services never keep their own copy. They read it through the shared tenant cache
+(`cache.TenantDetails.TenantOpeningHours().IsOpenAt(now, details.TenantLocation())`, shared cache
+v0.5.11), which reads the clock in the tenant's zone. ordering-backend uses it for the store's
+open state and delivery slots unless an outlet sets its own `outlets.opening_hours` override, and
+the cafe website shows it.
+
 ## Event Publishing
 
 Auth-api publishes domain events to NATS JetStream:
