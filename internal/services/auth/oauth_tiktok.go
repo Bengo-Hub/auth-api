@@ -39,7 +39,7 @@ func (s *Service) StartTikTokOAuth(ctx context.Context, in OAuthStartInput) (str
 	if s.tiktok == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug)
+	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug, in.ClientID)
 	if err != nil {
 		return "", err
 	}

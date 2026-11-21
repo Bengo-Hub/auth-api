@@ -17,6 +17,7 @@ import (
 	"github.com/bengobox/auth-api/internal/config"
 	"github.com/bengobox/auth-api/internal/ent"
 	"github.com/bengobox/auth-api/internal/ent/mfatotpsecret"
+	"github.com/bengobox/auth-api/internal/ent/oauthclient"
 	"github.com/bengobox/auth-api/internal/ent/passwordresettoken"
 	"github.com/bengobox/auth-api/internal/ent/rolepermission"
 	"github.com/bengobox/auth-api/internal/ent/session"
@@ -1307,7 +1308,7 @@ func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (str
 	if s.google == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug)
+	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug, in.ClientID)
 	if err != nil {
 		return "", err
 	}
@@ -1422,7 +1423,7 @@ func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (str
 	if s.github == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug)
+	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug, in.ClientID)
 	if err != nil {
 		return "", err
 	}
@@ -1525,7 +1526,7 @@ func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (
 	if s.microsoft == nil {
 		return "", ErrProviderNotEnabled
 	}
-	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug)
+	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug, in.ClientID)
 	if err != nil {
 		return "", err
 	}
@@ -3012,16 +3013,38 @@ func (s *Service) GetTenantBySlug(ctx context.Context, slug string) (*ent.Tenant
 	return tenantEntity, nil
 }
 
-// resolveOAuthStartTenant returns the tenant the OAuth flow should run under.
-// If slug is empty (user hitting accounts.codevertexafrica.com without a
-// tenant path/subdomain), fall back to the platform-owner tenant "codevertex"
-// so OAuth can complete — the user's actual primary tenant is resolved post-
-// callback from their membership list. A non-empty slug must exist + be active.
-func (s *Service) resolveOAuthStartTenant(ctx context.Context, slug string) (*ent.Tenant, error) {
-	if slug != "" {
-		return s.GetTenantBySlug(ctx, slug)
+// clientTenantSlugKey is the OAuth client metadata key naming the organisation a client signs
+// people in to when its sign-in request names none (the website: "codevertex").
+const clientTenantSlugKey = "tenant_slug"
+
+// oauthFallbackTenantSlug is used only when neither the request nor the client names a tenant.
+const oauthFallbackTenantSlug = "codevertex-demo"
+
+// oauthStartSlug picks the tenant slug an OAuth flow runs under: the one the request named, else
+// the client's configured home tenant, else the public demo tenant. Without the client step, a
+// customer-facing client that forgot its tenant enrolled every new social sign-up into the demo
+// tenant with its self-signup role (20 November 2026).
+func oauthStartSlug(slug string, clientMeta map[string]any) string {
+	if s := strings.TrimSpace(slug); s != "" {
+		return s
 	}
-	return s.GetTenantBySlug(ctx, "codevertex-demo")
+	if v, ok := clientMeta[clientTenantSlugKey].(string); ok && strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v)
+	}
+	return oauthFallbackTenantSlug
+}
+
+// resolveOAuthStartTenant returns the tenant the OAuth flow should run under (oauthStartSlug).
+// When no tenant was named the user's actual primary tenant is still resolved after the callback
+// from their memberships (state.Payload.Defaulted). A named slug must exist and be active.
+func (s *Service) resolveOAuthStartTenant(ctx context.Context, slug, clientID string) (*ent.Tenant, error) {
+	var meta map[string]any
+	if strings.TrimSpace(slug) == "" && strings.TrimSpace(clientID) != "" {
+		if c, err := s.entClient.OAuthClient.Query().Where(oauthclient.ClientID(strings.TrimSpace(clientID))).Only(ctx); err == nil {
+			meta = c.Metadata
+		}
+	}
+	return s.GetTenantBySlug(ctx, oauthStartSlug(slug, meta))
 }
 
 func (s *Service) recordLoginAttempt(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, email string, success bool, reason string, ip string, ua string) {
