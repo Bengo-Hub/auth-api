@@ -24,7 +24,6 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/tenant"
 	"github.com/bengobox/auth-api/internal/ent/tenantmembership"
 	"github.com/bengobox/auth-api/internal/ent/user"
-	"github.com/bengobox/auth-api/internal/ent/useridentity"
 	"github.com/bengobox/auth-api/internal/oauth/state"
 	"github.com/bengobox/auth-api/internal/password"
 	"github.com/bengobox/auth-api/internal/platform/outbox"
@@ -120,10 +119,10 @@ type Service struct {
 	cfg               *config.Config
 	auditor           *audit.Logger
 	logger            *zap.Logger
-	google            *googleprovider.Provider
+	google            googleOAuth
 	revoker           JTIRevoker
-	github            *githubprovider.Provider
-	microsoft         *microsoftprovider.Provider
+	github            githubOAuth
+	microsoft         microsoftOAuth
 	tiktok            tiktokOAuth
 	subscriptionCl    *subscription.Client
 	// access decides each member's services (user_services claim); nil leaves the claim out.
@@ -150,26 +149,32 @@ type Dependencies struct {
 
 // New initialises the auth service.
 func New(deps Dependencies) *Service {
-	var tiktok tiktokOAuth
-	if deps.TikTok != nil {
-		// A nil *Provider in the interface would not compare equal to nil.
-		tiktok = deps.TikTok
-	}
-	return &Service{
-		tiktok:         tiktok,
+	// A nil *Provider stored in an interface would not compare equal to nil, so each provider is
+	// set only when it exists.
+	s := &Service{
 		entClient:      deps.EntClient,
 		tokenSvc:       deps.TokenSvc,
 		hasher:         deps.Hasher,
 		cfg:            deps.Config,
 		auditor:        deps.Auditor,
 		logger:         deps.Logger,
-		google:         deps.Google,
 		revoker:        deps.Revoker,
-		github:         deps.GitHub,
-		microsoft:      deps.Microsoft,
 		subscriptionCl: deps.SubscriptionClient,
 		integrations:   deps.Integrations,
 	}
+	if deps.Google != nil {
+		s.google = deps.Google
+	}
+	if deps.GitHub != nil {
+		s.github = deps.GitHub
+	}
+	if deps.Microsoft != nil {
+		s.microsoft = deps.Microsoft
+	}
+	if deps.TikTok != nil {
+		s.tiktok = deps.TikTok
+	}
+	return s
 }
 
 // JTIRevoker abstracts a revocation store.
@@ -351,6 +356,9 @@ type OAuthCallbackInput struct {
 	State     string
 	IPAddress string
 	UserAgent string
+	// SessionUserID is the person signed in on the browser that reached the callback (uuid.Nil
+	// when none). The link flow requires it to be the person who started the link.
+	SessionUserID uuid.UUID
 }
 
 // PasswordResetRequestInput triggers reset token creation.
@@ -392,6 +400,9 @@ type AuthResult struct {
 	// MFAEnrollmentRequired marks an enrolment-only session: the tokens carry no roles, and the
 	// person must set up an authenticator app and sign in again.
 	MFAEnrollmentRequired bool
+	// LinkedProvider is set instead of tokens when the callback finished the link flow: the
+	// provider was added to the signed-in person's account and no new session is made.
+	LinkedProvider string
 }
 
 // GetTenant returns a tenant by ID.
@@ -1303,331 +1314,6 @@ func (s *Service) Refresh(ctx context.Context, in RefreshInput) (*AuthResult, er
 	return s.issueSessionWithExisting(ctx, sessionEntity, tenantEntity, refreshToken, in.IPAddress, in.UserAgent, s.cfg.Token.DefaultScopes)
 }
 
-// StartGoogleOAuth builds the Google OAuth authorization URL.
-func (s *Service) StartGoogleOAuth(ctx context.Context, in OAuthStartInput) (string, error) {
-	if s.google == nil {
-		return "", ErrProviderNotEnabled
-	}
-	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug, in.ClientID)
-	if err != nil {
-		return "", err
-	}
-
-	payload := state.Payload{
-		TenantSlug:  tenantEntity.Slug,
-		ClientID:    in.ClientID,
-		Portal:      s.isPortalOrigin(in.Origin),
-		Flow:        defaultFlow(in.Flow),
-		RedirectURI: in.RedirectURI,
-		Nonce:       randomNonce(),
-		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.trustedHosts(ctx)...),
-		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
-	}
-
-	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
-	if err != nil {
-		return "", fmt.Errorf("encode oauth state: %w", err)
-	}
-
-	authURL, err := s.google.AuthCodeURL(ctx, stateToken)
-	if err != nil {
-		// A disabled or unreadable provider config is an unavailable provider, not a server fault.
-		return "", fmt.Errorf("%w: %v", ErrProviderNotEnabled, err)
-	}
-	return authURL, nil
-}
-
-// CompleteGoogleOAuth finalises Google OAuth callback and issues tokens.
-func (s *Service) CompleteGoogleOAuth(ctx context.Context, in OAuthCallbackInput) (*AuthResult, error) {
-	if s.google == nil {
-		return nil, ErrProviderNotEnabled
-	}
-	if in.Code == "" || in.State == "" {
-		return nil, ErrOAuthStateInvalid
-	}
-
-	payload, err := state.Decode(s.cfg.Security.OAuthStateSecret, in.State)
-	if err != nil || payload.Purpose != "" {
-		// A social MFA challenge is signed with the same key; it must never pass as a provider state.
-		return nil, ErrOAuthStateInvalid
-	}
-
-	tenantEntity, err := s.GetTenantBySlug(ctx, payload.TenantSlug)
-	if err != nil {
-		return nil, err
-	}
-
-	tokenResp, err := s.google.Exchange(ctx, in.Code)
-	if err != nil {
-		return nil, err
-	}
-
-	profile, err := s.google.FetchProfile(ctx, tokenResp)
-	if err != nil {
-		return nil, err
-	}
-	if !profile.EmailVerified {
-		return nil, ErrEmailNotVerified
-	}
-	if !s.isDomainAllowed(profile.Email) {
-		return nil, ErrEmailDomainNotAllowed
-	}
-
-	userEntity, err := s.resolveUserFromGoogleProfile(ctx, tenantEntity, s.oauthJoinRole(ctx, payload.ClientID), profile, tokenResp)
-	if errors.Is(err, ErrTenantMembershipRequired) && payload.Defaulted && userEntity != nil {
-		// No organisation was named: sign the person in to their own tenant, not the platform's.
-		if home := s.userHomeTenant(ctx, userEntity); home != nil {
-			tenantEntity, err = home, nil
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	if s.socialMFARequired(ctx, userEntity.ID) {
-		// No session yet: the person confirms the authenticator code first.
-		return s.socialMFAResult(userEntity, tenantEntity, payload)
-	}
-
-	result, err := s.issueSession(ctx, issueSessionInput{
-		User:      userEntity,
-		Tenant:    tenantEntity,
-		ClientID:  payload.ClientID,
-		Portal:    payload.Portal,
-		IPAddress: in.IPAddress,
-		UserAgent: in.UserAgent,
-		Scopes:    s.cfg.Token.DefaultScopes,
-		AMR:       []string{AMRFederated},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	result.ReturnTo = payload.ReturnTo
-
-	// Publish user.login event for OAuth
-	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
-		"user_id":     userEntity.ID.String(),
-		"email":       userEntity.Email,
-		"tenant_id":   tenantEntity.ID.String(),
-		"tenant_slug": tenantEntity.Slug,
-		"method":      "google",
-		"ip_address":  in.IPAddress,
-	})
-
-	return result, nil
-}
-
-// StartGitHubOAuth builds the GitHub authorization URL.
-func (s *Service) StartGitHubOAuth(ctx context.Context, in OAuthStartInput) (string, error) {
-	if s.github == nil {
-		return "", ErrProviderNotEnabled
-	}
-	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug, in.ClientID)
-	if err != nil {
-		return "", err
-	}
-	payload := state.Payload{
-		TenantSlug:  tenantEntity.Slug,
-		ClientID:    in.ClientID,
-		Portal:      s.isPortalOrigin(in.Origin),
-		Flow:        defaultFlow(in.Flow),
-		RedirectURI: in.RedirectURI,
-		Nonce:       randomNonce(),
-		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.trustedHosts(ctx)...),
-		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
-	}
-	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
-	if err != nil {
-		return "", fmt.Errorf("encode oauth state: %w", err)
-	}
-	authURL, err := s.github.AuthCodeURL(ctx, stateToken)
-	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrProviderNotEnabled, err)
-	}
-	return authURL, nil
-}
-
-// CompleteGitHubOAuth handles GitHub callback.
-func (s *Service) CompleteGitHubOAuth(ctx context.Context, in OAuthCallbackInput) (*AuthResult, error) {
-	if s.github == nil {
-		return nil, ErrProviderNotEnabled
-	}
-	if in.Code == "" || in.State == "" {
-		return nil, ErrOAuthStateInvalid
-	}
-	payload, err := state.Decode(s.cfg.Security.OAuthStateSecret, in.State)
-	if err != nil || payload.Purpose != "" {
-		// A social MFA challenge is signed with the same key; it must never pass as a provider state.
-		return nil, ErrOAuthStateInvalid
-	}
-	tenantEntity, err := s.GetTenantBySlug(ctx, payload.TenantSlug)
-	if err != nil {
-		return nil, err
-	}
-	tokenResp, err := s.github.Exchange(ctx, in.Code)
-	if err != nil {
-		return nil, err
-	}
-	profile, err := s.github.FetchProfile(ctx, tokenResp)
-	if err != nil {
-		return nil, err
-	}
-	if profile.Email == "" {
-		return nil, ErrEmailNotVerified
-	}
-	if !s.isDomainAllowed(profile.Email) {
-		return nil, ErrEmailDomainNotAllowed
-	}
-	userEntity, err := s.resolveUserFromGitHubProfile(ctx, tenantEntity, s.oauthJoinRole(ctx, payload.ClientID), profile, tokenResp)
-	if errors.Is(err, ErrTenantMembershipRequired) && payload.Defaulted && userEntity != nil {
-		// No organisation was named: sign the person in to their own tenant, not the platform's.
-		if home := s.userHomeTenant(ctx, userEntity); home != nil {
-			tenantEntity, err = home, nil
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// Publish user.login event for OAuth
-	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
-		"user_id":     userEntity.ID.String(),
-		"email":       userEntity.Email,
-		"tenant_id":   tenantEntity.ID.String(),
-		"tenant_slug": tenantEntity.Slug,
-		"method":      "github",
-		"ip_address":  in.IPAddress,
-	})
-
-	if s.socialMFARequired(ctx, userEntity.ID) {
-		return s.socialMFAResult(userEntity, tenantEntity, payload)
-	}
-
-	result, issueErr := s.issueSession(ctx, issueSessionInput{
-		User:      userEntity,
-		Tenant:    tenantEntity,
-		ClientID:  payload.ClientID,
-		Portal:    payload.Portal,
-		IPAddress: in.IPAddress,
-		UserAgent: in.UserAgent,
-		Scopes:    s.cfg.Token.DefaultScopes,
-		AMR:       []string{AMRFederated},
-	})
-	if issueErr != nil {
-		return nil, issueErr
-	}
-	result.ReturnTo = payload.ReturnTo
-	return result, nil
-}
-
-// StartMicrosoftOAuth builds Microsoft authorization URL.
-func (s *Service) StartMicrosoftOAuth(ctx context.Context, in OAuthStartInput) (string, error) {
-	if s.microsoft == nil {
-		return "", ErrProviderNotEnabled
-	}
-	tenantEntity, err := s.resolveOAuthStartTenant(ctx, in.TenantSlug, in.ClientID)
-	if err != nil {
-		return "", err
-	}
-	payload := state.Payload{
-		TenantSlug:  tenantEntity.Slug,
-		ClientID:    in.ClientID,
-		Portal:      s.isPortalOrigin(in.Origin),
-		Flow:        defaultFlow(in.Flow),
-		RedirectURI: in.RedirectURI,
-		Nonce:       randomNonce(),
-		ReturnTo:    SafeOAuthReturnTo(in.ReturnTo, s.cfg.Token.Issuer, s.trustedHosts(ctx)...),
-		Defaulted:   strings.TrimSpace(in.TenantSlug) == "",
-	}
-	stateToken, err := state.Encode(s.cfg.Security.OAuthStateSecret, payload, oauthStateTTL)
-	if err != nil {
-		return "", fmt.Errorf("encode oauth state: %w", err)
-	}
-	authURL, err := s.microsoft.AuthCodeURL(ctx, stateToken)
-	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrProviderNotEnabled, err)
-	}
-	return authURL, nil
-}
-
-// CompleteMicrosoftOAuth handles Microsoft callback.
-func (s *Service) CompleteMicrosoftOAuth(ctx context.Context, in OAuthCallbackInput) (*AuthResult, error) {
-	if s.microsoft == nil {
-		return nil, ErrProviderNotEnabled
-	}
-	if in.Code == "" || in.State == "" {
-		return nil, ErrOAuthStateInvalid
-	}
-	payload, err := state.Decode(s.cfg.Security.OAuthStateSecret, in.State)
-	if err != nil || payload.Purpose != "" {
-		// A social MFA challenge is signed with the same key; it must never pass as a provider state.
-		return nil, ErrOAuthStateInvalid
-	}
-	tenantEntity, err := s.GetTenantBySlug(ctx, payload.TenantSlug)
-	if err != nil {
-		return nil, err
-	}
-	tokenResp, err := s.microsoft.Exchange(ctx, in.Code)
-	if err != nil {
-		return nil, err
-	}
-	profile, err := s.microsoft.FetchProfile(ctx, tokenResp)
-	if err != nil {
-		return nil, err
-	}
-	email := profile.Mail
-	if email == "" {
-		email = profile.UserPrincipalName
-	}
-	if email == "" {
-		return nil, ErrEmailNotVerified
-	}
-	if !s.isDomainAllowed(email) {
-		return nil, ErrEmailDomainNotAllowed
-	}
-	userEntity, err := s.resolveUserFromMicrosoftProfile(ctx, tenantEntity, s.oauthJoinRole(ctx, payload.ClientID), profile, tokenResp)
-	if errors.Is(err, ErrTenantMembershipRequired) && payload.Defaulted && userEntity != nil {
-		// No organisation was named: sign the person in to their own tenant, not the platform's.
-		if home := s.userHomeTenant(ctx, userEntity); home != nil {
-			tenantEntity, err = home, nil
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// Publish user.login event for OAuth
-	s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "login", map[string]any{
-		"user_id":     userEntity.ID.String(),
-		"email":       userEntity.Email,
-		"tenant_id":   tenantEntity.ID.String(),
-		"tenant_slug": tenantEntity.Slug,
-		"method":      "microsoft",
-		"ip_address":  in.IPAddress,
-	})
-
-	if s.socialMFARequired(ctx, userEntity.ID) {
-		return s.socialMFAResult(userEntity, tenantEntity, payload)
-	}
-
-	result, issueErr := s.issueSession(ctx, issueSessionInput{
-		User:      userEntity,
-		Tenant:    tenantEntity,
-		ClientID:  payload.ClientID,
-		Portal:    payload.Portal,
-		IPAddress: in.IPAddress,
-		UserAgent: in.UserAgent,
-		Scopes:    s.cfg.Token.DefaultScopes,
-		AMR:       []string{AMRFederated},
-	})
-	if issueErr != nil {
-		return nil, issueErr
-	}
-	result.ReturnTo = payload.ReturnTo
-	return result, nil
-}
-
 // RequestPasswordReset creates a reset token (would be emailed in production).
 func (s *Service) RequestPasswordReset(ctx context.Context, in PasswordResetRequestInput) (string, error) {
 	userEntity, err := s.entClient.User.Query().
@@ -2527,289 +2213,6 @@ func withoutDemoPasswordChange(u *ent.User, claims token.AccessTokenInput) *ent.
 	return &clean
 }
 
-func (s *Service) resolveUserFromGoogleProfile(ctx context.Context, tenantEntity *ent.Tenant, joinRole string, profile *googleprovider.Profile, token *oauth2.Token) (*ent.User, error) {
-	identity, err := s.entClient.UserIdentity.Query().
-		Where(
-			useridentity.ProviderEQ(googleProviderName),
-			useridentity.ProviderSubjectEQ(profile.Subject),
-		).
-		WithUser().
-		Only(ctx)
-	if err == nil {
-		userEntity := identity.Edges.User
-		if userEntity == nil {
-			userEntity, err = s.entClient.User.Get(ctx, identity.UserID)
-			if err != nil {
-				return nil, fmt.Errorf("load user for identity: %w", err)
-			}
-		}
-		if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
-			return userEntity, err
-		}
-		if err := s.updateIdentityTokens(ctx, identity.ID, profile, token); err != nil {
-			return nil, err
-		}
-		if userEntity.PrimaryTenantID == "" {
-			if err := s.entClient.User.UpdateOneID(userEntity.ID).
-				SetPrimaryTenantID(tenantEntity.ID.String()).
-				Exec(ctx); err != nil {
-				s.logger.Warn("failed to set primary tenant from oauth", zap.Error(err))
-			}
-		}
-		return userEntity, nil
-	}
-	if !ent.IsNotFound(err) {
-		return nil, fmt.Errorf("query user identity: %w", err)
-	}
-
-	email := normalizeEmail(profile.Email)
-	userEntity, err := s.entClient.User.Query().
-		Where(
-			user.EmailEQ(email),
-		).
-		Only(ctx)
-	isNewUser := false
-	if err != nil {
-		if !ent.IsNotFound(err) {
-			return nil, fmt.Errorf("lookup user by email: %w", err)
-		}
-		userEntity, err = s.entClient.User.Create().
-			SetEmail(email).
-			SetStatus("active").
-			SetPrimaryTenantID(tenantEntity.ID.String()).
-			SetProfile(googleProfileMap(profile)).
-			SetEmailVerified(true).
-			SetEmailVerifiedAt(time.Now()).
-			Save(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("create user from google profile: %w", err)
-		}
-		isNewUser = true
-	} else if !userEntity.EmailVerified {
-		// Existing account signing in via Google (a provider-verified email) — promote
-		// the durable flag so the verify-email banner clears for them.
-		if u, uErr := userEntity.Update().SetEmailVerified(true).SetEmailVerifiedAt(time.Now()).Save(ctx); uErr == nil {
-			userEntity = u
-		}
-	}
-
-	if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
-		return userEntity, err
-	}
-
-	if err := s.createIdentity(ctx, googleProviderName, userEntity.ID, profile, token); err != nil {
-		return nil, err
-	}
-
-	if isNewUser {
-		s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
-			"user_id":     userEntity.ID.String(),
-			"email":       userEntity.Email,
-			"full_name":   profileStr(userEntity.Profile, "name"),
-			"phone":       profileStr(userEntity.Profile, "phone"),
-			"tenant_id":   tenantEntity.ID.String(),
-			"tenant_slug": tenantEntity.Slug,
-			"roles":       []string{joinRole},
-			"method":      "google",
-		})
-	}
-
-	return userEntity, nil
-}
-
-func (s *Service) resolveUserFromGitHubProfile(ctx context.Context, tenantEntity *ent.Tenant, joinRole string, profile *githubprovider.Profile, token *oauth2.Token) (*ent.User, error) {
-	sub := fmt.Sprintf("%d", profile.ID)
-	email := normalizeEmail(profile.Email)
-	if email == "" {
-		return nil, fmt.Errorf("github email not available")
-	}
-	identity, err := s.entClient.UserIdentity.Query().
-		Where(
-			useridentity.ProviderEQ(githubProviderName),
-			useridentity.ProviderSubjectEQ(sub),
-		).
-		WithUser().
-		Only(ctx)
-	if err == nil {
-		userEntity := identity.Edges.User
-		if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
-			return userEntity, err
-		}
-		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.Name}, token); err != nil {
-			return nil, err
-		}
-		if userEntity.PrimaryTenantID == "" {
-			if err := s.entClient.User.UpdateOneID(userEntity.ID).
-				SetPrimaryTenantID(tenantEntity.ID.String()).
-				Exec(ctx); err != nil {
-				s.logger.Warn("failed to set primary tenant from oauth", zap.Error(err))
-			}
-		}
-		return userEntity, nil
-	}
-	if err != nil && !ent.IsNotFound(err) {
-		return nil, fmt.Errorf("query user identity: %w", err)
-	}
-	userEntity, err := s.entClient.User.Query().
-		Where(user.EmailEQ(email)).
-		Only(ctx)
-	isNewUser := false
-	if err != nil && !ent.IsNotFound(err) {
-		return nil, fmt.Errorf("lookup user: %w", err)
-	}
-	if err != nil && ent.IsNotFound(err) {
-		userEntity, err = s.entClient.User.Create().
-			SetEmail(email).
-			SetStatus("active").
-			SetPrimaryTenantID(tenantEntity.ID.String()).
-			SetProfile(map[string]any{"name": profile.Name}).
-			SetEmailVerified(true).
-			SetEmailVerifiedAt(time.Now()).
-			Save(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("create user: %w", err)
-		}
-		isNewUser = true
-	}
-	if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
-		return userEntity, err
-	}
-	if err := s.createIdentity(ctx, githubProviderName, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.Name}, token); err != nil {
-		return nil, err
-	}
-	if isNewUser {
-		s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
-			"user_id":     userEntity.ID.String(),
-			"email":       userEntity.Email,
-			"full_name":   profileStr(userEntity.Profile, "name"),
-			"phone":       profileStr(userEntity.Profile, "phone"),
-			"tenant_id":   tenantEntity.ID.String(),
-			"tenant_slug": tenantEntity.Slug,
-			"roles":       []string{joinRole},
-			"method":      "github",
-		})
-	}
-	return userEntity, nil
-}
-
-func (s *Service) resolveUserFromMicrosoftProfile(ctx context.Context, tenantEntity *ent.Tenant, joinRole string, profile *microsoftprovider.Profile, token *oauth2.Token) (*ent.User, error) {
-	email := profile.Mail
-	if email == "" {
-		email = profile.UserPrincipalName
-	}
-	email = normalizeEmail(email)
-	if email == "" {
-		return nil, fmt.Errorf("microsoft email not available")
-	}
-	sub := profile.ID
-	identity, err := s.entClient.UserIdentity.Query().
-		Where(
-			useridentity.ProviderEQ(microsoftProviderName),
-			useridentity.ProviderSubjectEQ(sub),
-		).
-		WithUser().
-		Only(ctx)
-	if err == nil {
-		userEntity := identity.Edges.User
-		if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
-			return userEntity, err
-		}
-		if err := s.updateIdentityTokens(ctx, identity.ID, &googleprovider.Profile{Email: email, Name: profile.DisplayName}, token); err != nil {
-			return nil, err
-		}
-		if userEntity.PrimaryTenantID == "" {
-			if err := s.entClient.User.UpdateOneID(userEntity.ID).
-				SetPrimaryTenantID(tenantEntity.ID.String()).
-				Exec(ctx); err != nil {
-				s.logger.Warn("failed to set primary tenant from oauth", zap.Error(err))
-			}
-		}
-		return userEntity, nil
-	}
-	if err != nil && !ent.IsNotFound(err) {
-		return nil, fmt.Errorf("query user identity: %w", err)
-	}
-	userEntity, err := s.entClient.User.Query().
-		Where(user.EmailEQ(email)).
-		Only(ctx)
-	isNewUser := false
-	if err != nil && !ent.IsNotFound(err) {
-		return nil, fmt.Errorf("lookup user: %w", err)
-	}
-	if err != nil && ent.IsNotFound(err) {
-		userEntity, err = s.entClient.User.Create().
-			SetEmail(email).
-			SetStatus("active").
-			SetPrimaryTenantID(tenantEntity.ID.String()).
-			SetProfile(map[string]any{"name": profile.DisplayName}).
-			SetEmailVerified(true).
-			SetEmailVerifiedAt(time.Now()).
-			Save(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("create user: %w", err)
-		}
-		isNewUser = true
-	}
-	if err := s.ensureMembership(ctx, userEntity, tenantEntity, joinRole); err != nil {
-		return userEntity, err
-	}
-	if err := s.createIdentity(ctx, microsoftProviderName, userEntity.ID, &googleprovider.Profile{Subject: sub, Email: email, Name: profile.DisplayName}, token); err != nil {
-		return nil, err
-	}
-	if isNewUser {
-		s.publishEvent(ctx, tenantEntity.ID, "auth.user", userEntity.ID, "created", map[string]any{
-			"user_id":     userEntity.ID.String(),
-			"email":       userEntity.Email,
-			"full_name":   profileStr(userEntity.Profile, "name"),
-			"phone":       profileStr(userEntity.Profile, "phone"),
-			"tenant_id":   tenantEntity.ID.String(),
-			"tenant_slug": tenantEntity.Slug,
-			"roles":       []string{joinRole},
-			"method":      "microsoft",
-		})
-	}
-	return userEntity, nil
-}
-func (s *Service) updateIdentityTokens(ctx context.Context, identityID uuid.UUID, profile *googleprovider.Profile, token *oauth2.Token) error {
-	update := s.entClient.UserIdentity.UpdateOneID(identityID).
-		SetProviderEmail(normalizeEmail(profile.Email)).
-		SetEmailVerified(profile.EmailVerified).
-		SetTokenExpiry(tokenExpiry(token)).
-		SetProfile(googleProfileMap(profile)).
-		SetScope(scopeFromToken(token)).
-		// The provider's access and refresh tokens are never kept: sign-in needs them only for
-		// the profile call, nothing reads them later, and the privacy policy (section 5A) says
-		// they are not stored. Clearing them also removes any left from before this change.
-		ClearAccessToken().
-		ClearRefreshToken()
-
-	if err := update.Exec(ctx); err != nil {
-		return fmt.Errorf("update identity tokens: %w", err)
-	}
-	return nil
-}
-
-// createIdentity links a provider account to the user. The provider name must be the one the
-// lookup queries by: an identity saved under another name is never found again, so the next
-// sign-in would try to insert it a second time.
-func (s *Service) createIdentity(ctx context.Context, provider string, userID uuid.UUID, profile *googleprovider.Profile, token *oauth2.Token) error {
-	identityCreate := s.entClient.UserIdentity.Create().
-		SetUserID(userID).
-		SetProvider(provider).
-		SetProviderSubject(profile.Subject).
-		SetProviderEmail(normalizeEmail(profile.Email)).
-		SetEmailVerified(profile.EmailVerified).
-		SetTokenExpiry(tokenExpiry(token)).
-		SetScope(scopeFromToken(token)).
-		SetProfile(googleProfileMap(profile))
-	// The provider's access and refresh tokens are not stored (see updateIdentityTokens).
-
-	if _, err := identityCreate.Save(ctx); err != nil {
-		return fmt.Errorf("create user identity: %w", err)
-	}
-	return nil
-}
-
 // oauthJoinRole is the role a social sign-in gets in a tenant it has no membership in: the
 // customer-facing app's self-signup role (customer, driver, student), else "member".
 func (s *Service) oauthJoinRole(ctx context.Context, clientID string) string {
@@ -2903,18 +2306,6 @@ func scopeFromToken(token *oauth2.Token) string {
 	}
 	return ""
 }
-
-func googleProfileMap(profile *googleprovider.Profile) map[string]any {
-	if profile == nil {
-		return map[string]any{}
-	}
-	return map[string]any{
-		"name":    profile.Name,
-		"picture": profile.Picture,
-		"locale":  profile.Locale,
-	}
-}
-
 func defaultFlow(flow string) string {
 	if flow == "" {
 		return "login"

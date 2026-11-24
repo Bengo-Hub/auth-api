@@ -562,7 +562,7 @@ r.Use(authMiddleware.RequireAuth)
 - Production redirect URI: `https://sso.codevertexafrica.com/api/v1/auth/oauth/tiktok/callback`
 - Scope: `user.info.basic`
 
-**Flow**: Same state, membership, 2FA and session rules as Google. TikTok returns no email, so the account is found by `open_id`. A first-time TikTok sign-in creates an account with a `tiktok-<hash>@placeholder.local` address, and the verify-email dialog asks for a real one. Setup details are in [oauth-setup.md](./oauth-setup.md#tiktok-login-kit-setup).
+**Flow**: Same state, membership, 2FA and session rules as Google. TikTok returns no email, so the account is found by `open_id`. A first-time TikTok sign-in creates an account with a `tiktok-<hash>@placeholder.local` address, and the verify-email dialog asks for a real one. An existing account uses TikTok by linking it under Account settings, Sign-in methods. Setup details are in [oauth-setup.md](./oauth-setup.md#tiktok-login-kit-setup); matching and linking rules for every provider are in [oauth-setup.md](./oauth-setup.md#account-matching-and-linking).
 
 ### Apple Sign In
 

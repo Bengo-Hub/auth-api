@@ -16,9 +16,13 @@ type Profile struct {
 	Email  string `json:"email"`
 	Name   string `json:"name"`
 	Avatar string `json:"avatar_url"`
+	// VerifiedEmail is the primary address from /user/emails when GitHub marks it verified. It is
+	// the only address sign-in may match an existing account by.
+	VerifiedEmail string `json:"-"`
 }
 
-type emailRecord struct {
+// EmailRecord is one entry of GET /user/emails.
+type EmailRecord struct {
 	Email      string `json:"email"`
 	Primary    bool   `json:"primary"`
 	Verified   bool   `json:"verified"`
@@ -84,24 +88,28 @@ func (p *Provider) FetchProfile(ctx context.Context, token *oauth2.Token) (*Prof
 	if err := json.NewDecoder(resp.Body).Decode(&prof); err != nil {
 		return nil, fmt.Errorf("github decode: %w", err)
 	}
-	// email might be empty; fetch emails
-	if prof.Email == "" {
-		emailsResp, err := client.Get("https://api.github.com/user/emails")
-		if err == nil && emailsResp.StatusCode < 400 {
-			defer emailsResp.Body.Close()
-			var emails []emailRecord
+	// The public profile email is whatever the person typed into their profile and GitHub does not
+	// promise it is verified. Only the primary address that /user/emails marks verified is proof of
+	// ownership, so it is always fetched and kept apart.
+	emailsResp, err := client.Get("https://api.github.com/user/emails")
+	if err == nil {
+		defer emailsResp.Body.Close()
+		if emailsResp.StatusCode < 400 {
+			var emails []EmailRecord
 			if json.NewDecoder(emailsResp.Body).Decode(&emails) == nil {
-				for _, e := range emails {
-					if e.Primary && e.Verified {
-						prof.Email = e.Email
-						break
-					}
-				}
-				if prof.Email == "" && len(emails) > 0 {
-					prof.Email = emails[0].Email
-				}
+				prof.VerifiedEmail = PrimaryVerifiedEmail(emails)
 			}
 		}
 	}
 	return &prof, nil
+}
+
+// PrimaryVerifiedEmail is the primary address when GitHub has verified it, else "".
+func PrimaryVerifiedEmail(emails []EmailRecord) string {
+	for _, e := range emails {
+		if e.Primary && e.Verified {
+			return e.Email
+		}
+	}
+	return ""
 }

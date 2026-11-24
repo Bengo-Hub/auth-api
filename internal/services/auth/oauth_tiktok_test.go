@@ -13,7 +13,6 @@ import (
 	"github.com/bengobox/auth-api/internal/ent/user"
 	"github.com/bengobox/auth-api/internal/ent/useridentity"
 	"github.com/bengobox/auth-api/internal/oauth/state"
-	googleprovider "github.com/bengobox/auth-api/internal/providers/google"
 	tiktokprovider "github.com/bengobox/auth-api/internal/providers/tiktok"
 )
 
@@ -178,7 +177,7 @@ func TestCreateIdentityKeepsProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.createIdentity(ctx, githubProviderName, u.ID, &googleprovider.Profile{Subject: "4242", Email: u.Email}, nil); err != nil {
+	if err := s.createIdentity(ctx, u.ID, &SocialProfile{Provider: githubProviderName, Subject: "4242", Email: u.Email}); err != nil {
 		t.Fatal(err)
 	}
 	if n, _ := client.UserIdentity.Query().Where(useridentity.ProviderEQ(githubProviderName), useridentity.ProviderSubjectEQ("4242")).Count(ctx); n != 1 {

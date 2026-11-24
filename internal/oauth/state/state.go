@@ -28,7 +28,9 @@ type Payload struct {
 	// sign-in when the account still owes an authenticator code. Each decoder checks it, so one
 	// kind can never be replayed as the other.
 	Purpose string `json:"purpose,omitempty"`
-	// UserID is set only on a social MFA challenge: who has passed the provider step.
+	// UserID is set on a social MFA challenge (who has passed the provider step) and on a provider
+	// state with Flow "link" (who asked to link the provider; the callback requires that same
+	// person's session).
 	UserID string `json:"user_id,omitempty"`
 	// PhoneSignup marks a phone-code MFA challenge whose person is joining the tenant through
 	// phone self-signup: the membership is created once the authenticator code passes.

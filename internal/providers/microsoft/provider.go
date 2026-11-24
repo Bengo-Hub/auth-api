@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/bengobox/auth-api/internal/services/integrations"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 )
 
@@ -91,4 +93,46 @@ func (p *Provider) FetchProfile(ctx context.Context, token *oauth2.Token) (*Prof
 		return nil, fmt.Errorf("decode: %w", err)
 	}
 	return &prof, nil
+}
+
+// VerifiedEmail returns the ID token's email claim when Entra marks it domain-owner verified
+// (the optional xms_edov claim, added under "Token configuration" in the app registration).
+//
+// Graph's mail and userPrincipalName are set by the person's own Entra tenant admin, who can type
+// any address there, so they never prove ownership ("nOAuth"). Without xms_edov the email is not
+// trusted and sign-in never matches an existing account by it.
+//
+// The ID token is read without a signature check: it comes straight from the token endpoint over
+// TLS in the code exchange, which OpenID Connect Core 3.1.3.7 accepts in place of the signature.
+func VerifiedEmail(token *oauth2.Token) (string, bool) {
+	if token == nil {
+		return "", false
+	}
+	raw, _ := token.Extra("id_token").(string)
+	if raw == "" {
+		return "", false
+	}
+	claims := jwt.MapClaims{}
+	if _, _, err := jwt.NewParser().ParseUnverified(raw, claims); err != nil {
+		return "", false
+	}
+	email, _ := claims["email"].(string)
+	email = strings.TrimSpace(email)
+	if email == "" || !claimTrue(claims["xms_edov"]) {
+		return "", false
+	}
+	return email, true
+}
+
+// claimTrue reads a boolean claim Entra may send as true, "true" or "1".
+func claimTrue(v any) bool {
+	switch t := v.(type) {
+	case bool:
+		return t
+	case string:
+		return t == "1" || strings.EqualFold(t, "true")
+	case float64:
+		return t == 1
+	}
+	return false
 }

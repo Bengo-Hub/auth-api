@@ -71,34 +71,36 @@ type RouterDeps struct {
 
 // AuthHandlers groups the HTTP handlers for auth routes.
 type AuthHandlers struct {
-	Register             http.HandlerFunc
-	SessionStart         http.HandlerFunc
-	SessionRefresh       http.HandlerFunc
-	SessionEnd           http.HandlerFunc
-	RegisterOAuth        http.HandlerFunc
-	SendEmailCode        http.HandlerFunc
-	VerifyEmailCode      http.HandlerFunc
-	SendMyEmailCode      http.HandlerFunc
-	RequestPhoneOTP      http.HandlerFunc
-	VerifyPhoneOTP       http.HandlerFunc
-	VerifyMyEmailCode    http.HandlerFunc
-	ListMyEmails         http.HandlerFunc
-	SendAddEmailCode     http.HandlerFunc
-	VerifyAddEmailCode   http.HandlerFunc
-	SetPrimaryMyEmail    http.HandlerFunc
-	DeleteMyEmail        http.HandlerFunc
-	ListMyPhones         http.HandlerFunc
-	AddMyPhone           http.HandlerFunc
-	SendMyPhoneCode      http.HandlerFunc
-	VerifyMyPhoneCode    http.HandlerFunc
-	SetPrimaryMyPhone    http.HandlerFunc
-	DeleteMyPhone        http.HandlerFunc
-	Login                http.HandlerFunc
-	Refresh              http.HandlerFunc
-	RequestPasswordReset http.HandlerFunc
-	ConfirmPasswordReset http.HandlerFunc
-	Me                   http.HandlerFunc
-	MyMemberships        http.HandlerFunc
+	Register           http.HandlerFunc
+	SessionStart       http.HandlerFunc
+	SessionRefresh     http.HandlerFunc
+	SessionEnd         http.HandlerFunc
+	RegisterOAuth      http.HandlerFunc
+	SendEmailCode      http.HandlerFunc
+	VerifyEmailCode    http.HandlerFunc
+	SendMyEmailCode    http.HandlerFunc
+	RequestPhoneOTP    http.HandlerFunc
+	VerifyPhoneOTP     http.HandlerFunc
+	VerifyMyEmailCode  http.HandlerFunc
+	ListMyEmails       http.HandlerFunc
+	SendAddEmailCode   http.HandlerFunc
+	VerifyAddEmailCode http.HandlerFunc
+	SetPrimaryMyEmail  http.HandlerFunc
+	DeleteMyEmail      http.HandlerFunc
+	ListMyPhones       http.HandlerFunc
+	AddMyPhone         http.HandlerFunc
+	SendMyPhoneCode    http.HandlerFunc
+	VerifyMyPhoneCode  http.HandlerFunc
+	SetPrimaryMyPhone  http.HandlerFunc
+	DeleteMyPhone      http.HandlerFunc
+	// Sign-in methods: social accounts linked to the signed-in person.
+	ListMyIdentities, LinkMyIdentity, UnlinkMyIdentity http.HandlerFunc
+	Login                                              http.HandlerFunc
+	Refresh                                            http.HandlerFunc
+	RequestPasswordReset                               http.HandlerFunc
+	ConfirmPasswordReset                               http.HandlerFunc
+	Me                                                 http.HandlerFunc
+	MyMemberships                                      http.HandlerFunc
 	// Invitations waiting for the signed-in person (audit H4).
 	MyInvitations, AcceptInvitation, DeclineInvitation http.HandlerFunc
 	Logout                                             http.HandlerFunc
@@ -351,16 +353,22 @@ func NewRouter(deps RouterDeps) http.Handler {
 			}
 			r.With(sensitive).Post("/password-reset/request", deps.AuthHandlers.RequestPasswordReset)
 			r.With(sensitive).Post("/password-reset/confirm", deps.AuthHandlers.ConfirmPasswordReset)
+			// Callbacks read the browser's session when there is one: the link flow checks it is the
+			// person who started the link. A sign-in does not need it.
+			callbackAuth := passThrough
+			if deps.TryAuthHandler != nil {
+				callbackAuth = deps.TryAuthHandler
+			}
 			r.Post("/oauth/google/start", deps.AuthHandlers.GoogleOAuthStart)
-			r.Get("/oauth/google/callback", deps.AuthHandlers.GoogleOAuthCallback)
+			r.With(callbackAuth).Get("/oauth/google/callback", deps.AuthHandlers.GoogleOAuthCallback)
 			r.Post("/oauth/github/start", deps.AuthHandlers.GitHubOAuthStart)
-			r.Get("/oauth/github/callback", deps.AuthHandlers.GitHubOAuthCallback)
+			r.With(callbackAuth).Get("/oauth/github/callback", deps.AuthHandlers.GitHubOAuthCallback)
 			r.Post("/oauth/microsoft/start", deps.AuthHandlers.MicrosoftOAuthStart)
 			r.With(sensitive).Post("/oauth/mfa/verify", deps.AuthHandlers.SocialMFAVerify)
-			r.Get("/oauth/microsoft/callback", deps.AuthHandlers.MicrosoftOAuthCallback)
+			r.With(callbackAuth).Get("/oauth/microsoft/callback", deps.AuthHandlers.MicrosoftOAuthCallback)
 			if deps.AuthHandlers.TikTokOAuthStart != nil {
 				r.Post("/oauth/tiktok/start", deps.AuthHandlers.TikTokOAuthStart)
-				r.Get("/oauth/tiktok/callback", deps.AuthHandlers.TikTokOAuthCallback)
+				r.With(callbackAuth).Get("/oauth/tiktok/callback", deps.AuthHandlers.TikTokOAuthCallback)
 			}
 
 			// GET /logout is public: for redirect-based logout (post_logout_redirect_uri from clients)
@@ -422,6 +430,13 @@ func NewRouter(deps RouterDeps) http.Handler {
 						r.Post("/verify-code", deps.AuthHandlers.VerifyAddEmailCode)
 						r.Post("/{id}/primary", deps.AuthHandlers.SetPrimaryMyEmail)
 						r.Delete("/{id}", deps.AuthHandlers.DeleteMyEmail)
+					})
+				}
+				if deps.AuthHandlers.ListMyIdentities != nil {
+					r.Route("/me/identities", func(r chi.Router) {
+						r.Get("/", deps.AuthHandlers.ListMyIdentities)
+						r.With(sensitive).Post("/{provider}/link", deps.AuthHandlers.LinkMyIdentity)
+						r.With(sensitive).Delete("/{id}", deps.AuthHandlers.UnlinkMyIdentity)
 					})
 				}
 				if deps.AuthHandlers.ListMyPhones != nil {

@@ -83,6 +83,9 @@ type AuthService interface {
 	VerifyAndSetUserPhone(ctx context.Context, userID uuid.UUID, phone string) error
 	SetPrimaryUserPhone(ctx context.Context, userID, phoneID uuid.UUID) error
 	DeleteUserPhone(ctx context.Context, userID, phoneID uuid.UUID) error
+	StartSocialLink(ctx context.Context, provider string, userID uuid.UUID, in auth.OAuthStartInput) (string, error)
+	SocialIdentities(ctx context.Context, userID uuid.UUID) ([]*ent.UserIdentity, bool, error)
+	UnlinkSocialIdentity(ctx context.Context, userID, identityID uuid.UUID, ip, ua string) error
 }
 
 // UseCaseService describes the use case logic capabilities.
@@ -387,9 +390,10 @@ func (h *AuthHandler) RegisterOAuth(w http.ResponseWriter, r *http.Request) {
 		InviteToken:   req.InviteToken,
 		ReferralCode:  req.ReferralCode,
 		TermsAccepted: req.TermsAccepted,
-		// OAuth signup: the email is provider-verified (Google login is rejected
-		// upstream when unverified), so the account starts email-verified.
-		EmailVerified: true,
+		// Nothing issues or checks oauth_token, so the email here is only what the caller typed:
+		// the account starts unverified and the verify-email flow proves it, as for any sign-up.
+		// (Social sign-up itself goes through the provider callback, which verifies the email.)
+		EmailVerified: false,
 	})
 	if err != nil {
 		h.handleError(w, r, err)
@@ -618,15 +622,31 @@ func (h *AuthHandler) handleOAuthCallback(
 		return
 	}
 
+	// The link flow needs the person signed in on this browser (the bb_session cookie, read by the
+	// TryAuth middleware on the callback routes). A sign-in ignores it.
+	sessionUserID, _ := h.myUserID(r)
 	result, err := complete(r.Context(), auth.OAuthCallbackInput{
-		Code:      code,
-		State:     stateParam,
-		IPAddress: clientIP(r),
-		UserAgent: userAgent(r),
+		Code:          code,
+		State:         stateParam,
+		IPAddress:     clientIP(r),
+		UserAgent:     userAgent(r),
+		SessionUserID: sessionUserID,
 	})
+	var linkErr *auth.SocialLinkError
+	if errors.As(err, &linkErr) {
+		h.logger.Warn("oauth link failed", zap.String("provider", provider), zap.Error(err))
+		http.Redirect(w, r, frontendBase+signInMethodsPath+"&link_error="+url.QueryEscape(err.Error())+"&provider="+url.QueryEscape(provider), http.StatusFound)
+		return
+	}
 	if err != nil {
 		h.logger.Error("oauth callback failed", zap.String("provider", provider), zap.Error(err))
-		http.Redirect(w, r, frontendBase+"/login?oauth_error="+url.QueryEscape(err.Error()), http.StatusFound)
+		http.Redirect(w, r, frontendBase+"/login?oauth_error="+url.QueryEscape(err.Error())+"&oauth_provider="+url.QueryEscape(provider), http.StatusFound)
+		return
+	}
+
+	// The link flow added the provider to the signed-in account: no new session, back to settings.
+	if result.LinkedProvider != "" {
+		http.Redirect(w, r, frontendBase+signInMethodsPath+"&linked="+url.QueryEscape(result.LinkedProvider), http.StatusFound)
 		return
 	}
 

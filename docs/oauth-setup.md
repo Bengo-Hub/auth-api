@@ -130,6 +130,7 @@ Google (and optionally Microsoft) also require JavaScript origins. These are the
    - `profile`
    - `User.Read`
 9. Click **Grant admin consent** if you restricted to a single tenant.
+10. Go to **Token configuration → Add optional claim → ID** and add `xms_edov` (and `email`). Entra sets `xms_edov` only when the email's domain owner has verified it. Without this claim auth-api never matches an existing account by a Microsoft email (see [Account matching and linking](#account-matching-and-linking)).
 
 > `tenant_id` in auth-api stores the Microsoft directory GUID (or `common` for multi-tenant). Put it in `IntegrationConfig.encrypted_credentials.tenant_id`.
 
@@ -171,8 +172,38 @@ Accounts without an email:
 - A TikTok account already linked to a Codevertex account signs in to that account.
 - A TikTok account seen for the first time gets a new account with a placeholder address `tiktok-<hash>@placeholder.local`, the same approach as phone-only accounts. The verify-email dialog then asks the person for a real address and replaces the placeholder once it is proven.
 - The usual social sign-up rules decide whether the new account may join the tenant (`ensureMembership`): a customer-facing app gives its self-signup role, the platform tenant lets a new person register as a member, and any other organisation needs an existing membership. A refused sign-up leaves no account behind.
-- Because there is no email to match on, an existing Codevertex account is not linked automatically. A person who signs in with TikTok first gets a separate account.
+- Because there is no email to match on, an existing Codevertex account is never found by TikTok sign-in alone. To use TikTok with an existing account, sign in with that account and link TikTok under Account settings, Sign-in methods. After that, "Login with TikTok" lands in that account.
 - Access and refresh tokens are not stored, as with the other providers. The 2FA rule is the same: an account with an authenticator app finishes on `/auth/mfa`.
+
+---
+
+## Account matching and linking
+
+Every provider runs through one resolver (`resolveSocialUser` in [internal/services/auth/social_identity.go](../internal/services/auth/social_identity.go)). Each provider adapter ([internal/services/auth/social_oauth.go](../internal/services/auth/social_oauth.go)) only reports the subject, the email and whether the provider vouches for that email.
+
+| Provider | Email trusted when |
+|----------|--------------------|
+| Google | `email_verified` is true |
+| GitHub | the address is the primary verified one from `GET /user/emails` (always fetched). The public profile email is never trusted. |
+| Microsoft | the ID token carries `xms_edov=true` with an `email` claim. Graph `mail` and `userPrincipalName` are never trusted: any Entra tenant admin can set them to any address. |
+| TikTok | never (TikTok shares no email) |
+
+The resolver, in order:
+
+1. The provider identity (`provider`, `provider_subject`) is already linked: sign in to that account, whatever its email.
+2. A trusted email matches an existing account: link the identity to it and mark the email verified.
+3. An untrusted email matches an existing account: refuse with "an account with this email already exists: sign in with your email, then link this provider in Account settings". It never links and never creates a second account.
+4. Otherwise create an account. With a trusted email it uses that address (verified); without one it gets a placeholder `<provider>-<hash>@placeholder.local` and the verify-email dialog asks for a real address.
+
+The membership policy (`ensureMembership`) is unchanged. A new account it refuses is deleted again, for every provider, so a refused sign-up leaves nothing behind. An existing account it refuses keeps the identity it just linked, and with no organisation named it signs in to the person's own tenant as before. The email domain allow-list applies to the account's email or a trusted provider email, never to an untrusted one.
+
+Linking a provider to an existing account (Account settings, Sign-in methods in auth-ui):
+
+- `GET /api/v1/auth/me/identities` lists the linked providers and whether the account has a password.
+- `POST /api/v1/auth/me/identities/{provider}/link` (signed in) returns the provider's authorization URL. The state carries `flow=link` and the person's id. The public start endpoints refuse `flow=link`.
+- The callback reads the browser's own session (`bb_session`, through `TryAuth`) and links only when it is the same person named in the state. A provider account already linked to someone else is refused. The browser returns to `/dashboard/profile?tab=security` with `linked=<provider>` or `link_error=<message>`; no new session is made.
+- `DELETE /api/v1/auth/me/identities/{id}` unlinks, unless it is the last way to sign in (no password and no other linked provider).
+- The shared demo account cannot link or unlink. Link, unlink and refused links are written to the audit log (`auth.identity.linked`, `auth.identity.unlinked`, `auth.identity.link_refused`).
 
 ---
 
@@ -254,11 +285,11 @@ After deploying auth-api with dummy placeholder seeds, any platform admin can op
 
 Handler locations:
 
-- `POST /api/v1/auth/oauth/{provider}/start` → [internal/httpapi/handlers/auth_handler.go:378](../internal/httpapi/handlers/auth_handler.go) (Google), `:426` (GitHub), `:468` (Microsoft), `TikTokOAuthStart` (TikTok)
-- `GET /api/v1/auth/oauth/{provider}/callback` → [internal/httpapi/handlers/auth_handler.go:402](../internal/httpapi/handlers/auth_handler.go) (Google), `:447` (GitHub), `:489` (Microsoft), `TikTokOAuthCallback` (TikTok)
-- TikTok provider client: [internal/providers/tiktok/provider.go](../internal/providers/tiktok/provider.go). Sign-in flow: [internal/services/auth/oauth_tiktok.go](../internal/services/auth/oauth_tiktok.go).
-- State JWT: [internal/oauth/state/state.go](../internal/oauth/state/state.go), signed HS256 with `AUTH_SECURITY_OAUTH_STATE_SECRET`, 10-minute TTL, carries `{tenant_slug, client_id, redirect_uri, nonce}`.
-- JIT user creation: `resolveUserFromGoogleProfile`, `resolveUserFromGitHubProfile`, `resolveUserFromMicrosoftProfile` in [internal/httpapi/service.go](../internal/httpapi/service.go).
+- `POST /api/v1/auth/oauth/{provider}/start` → `GoogleOAuthStart`, `GitHubOAuthStart`, `MicrosoftOAuthStart`, `TikTokOAuthStart` in [internal/httpapi/handlers/auth_handler.go](../internal/httpapi/handlers/auth_handler.go)
+- `GET /api/v1/auth/oauth/{provider}/callback` → the provider's callback handler, all through `handleOAuthCallback`
+- Linking endpoints: [internal/httpapi/handlers/auth_handler_identities.go](../internal/httpapi/handlers/auth_handler_identities.go)
+- Shared start, callback and link flow, plus the provider adapters: [internal/services/auth/social_oauth.go](../internal/services/auth/social_oauth.go). Account resolver and identity rows: [internal/services/auth/social_identity.go](../internal/services/auth/social_identity.go). TikTok provider client: [internal/providers/tiktok/provider.go](../internal/providers/tiktok/provider.go).
+- State JWT: [internal/oauth/state/state.go](../internal/oauth/state/state.go), signed HS256 with `AUTH_SECURITY_OAUTH_STATE_SECRET`, 10-minute TTL, carries `{tenant_slug, client_id, redirect_uri, nonce, flow}` and, for the link flow, the person's `user_id`.
 
 ---
 
