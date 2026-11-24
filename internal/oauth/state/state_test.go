@@ -65,3 +65,18 @@ func TestWrongSecretAndExpiryRejected(t *testing.T) {
 		t.Fatal("an expired token must not decode")
 	}
 }
+
+// The portal flag survives the round trip, so a sign-in started on the accounts portal gets the
+// portal's own session (2026-11-24: Encode and Decode dropped it).
+func TestPortalFlagRoundTrips(t *testing.T) {
+	for _, want := range []bool{true, false} {
+		tok, err := Encode("secret", Payload{TenantSlug: "codevertex", Portal: want}, time.Minute)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := Decode("secret", tok)
+		if err != nil || got.Portal != want {
+			t.Fatalf("portal %v round-tripped as %+v (%v)", want, got, err)
+		}
+	}
+}

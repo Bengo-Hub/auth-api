@@ -57,6 +57,7 @@ func Encode(secret string, payload Payload, ttl time.Duration) (string, error) {
 		"nonce":        payload.Nonce,
 		"return_to":    payload.ReturnTo,
 		"defaulted":    payload.Defaulted,
+		"portal":       payload.Portal,
 		"purpose":      payload.Purpose,
 		"user_id":      payload.UserID,
 		"phone_signup": payload.PhoneSignup,
@@ -99,6 +100,7 @@ func Decode(secret string, token string) (*Payload, error) {
 		Purpose:     claimString(claims, "purpose"),
 		UserID:      claimString(claims, "user_id"),
 		PhoneSignup: claims["phone_signup"] == true,
+		Portal:      claims["portal"] == true,
 		FirstFactor: claimString(claims, "first_factor"),
 	}
 	if d, ok := claims["defaulted"].(bool); ok {
