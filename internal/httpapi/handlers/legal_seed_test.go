@@ -204,6 +204,16 @@ func TestSeedRevision(t *testing.T) {
 		}
 	}
 
+	// The next revision follows version 2 although version 1 is still there, once.
+	for i, want := range []SeedResult{SeedPublished, SeedSkipped} {
+		if res, err := SeedRevision(ctx, client, typ, "Terms", "3", "2", "adds more", "<h2 id=\"a\">v3</h2>", now); err != nil || res != want {
+			t.Fatalf("v3 run %d: res = %s, err = %v", i, res, err)
+		}
+	}
+	if res, err := SeedRevision(ctx, client, typ, "Terms", "2", "1", "adds a part", "<h2 id=\"a\">v2</h2>", now); err != nil || res != SeedSkipped {
+		t.Fatalf("v2 after v3: res = %s, err = %v", res, err)
+	}
+
 	// A type that moved on in the dashboard (an open draft) is left alone.
 	const other = DocTypeCookiePolicy
 	if _, err := SeedFirstVersion(ctx, client, other, "Cookies", "<h2 id=\"a\">v1</h2>", now.Add(-48*time.Hour)); err != nil {

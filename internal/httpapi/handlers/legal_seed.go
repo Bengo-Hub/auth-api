@@ -87,9 +87,18 @@ func SeedRevision(ctx context.Context, client *ent.Client, docType, title, versi
 	}
 	var prev, draft *ent.LegalDocument
 	for _, d := range existing {
-		switch {
-		case d.Version == after && d.Status == legaldocument.StatusPublished:
+		if d.Version == after && d.Status == legaldocument.StatusPublished {
 			prev = d
+		}
+	}
+	if prev == nil {
+		return SeedSkipped, nil
+	}
+	for _, d := range existing {
+		switch {
+		case d.ID == prev.ID:
+		case d.Version != version && d.Status == legaldocument.StatusPublished && d.CreatedAt.Before(prev.CreatedAt):
+			// An older version; without this only the first revision of a type was ever published.
 		case d.Version == version && d.Status == legaldocument.StatusDraft && d.Metadata["seeded"] == true:
 			draft = d
 		default:
@@ -97,9 +106,6 @@ func SeedRevision(ctx context.Context, client *ent.Client, docType, title, versi
 			// from the dashboard now.
 			return SeedSkipped, nil
 		}
-	}
-	if prev == nil {
-		return SeedSkipped, nil
 	}
 	if draft == nil {
 		meta := map[string]any{"title": title, "summary": summary, "material": false, "updated_by": "seed", "seeded": true}
