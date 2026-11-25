@@ -56,6 +56,12 @@ var Revisions = []Revision{
 		After:    "1",
 		Summary:  "Adds Section 5G, Login with TikTok: the open ID, display name and avatar we receive, no email, and how to unlink. Deletion requests for Google and TikTok sign-in data go through the Data Requests page.",
 	},
+	{
+		Document: Document{DocType: "PRIVACY_POLICY", Title: "Privacy Policy", File: "privacy-policy-v3.html"},
+		Version:  "3",
+		After:    "2",
+		Summary:  "Google Ads: conversions are sent through Google's Data Manager API, for qualified leads, bookings and sales, with the click identifier, time, value, currency, conversion and a reference number. No names, emails or phone numbers.",
+	},
 }
 
 // HTML returns the document's body.
