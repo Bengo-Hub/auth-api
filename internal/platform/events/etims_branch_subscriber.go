@@ -57,6 +57,22 @@ func (s *EtimsBranchSubscriber) Stop() {
 	}
 }
 
+// outletMetadataEvent is the auth.outlet.updated payload for a metadata-only change. It names the
+// outlet and tenant like every other outlet event, so consumers that read ids from the payload
+// apply it (it carries no status or is_hq, so nothing else is reset).
+func outletMetadataEvent(o *ent.Outlet) map[string]any {
+	data := map[string]any{
+		"id":        o.ID.String(),
+		"outlet_id": o.ID.String(),
+		"tenant_id": o.TenantID.String(),
+		"metadata":  o.Metadata,
+	}
+	if o.Address != nil && *o.Address != "" {
+		data["address"] = *o.Address
+	}
+	return data
+}
+
 type branchAssignedPayload struct {
 	TenantID string `json:"tenant_id"`
 	OutletID string `json:"outlet_id"`
@@ -120,10 +136,7 @@ func (s *EtimsBranchSubscriber) handle(msg *nats.Msg) {
 		return
 	}
 
-	eventData := map[string]any{"metadata": updated.Metadata}
-	if updated.Address != nil && *updated.Address != "" {
-		eventData["address"] = *updated.Address
-	}
+	eventData := outletMetadataEvent(updated)
 	if err := outbox.Write(ctx, s.entClient, tenantID, "auth.outlet", outletID, "updated", "", eventData); err != nil {
 		s.logger.Warn("etims.branch_assigned: failed to republish auth.outlet.updated", zap.Error(err))
 	}
