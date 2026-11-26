@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"strings"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqljson"
@@ -18,6 +19,38 @@ import (
 // sign-up call to subscriptions-api failed, so it is tried again when the organisation is
 // approved and by the sweep (a tenant without a plan is refused by every service; 2026-11-25).
 const MetaTrialPending = "trial_plan_pending"
+
+// The sweep backs off: attempt n waits trialBase * 2^n (at most trialMax) and stops after
+// trialAttempts; a tenant that still has no plan then needs the platform owner.
+const (
+	metaTrialAttempts = "trial_attempts"
+	metaTrialNext     = "trial_next_at"
+	trialBase         = 15 * time.Minute
+	trialMax          = 24 * time.Hour
+	trialAttempts     = 8
+)
+
+// trialDue reports whether the sweep may try this tenant now.
+func trialDue(t *ent.Tenant, now time.Time) bool {
+	if n, _ := t.Metadata[metaTrialAttempts].(float64); int(n) >= trialAttempts {
+		return false
+	}
+	if s, _ := t.Metadata[metaTrialNext].(string); s != "" {
+		if at, err := time.Parse(time.RFC3339, s); err == nil && now.Before(at) {
+			return false
+		}
+	}
+	return true
+}
+
+// trialBackoff is the wait after the nth failed attempt.
+func trialBackoff(n int) time.Duration {
+	d := trialBase
+	for i := 1; i < n && d < trialMax; i++ {
+		d *= 2
+	}
+	return min(d, trialMax)
+}
 
 // TrialPlanFor is the plan a tenant's trial starts on: the one sign-up chose, else its use case's.
 func TrialPlanFor(t *ent.Tenant) string {
@@ -60,9 +93,15 @@ func EnsureTrial(ctx context.Context, db *ent.Client, sc *subscription.Client, l
 			return true
 		}
 		logger.Warn("trial subscription still missing", zap.String("tenant_id", t.ID.String()), zap.String("plan", plan), zap.Error(err))
-		if _, ok := t.Metadata[MetaTrialPending]; !ok {
-			MarkTrialPending(ctx, db, t, plan)
+		meta := map[string]any{}
+		for k, v := range t.Metadata {
+			meta[k] = v
 		}
+		n, _ := meta[metaTrialAttempts].(float64)
+		meta[MetaTrialPending] = plan
+		meta[metaTrialAttempts] = int(n) + 1
+		meta[metaTrialNext] = time.Now().UTC().Add(trialBackoff(int(n) + 1)).Format(time.RFC3339)
+		_ = db.Tenant.UpdateOneID(t.ID).SetMetadata(meta).Exec(ctx)
 		return false
 	}
 	meta := map[string]any{}
@@ -70,6 +109,8 @@ func EnsureTrial(ctx context.Context, db *ent.Client, sc *subscription.Client, l
 		meta[k] = v
 	}
 	delete(meta, MetaTrialPending)
+	delete(meta, metaTrialAttempts)
+	delete(meta, metaTrialNext)
 	if err := db.Tenant.UpdateOneID(t.ID).SetMetadata(meta).
 		SetSubscriptionID(sub.ID.String()).SetSubscriptionPlan(sub.PlanCode).SetSubscriptionStatus(sub.Status).
 		SetNillableSubscriptionExpiresAt(sub.TrialEndsAt).Exec(ctx); err != nil {
@@ -99,8 +140,11 @@ func SweepTrials(ctx context.Context, db *ent.Client, sc *subscription.Client, l
 	if err != nil {
 		return err
 	}
+	now := time.Now()
 	for _, t := range rows {
-		EnsureTrial(ctx, db, sc, logger, t)
+		if trialDue(t, now) {
+			EnsureTrial(ctx, db, sc, logger, t)
+		}
 	}
 	return nil
 }
