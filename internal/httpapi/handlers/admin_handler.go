@@ -260,6 +260,7 @@ func (h *AdminHandler) publishTenantLifecycleEvent(ctx context.Context, t *ent.T
 		"tenant_id":         t.ID.String(),
 		"name":              t.Name,
 		"slug":              t.Slug,
+		"status":            t.Status,
 		"use_case":          useCase,
 		"created_by":        actor,
 		"is_demo":           t.IsDemo,
@@ -1208,7 +1209,16 @@ func (h *AdminHandler) ApproveTenant(w http.ResponseWriter, r *http.Request) {
 	if claims, _ := authmiddleware.ClaimsFromContext(r.Context()); claims != nil {
 		actor = claims.Subject
 	}
+	// A tenant whose sign-up trial failed gets it now: without a plan every service refuses it.
+	if auth.EnsureTrial(r.Context(), h.ent, h.subClient, h.logger, t) {
+		if fresh, err := h.ent.Tenant.Get(r.Context(), id); err == nil {
+			t = fresh
+		}
+	}
 	h.publishTenantLifecycleEvent(r.Context(), t, "approved", actor)
+	// Services listen for updated, not approved: without it they kept the tenant pending
+	// (2026-11-25, MarketFlow showed no public page for an approved tenant).
+	h.publishTenantLifecycleEvent(r.Context(), t, "updated", actor)
 	h.notifyFounder(r.Context(), t, "approved", "")
 	writeJSON(w, http.StatusOK, t)
 }

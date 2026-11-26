@@ -797,6 +797,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*AuthResult, 
 					zap.String("plan", plan),
 					zap.Error(err),
 				)
+				// Tried again at approval and by the sweep (trial.go).
+				MarkTrialPending(ctx, s.entClient, tenantEntity, plan)
+				tenantEntity, _ = s.entClient.Tenant.Get(ctx, tenantEntity.ID)
 			} else {
 				// Update tenant with denormalized subscription data
 				_, err = s.entClient.Tenant.UpdateOne(tenantEntity).

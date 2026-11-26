@@ -245,6 +245,23 @@ func New(ctx context.Context, cfg *config.Config, logger *zap.Logger) (*App, err
 			}
 		}()
 	}
+	if subClient != nil {
+		// Tenants whose trial could not be made at sign-up get it as soon as subscriptions-api
+		// takes it (auth.SweepTrials).
+		go func() {
+			ticker := time.NewTicker(15 * time.Minute)
+			defer ticker.Stop()
+			for {
+				rctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				if _, err := sharedcache.RunOnce(rctx, redisClient, logger, cfg.Redis.Namespace+":tenants:trials", 15*time.Minute,
+					func(ctx context.Context) error { return auth.SweepTrials(ctx, entClient, subClient, logger) }); err != nil {
+					logger.Warn("trial sweep", zap.Error(err))
+				}
+				cancel()
+				<-ticker.C
+			}
+		}()
+	}
 	domainHandler := handlers.NewDomainHandler(domainSvc, adminHandler.CanManageTenant, logger)
 	authService.SetExtraTrustedHosts(domainSvc.ActiveHosts)
 	authHandler.SetExtraLogoutHosts(domainSvc.ActiveHosts)
