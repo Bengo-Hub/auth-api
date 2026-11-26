@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"math/rand/v2"
 	"strings"
 	"time"
 
@@ -52,6 +53,11 @@ func trialBackoff(n int) time.Duration {
 	return min(d, trialMax)
 }
 
+// jitter adds up to a tenth of d at random, so tenants that failed together do not retry together.
+func jitter(d time.Duration) time.Duration {
+	return d + time.Duration(rand.Int64N(int64(d)/10+1))
+}
+
 // TrialPlanFor is the plan a tenant's trial starts on: the one sign-up chose, else its use case's.
 func TrialPlanFor(t *ent.Tenant) string {
 	if p, _ := t.Metadata[MetaTrialPending].(string); strings.TrimSpace(p) != "" {
@@ -100,7 +106,7 @@ func EnsureTrial(ctx context.Context, db *ent.Client, sc *subscription.Client, l
 		n, _ := meta[metaTrialAttempts].(float64)
 		meta[MetaTrialPending] = plan
 		meta[metaTrialAttempts] = int(n) + 1
-		meta[metaTrialNext] = time.Now().UTC().Add(trialBackoff(int(n) + 1)).Format(time.RFC3339)
+		meta[metaTrialNext] = time.Now().UTC().Add(jitter(trialBackoff(int(n) + 1))).Format(time.RFC3339)
 		_ = db.Tenant.UpdateOneID(t.ID).SetMetadata(meta).Exec(ctx)
 		return false
 	}
