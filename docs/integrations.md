@@ -462,6 +462,11 @@ r.Use(authMiddleware.RequireAuth)
 - Tenant `hadia` (`hadiafrica.com`) is seeded only when `SEED_HADIA_TENANT=true`
   (`cmd/seed/seed_tenants.go`). The seed runs on every deploy and this tenant turns on phone
   self-signup, so production leaves the flag off until Hadia goes live; local and staging set it.
+- Tenant `hadia-staging` (`staging.hadiafrica.com`) is Hadia's staging and training tenant, seeded
+  only when `SEED_HADIA_STAGING_TENANT=true` (same file). It is its own tenant so the live and
+  staging stacks never take each other's treasury events. Same sign-up rules and staff MFA policy
+  as `hadia`; its metadata `app_url` and `service_urls.hadia` point at the staging host. The flag
+  never changes the live tenant.
 - Public client `hadia-ui` with redirect URIs
   `https://hadiafrica.com/auth/callback`, `https://staging.hadiafrica.com/auth/callback` and
   `http://localhost:3030/auth/callback` (seed, `cmd/seed/seed_users.go`).
