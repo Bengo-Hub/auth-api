@@ -102,42 +102,6 @@ func seedHadiaTenant() bool {
 	return v == "true" || v == "1"
 }
 
-// hadiaStagingURL is the Hadia staging stack (namespace hadia-staging, hadia-ui-staging).
-const hadiaStagingURL = "https://staging.hadiafrica.com"
-
-// hadiaStagingTenantSpec is Hadia's staging and training tenant, served only by the hadia-staging
-// stack (HADIA_TENANT_SLUG and NEXT_PUBLIC_TENANT_SLUG hadia-staging). It is a tenant of its own so
-// live and staging never take each other's treasury and payment events, which are routed by
-// tenant. Same sign-up rules and staff MFA policy as live; app_url and service_urls.hadia send
-// links in emails and reset messages to the staging host. The hadia-ui client already lists the
-// staging callback (seedOAuthClients).
-var hadiaStagingTenantSpec = tenantSpec{
-	name: "Hadia Staging", slug: "hadia-staging", baseDomain: "staging.hadiafrica.com",
-	website: hadiaStagingURL, contactEmail: "info@hadiafrica.com",
-	useCases: []string{"gift_registry"},
-	logoURL:  "https://hadiafrica.com/brand/kiondo/gift-bow/hadia-gift-bow-tenant-lockup-512.png",
-	metadata: map[string]any{
-		"phone_self_signup":     true,
-		"self_signup_role":      "customer",
-		"self_signup_services":  []string{"hadia"},
-		"signup_phone_prefixes": []string{"+254"},
-		"signup_otp_per_minute": 30,
-		"app_url":               hadiaStagingURL,
-		"service_urls":          map[string]any{"hadia": hadiaStagingURL},
-	},
-	defaultMetadata: map[string]any{
-		"mfa_policy": map[string]any{"required_roles": hadiaStaffRoles, "all_accounts": false},
-	},
-}
-
-// seedHadiaStagingTenant reports whether the hadia-staging tenant is seeded
-// (SEED_HADIA_STAGING_TENANT=true). It is independent of SEED_HADIA_TENANT and never touches the
-// live hadia tenant.
-func seedHadiaStagingTenant() bool {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv("SEED_HADIA_STAGING_TENANT")))
-	return v == "true" || v == "1"
-}
-
 // tenantRef is a lightweight reference returned after seeding tenants.
 type tenantRef struct {
 	ID   uuid.UUID
@@ -217,9 +181,6 @@ func seedTenants(ctx context.Context, client *ent.Client) ([]*tenantRef, error) 
 	}
 	if seedHadiaTenant() {
 		tenants = append(tenants, hadiaTenantSpec)
-	}
-	if seedHadiaStagingTenant() {
-		tenants = append(tenants, hadiaStagingTenantSpec)
 	}
 
 	var refs []*tenantRef
